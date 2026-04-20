@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -13,9 +15,22 @@ def load_json(path: str | Path) -> dict[str, Any]:
 def save_json(path: str | Path, data: dict[str, Any]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.write("\n")
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=f".{p.name}.", suffix=".tmp", dir=str(p.parent)
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, p)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def load_jsonl(path: str | Path) -> list[dict[str, Any]]:
