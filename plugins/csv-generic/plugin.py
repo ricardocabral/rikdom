@@ -25,4 +25,4 @@ importer_impl = _load_importer_module()
 class Plugin:
     @hookimpl
     def source_input(self, ctx, input_path):
-        return importer_impl.parse_workbook(Path(input_path))
+        return importer_impl.parse_statement(Path(input_path))

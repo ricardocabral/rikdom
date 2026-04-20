@@ -7,8 +7,12 @@ import sys
 from .aggregate import aggregate_portfolio
 from .plugin_engine.errors import PluginEngineError
 from .plugin_engine.loader import discover_plugins
-from .plugin_engine.pipeline import run_output_pipeline, run_storage_sync_pipeline
-from .plugins import PluginError, merge_activities, merge_holdings, run_import_plugin
+from .plugin_engine.pipeline import (
+    run_import_pipeline,
+    run_output_pipeline,
+    run_storage_sync_pipeline,
+)
+from .plugins import merge_activities, merge_holdings
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
 from .validate import validate_portfolio
@@ -78,8 +82,8 @@ def cmd_visualize(args: argparse.Namespace) -> int:
 def cmd_import_statement(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
     try:
-        imported = run_import_plugin(args.plugin, args.input, args.plugins_dir)
-    except PluginError as exc:
+        imported = run_import_pipeline(args.plugin, args.plugins_dir, args.input)
+    except PluginEngineError as exc:
         print(f"Import failed: {exc}", file=sys.stderr)
         return 1
 

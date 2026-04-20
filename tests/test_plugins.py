@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import unittest
 
-from rikdom.plugins import merge_activities, merge_holdings, run_import_plugin
+from rikdom.plugin_engine.pipeline import run_import_pipeline
+from rikdom.plugins import merge_activities, merge_holdings
 
 
 class PluginTests(unittest.TestCase):
     def test_csv_generic_plugin_emits_holdings_and_activities(self) -> None:
-        payload = run_import_plugin(
+        payload = run_import_pipeline(
             plugin_name="csv-generic",
+            plugins_dir="plugins",
             input_path="data-sample/sample_statement.csv",
-            plugins_root="plugins",
         )
         self.assertEqual(payload["provider"], "csv-generic")
         self.assertEqual(len(payload["holdings"]), 2)
@@ -38,18 +39,18 @@ class PluginTests(unittest.TestCase):
             ]
         }
 
-        _, inserted, updated = merge_activities(portfolio, imported)
-        self.assertEqual((inserted, updated), (1, 0))
+        _, counts = merge_activities(portfolio, imported)
+        self.assertEqual((counts.inserted, counts.updated, counts.skipped), (1, 0, 0))
         self.assertEqual(portfolio["activities"][0]["status"], "posted")
 
-        _, inserted, updated = merge_activities(portfolio, imported)
-        self.assertEqual((inserted, updated), (0, 1))
+        _, counts = merge_activities(portfolio, imported)
+        self.assertEqual((counts.inserted, counts.updated, counts.skipped), (0, 0, 1))
         self.assertEqual(len(portfolio["activities"]), 1)
 
     def test_merge_holdings_ignores_missing_holdings_key(self) -> None:
         portfolio: dict = {"holdings": []}
-        _, inserted, updated = merge_holdings(portfolio, {"activities": []})
-        self.assertEqual((inserted, updated), (0, 0))
+        _, counts = merge_holdings(portfolio, {"activities": []})
+        self.assertEqual((counts.inserted, counts.updated, counts.skipped), (0, 0, 0))
 
 
 if __name__ == "__main__":

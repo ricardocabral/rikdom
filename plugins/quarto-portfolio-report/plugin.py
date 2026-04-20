@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -161,7 +162,8 @@ def _render_with_quarto(template_dir: Path, out_dir: Path) -> tuple[bool, str | 
 
 
 def _find_quarto_bin() -> str | None:
-    # First try PATH.
+    if os.environ.get("RIKDOM_DISABLE_QUARTO"):
+        return None
     quarto_bin = shutil.which("quarto")
     if quarto_bin:
         return quarto_bin

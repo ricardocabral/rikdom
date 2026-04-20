@@ -6,8 +6,8 @@ Canonical docs:
 - [docs/plugin-system.md](../docs/plugin-system.md)
 
 Current plugin examples:
-- `csv-generic`: legacy command-based `source/input` import.
-- `b3-consolidado-mensal`: hybrid `source/input` import (legacy command + Pluggy hook).
+- `csv-generic`: Pluggy `source/input` import for holdings and activities.
+- `b3-consolidado-mensal`: Pluggy `source/input` import for B3 monthly consolidated XLSX.
 - `quarto-portfolio-report`: Pluggy `output` plugin.
 - `duckdb-storage`: Pluggy `state/storage` plugin.
 - `asset-types-br-catalog`: Pluggy `asset-type/catalog` plugin with Brazilian asset types (`fii`, `tesouro_direto`, `lci`, `lca`, `cri`, `cra`, `debenture_incentivada`, `debenture_infra`, `bdr`, `coe`, `fidc_cota`, `fiagro_cota`).
@@ -27,11 +27,11 @@ Plugin readmes:
 
 ```bash
 uv run rikdom plugins list --plugins-dir plugins
-uv run rikdom import-statement --plugin csv-generic --input data/sample_statement.csv --portfolio data/portfolio.json
+uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --portfolio data-sample/portfolio.json
 uv run rikdom import-statement --plugin b3-consolidado-mensal --input /path/to/relatorio-consolidado-mensal.xlsx --portfolio data/portfolio.json
 uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
 uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
-uv run pytest -q tests/test_plugins.py tests/test_output_plugin_pipeline.py tests/test_duckdb_storage_plugin.py tests/test_quarto_report_mapping.py
+uv run pytest -q tests/test_plugins.py tests/test_b3_consolidado_mensal_plugin.py tests/test_cli_import_statement.py tests/test_output_plugin_pipeline.py tests/test_duckdb_storage_plugin.py tests/test_quarto_report_mapping.py
 ```
 
 ## Prerequisites
@@ -54,6 +54,6 @@ uv run python -c "import duckdb; print(duckdb.__version__)"
 
 ## Safety Baseline
 
-- Treat plugin code as trusted local code: both subprocess and in-process modes can execute arbitrary Python.
+- Treat plugin code as trusted local code: Pluggy plugins execute arbitrary Python in-process.
 - Never commit secrets or credentials inside plugin files.
 - Keep plugins deterministic and idempotent for repeatable runs.

@@ -5,6 +5,5 @@
   "plugin_types": ["source/input"],
   "module": "plugin",
   "class_name": "Plugin",
-  "description": "Import holdings from B3 consolidated monthly XLSX reports",
-  "command": ["python3", "importer.py"]
+  "description": "Import holdings from B3 consolidated monthly XLSX reports"
 }

@@ -67,7 +67,7 @@ class QuartoPluginTests(unittest.TestCase):
 
     def test_quarto_plugin_falls_back_when_quarto_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            with patch("shutil.which", return_value=None):
+            with patch.dict("os.environ", {"RIKDOM_DISABLE_QUARTO": "1"}):
                 result = run_output_pipeline(
                     plugin_name="quarto-portfolio-report",
                     plugins_dir="plugins",

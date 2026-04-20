@@ -121,8 +121,7 @@ Minimal Pluggy manifest:
 
 Field requirements:
 
-- Required: `name`, `version`
-- Strongly expected for Pluggy plugins: `plugin_types`, `module`, `class_name`
+- Required: `name`, `version`, `plugin_types`, `module`, `class_name`
 - Optional: `api_version` (defaults to `"1.0"`), `description`
 
 Discovery and quick inspection:

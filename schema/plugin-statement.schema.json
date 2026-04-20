@@ -43,6 +43,18 @@
                 "pattern": "^[A-Z]{3}$"
               }
             }
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "source_system": { "type": "string" },
+              "source_ref": { "type": "string" },
+              "import_run_id": { "type": "string" },
+              "idempotency_key": { "type": "string" },
+              "ingested_at": { "type": "string", "format": "date-time" },
+              "raw_payload_ref": { "type": "string" }
+            }
           }
         }
       }
@@ -124,7 +136,9 @@
           },
           "source_system": { "type": "string" },
           "source_ref": { "type": "string" },
+          "import_run_id": { "type": "string" },
           "idempotency_key": { "type": "string" },
+          "ingested_at": { "type": "string", "format": "date-time" },
           "metadata": {
             "type": "object",
             "additionalProperties": true

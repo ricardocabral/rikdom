@@ -109,7 +109,7 @@ Core commands:
 
 ```bash
 uv run rikdom plugins list --plugins-dir plugins
-uv run rikdom import-statement --plugin csv-generic --input data/sample_statement.csv --portfolio data/portfolio.json
+uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --portfolio data-sample/portfolio.json
 uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
 uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
 ```

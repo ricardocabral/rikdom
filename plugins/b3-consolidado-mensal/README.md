@@ -2,10 +2,6 @@
 
 Plugin de importação do relatório consolidado mensal da B3 em `.xlsx`.
 
-Este plugin está em modo de compatibilidade:
-- legado (`command`) para `rikdom import-statement`
-- Pluggy (`source/input`) para o novo pipeline (`run_import_pipeline`)
-
 ## Entrada esperada
 
 Arquivo Excel no formato de relatório consolidado mensal da B3, com abas de posição:
@@ -16,7 +12,7 @@ Arquivo Excel no formato de relatório consolidado mensal da B3, com abas de pos
 - `Posição - Renda Fixa`
 - `Posição - Tesouro Direto`
 
-## Execução (legado)
+## Execução (CLI)
 
 ```bash
 uv run rikdom import-statement \

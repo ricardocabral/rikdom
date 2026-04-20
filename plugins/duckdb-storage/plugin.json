@@ -1,0 +1,10 @@
+{
+  "name": "duckdb-storage",
+  "version": "0.1.0",
+  "api_version": "1.0",
+  "plugin_types": ["state/storage"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "DuckDB mirror for rikdom canonical JSON"
+}
+

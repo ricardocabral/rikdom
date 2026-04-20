@@ -1,6 +1,0 @@
-{
-  "name": "csv-generic",
-  "version": "0.1.0",
-  "description": "Import holdings from a generic CSV statement",
-  "command": ["python3", "importer.py"]
-}

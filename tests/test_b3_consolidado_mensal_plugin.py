@@ -7,7 +7,6 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 from rikdom.plugin_engine.pipeline import run_import_pipeline
-from rikdom.plugins import run_import_plugin
 
 
 def _col_name(index: int) -> str:
@@ -317,10 +316,10 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
             statement = Path(tmp) / "relatorio-consolidado-mensal-2026-marco.xlsx"
             _write_test_workbook(statement)
 
-            payload = run_import_plugin(
+            payload = run_import_pipeline(
                 plugin_name="b3-consolidado-mensal",
+                plugins_dir="plugins",
                 input_path=str(statement),
-                plugins_root="plugins",
             )
 
         self.assertEqual(payload["provider"], "b3-consolidado-mensal")
@@ -354,22 +353,6 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
         self.assertEqual(tesouro["asset_type_id"], "debt_instrument")
         self.assertEqual(tesouro["identifiers"]["isin"], "BRSTNCNTB3E2")
         self.assertEqual(tesouro["metadata"]["maturity_date"], "2035-05-15")
-
-    def test_runs_via_pluggy_source_input_pipeline(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            statement = Path(tmp) / "relatorio-consolidado-mensal-2026-marco.xlsx"
-            _write_test_workbook(statement)
-
-            payload = run_import_pipeline(
-                plugin_name="b3-consolidado-mensal",
-                plugins_dir="plugins",
-                input_path=str(statement),
-            )
-
-        self.assertEqual(payload["provider"], "b3-consolidado-mensal")
-        self.assertEqual(payload["base_currency"], "BRL")
-        self.assertEqual(len(payload["holdings"]), 6)
-
 
 if __name__ == "__main__":
     unittest.main()
