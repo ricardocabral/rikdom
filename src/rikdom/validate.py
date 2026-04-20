@@ -3,7 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 
-CORE_TOP_LEVEL = {"schema_version", "profile", "settings", "asset_type_catalog", "holdings"}
+CORE_TOP_LEVEL = {
+    "schema_version",
+    "schema_uri",
+    "profile",
+    "settings",
+    "asset_type_catalog",
+    "holdings",
+}
 
 
 
@@ -13,6 +20,10 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
     missing = [k for k in CORE_TOP_LEVEL if k not in portfolio]
     if missing:
         errors.append(f"Missing top-level keys: {', '.join(sorted(missing))}")
+
+    schema_uri = portfolio.get("schema_uri")
+    if schema_uri is not None and not isinstance(schema_uri, str):
+        errors.append("'schema_uri' must be a string")
 
     profile = portfolio.get("profile")
     if not isinstance(profile, dict):
@@ -79,5 +90,18 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                 currency = market_value.get("currency")
                 if not isinstance(currency, str) or len(currency) != 3:
                     errors.append(f"holdings[{i}].market_value.currency must be ISO-4217")
+
+    activities = portfolio.get("activities", [])
+    if activities is not None:
+        if not isinstance(activities, list):
+            errors.append("'activities' must be an array when provided")
+        else:
+            for i, activity in enumerate(activities):
+                if not isinstance(activity, dict):
+                    errors.append(f"activities[{i}] must be an object")
+                    continue
+                for k in ("id", "event_type", "status", "effective_at"):
+                    if not activity.get(k):
+                        errors.append(f"activities[{i}].{k} is required")
 
     return errors

@@ -5,6 +5,7 @@
 - Long-term portable data model in plain JSON.
 - Readable by humans and LLMs.
 - Country-aware asset-type extensibility.
+- Deterministic imports through event idempotency and provenance.
 - Additive evolution over time with low migration burden.
 
 ## Core Files
@@ -32,6 +33,18 @@ Extensibility slots:
 
 This keeps baseline interoperability while allowing local customization.
 
+### 1.1 Contract Identity
+
+Top-level schema contract fields:
+
+- `schema_version`
+- `schema_uri`
+
+Recommended compatibility rule:
+
+- Readers should support at least the previous two minor versions.
+- Writers should emit only the current version.
+
 ### 2. Country-Specific Asset Types
 
 Asset types are first-class records in `asset_type_catalog`:
@@ -53,6 +66,25 @@ When non-base-currency values are present, optional `metadata.fx_rate_to_base` e
 - Historical trend: `data/snapshots.jsonl`
 
 Snapshots avoid rewriting full history and remain append-only.
+
+### 5. Event Ledger + Projections
+
+- `activities[]` stores immutable events (`buy`, `sell`, `dividend`, etc.).
+- `projections` stores derived views such as computed positions/performance.
+
+This separation keeps imported truth stable while allowing analytics to evolve.
+
+### 6. Import Provenance And Idempotency
+
+Both holdings and activities can include provenance fields:
+
+- `source_system`
+- `source_ref`
+- `import_run_id`
+- `idempotency_key`
+- `ingested_at`
+
+These fields reduce duplicate imports and make reconciliation auditable.
 
 ## Evolution Rules
 

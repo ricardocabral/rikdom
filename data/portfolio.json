@@ -1,5 +1,6 @@
 {
   "schema_version": "1.0.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
   "profile": {
     "portfolio_id": "demo-main",
     "owner_kind": "person",
@@ -65,7 +66,14 @@
       "quantity": 12,
       "market_value": { "amount": 2520, "currency": "USD" },
       "as_of": "2026-04-19T20:00:00Z",
-      "metadata": { "fx_rate_to_base": 5.25 }
+      "metadata": { "fx_rate_to_base": 5.25 },
+      "provenance": {
+        "source_system": "broker-csv",
+        "source_ref": "statement-2026-04.csv#row12",
+        "import_run_id": "run-2026-04-20-01",
+        "idempotency_key": "sha256:aapl-2026-04-19-2520",
+        "ingested_at": "2026-04-20T00:10:00Z"
+      }
     },
     {
       "id": "h-reit-hglg11",
@@ -104,6 +112,22 @@
       "label": "Tesouro IPCA+ 2035",
       "market_value": { "amount": 28000, "currency": "BRL" },
       "as_of": "2026-04-19T20:00:00Z"
+    }
+  ],
+  "activities": [
+    {
+      "id": "act-buy-aapl-20260419",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-19T15:00:00Z",
+      "source_system": "broker-csv",
+      "source_ref": "statement-2026-04.csv#row12",
+      "import_run_id": "run-2026-04-20-01",
+      "idempotency_key": "sha256:aapl-buy-2026-04-19",
+      "asset_type_id": "stock",
+      "instrument": { "ticker": "AAPL" },
+      "quantity": 2,
+      "money": { "amount": 420, "currency": "USD", "scale": 2 }
     }
   ],
   "notes": [

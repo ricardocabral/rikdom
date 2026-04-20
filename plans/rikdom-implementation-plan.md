@@ -1,4 +1,4 @@
-# Plan: rikdom v0.1
+# Plan: rikdom v0.1-v0.3
 
 > Source PRD: initial user brief in Codex thread (2026-04-20)
 
@@ -6,90 +6,105 @@
 
 Durable decisions applied across phases:
 
-- **Storage**: local `JSON` (`portfolio.json`) + append-only `JSONL` (`snapshots.jsonl`).
-- **Schema**: JSON Schema 2020-12 with strict core and extension slots.
-- **Key models**: `asset_type_catalog`, `holdings`, `snapshot totals`.
-- **Plugin boundary**: parser plugins emit normalized JSON to stdout.
-- **Visualization**: static offline HTML generated from local data.
-- **Agent interoperability**: instruction files under `agents/` for Codex/Claude.
+- **Storage**: local `JSON` (`portfolio.json`) + append-only `JSONL` snapshots.
+- **Schema contract**: JSON Schema 2020-12 + explicit `schema_uri` and semantic `schema_version`.
+- **Data model**: immutable `activities` ledger + derived `projections`.
+- **Import boundary**: plugin parsers output normalized statement JSON with provenance.
+- **Idempotency**: imported objects carry `idempotency_key` and `import_run_id`.
+- **Visualization**: static offline HTML generated from local files.
 
 ---
 
-## Phase 1: Schema Foundation And Storage
+## Phase 1 (P0): Canonical Schema + Validation + Migration Basis
 
-**User stories**: durable portfolio definition, local persistence, extensibility by country
+**User stories**: durable schema for years, easy evolution, country-specific asset classes
 
 ### What to build
 
-Define base schema files, sample data, and validation rules to guarantee portable long-term representation while preserving extension namespaces.
+Stabilize canonical schema contracts (`portfolio`, `snapshot`, plugin statement), define compatibility policy, and add migration scaffold.
 
 ### Acceptance criteria
 
-- [ ] `schema/portfolio.schema.json` documents core objects and extension slots.
-- [ ] `schema/snapshot.schema.json` supports append-only time series records.
-- [ ] Example `data/portfolio.json` and `data/snapshots.jsonl` validate.
+- [ ] Core schemas document versioning and extension rules.
+- [ ] Validation command catches compatibility and integrity issues.
+- [ ] Migration conventions are documented for future bumps.
 
 ---
 
-## Phase 2: CLI Operations
+## Phase 2 (P0): Durable Local Storage Engine
 
-**User stories**: inspect and maintain local portfolio files without external services
+**User stories**: resilient local persistence against tool/runtime changes
 
 ### What to build
 
-Implement command-line operations for validation, aggregation, snapshot append, and import merge with deterministic outputs.
+Implement atomic write strategy, append journal patterns, and periodic snapshot compaction conventions for long-lived local storage.
 
 ### Acceptance criteria
 
-- [ ] `rikdom validate` reports actionable errors.
-- [ ] `rikdom aggregate` outputs totals by asset class in base currency.
-- [ ] `rikdom snapshot` appends snapshot lines.
-- [ ] `rikdom import-statement` merges plugin output safely.
+- [ ] Writes are atomic (temp+rename or equivalent strategy).
+- [ ] Append-only history is documented and test-covered.
+- [ ] Backup/restore metadata strategy is documented.
 
 ---
 
-## Phase 3: Minimal Visualization
+## Phase 3 (P0): Import Pipeline + Idempotency + Provenance
 
-**User stories**: view allocation and progress over time from local files
+**User stories**: safe recurring imports from providers into local files
 
 ### What to build
 
-Generate an offline HTML dashboard with core metrics, time-series trend, and class allocation bars.
+Implement import merge behavior with dedup keys, source references, and import run tracking.
 
 ### Acceptance criteria
 
-- [ ] `rikdom visualize` writes `out/dashboard.html`.
-- [ ] Dashboard works without network access.
-- [ ] Mobile and desktop layouts are usable.
+- [ ] Import commands capture provenance fields.
+- [ ] Duplicate imports are detected deterministically.
+- [ ] Import reports expose inserted/updated/skipped counts.
 
 ---
 
-## Phase 4: Plugin Ecosystem Bootstrap
+## Phase 4 (P0): Minimal Visualization
 
-**User stories**: simplify onboarding of statement imports from external platforms
+**User stories**: allocation overview and progress over time
 
 ### What to build
 
-Document plugin contract, include one reference plugin, and define contribution guidelines.
+Generate static dashboard from snapshots and current portfolio projections.
 
 ### Acceptance criteria
 
-- [ ] Plugin manifest contract documented.
-- [ ] `csv-generic` example works end-to-end.
-- [ ] Contribution guidance exists for community plugin authors.
+- [ ] Total value, timeline, and class allocation render offline.
+- [ ] Dashboard is usable on desktop and mobile.
+- [ ] Output requires no external services.
 
 ---
 
-## Phase 5: Agent Skills And Roadmap Governance
+## Phase 5 (P1): Plugin API + SDK + Contract Tests
 
-**User stories**: enable LLM-assisted analysis and schema evolution
+**User stories**: community-contributed statement import adapters
 
 ### What to build
 
-Provide agent instruction files, roadmap issue set, and governance docs for schema versioning and backward compatibility.
+Define stable plugin API, provide SDK scaffolding, and add fixture-based contract tests.
 
 ### Acceptance criteria
 
-- [ ] Codex and Claude instruction files exist.
-- [ ] Roadmap issues are defined and publishable to GitHub.
-- [ ] Schema evolution rules are documented.
+- [ ] Plugin manifest and output schema are versioned.
+- [ ] SDK template reduces boilerplate for new plugins.
+- [ ] CI checks plugin fixtures against schema contracts.
+
+---
+
+## Phase 6 (P1/P2): Advanced Valuation + Interchange + Analytics
+
+**User stories**: richer analysis and portability ecosystem
+
+### What to build
+
+Add quote/FX history model, export package format with checksums, and extended analytics roadmap.
+
+### Acceptance criteria
+
+- [ ] Quote/FX model supports deterministic valuation snapshots.
+- [ ] Export package is self-describing and integrity-checked.
+- [ ] Advanced analytics scope is captured in roadmap issues.

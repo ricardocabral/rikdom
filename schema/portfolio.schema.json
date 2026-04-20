@@ -2,10 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.org/rikdom/schema/portfolio.schema.json",
   "title": "Rikdom Portfolio",
-  "description": "Portable long-term portfolio schema focused on readability and extensibility.",
+  "description": "Portable long-term portfolio schema focused on readability, extensibility and deterministic imports.",
   "type": "object",
   "required": [
     "schema_version",
+    "schema_uri",
     "profile",
     "settings",
     "asset_type_catalog",
@@ -17,6 +18,10 @@
       "type": "string",
       "description": "Semantic version of this schema profile.",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "schema_uri": {
+      "type": "string",
+      "description": "Canonical URI for this schema contract and compatibility policy."
     },
     "profile": {
       "type": "object",
@@ -73,6 +78,18 @@
         "$ref": "#/$defs/Holding"
       }
     },
+    "activities": {
+      "type": "array",
+      "description": "Immutable import/events ledger. Derived projections should be computed from this stream.",
+      "items": {
+        "$ref": "#/$defs/Activity"
+      }
+    },
+    "projections": {
+      "type": "object",
+      "description": "Optional derived projections (positions, performance, tax lots).",
+      "additionalProperties": true
+    },
     "notes": {
       "type": "array",
       "items": {
@@ -97,6 +114,16 @@
         "currency": {
           "type": "string",
           "pattern": "^[A-Z]{3}$"
+        },
+        "scale": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional decimal scale used by importer source."
+        },
+        "precision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional significant precision marker from importer source."
         }
       }
     },
@@ -203,11 +230,93 @@
           "type": "string",
           "format": "date-time"
         },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source_system": { "type": "string" },
+            "source_ref": { "type": "string" },
+            "import_run_id": { "type": "string" },
+            "idempotency_key": { "type": "string" },
+            "ingested_at": { "type": "string", "format": "date-time" },
+            "raw_payload_ref": { "type": "string" }
+          }
+        },
         "tags": {
           "type": "array",
           "items": {
             "type": "string"
           }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "Activity": {
+      "type": "object",
+      "required": [
+        "id",
+        "event_type",
+        "status",
+        "effective_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "event_type": {
+          "type": "string",
+          "enum": [
+            "buy",
+            "sell",
+            "dividend",
+            "interest",
+            "fee",
+            "transfer_in",
+            "transfer_out",
+            "split",
+            "income",
+            "other"
+          ]
+        },
+        "subtype": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "posted", "cancelled"]
+        },
+        "effective_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_system": { "type": "string" },
+        "source_ref": { "type": "string" },
+        "import_run_id": { "type": "string" },
+        "idempotency_key": { "type": "string" },
+        "asset_type_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "instrument": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "money": {
+          "$ref": "#/$defs/Money"
+        },
+        "fees": {
+          "$ref": "#/$defs/Money"
         },
         "metadata": {
           "type": "object",
