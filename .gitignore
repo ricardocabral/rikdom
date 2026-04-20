@@ -6,4 +6,5 @@ __pycache__/
 .venv/
 venv/
 out/
+data/
 .DS_Store
