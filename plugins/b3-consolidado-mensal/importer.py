@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import re
+import sys
+import xml.etree.ElementTree as ET
+import zipfile
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any
+
+MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+DOC_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+NS = {"x": MAIN_NS, "r": DOC_REL_NS, "pr": PKG_REL_NS}
+
+
+@dataclass(frozen=True)
+class SheetSpec:
+    name: str
+    asset_type_id: str
+    quantity_header: str
+    value_headers: tuple[str, ...]
+
+
+SHEET_SPECS: tuple[SheetSpec, ...] = (
+    SheetSpec(
+        name="Posição - Ações",
+        asset_type_id="stock",
+        quantity_header="Quantidade",
+        value_headers=("Valor Atualizado",),
+    ),
+    SheetSpec(
+        name="Posição - BDR",
+        asset_type_id="stock",
+        quantity_header="Quantidade",
+        value_headers=("Valor Atualizado",),
+    ),
+    SheetSpec(
+        name="Posição - ETF",
+        asset_type_id="fund",
+        quantity_header="Quantidade",
+        value_headers=("Valor Atualizado",),
+    ),
+    SheetSpec(
+        name="Posição - Fundos",
+        asset_type_id="fund",
+        quantity_header="Quantidade",
+        value_headers=("Valor Atualizado",),
+    ),
+    SheetSpec(
+        name="Posição - Renda Fixa",
+        asset_type_id="debt_instrument",
+        quantity_header="Quantidade",
+        value_headers=("Valor Atualizado MTM", "Valor Atualizado CURVA"),
+    ),
+    SheetSpec(
+        name="Posição - Tesouro Direto",
+        asset_type_id="debt_instrument",
+        quantity_header="Quantidade",
+        value_headers=("Valor Atualizado", "Valor líquido", "Valor bruto"),
+    ),
+)
+
+
+def _now_iso() -> str:
+    return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _slug(text: str) -> str:
+    lowered = text.strip().lower()
+    lowered = re.sub(r"[^a-z0-9]+", "-", lowered)
+    lowered = re.sub(r"-{2,}", "-", lowered).strip("-")
+    return lowered or "unknown"
+
+
+def _normalize_text(value: Any) -> str:
+    if value is None:
+        return ""
+    text = str(value).replace("\xa0", " ").strip()
+    return re.sub(r"\s+", " ", text)
+
+
+def _parse_number(value: Any) -> float | None:
+    text = _normalize_text(value)
+    if not text or text in {"-", "—", "–"}:
+        return None
+
+    text = text.replace("R$", "").replace(" ", "")
+    if "," in text and "." in text:
+        if text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", "")
+    elif "," in text:
+        text = text.replace(".", "").replace(",", ".")
+
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _parse_date_br(value: Any) -> str | None:
+    text = _normalize_text(value)
+    if not text:
+        return None
+    parts = text.split("/")
+    if len(parts) != 3:
+        return None
+    try:
+        dd, mm, yyyy = (int(p) for p in parts)
+        return date(yyyy, mm, dd).isoformat()
+    except ValueError:
+        return None
+
+
+def _extract_isin(value: str) -> str | None:
+    match = re.search(r"\b[A-Z]{2}[A-Z0-9]{10}\b", value or "")
+    if match:
+        return match.group(0)
+    return None
+
+
+def _col_letters_to_idx(ref: str) -> int:
+    col = 0
+    for ch in ref:
+        if not ch.isalpha():
+            break
+        col = col * 26 + (ord(ch.upper()) - ord("A") + 1)
+    return col
+
+
+def _decode_cell(cell: ET.Element, shared_strings: list[str]) -> str:
+    ctype = cell.attrib.get("t")
+    if ctype == "inlineStr":
+        parts = [t.text or "" for t in cell.findall(".//x:t", NS)]
+        return "".join(parts)
+
+    v_el = cell.find("x:v", NS)
+    if v_el is None:
+        return ""
+    raw = v_el.text or ""
+
+    if ctype == "s":
+        try:
+            idx = int(raw)
+        except ValueError:
+            return ""
+        if 0 <= idx < len(shared_strings):
+            return shared_strings[idx]
+        return ""
+
+    return raw
+
+
+def _read_shared_strings(zf: zipfile.ZipFile) -> list[str]:
+    try:
+        raw = zf.read("xl/sharedStrings.xml")
+    except KeyError:
+        return []
+    root = ET.fromstring(raw)
+    values: list[str] = []
+    for si in root.findall("x:si", NS):
+        parts = [t.text or "" for t in si.findall(".//x:t", NS)]
+        values.append("".join(parts))
+    return values
+
+
+def _read_sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
+    workbook = ET.fromstring(zf.read("xl/workbook.xml"))
+    rels = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+
+    rel_by_id: dict[str, str] = {}
+    for rel in rels.findall("pr:Relationship", NS):
+        rel_id = rel.attrib.get("Id", "")
+        target = rel.attrib.get("Target", "")
+        if not rel_id or not target:
+            continue
+        if target.startswith("/"):
+            normalized = target.lstrip("/")
+        else:
+            normalized = f"xl/{target}"
+        rel_by_id[rel_id] = normalized
+
+    targets: dict[str, str] = {}
+    for sheet in workbook.findall("x:sheets/x:sheet", NS):
+        name = _normalize_text(sheet.attrib.get("name", ""))
+        rel_id = sheet.attrib.get(f"{{{DOC_REL_NS}}}id", "")
+        if not name or not rel_id:
+            continue
+        target = rel_by_id.get(rel_id)
+        if target:
+            targets[name] = target
+    return targets
+
+
+def _read_sheet_rows(zf: zipfile.ZipFile, sheet_target: str, shared_strings: list[str]) -> list[dict[str, str]]:
+    root = ET.fromstring(zf.read(sheet_target))
+    row_nodes = root.findall("x:sheetData/x:row", NS)
+    if not row_nodes:
+        return []
+
+    header_row: dict[int, str] | None = None
+    rows: list[dict[str, str]] = []
+    for row in row_nodes:
+        cols: dict[int, str] = {}
+        for cell in row.findall("x:c", NS):
+            ref = cell.attrib.get("r", "")
+            col_idx = _col_letters_to_idx(ref) if ref else 0
+            if col_idx <= 0:
+                continue
+            cols[col_idx] = _normalize_text(_decode_cell(cell, shared_strings))
+
+        if not cols:
+            continue
+
+        if header_row is None:
+            header_row = cols
+            continue
+
+        mapped: dict[str, str] = {}
+        for col_idx, header in header_row.items():
+            header_name = _normalize_text(header)
+            if not header_name:
+                continue
+            mapped[header_name] = _normalize_text(cols.get(col_idx, ""))
+
+        if any(v for v in mapped.values()):
+            rows.append(mapped)
+
+    return rows
+
+
+def _choose_asset_type(spec: SheetSpec, row: dict[str, str]) -> str:
+    if spec.name != "Posição - Fundos":
+        return spec.asset_type_id
+
+    ticker = _normalize_text(row.get("Código de Negociação", "")).upper()
+    product = _normalize_text(row.get("Produto", "")).upper()
+    if (
+        ticker.endswith("11")
+        and ("FII" in product or "FUNDO IMOB" in product or "INV IMOB" in product)
+    ):
+        return "reit"
+    return "fund"
+
+
+def _row_id(spec: SheetSpec, row: dict[str, str], label: str) -> str:
+    account = _normalize_text(row.get("Conta", ""))
+    institution = _normalize_text(row.get("Instituição", ""))
+    base = _slug(account or institution or "global")
+
+    code = (
+        _normalize_text(row.get("Código de Negociação", ""))
+        or _normalize_text(row.get("Código", ""))
+        or _normalize_text(row.get("Código ISIN", ""))
+        or _extract_isin(_normalize_text(row.get("Código ISIN / Distribuição", "")))
+        or label
+    )
+    instrument = _slug(code)
+    return f"b3:{base}:{_slug(spec.name)}:{instrument}"
+
+
+def _value_for(spec: SheetSpec, row: dict[str, str]) -> float | None:
+    for header in spec.value_headers:
+        val = _parse_number(row.get(header, ""))
+        if val is not None:
+            return val
+    return None
+
+
+def _to_holding(spec: SheetSpec, row: dict[str, str]) -> dict[str, Any] | None:
+    label = _normalize_text(row.get("Produto", ""))
+    if not label:
+        return None
+    if label.lower().startswith("total"):
+        return None
+
+    market_value = _value_for(spec, row)
+    if market_value is None:
+        return None
+
+    quantity = _parse_number(row.get(spec.quantity_header, ""))
+    holding: dict[str, Any] = {
+        "id": _row_id(spec, row, label),
+        "asset_type_id": _choose_asset_type(spec, row),
+        "label": label,
+        "market_value": {"amount": market_value, "currency": "BRL"},
+        "jurisdiction": {"country": "BR"},
+    }
+    if quantity is not None:
+        holding["quantity"] = quantity
+
+    identifiers: dict[str, Any] = {}
+    ticker = _normalize_text(row.get("Código de Negociação", ""))
+    if ticker and ticker != "-":
+        identifiers["ticker"] = ticker.upper()
+
+    account = _normalize_text(row.get("Conta", ""))
+    if account:
+        identifiers["provider_account_id"] = account
+
+    isin = (
+        _extract_isin(_normalize_text(row.get("Código ISIN", "")))
+        or _extract_isin(_normalize_text(row.get("Código ISIN / Distribuição", "")))
+    )
+    if isin:
+        identifiers["isin"] = isin
+
+    if identifiers:
+        holding["identifiers"] = identifiers
+
+    metadata: dict[str, Any] = {
+        "source_sheet": spec.name,
+        "provider": "b3",
+    }
+    institution = _normalize_text(row.get("Instituição", ""))
+    if institution:
+        metadata["institution"] = institution
+
+    row_type = _normalize_text(row.get("Tipo", ""))
+    if row_type:
+        metadata["instrument_type"] = row_type
+
+    indexer = _normalize_text(row.get("Indexador", ""))
+    if indexer:
+        metadata["indexer"] = indexer
+
+    issuer = _normalize_text(row.get("Emissor", ""))
+    if issuer:
+        metadata["issuer"] = issuer
+
+    maturity = _parse_date_br(row.get("Vencimento", ""))
+    if maturity:
+        metadata["maturity_date"] = maturity
+
+    ref_price = (
+        _parse_number(row.get("Preço de Fechamento", ""))
+        or _parse_number(row.get("Preço Atualizado MTM", ""))
+        or _parse_number(row.get("Preço Atualizado CURVA", ""))
+    )
+    if ref_price is not None:
+        metadata["reference_price"] = ref_price
+
+    holding["metadata"] = metadata
+    return holding
+
+
+def parse_workbook(path: Path) -> dict[str, Any]:
+    with zipfile.ZipFile(path) as zf:
+        shared_strings = _read_shared_strings(zf)
+        targets = _read_sheet_targets(zf)
+
+        holdings: list[dict[str, Any]] = []
+        parsed_sheets: list[str] = []
+        for spec in SHEET_SPECS:
+            target = targets.get(spec.name)
+            if not target:
+                continue
+            parsed_sheets.append(spec.name)
+            for row in _read_sheet_rows(zf, target, shared_strings):
+                holding = _to_holding(spec, row)
+                if holding is not None:
+                    holdings.append(holding)
+
+    return {
+        "provider": "b3-consolidado-mensal",
+        "generated_at": _now_iso(),
+        "base_currency": "BRL",
+        "holdings": holdings,
+        "metadata": {
+            "source_file": path.name,
+            "parsed_position_sheets": parsed_sheets,
+        },
+    }
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print("usage: importer.py <statement.xlsx>", file=sys.stderr)
+        return 1
+
+    input_path = Path(sys.argv[1])
+    if not input_path.exists():
+        print(f"input file does not exist: {input_path}", file=sys.stderr)
+        return 1
+
+    payload = parse_workbook(input_path)
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

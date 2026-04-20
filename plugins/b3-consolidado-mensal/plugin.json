@@ -1,0 +1,10 @@
+{
+  "name": "b3-consolidado-mensal",
+  "version": "0.1.0",
+  "api_version": "1.0",
+  "plugin_types": ["source/input"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Import holdings from B3 consolidated monthly XLSX reports",
+  "command": ["python3", "importer.py"]
+}
