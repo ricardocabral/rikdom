@@ -146,6 +146,40 @@
         }
       }
     },
+    "InstrumentAttributeDefinition": {
+      "type": "object",
+      "required": ["id", "label", "value_type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "value_type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean"]
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "description": {
+          "type": "string"
+        },
+        "enum": {
+          "type": "array",
+          "items": {
+            "type": ["string", "integer", "number", "boolean"]
+          }
+        },
+        "unit": {
+          "type": "string"
+        }
+      }
+    },
     "AssetTypeDefinition": {
       "type": "object",
       "required": ["id", "label", "asset_class"],
@@ -193,6 +227,13 @@
         "metadata": {
           "type": "object",
           "additionalProperties": true
+        },
+        "instrument_attributes": {
+          "type": "array",
+          "description": "Per-asset-type attribute schema for instrument-specific fields.",
+          "items": {
+            "$ref": "#/$defs/InstrumentAttributeDefinition"
+          }
         }
       }
     },
@@ -270,6 +311,13 @@
         "metadata": {
           "type": "object",
           "additionalProperties": true
+        },
+        "instrument_attributes": {
+          "type": "object",
+          "description": "Instrument-specific values keyed by ids declared in asset_type_catalog[].instrument_attributes.",
+          "additionalProperties": {
+            "type": ["string", "integer", "number", "boolean"]
+          }
         },
         "extensions": {
           "type": "object",

@@ -41,5 +41,23 @@
     "label": "Cryptocurrency",
     "asset_class": "cryptocurrencies",
     "availability": { "countries": ["US", "BR"] }
+  },
+  {
+    "id": "debt_instrument",
+    "label": "Debt Instrument",
+    "asset_class": "debt",
+    "availability": { "countries": ["US", "BR"] }
+  },
+  {
+    "id": "private_equity_fund",
+    "label": "Private Equity Fund",
+    "asset_class": "private_equity",
+    "availability": { "countries": ["US", "BR"] }
+  },
+  {
+    "id": "other_asset",
+    "label": "Other Asset",
+    "asset_class": "other",
+    "availability": { "countries": ["US", "BR"] }
   }
 ]

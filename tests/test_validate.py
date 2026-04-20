@@ -37,6 +37,32 @@ class ValidateTests(unittest.TestCase):
             msg=f"Expected last_event_id integrity error, got: {errors}",
         )
 
+    def test_missing_required_instrument_attribute_is_invalid(self) -> None:
+        portfolio = load_json("data/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+
+        td_holding = next(h for h in candidate["holdings"] if h["id"] == "h-td-ipca")
+        del td_holding["instrument_attributes"]["expiration_year"]
+
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("missing required key 'expiration_year'" in error for error in errors),
+            msg=f"Expected required instrument attribute error, got: {errors}",
+        )
+
+    def test_instrument_attribute_type_must_match_definition(self) -> None:
+        portfolio = load_json("data/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+
+        td_holding = next(h for h in candidate["holdings"] if h["id"] == "h-td-ipca")
+        td_holding["instrument_attributes"]["semestral_payments"] = "no"
+
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("instrument_attributes.semestral_payments must be boolean" in error for error in errors),
+            msg=f"Expected instrument attribute type error, got: {errors}",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
