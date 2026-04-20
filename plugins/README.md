@@ -1,66 +1,32 @@
-# Community Import Plugins
+# Plugin System Quickstart
 
-`rikdom` uses local plugins to convert provider statements into normalized JSON holdings.
+This directory contains local plugins loaded by `rikdom`.
 
-## Goals
+Canonical docs:
+- [docs/plugin-system.md](../docs/plugin-system.md)
 
-- Keep the core schema stable and provider-agnostic.
-- Let community plugins evolve quickly without breaking the base format.
-- Keep imports transparent: plugin input/output is plain files and JSON.
+Current plugin examples:
+- `csv-generic` and `b3-consolidado-mensal`: legacy command-based `source/input` imports.
+- `quarto-portfolio-report`: Pluggy `output` plugin.
+- `duckdb-storage`: Pluggy `state/storage` plugin.
 
-## Directory Layout
+## Folder Shape
 
-- `plugins/community/<plugin-name>/plugin.json`
-- `plugins/community/<plugin-name>/...` parser scripts
+- `plugins/<plugin-name>/plugin.json` (required)
+- `plugins/<plugin-name>/...` plugin code/assets
 
-## `plugin.json` Format
-
-```json
-{
-  "name": "csv-generic",
-  "version": "0.1.0",
-  "description": "Parse a generic CSV statement",
-  "command": ["python3", "importer.py"]
-}
-```
-
-- `command` is executed in the plugin directory.
-- The CLI appends the input file path as the final argument.
-
-## Plugin Output Contract
-
-Plugin stdout must be JSON matching `schema/plugin-statement.schema.json`.
-
-Minimal shape:
-
-```json
-{
-  "provider": "example",
-  "generated_at": "2026-04-20T12:00:00Z",
-  "holdings": [
-    {
-      "id": "provider-asset-1",
-      "asset_type_id": "stock",
-      "label": "Asset Name",
-      "market_value": { "amount": 1234.56, "currency": "USD" }
-    }
-  ]
-}
-```
-
-## Running Imports
+## Fast Validation Commands
 
 ```bash
-rikdom import-statement \
-  --portfolio data/portfolio.json \
-  --plugin csv-generic \
-  --input data/sample_statement.csv \
-  --write
+uv run rikdom plugins list --plugins-dir plugins
+uv run rikdom import-statement --plugin csv-generic --input data/sample_statement.csv --portfolio data/portfolio.json
+uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
+uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
+uv run pytest -q tests/test_plugins.py tests/test_output_plugin_pipeline.py tests/test_duckdb_storage_plugin.py tests/test_quarto_report_mapping.py
 ```
 
-## Contribution Guidelines
+## Safety Baseline
 
-- Keep plugins deterministic and idempotent.
-- Prefer stable IDs from provider/account/ticker combinations.
-- Include fixture files and tests when practical.
-- Never include credentials in plugin code.
+- Treat plugin code as trusted local code: both subprocess and in-process modes can execute arbitrary Python.
+- Never commit secrets or credentials inside plugin files.
+- Keep plugins deterministic and idempotent for repeatable runs.

@@ -47,12 +47,15 @@ flowchart TD
 
 - `schema/` JSON schemas and default asset types
 - `data/` sample portfolio and snapshots
-- `src/rikdom/` Python CLI and visualization module
-- `plugins/` community import plugin interface + examples
+- `src/rikdom/` Python package (CLI, validation, import pipeline, visualization)
+- `docs/` schema, storage, plugin docs, and execution plans
+- `plugins/` local plugin implementations and manifests
+- `scripts/` helper automation scripts (e.g., GitHub issue publishing)
+- `tests/` unit and integration tests
+- `out/` generated artifacts (e.g., dashboard/report output)
 - `.codex/` Codex instruction files
 - `.claude/` Claude instruction files
-- `plans/` implementation plan
-- `roadmap/issues/` issue specs for GitHub roadmap
+- `ROADMAP.md` phased roadmap and execution priorities
 
 ## Quick Start
 
@@ -95,22 +98,20 @@ uv run rikdom visualize --portfolio data/portfolio.json --snapshots data/snapsho
 - [Schema design](docs/schema-design.md)
 - [Storage model](docs/storage.md)
 - [Visualization module](docs/visualization.md)
+- [Plugin system](docs/plugin-system.md)
 
-## Community Plugins
+## Plugins
 
-Plugin docs and example parser:
+- Canonical guide: [docs/plugin-system.md](docs/plugin-system.md)
+- Quickstart: [plugins/README.md](plugins/README.md)
 
-- [plugins/README.md](plugins/README.md)
-- `plugins/csv-generic`
-
-Use:
+Core commands:
 
 ```bash
-uv run rikdom import-statement \
-  --portfolio data/portfolio.json \
-  --plugin csv-generic \
-  --input data/sample_statement.csv \
-  --write
+uv run rikdom plugins list --plugins-dir plugins
+uv run rikdom import-statement --plugin csv-generic --input data/sample_statement.csv --portfolio data/portfolio.json
+uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
+uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
 ```
 
 ## AI Agent Skills
@@ -120,11 +121,16 @@ uv run rikdom import-statement \
 
 These files guide coding agents to safely analyze and evolve your data model.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing expectations, and pull request guidelines.
+
 ## Roadmap And Planning
 
-- [Implementation plan](plans/rikdom-implementation-plan.md)
-- GitHub issue specs in `roadmap/issues/`
-- Script to publish issue specs: `scripts/create_github_issues.py`
+- [Phased roadmap](ROADMAP.md)
+- [Execution plan](docs/superpowers/plans/2026-04-20-pluggy-plugin-engine.md)
+- GitHub issue templates: [.github/ISSUE_TEMPLATE/feature_request.md](.github/ISSUE_TEMPLATE/feature_request.md), [.github/ISSUE_TEMPLATE/bug_report.md](.github/ISSUE_TEMPLATE/bug_report.md)
+- Publish local issue spec files (`*.md`): `scripts/create_github_issues.py --repo <owner/name> --issues-dir <path>`
 
 ## License
 
