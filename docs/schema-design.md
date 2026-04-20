@@ -74,7 +74,26 @@ Snapshots avoid rewriting full history and remain append-only.
 
 This separation keeps imported truth stable while allowing analytics to evolve.
 
-### 6. Import Provenance And Idempotency
+### 6. Recurring Operational Tasks
+
+Wealth and portfolio management usually include recurring non-trade operations (monthly, quarterly, yearly).
+
+- `operations.task_catalog[]`: task definitions and cadence rules.
+- `operations.task_catalog[].cadence.frequency`: `monthly`, `quarterly`, `yearly`, or `custom`.
+- `operations.task_catalog[].last_completed_at`: direct "last done" pointer for fast reads.
+- `operations.task_catalog[].last_event_id`: optional reference to the exact ledger occurrence that most recently closed the task.
+- `operations.task_events[]`: immutable occurrences with required `occurred_at`.
+
+Typical tasks:
+
+- monthly rebalance review
+- monthly cash sweep
+- annual tax package reconciliation
+- yearly policy/compliance review
+
+The recommended pattern is to update `last_completed_at` and append a new `task_events[]` entry whenever a recurring task is completed or skipped.
+
+### 7. Import Provenance And Idempotency
 
 Both holdings and activities can include provenance fields:
 

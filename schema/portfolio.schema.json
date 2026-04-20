@@ -85,6 +85,25 @@
         "$ref": "#/$defs/Activity"
       }
     },
+    "operations": {
+      "type": "object",
+      "description": "Optional operational task registry and immutable occurrence ledger for recurring portfolio work.",
+      "additionalProperties": false,
+      "properties": {
+        "task_catalog": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OperationalTask"
+          }
+        },
+        "task_events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OperationalTaskEvent"
+          }
+        }
+      }
+    },
     "projections": {
       "type": "object",
       "description": "Optional derived projections (positions, performance, tax lots).",
@@ -318,6 +337,155 @@
         "fees": {
           "$ref": "#/$defs/Money"
         },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "CadenceRule": {
+      "type": "object",
+      "required": ["frequency"],
+      "additionalProperties": false,
+      "properties": {
+        "frequency": {
+          "type": "string",
+          "enum": ["monthly", "quarterly", "yearly", "custom"]
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Repeat interval for fixed-frequency cadences. Example: every 2 months."
+        },
+        "by_month_day": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31
+        },
+        "by_month": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "due_timezone": {
+          "type": "string"
+        },
+        "rrule": {
+          "type": "string",
+          "description": "Optional RFC 5545 RRULE for custom schedules."
+        }
+      }
+    },
+    "OperationalTask": {
+      "type": "object",
+      "required": ["id", "label", "category", "status", "cadence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "rebalancing",
+            "tax",
+            "reporting",
+            "compliance",
+            "cash_management",
+            "risk_review",
+            "planning",
+            "other"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "retired"]
+        },
+        "cadence": {
+          "$ref": "#/$defs/CadenceRule"
+        },
+        "first_due_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "next_due_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_event_id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "OperationalTaskEvent": {
+      "type": "object",
+      "required": ["id", "task_id", "event_type", "occurred_at"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "event_type": {
+          "type": "string",
+          "enum": ["scheduled", "completed", "skipped", "cancelled", "reopened", "noted"]
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "performed_by": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "source_system": { "type": "string" },
+        "source_ref": { "type": "string" },
+        "import_run_id": { "type": "string" },
+        "idempotency_key": { "type": "string" },
         "metadata": {
           "type": "object",
           "additionalProperties": true

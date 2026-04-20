@@ -9,6 +9,7 @@ Local directory storage in plain text files for long-term resilience.
 - `data/portfolio.json`
   - Current portfolio truth.
   - Edited manually or via imports.
+  - Can include recurring operational workflows in `operations.task_catalog` and `operations.task_events`.
 - `data/snapshots.jsonl`
   - Append-only history.
   - One JSON object per line.
