@@ -18,8 +18,8 @@ You are working on a local-first wealth portfolio schema project.
 ## Common Commands
 
 ```bash
-rikdom validate --portfolio data/portfolio.json
-rikdom aggregate --portfolio data/portfolio.json
-rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl
-rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.jsonl --out out/dashboard.html --include-current
+uv run rikdom validate --portfolio data/portfolio.json
+uv run rikdom aggregate --portfolio data/portfolio.json
+uv run rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl
+uv run rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.jsonl --out out/dashboard.html --include-current
 ```
