@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-test:
+    name: Validate And Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set Up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync Dependencies
+        run: uv sync --extra schema
+
+      - name: Validate Portfolio Structure
+        run: uv run rikdom validate --portfolio data/portfolio.json
+
+      - name: Run Unit Tests
+        run: uv run python -m unittest discover -s tests -v
