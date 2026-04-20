@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -14,6 +15,66 @@ CORE_TOP_LEVEL = {
 
 
 VALID_INSTRUMENT_VALUE_TYPES = {"string", "integer", "number", "boolean"}
+
+
+CANONICAL_SCHEMA_URI = "https://example.org/rikdom/schema/portfolio.schema.json"
+CURRENT_SCHEMA_VERSION = (1, 2, 0)
+MIN_COMPATIBLE_SCHEMA_VERSION = (1, 0, 0)
+
+_SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+
+def _parse_semver(value: str) -> tuple[int, int, int] | None:
+    match = _SEMVER_RE.match(value)
+    if not match:
+        return None
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def _check_schema_compatibility(portfolio: dict[str, Any], errors: list[str]) -> None:
+    raw_version = portfolio.get("schema_version")
+    if raw_version is None:
+        return
+    if not isinstance(raw_version, str):
+        errors.append("'schema_version' must be a string")
+        return
+
+    parsed = _parse_semver(raw_version)
+    if parsed is None:
+        errors.append(
+            f"'schema_version' '{raw_version}' must be semantic version MAJOR.MINOR.PATCH"
+        )
+        return
+
+    current_major = CURRENT_SCHEMA_VERSION[0]
+    if parsed[0] != current_major:
+        errors.append(
+            f"schema_version '{raw_version}' is incompatible: "
+            f"reader supports major {current_major}.x "
+            f"(minimum {'.'.join(str(p) for p in MIN_COMPATIBLE_SCHEMA_VERSION)}, "
+            f"current {'.'.join(str(p) for p in CURRENT_SCHEMA_VERSION)})"
+        )
+        return
+
+    if parsed < MIN_COMPATIBLE_SCHEMA_VERSION:
+        errors.append(
+            f"schema_version '{raw_version}' is below minimum compatible "
+            f"{'.'.join(str(p) for p in MIN_COMPATIBLE_SCHEMA_VERSION)}"
+        )
+        return
+
+    if parsed > CURRENT_SCHEMA_VERSION:
+        errors.append(
+            f"schema_version '{raw_version}' is newer than current "
+            f"{'.'.join(str(p) for p in CURRENT_SCHEMA_VERSION)}; "
+            "reader may not understand all fields"
+        )
+
+    schema_uri = portfolio.get("schema_uri")
+    if isinstance(schema_uri, str) and schema_uri and schema_uri != CANONICAL_SCHEMA_URI:
+        errors.append(
+            f"schema_uri '{schema_uri}' does not match canonical '{CANONICAL_SCHEMA_URI}'"
+        )
 
 
 def _is_typed_value(value: Any, expected_type: str) -> bool:
@@ -93,6 +154,8 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
     schema_uri = portfolio.get("schema_uri")
     if schema_uri is not None and not isinstance(schema_uri, str):
         errors.append("'schema_uri' must be a string")
+
+    _check_schema_compatibility(portfolio, errors)
 
     profile = portfolio.get("profile")
     if not isinstance(profile, dict):

@@ -50,6 +50,50 @@ class ValidateTests(unittest.TestCase):
             msg=f"Expected required instrument attribute error, got: {errors}",
         )
 
+    def test_major_version_mismatch_is_reported(self) -> None:
+        portfolio = load_json("data-sample/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["schema_version"] = "2.0.0"
+
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("schema_version '2.0.0' is incompatible" in e for e in errors),
+            msg=f"Expected major mismatch error, got: {errors}",
+        )
+
+    def test_future_minor_version_is_reported(self) -> None:
+        portfolio = load_json("data-sample/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["schema_version"] = "1.99.0"
+
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("newer than current" in e for e in errors),
+            msg=f"Expected future-version warning, got: {errors}",
+        )
+
+    def test_non_semver_schema_version_is_reported(self) -> None:
+        portfolio = load_json("data-sample/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["schema_version"] = "v1"
+
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("must be semantic version" in e for e in errors),
+            msg=f"Expected semver format error, got: {errors}",
+        )
+
+    def test_non_canonical_schema_uri_is_reported(self) -> None:
+        portfolio = load_json("data-sample/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["schema_uri"] = "https://example.org/other.json"
+
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("does not match canonical" in e for e in errors),
+            msg=f"Expected canonical uri error, got: {errors}",
+        )
+
     def test_instrument_attribute_type_must_match_definition(self) -> None:
         portfolio = load_json("data-sample/portfolio.json")
         candidate = copy.deepcopy(portfolio)

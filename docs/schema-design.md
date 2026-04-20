@@ -45,13 +45,42 @@ This keeps baseline interoperability while allowing local customization.
 
 Top-level schema contract fields:
 
-- `schema_version`
-- `schema_uri`
+- `schema_version` — semantic version `MAJOR.MINOR.PATCH`.
+- `schema_uri` — canonical URI of the portfolio contract. Currently `https://example.org/rikdom/schema/portfolio.schema.json`.
 
-Recommended compatibility rule:
+### 1.2 Compatibility Policy
 
-- Readers should support at least the previous two minor versions.
-- Writers should emit only the current version.
+Rikdom follows a deliberate semver-based compatibility contract so long-lived portfolios stay readable across years of tooling evolution.
+
+**Writer obligations**
+
+- Emit the current `schema_version` (see `CURRENT_SCHEMA_VERSION` in `src/rikdom/validate.py`).
+- Emit the canonical `schema_uri`.
+- Never remove required fields from a stored portfolio. Prefer additive evolution.
+- Preserve unknown `metadata`/`extensions` on round-trips (read-modify-write must not drop them).
+
+**Reader obligations**
+
+- Accept any `schema_version` within the current major, down to `MIN_COMPATIBLE_SCHEMA_VERSION`.
+- Reject (or warn loudly on) payloads from a different major: a major bump signals intentional breakage.
+- Tolerate unknown top-level or nested fields under `metadata`/`extensions`: forward-compatible readers must not error on newer minor versions.
+- Warn when encountering a `schema_version` newer than `CURRENT_SCHEMA_VERSION` — structure may be parseable but semantics of new fields are not guaranteed.
+
+**Version-bump rules**
+
+- PATCH: doc-only, clarifications, or validator-only improvements. No shape change.
+- MINOR: additive fields, new optional enums, new optional top-level sections. Old readers must keep working.
+- MAJOR: removals, renames, required-field changes, or breaking semantic shifts. Ship a migration note and a converter script.
+
+**Validator behavior**
+
+`rikdom validate` reports compatibility mismatches as errors:
+
+- Non-semver `schema_version` strings.
+- Major mismatch between payload and reader.
+- `schema_version` below `MIN_COMPATIBLE_SCHEMA_VERSION`.
+- `schema_version` newer than `CURRENT_SCHEMA_VERSION` (future payload).
+- `schema_uri` not matching the canonical URI.
 
 ### 2. Country-Specific Asset Types
 
