@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .aggregate import aggregate_portfolio
+from .migrations import (
+    MigrationPlanError,
+    apply_migrations,
+    format_version,
+    parse_version,
+    plan_migrations,
+)
 from .plugin_engine.errors import PluginEngineError
 from .plugin_engine.loader import discover_plugins
 from .plugin_engine.pipeline import (
@@ -18,7 +26,7 @@ from .plugin_engine.pipeline import (
 from .plugins import MergeCounts, merge_activities, merge_holdings, stamp_provenance
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
-from .validate import validate_portfolio
+from .validate import CURRENT_SCHEMA_VERSION, validate_portfolio
 from .visualize import write_dashboard
 
 
@@ -232,6 +240,116 @@ def cmd_storage_sync(args: argparse.Namespace) -> int:
 
 
 
+def _backup_path(portfolio_path: Path) -> Path:
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return portfolio_path.with_name(f"{portfolio_path.name}.bak-{stamp}")
+
+
+def cmd_migrate(args: argparse.Namespace) -> int:
+    portfolio_path = Path(args.portfolio)
+    try:
+        portfolio = load_json(portfolio_path)
+    except FileNotFoundError:
+        print(f"Portfolio not found: {portfolio_path}", file=sys.stderr)
+        return 1
+
+    pre_errors = [
+        err
+        for err in validate_portfolio(portfolio)
+        if not err.startswith("schema_version")
+        and not err.startswith("schema_uri")
+        and not err.startswith("'schema_version'")
+        and not err.startswith("'schema_uri'")
+    ]
+    if pre_errors:
+        print("Refusing to migrate an invalid portfolio:", file=sys.stderr)
+        for err in pre_errors:
+            print(f"- {err}", file=sys.stderr)
+        return 1
+
+    raw_version = portfolio.get("schema_version")
+    if not isinstance(raw_version, str):
+        print("Portfolio missing string 'schema_version'", file=sys.stderr)
+        return 1
+
+    try:
+        current = parse_version(raw_version)
+    except ValueError as exc:
+        print(f"Invalid schema_version: {exc}", file=sys.stderr)
+        return 1
+
+    target_str = args.to or format_version(CURRENT_SCHEMA_VERSION)
+    try:
+        target = parse_version(target_str)
+    except ValueError as exc:
+        print(f"Invalid --to: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        steps = plan_migrations(current, target)
+    except MigrationPlanError as exc:
+        print(f"Migration planning failed: {exc}", file=sys.stderr)
+        return 1
+
+    if not steps:
+        print(
+            json.dumps(
+                {
+                    "from": format_version(current),
+                    "to": format_version(target),
+                    "status": "noop",
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    migrated, applied = apply_migrations(portfolio, steps)
+
+    post_errors = validate_portfolio(migrated)
+    if post_errors:
+        print("Migration produced an invalid portfolio:", file=sys.stderr)
+        for err in post_errors:
+            print(f"- {err}", file=sys.stderr)
+        return 1
+
+    payload: dict = {
+        "from": format_version(current),
+        "to": format_version(target),
+        "steps": [
+            {
+                "from": format_version(step.from_version),
+                "to": format_version(step.to_version),
+                "description": step.description,
+                "changes": step.changes,
+            }
+            for step in applied
+        ],
+        "dry_run": bool(args.dry_run),
+    }
+
+    if args.dry_run:
+        payload["status"] = "planned"
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    output_path = Path(args.output) if args.output else portfolio_path
+    backup_written: str | None = None
+    if not args.output and not args.no_backup:
+        backup = _backup_path(portfolio_path)
+        shutil.copy2(portfolio_path, backup)
+        backup_written = str(backup)
+
+    save_json(output_path, migrated)
+
+    payload["status"] = "written"
+    payload["output"] = str(output_path)
+    if backup_written:
+        payload["backup"] = backup_written
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rikdom")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -298,6 +416,26 @@ def build_parser() -> argparse.ArgumentParser:
     p_storage.add_argument("--snapshots", default=DEFAULT_SNAPSHOTS_PATH)
     p_storage.add_argument("--db-path", default="out/rikdom.duckdb")
     p_storage.set_defaults(func=cmd_storage_sync)
+
+    p_migrate = sub.add_parser("migrate", help="Upgrade portfolio schema to a newer version")
+    p_migrate.add_argument("--portfolio", default=DEFAULT_PORTFOLIO_PATH)
+    p_migrate.add_argument(
+        "--to",
+        default=None,
+        help="Target semver (default: current reader CURRENT_SCHEMA_VERSION)",
+    )
+    p_migrate.add_argument("--dry-run", action="store_true")
+    p_migrate.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip writing a .bak-<timestamp> sibling before overwriting",
+    )
+    p_migrate.add_argument(
+        "--output",
+        default=None,
+        help="Write migrated file here instead of overwriting --portfolio",
+    )
+    p_migrate.set_defaults(func=cmd_migrate)
 
     return parser
 

@@ -115,7 +115,10 @@ uv run rikdom plugins list --plugins-dir plugins
 uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --write
 uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
 uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
+uv run rikdom migrate --portfolio data/portfolio.json --dry-run
 ```
+
+Schema upgrades: see [docs/migrations.md](docs/migrations.md).
 
 ## AI Agent Skills
 

@@ -74,4 +74,8 @@ uv run rikdom plugins list --plugins-dir plugins
 uv run rikdom import-statement --plugin csv-generic --input data/sample_statement.csv --portfolio data/portfolio.json
 uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
 uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
+uv run rikdom migrate --portfolio data/portfolio.json --dry-run
+uv run rikdom migrate --portfolio data/portfolio.json
 ```
+
+See `docs/migrations.md` for the migration authoring guide and backup strategy.
