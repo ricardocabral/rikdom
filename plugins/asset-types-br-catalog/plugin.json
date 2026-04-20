@@ -1,0 +1,9 @@
+{
+  "name": "asset-types-br-catalog",
+  "version": "0.1.0",
+  "api_version": "1.0",
+  "plugin_types": ["asset-type/catalog"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Brazilian asset-type catalog plugin for FIIs, public/private debt, BDRs, COEs, and special funds"
+}

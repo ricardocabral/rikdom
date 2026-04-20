@@ -10,11 +10,13 @@ Current plugin examples:
 - `b3-consolidado-mensal`: hybrid `source/input` import (legacy command + Pluggy hook).
 - `quarto-portfolio-report`: Pluggy `output` plugin.
 - `duckdb-storage`: Pluggy `state/storage` plugin.
+- `asset-types-br-catalog`: Pluggy `asset-type/catalog` plugin with Brazilian asset types (`fii`, `tesouro_direto`, `lci`, `lca`, `cri`, `cra`, `debenture_incentivada`, `debenture_infra`, `bdr`, `coe`, `fidc_cota`, `fiagro_cota`).
 
 Plugin readmes:
 - [b3-consolidado-mensal/README.md](b3-consolidado-mensal/README.md)
 - [quarto-portfolio-report/README.md](quarto-portfolio-report/README.md)
 - [duckdb-storage/README.md](duckdb-storage/README.md)
+- [asset-types-br-catalog/README.md](asset-types-br-catalog/README.md)
 
 ## Folder Shape
 
