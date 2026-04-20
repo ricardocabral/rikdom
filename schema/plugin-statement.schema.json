@@ -3,8 +3,12 @@
   "$id": "https://example.org/rikdom/schema/plugin-statement.schema.json",
   "title": "Rikdom Plugin Import Statement",
   "type": "object",
-  "required": ["provider", "generated_at", "holdings"],
+  "required": ["provider", "generated_at"],
   "additionalProperties": false,
+  "anyOf": [
+    { "required": ["holdings"] },
+    { "required": ["activities"] }
+  ],
   "properties": {
     "provider": {
       "type": "string"
@@ -39,6 +43,91 @@
                 "pattern": "^[A-Z]{3}$"
               }
             }
+          }
+        }
+      }
+    },
+    "activities": {
+      "type": "array",
+      "description": "Event-level records (dividends, interest, fees, refunds, buys/sells, transfers). Importers may emit activities without holdings when a statement only reports cash events (e.g. US dividend notices, Brazilian proventos, reimbursements).",
+      "items": {
+        "type": "object",
+        "required": ["id", "event_type", "effective_at"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell",
+              "dividend",
+              "interest",
+              "fee",
+              "transfer_in",
+              "transfer_out",
+              "split",
+              "income",
+              "reimbursement",
+              "other"
+            ]
+          },
+          "subtype": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "posted", "cancelled"]
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "asset_type_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_\\-]+$"
+          },
+          "instrument": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "ticker": { "type": "string" },
+              "isin": { "type": "string" },
+              "country": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              }
+            }
+          },
+          "quantity": { "type": "number" },
+          "money": {
+            "type": "object",
+            "required": ["amount", "currency"],
+            "additionalProperties": false,
+            "properties": {
+              "amount": { "type": "number" },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            }
+          },
+          "fees": {
+            "type": "object",
+            "required": ["amount", "currency"],
+            "additionalProperties": false,
+            "properties": {
+              "amount": { "type": "number" },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            }
+          },
+          "source_system": { "type": "string" },
+          "source_ref": { "type": "string" },
+          "idempotency_key": { "type": "string" },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       }

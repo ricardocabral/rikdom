@@ -30,7 +30,7 @@ jobs:
         run: uv sync --extra schema
 
       - name: Validate Portfolio Structure
-        run: uv run rikdom validate --portfolio data/portfolio.json
+        run: uv run rikdom validate --portfolio data-sample/portfolio.json
 
       - name: Run Unit Tests
         run: uv run python -m unittest discover -s tests -v

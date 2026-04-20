@@ -1,0 +1,4 @@
+{"timestamp":"2026-01-31T23:59:59Z","base_currency":"BRL","totals":{"portfolio_value_base":149300,"by_asset_class":{"stocks":12000,"reits":12900,"funds":43000,"cash_equivalents":11000,"cryptocurrencies":43000,"debt":27400}}}
+{"timestamp":"2026-02-29T23:59:59Z","base_currency":"BRL","totals":{"portfolio_value_base":154100,"by_asset_class":{"stocks":12100,"reits":13250,"funds":44000,"cash_equivalents":11800,"cryptocurrencies":45300,"debt":27650}}}
+{"timestamp":"2026-03-31T23:59:59Z","base_currency":"BRL","totals":{"portfolio_value_base":160950,"by_asset_class":{"stocks":12800,"reits":13400,"funds":44600,"cash_equivalents":11950,"cryptocurrencies":50400,"debt":27800}}}
+{"timestamp":"2026-04-19T23:59:59Z","base_currency":"BRL","totals":{"portfolio_value_base":165830,"by_asset_class":{"stocks":13230,"reits":13600,"funds":45000,"cash_equivalents":12000,"cryptocurrencies":54000,"debt":28000}}}

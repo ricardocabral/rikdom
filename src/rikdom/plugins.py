@@ -60,8 +60,21 @@ def run_import_plugin(
     except json.JSONDecodeError as exc:
         raise PluginError(f"Plugin '{plugin_name}' produced invalid JSON output") from exc
 
-    if not isinstance(payload, dict) or not isinstance(payload.get("holdings"), list):
-        raise PluginError("Plugin output must be an object with 'holdings' array")
+    if not isinstance(payload, dict):
+        raise PluginError("Plugin output must be a JSON object")
+
+    holdings = payload.get("holdings")
+    activities = payload.get("activities")
+    has_holdings = isinstance(holdings, list)
+    has_activities = isinstance(activities, list)
+    if not has_holdings and not has_activities:
+        raise PluginError(
+            "Plugin output must contain a 'holdings' array, an 'activities' array, or both"
+        )
+    if "holdings" in payload and not has_holdings:
+        raise PluginError("Plugin output field 'holdings' must be an array when present")
+    if "activities" in payload and not has_activities:
+        raise PluginError("Plugin output field 'activities' must be an array when present")
 
     return payload
 
@@ -79,7 +92,7 @@ def merge_holdings(portfolio: dict[str, Any], imported: dict[str, Any]) -> tuple
 
     inserted = 0
     updated = 0
-    for entry in imported.get("holdings", []):
+    for entry in imported.get("holdings", []) or []:
         if not isinstance(entry, dict):
             continue
         hid = str(entry.get("id", "")).strip()
@@ -92,6 +105,55 @@ def merge_holdings(portfolio: dict[str, Any], imported: dict[str, Any]) -> tuple
         else:
             holdings.append(entry)
             current_index[hid] = len(holdings) - 1
+            inserted += 1
+
+    return portfolio, inserted, updated
+
+
+def _activity_key(entry: dict[str, Any]) -> str | None:
+    idem = str(entry.get("idempotency_key", "")).strip()
+    if idem:
+        return f"idem::{idem}"
+    aid = str(entry.get("id", "")).strip()
+    if aid:
+        return f"id::{aid}"
+    return None
+
+
+def merge_activities(
+    portfolio: dict[str, Any], imported: dict[str, Any]
+) -> tuple[dict[str, Any], int, int]:
+    activities = portfolio.get("activities")
+    if not isinstance(activities, list):
+        activities = []
+        portfolio["activities"] = activities
+
+    current_index: dict[str, int] = {}
+    for i, item in enumerate(activities):
+        if not isinstance(item, dict):
+            continue
+        key = _activity_key(item)
+        if key is not None:
+            current_index[key] = i
+
+    inserted = 0
+    updated = 0
+    for entry in imported.get("activities", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        key = _activity_key(entry)
+        if key is None:
+            continue
+
+        normalized = dict(entry)
+        normalized.setdefault("status", "posted")
+
+        if key in current_index:
+            activities[current_index[key]] = normalized
+            updated += 1
+        else:
+            activities.append(normalized)
+            current_index[key] = len(activities) - 1
             inserted += 1
 
     return portfolio, inserted, updated

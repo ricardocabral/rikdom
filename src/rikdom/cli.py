@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 
 from .aggregate import aggregate_portfolio
-from .plugins import PluginError, merge_holdings, run_import_plugin
+from .plugin_engine.errors import PluginEngineError
+from .plugin_engine.loader import discover_plugins
+from .plugin_engine.pipeline import run_output_pipeline, run_storage_sync_pipeline
+from .plugins import PluginError, merge_activities, merge_holdings, run_import_plugin
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
 from .validate import validate_portfolio
@@ -81,7 +83,8 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         print(f"Import failed: {exc}", file=sys.stderr)
         return 1
 
-    merged, inserted, updated = merge_holdings(portfolio, imported)
+    merged, h_inserted, h_updated = merge_holdings(portfolio, imported)
+    merged, a_inserted, a_updated = merge_activities(merged, imported)
     if args.write:
         save_json(args.portfolio, merged)
 
@@ -89,14 +92,68 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         json.dumps(
             {
                 "plugin": args.plugin,
-                "inserted": inserted,
-                "updated": updated,
+                "holdings": {"inserted": h_inserted, "updated": h_updated},
+                "activities": {"inserted": a_inserted, "updated": a_updated},
                 "write": bool(args.write),
             },
             indent=2,
             ensure_ascii=False,
         )
     )
+    return 0
+
+
+def cmd_plugins_list(args: argparse.Namespace) -> int:
+    manifests = discover_plugins(args.plugins_dir)
+    payload = []
+    for m in manifests:
+        payload.append(
+            {
+                "name": m.name,
+                "version": m.version,
+                "api_version": m.api_version,
+                "plugin_types": m.plugin_types,
+                "module": m.module,
+                "class_name": m.class_name,
+                "description": m.description,
+                "path": str(m.path),
+            }
+        )
+    print(json.dumps({"plugins": payload}, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_render_report(args: argparse.Namespace) -> int:
+    try:
+        payload = run_output_pipeline(
+            plugin_name=args.plugin,
+            plugins_dir=args.plugins_dir,
+            portfolio_path=args.portfolio,
+            snapshots_path=args.snapshots,
+            output_dir=args.out_dir,
+        )
+    except PluginEngineError as exc:
+        print(f"Render failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_storage_sync(args: argparse.Namespace) -> int:
+    try:
+        payload = run_storage_sync_pipeline(
+            plugin_name=args.plugin,
+            plugins_dir=args.plugins_dir,
+            portfolio_path=args.portfolio,
+            snapshots_path=args.snapshots,
+            options={"db_path": args.db_path},
+        )
+    except PluginEngineError as exc:
+        print(f"Storage sync failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
     return 0
 
 
@@ -130,9 +187,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_import.add_argument("--portfolio", default="data/portfolio.json")
     p_import.add_argument("--plugin", required=True)
     p_import.add_argument("--input", required=True)
-    p_import.add_argument("--plugins-dir", default="plugins/community")
+    p_import.add_argument("--plugins-dir", default="plugins")
     p_import.add_argument("--write", action="store_true")
     p_import.set_defaults(func=cmd_import_statement)
+
+    p_plugins = sub.add_parser("plugins", help="Inspect plugins")
+    p_plugins_sub = p_plugins.add_subparsers(dest="plugins_command", required=True)
+    p_plugins_list = p_plugins_sub.add_parser("list", help="List plugin manifests")
+    p_plugins_list.add_argument("--plugins-dir", default="plugins")
+    p_plugins_list.set_defaults(func=cmd_plugins_list)
+
+    p_render = sub.add_parser("render-report", help="Render report using output plugin")
+    p_render.add_argument("--plugin", default="quarto-portfolio-report")
+    p_render.add_argument("--plugins-dir", default="plugins")
+    p_render.add_argument("--portfolio", default="data/portfolio.json")
+    p_render.add_argument("--snapshots", default="data/snapshots.jsonl")
+    p_render.add_argument("--out-dir", default="out/reports")
+    p_render.set_defaults(func=cmd_render_report)
+
+    p_storage = sub.add_parser("storage-sync", help="Sync canonical JSON into storage plugin")
+    p_storage.add_argument("--plugin", default="duckdb-storage")
+    p_storage.add_argument("--plugins-dir", default="plugins")
+    p_storage.add_argument("--portfolio", default="data/portfolio.json")
+    p_storage.add_argument("--snapshots", default="data/snapshots.jsonl")
+    p_storage.add_argument("--db-path", default="out/rikdom.duckdb")
+    p_storage.set_defaults(func=cmd_storage_sync)
 
     return parser
 

@@ -348,6 +348,7 @@
             "transfer_out",
             "split",
             "income",
+            "reimbursement",
             "other"
           ]
         },
