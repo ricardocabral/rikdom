@@ -14,11 +14,14 @@ from rikdom.plugin_engine.errors import PluginEngineError
 class CliImportStatementTests(unittest.TestCase):
     def test_cmd_import_statement_runs_pluggy_pipeline(self) -> None:
         args = Namespace(
-            portfolio="data-sample/portfolio.json",
+            portfolio="tests/fixtures/portfolio.json",
             plugin="csv-generic",
-            input="data-sample/sample_statement.csv",
+            input="tests/fixtures/sample_statement.csv",
             plugins_dir="plugins",
             write=False,
+            import_log=None,
+            import_run_id="run-test",
+            ingested_at="2026-04-20T00:00:00Z",
         )
         imported = {
             "holdings": [
@@ -49,20 +52,26 @@ class CliImportStatementTests(unittest.TestCase):
                 code = cmd_import_statement(args)
 
         self.assertEqual(code, 0)
-        mock_run.assert_called_once_with("csv-generic", "plugins", "data-sample/sample_statement.csv")
+        mock_run.assert_called_once_with("csv-generic", "plugins", "tests/fixtures/sample_statement.csv")
 
         payload = json.loads(stdout.getvalue())
-        self.assertEqual(payload["holdings"], {"inserted": 1, "updated": 0})
-        self.assertEqual(payload["activities"], {"inserted": 1, "updated": 0})
+        self.assertEqual(payload["holdings"], {"inserted": 1, "updated": 0, "skipped": 0})
+        self.assertEqual(payload["activities"], {"inserted": 1, "updated": 0, "skipped": 0})
+        self.assertEqual(payload["import_run_id"], "run-test")
+        self.assertEqual(payload["ingested_at"], "2026-04-20T00:00:00Z")
+        self.assertEqual(payload["source_system"], "csv-generic")
         self.assertFalse(payload["write"])
 
     def test_cmd_import_statement_returns_error_for_pipeline_failure(self) -> None:
         args = Namespace(
-            portfolio="data-sample/portfolio.json",
+            portfolio="tests/fixtures/portfolio.json",
             plugin="csv-generic",
-            input="data-sample/sample_statement.csv",
+            input="tests/fixtures/sample_statement.csv",
             plugins_dir="plugins",
             write=False,
+            import_log=None,
+            import_run_id="run-test",
+            ingested_at="2026-04-20T00:00:00Z",
         )
         with (
             mock.patch("rikdom.cli.load_json", return_value={"holdings": [], "activities": []}),

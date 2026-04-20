@@ -1,0 +1,6 @@
+record_type,id,asset_type_id,label,amount,currency,quantity,ticker,country,fx_rate_to_base,event_type,subtype,effective_at,status,idempotency_key,source_ref
+holding,new-aapl,stock,Apple Inc.,1000,USD,5,AAPL,US,5.2,,,,,,
+holding,new-cash,cash_equivalent,Cash BRL,2500,BRL,,,BR,,,,,,,
+activity,act-aapl-div-2026q1,stock,AAPL dividend 2026-Q1,1.20,USD,,AAPL,US,,dividend,,2026-02-13T00:00:00Z,posted,us-aapl-2026q1-div,broker:us-aapl-2026q1
+activity,act-petr4-prov-2026-03,stock,PETR4 proventos 2026-03,45.70,BRL,,PETR4,BR,,dividend,juros_sobre_capital,2026-03-20T00:00:00Z,posted,br-petr4-2026-03-jcp,broker:petr4-2026-03
+activity,act-broker-reimb-2026-03,,Reembolso custodia 2026-03,12.50,BRL,,,,,reimbursement,custody_fee_refund,2026-03-28T00:00:00Z,posted,broker-reimb-2026-03,broker:reimb-2026-03

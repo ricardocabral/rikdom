@@ -8,7 +8,7 @@ from rikdom.storage import load_json
 
 class AggregateTests(unittest.TestCase):
     def test_aggregate_total(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         result = aggregate_portfolio(portfolio)
         self.assertEqual(result.base_currency, "BRL")
         self.assertAlmostEqual(result.total_value_base, 165830.0)

@@ -11,7 +11,7 @@ class PluginTests(unittest.TestCase):
         payload = run_import_pipeline(
             plugin_name="csv-generic",
             plugins_dir="plugins",
-            input_path="data-sample/sample_statement.csv",
+            input_path="tests/fixtures/sample_statement.csv",
         )
         self.assertEqual(payload["provider"], "csv-generic")
         self.assertEqual(len(payload["holdings"]), 2)

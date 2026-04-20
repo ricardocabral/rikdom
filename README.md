@@ -46,7 +46,8 @@ flowchart TD
 ## Repository Structure
 
 - `schema/` JSON schemas and default asset types
-- `data/` sample portfolio and snapshots
+- `data/` local workspace files (`portfolio.json`, `snapshots.jsonl`, `import_log.jsonl`), gitignored
+- `data-sample/` tracked starter templates copied into `data/` on first default CLI run
 - `src/rikdom/` Python package (CLI, validation, import pipeline, visualization)
 - `docs/` schema, storage, plugin docs, and execution plans
 - `plugins/` local plugin implementations and manifests
@@ -69,28 +70,30 @@ Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for your
 uv sync --extra schema
 ```
 
-### 3. Validate the portfolio file
+### 3. Initialize local workspace and validate
 
 ```bash
-uv run rikdom validate --portfolio data/portfolio.json
+uv run rikdom validate
 ```
+
+The first command that uses default paths copies tracked templates from `data-sample/` into `data/` when files are missing.
 
 ### 4. Aggregate by asset class
 
 ```bash
-uv run rikdom aggregate --portfolio data/portfolio.json
+uv run rikdom aggregate
 ```
 
 ### 5. Append a historical snapshot
 
 ```bash
-uv run rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl
+uv run rikdom snapshot
 ```
 
 ### 6. Generate dashboard
 
 ```bash
-uv run rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.jsonl --out out/dashboard.html --include-current
+uv run rikdom visualize --out out/dashboard.html --include-current
 ```
 
 ## Schema Docs
@@ -109,7 +112,7 @@ Core commands:
 
 ```bash
 uv run rikdom plugins list --plugins-dir plugins
-uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --portfolio data-sample/portfolio.json
+uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --write
 uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
 uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
 ```

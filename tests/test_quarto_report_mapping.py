@@ -15,8 +15,8 @@ class QuartoPluginTests(unittest.TestCase):
         result = run_output_pipeline(
             plugin_name="quarto-portfolio-report",
             plugins_dir="plugins",
-            portfolio_path="data-sample/portfolio.json",
-            snapshots_path="data-sample/snapshots.jsonl",
+            portfolio_path="tests/fixtures/portfolio.json",
+            snapshots_path="tests/fixtures/snapshots.jsonl",
             output_dir="out/reports",
         )
         self.assertEqual(result["plugin"], "quarto-portfolio-report")
@@ -49,8 +49,8 @@ class QuartoPluginTests(unittest.TestCase):
                 result = run_output_pipeline(
                     plugin_name="quarto-portfolio-report",
                     plugins_dir="plugins",
-                    portfolio_path="data-sample/portfolio.json",
-                    snapshots_path="data-sample/snapshots.jsonl",
+                    portfolio_path="tests/fixtures/portfolio.json",
+                    snapshots_path="tests/fixtures/snapshots.jsonl",
                     output_dir=str(output_dir),
                 )
 
@@ -71,8 +71,8 @@ class QuartoPluginTests(unittest.TestCase):
                 result = run_output_pipeline(
                     plugin_name="quarto-portfolio-report",
                     plugins_dir="plugins",
-                    portfolio_path="data-sample/portfolio.json",
-                    snapshots_path="data-sample/snapshots.jsonl",
+                    portfolio_path="tests/fixtures/portfolio.json",
+                    snapshots_path="tests/fixtures/snapshots.jsonl",
                     output_dir=tmp_dir,
                 )
 
@@ -97,8 +97,8 @@ class QuartoPluginTests(unittest.TestCase):
                 result = run_output_pipeline(
                     plugin_name="quarto-portfolio-report",
                     plugins_dir="plugins",
-                    portfolio_path="data-sample/portfolio.json",
-                    snapshots_path="data-sample/snapshots.jsonl",
+                    portfolio_path="tests/fixtures/portfolio.json",
+                    snapshots_path="tests/fixtures/snapshots.jsonl",
                     output_dir=tmp_dir,
                 )
 

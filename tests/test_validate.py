@@ -9,12 +9,12 @@ from rikdom.validate import validate_portfolio
 
 class ValidateTests(unittest.TestCase):
     def test_example_portfolio_is_valid(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         errors = validate_portfolio(portfolio)
         self.assertEqual(errors, [])
 
     def test_operations_event_must_reference_existing_task(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
 
         candidate["operations"]["task_events"][0]["task_id"] = "unknown-task"
@@ -26,7 +26,7 @@ class ValidateTests(unittest.TestCase):
         )
 
     def test_operations_last_event_must_exist(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
 
         candidate["operations"]["task_catalog"][0]["last_event_id"] = "missing-event-id"
@@ -38,7 +38,7 @@ class ValidateTests(unittest.TestCase):
         )
 
     def test_missing_required_instrument_attribute_is_invalid(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
 
         td_holding = next(h for h in candidate["holdings"] if h["id"] == "h-td-ipca")
@@ -51,7 +51,7 @@ class ValidateTests(unittest.TestCase):
         )
 
     def test_major_version_mismatch_is_reported(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
         candidate["schema_version"] = "2.0.0"
 
@@ -62,7 +62,7 @@ class ValidateTests(unittest.TestCase):
         )
 
     def test_future_minor_version_is_reported(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
         candidate["schema_version"] = "1.99.0"
 
@@ -73,7 +73,7 @@ class ValidateTests(unittest.TestCase):
         )
 
     def test_non_semver_schema_version_is_reported(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
         candidate["schema_version"] = "v1"
 
@@ -84,7 +84,7 @@ class ValidateTests(unittest.TestCase):
         )
 
     def test_non_canonical_schema_uri_is_reported(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
         candidate["schema_uri"] = "https://example.org/other.json"
 
@@ -95,7 +95,7 @@ class ValidateTests(unittest.TestCase):
         )
 
     def test_instrument_attribute_type_must_match_definition(self) -> None:
-        portfolio = load_json("data-sample/portfolio.json")
+        portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
 
         td_holding = next(h for h in candidate["holdings"] if h["id"] == "h-td-ipca")

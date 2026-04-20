@@ -22,8 +22,8 @@ class DuckDBStoragePluginTests(unittest.TestCase):
             report = run_storage_sync_pipeline(
                 plugin_name="duckdb-storage",
                 plugins_dir="plugins",
-                portfolio_path="data-sample/portfolio.json",
-                snapshots_path="data-sample/snapshots.jsonl",
+                portfolio_path="tests/fixtures/portfolio.json",
+                snapshots_path="tests/fixtures/snapshots.jsonl",
                 options={"db_path": db_path},
             )
 
@@ -108,8 +108,8 @@ class DuckDBStoragePluginTests(unittest.TestCase):
             run_storage_sync_pipeline(
                 plugin_name="duckdb-storage",
                 plugins_dir="plugins",
-                portfolio_path="data-sample/portfolio.json",
-                snapshots_path="data-sample/snapshots.jsonl",
+                portfolio_path="tests/fixtures/portfolio.json",
+                snapshots_path="tests/fixtures/snapshots.jsonl",
                 options={"db_path": db_path},
             )
             report = run_storage_sync_pipeline(
@@ -153,8 +153,8 @@ class DuckDBStoragePluginTests(unittest.TestCase):
                 run_storage_sync_pipeline(
                     plugin_name="duckdb-storage",
                     plugins_dir="plugins",
-                    portfolio_path="data-sample/portfolio.json",
-                    snapshots_path="data-sample/snapshots.jsonl",
+                    portfolio_path="tests/fixtures/portfolio.json",
+                    snapshots_path="tests/fixtures/snapshots.jsonl",
                     options={"db_path": "out/rikdom.duckdb"},
                 )
 
@@ -168,8 +168,8 @@ class DuckDBStoragePluginTests(unittest.TestCase):
         report = run_storage_sync_pipeline(
             plugin_name="duckdb-storage",
             plugins_dir="plugins",
-            portfolio_path="data-sample/portfolio.json",
-            snapshots_path="data-sample/snapshots.jsonl",
+            portfolio_path="tests/fixtures/portfolio.json",
+            snapshots_path="tests/fixtures/snapshots.jsonl",
             options={"db_path": "out/rikdom.duckdb"},
         )
         self.assertIn("rows_written", report)

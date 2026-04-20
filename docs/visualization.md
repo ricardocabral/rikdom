@@ -6,8 +6,8 @@ A minimal static HTML dashboard generated from local data.
 
 ## Input
 
-- Portfolio profile and base currency from `data/portfolio.json`
-- Time series from `data/snapshots.jsonl`
+- Portfolio profile and base currency from local `data/portfolio.json` (auto-seeded from `data-sample/portfolio.json` when missing and defaults are used)
+- Time series from local `data/snapshots.jsonl` (auto-seeded from `data-sample/snapshots.jsonl` when missing and defaults are used)
 
 ## Output
 
@@ -25,5 +25,5 @@ A minimal static HTML dashboard generated from local data.
 ## Generate
 
 ```bash
-rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.jsonl --out out/dashboard.html --include-current
+rikdom visualize --out out/dashboard.html --include-current
 ```
