@@ -10,10 +10,18 @@
 
 ## Core Files
 
-- `schema/portfolio.schema.json`: canonical current-state portfolio model.
-- `schema/snapshot.schema.json`: historical aggregate points for progress tracking.
-- `schema/plugin-statement.schema.json`: normalized plugin import output.
-- `schema/default-asset-types.json`: starter catalog.
+- `schema/portfolio.schema.json`: canonical current-state portfolio model (`data/portfolio.json`) with core sections (`profile`, `settings`, `asset_type_catalog`, `holdings`) and optional ledgers (`activities`, `operations`).
+- `schema/snapshot.schema.json`: one historical snapshot record from `data/snapshots.jsonl` with `timestamp`, `base_currency`, and aggregated totals.
+- `schema/plugin-statement.schema.json`: normalized provider/plugin import payload contract before merge into canonical portfolio state.
+- `schema/default-asset-types.json`: starter catalog of asset-type definitions (for example `stock`, `reit`, `fund`) mapped to top-level `asset_class` values.
+
+## Quick Term Guide
+
+- `asset_type_catalog`: dictionary of allowed asset types in a portfolio.
+- `asset_type_id`: reference from each holding to one entry in `asset_type_catalog`.
+- `asset_class`: top-level reporting group (for example `stocks`, `funds`, `real_estate`).
+- `activities`: immutable event ledger for financial events (`buy`, `sell`, `dividend`, `fee`, etc.).
+- `operations`: optional recurring operational task definitions plus immutable task event history.
 
 ## Modeling Strategy
 
@@ -52,8 +60,17 @@ Asset types are first-class records in `asset_type_catalog`:
 - `id`, `label`, `asset_class`
 - `availability.countries`
 - optional domain metadata
+- optional `instrument_attributes[]` for per-type attribute definitions
 
 Holdings only reference `asset_type_id`, so users can add country-specific instrument classes without changing the holding format.
+
+For instrument-specific fields, define a typed contract in `asset_type_catalog[].instrument_attributes` and store values in `holdings[].instrument_attributes` keyed by attribute `id`.
+
+Example for Brazilian sovereign bonds:
+
+- `index` (`string`, required)
+- `expiration_year` (`integer`, required)
+- `semestral_payments` (`boolean`, required)
 
 ### 3. Currency Handling
 

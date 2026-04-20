@@ -9,7 +9,7 @@ Portable, local-first wealth portfolio schema + storage toolkit.
 - Define a portfolio for a person or company.
 - Track holdings across stocks, REITs, funds, real estate, cash equivalents, digital assets and cryptocurrencies.
 - Model recurring operations (monthly/yearly tasks) and keep an auditable "last done" history.
-- Extend asset types with country-specific classes and metadata.
+- Extend asset types with country-specific classes, metadata, and typed instrument attributes.
 - Persist data in simple disk files (`JSON` + `JSONL`).
 - Generate a minimal static dashboard for allocation and progress over time.
 - Ingest provider statements through community plugins.
@@ -21,13 +21,36 @@ Portable, local-first wealth portfolio schema + storage toolkit.
 - Extensible by design: `metadata` and `extensions` fields.
 - Agent-friendly: explicit schema + instructions for Codex/Claude.
 
+## Information Flow
+
+```mermaid
+flowchart TD
+  U["User input"] --> C["CLI commands"]
+  S["Provider statements"] --> P["Plugins"]
+  P --> C
+
+  C --> V["Schema validation"]
+  V --> E["Event ledger activities"]
+  E --> T["Current state portfolio"]
+  E --> R["Projections"]
+  T --> R
+
+  R --> Z["Visualization dashboard"]
+  E --> L["LLM reasoning"]
+  R --> L
+  T --> L
+
+  L --> A["Insights planning and next actions"]
+```
+
 ## Repository Structure
 
 - `schema/` JSON schemas and default asset types
 - `data/` sample portfolio and snapshots
 - `src/rikdom/` Python CLI and visualization module
 - `plugins/` community import plugin interface + examples
-- `agents/` AI agent skills/instruction files
+- `.codex/` Codex instruction files
+- `.claude/` Claude instruction files
 - `plans/` implementation plan
 - `roadmap/issues/` issue specs for GitHub roadmap
 
@@ -92,11 +115,10 @@ uv run rikdom import-statement \
 
 ## AI Agent Skills
 
-- `agents/codex/SKILL.md`
-- `agents/openai-codex/SKILL.md`
-- `agents/claude/CLAUDE.md`
+- `.codex/SKILL.md`
+- `.claude/CLAUDE.md`
 
-These files guide LLM agents to safely analyze and evolve your data model.
+These files guide coding agents to safely analyze and evolve your data model.
 
 ## Roadmap And Planning
 
