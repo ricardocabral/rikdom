@@ -8,6 +8,7 @@ Portable, local-first wealth portfolio schema + storage toolkit.
 
 - Define a portfolio for a person or company.
 - Track holdings across stocks, REITs, funds, real estate, cash equivalents, digital assets and cryptocurrencies.
+- Model recurring operations (monthly/yearly tasks) and keep an auditable "last done" history.
 - Extend asset types with country-specific classes and metadata.
 - Persist data in simple disk files (`JSON` + `JSONL`).
 - Generate a minimal static dashboard for allocation and progress over time.
@@ -32,34 +33,38 @@ Portable, local-first wealth portfolio schema + storage toolkit.
 
 ## Quick Start
 
-### 1. Install in editable mode
+### 1. Install uv
+
+Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for your platform.
+
+### 2. Sync dependencies with uv
 
 ```bash
-python3 -m pip install -e .
+uv sync --extra schema
 ```
 
-### 2. Validate the portfolio file
+### 3. Validate the portfolio file
 
 ```bash
-rikdom validate --portfolio data/portfolio.json
+uv run rikdom validate --portfolio data/portfolio.json
 ```
 
-### 3. Aggregate by asset class
+### 4. Aggregate by asset class
 
 ```bash
-rikdom aggregate --portfolio data/portfolio.json
+uv run rikdom aggregate --portfolio data/portfolio.json
 ```
 
-### 4. Append a historical snapshot
+### 5. Append a historical snapshot
 
 ```bash
-rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl
+uv run rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl
 ```
 
-### 5. Generate dashboard
+### 6. Generate dashboard
 
 ```bash
-rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.jsonl --out out/dashboard.html --include-current
+uv run rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.jsonl --out out/dashboard.html --include-current
 ```
 
 ## Schema Docs
@@ -73,12 +78,12 @@ rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.json
 Plugin docs and example parser:
 
 - [plugins/README.md](plugins/README.md)
-- `plugins/community/csv-generic`
+- `plugins/csv-generic`
 
 Use:
 
 ```bash
-rikdom import-statement \
+uv run rikdom import-statement \
   --portfolio data/portfolio.json \
   --plugin csv-generic \
   --input data/sample_statement.csv \
