@@ -4,26 +4,34 @@ Pluggy `asset-type/catalog` plugin with Brazilian asset-type definitions for fix
 
 ## Included Asset Types
 
+- `acao`
+- `bdr`
+- `etf`
 - `fii`
 - `tesouro_direto`
+- `cdb`
 - `lci`
 - `lca`
+- `lig`
+- `lf`
 - `cri`
 - `cra`
-- `debenture_incentivada`
-- `debenture_infra`
-- `bdr`
+- `debenture`
+- `debenture_incentivada` (Lei 12.431, investor IR isento)
+- `debenture_infra` (Lei 14.801, issuer benefit, investor IR regressivo)
 - `coe`
+- `fundo_investimento`
 - `fidc_cota`
 - `fiagro_cota`
+- `previdencia_privada` (PGBL/VGBL)
 
 ## Asset Classes Used
 
 - `real_estate`: `fii`
-- `debt`: `tesouro_direto`, `lci`, `lca`, `cri`, `cra`, `debenture_incentivada`, `debenture_infra`
-- `stocks`: `bdr`
+- `debt`: `tesouro_direto`, `cdb`, `lci`, `lca`, `lig`, `lf`, `cri`, `cra`, `debenture`, `debenture_incentivada`, `debenture_infra`
+- `stocks`: `acao`, `bdr`
 - `other`: `coe`
-- `funds`: `fidc_cota`, `fiagro_cota`
+- `funds`: `etf`, `fundo_investimento`, `fidc_cota`, `fiagro_cota`, `previdencia_privada`
 
 ## Validations Encoded In Catalog Definitions
 
