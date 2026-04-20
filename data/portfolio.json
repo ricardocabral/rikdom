@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0.0",
+  "profile": {
+    "portfolio_id": "demo-main",
+    "owner_kind": "person",
+    "display_name": "Demo Portfolio",
+    "country": "BR",
+    "created_at": "2026-04-20T00:00:00Z"
+  },
+  "settings": {
+    "base_currency": "BRL",
+    "timezone": "America/Sao_Paulo",
+    "country_context": "BR"
+  },
+  "asset_type_catalog": [
+    {
+      "id": "stock",
+      "label": "Stock",
+      "asset_class": "stocks",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "reit",
+      "label": "REIT",
+      "asset_class": "reits",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "fund",
+      "label": "Fund",
+      "asset_class": "funds",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "cash_equivalent",
+      "label": "Cash Equivalent",
+      "asset_class": "cash_equivalents",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "cryptocurrency",
+      "label": "Cryptocurrency",
+      "asset_class": "cryptocurrencies",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "tesouro_direto_ipca",
+      "label": "Tesouro Direto IPCA+",
+      "asset_class": "debt",
+      "availability": {
+        "countries": ["BR"],
+        "notes": "Brazilian sovereign inflation-linked bonds"
+      },
+      "metadata": {
+        "country_program": "Tesouro Direto"
+      }
+    }
+  ],
+  "holdings": [
+    {
+      "id": "h-stock-aapl",
+      "asset_type_id": "stock",
+      "label": "Apple Inc.",
+      "identifiers": { "ticker": "AAPL", "isin": "US0378331005" },
+      "quantity": 12,
+      "market_value": { "amount": 2520, "currency": "USD" },
+      "as_of": "2026-04-19T20:00:00Z",
+      "metadata": { "fx_rate_to_base": 5.25 }
+    },
+    {
+      "id": "h-reit-hglg11",
+      "asset_type_id": "reit",
+      "label": "HGLG11",
+      "identifiers": { "ticker": "HGLG11" },
+      "quantity": 80,
+      "market_value": { "amount": 13600, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    },
+    {
+      "id": "h-fund-global",
+      "asset_type_id": "fund",
+      "label": "Global Multi-Asset Fund",
+      "market_value": { "amount": 45000, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    },
+    {
+      "id": "h-cash-brl",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash Reserve",
+      "market_value": { "amount": 12000, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    },
+    {
+      "id": "h-crypto-btc",
+      "asset_type_id": "cryptocurrency",
+      "label": "Bitcoin",
+      "quantity": 0.22,
+      "market_value": { "amount": 54000, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    },
+    {
+      "id": "h-td-ipca",
+      "asset_type_id": "tesouro_direto_ipca",
+      "label": "Tesouro IPCA+ 2035",
+      "market_value": { "amount": 28000, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    }
+  ],
+  "notes": [
+    "This is an example portfolio. Replace values with your own data."
+  ]
+}

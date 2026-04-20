@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/rikdom/schema/snapshot.schema.json",
+  "title": "Rikdom Snapshot",
+  "description": "One line from snapshots.jsonl.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "base_currency",
+    "totals"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "base_currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "totals": {
+      "type": "object",
+      "required": ["portfolio_value_base", "by_asset_class"],
+      "additionalProperties": false,
+      "properties": {
+        "portfolio_value_base": {
+          "type": "number"
+        },
+        "by_asset_class": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,45 @@
+[
+  {
+    "id": "stock",
+    "label": "Stock",
+    "asset_class": "stocks",
+    "availability": { "countries": ["US", "BR"] },
+    "metadata": { "example_tickers": ["AAPL", "PETR4"] }
+  },
+  {
+    "id": "reit",
+    "label": "REIT",
+    "asset_class": "reits",
+    "availability": { "countries": ["US", "BR"] }
+  },
+  {
+    "id": "fund",
+    "label": "Investment Fund",
+    "asset_class": "funds",
+    "availability": { "countries": ["US", "BR"] }
+  },
+  {
+    "id": "real_estate_property",
+    "label": "Direct Real Estate",
+    "asset_class": "real_estate",
+    "availability": { "countries": ["US", "BR"] }
+  },
+  {
+    "id": "cash_equivalent",
+    "label": "Cash Equivalent",
+    "asset_class": "cash_equivalents",
+    "availability": { "countries": ["US", "BR"] }
+  },
+  {
+    "id": "digital_asset",
+    "label": "Digital Asset",
+    "asset_class": "digital_assets",
+    "availability": { "countries": ["US", "BR"] }
+  },
+  {
+    "id": "cryptocurrency",
+    "label": "Cryptocurrency",
+    "asset_class": "cryptocurrencies",
+    "availability": { "countries": ["US", "BR"] }
+  }
+]

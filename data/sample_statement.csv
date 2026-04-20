@@ -1,0 +1,3 @@
+id,asset_type_id,label,amount,currency,quantity,ticker,country,fx_rate_to_base
+new-aapl,stock,Apple Inc.,1000,USD,5,AAPL,US,5.2
+new-cash,cash_equivalent,Cash BRL,2500,BRL,,,BR,

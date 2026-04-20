@@ -1,0 +1,62 @@
+# Schema Design
+
+## Goals
+
+- Long-term portable data model in plain JSON.
+- Readable by humans and LLMs.
+- Country-aware asset-type extensibility.
+- Additive evolution over time with low migration burden.
+
+## Core Files
+
+- `schema/portfolio.schema.json`: canonical current-state portfolio model.
+- `schema/snapshot.schema.json`: historical aggregate points for progress tracking.
+- `schema/plugin-statement.schema.json`: normalized plugin import output.
+- `schema/default-asset-types.json`: starter catalog.
+
+## Modeling Strategy
+
+### 1. Stable Core + Extension Slots
+
+`portfolio.json` has a strict core:
+
+- `profile`
+- `settings`
+- `asset_type_catalog`
+- `holdings`
+
+Extensibility slots:
+
+- `extensions` at portfolio and holding levels
+- `metadata` at asset-type and holding levels
+
+This keeps baseline interoperability while allowing local customization.
+
+### 2. Country-Specific Asset Types
+
+Asset types are first-class records in `asset_type_catalog`:
+
+- `id`, `label`, `asset_class`
+- `availability.countries`
+- optional domain metadata
+
+Holdings only reference `asset_type_id`, so users can add country-specific instrument classes without changing the holding format.
+
+### 3. Currency Handling
+
+Each holding carries `market_value.amount` + `currency`.
+When non-base-currency values are present, optional `metadata.fx_rate_to_base` enables deterministic local aggregation.
+
+### 4. Time Dimension
+
+- Current state: `data/portfolio.json`
+- Historical trend: `data/snapshots.jsonl`
+
+Snapshots avoid rewriting full history and remain append-only.
+
+## Evolution Rules
+
+1. Prefer additive fields over renames/removals.
+2. Bump `schema_version` on model changes.
+3. Preserve unknown `metadata`/`extensions` during transforms.
+4. If a breaking change is unavoidable, document migration steps and keep converter scripts.

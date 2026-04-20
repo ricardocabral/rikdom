@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/rikdom/schema/plugin-statement.schema.json",
+  "title": "Rikdom Plugin Import Statement",
+  "type": "object",
+  "required": ["provider", "generated_at", "holdings"],
+  "additionalProperties": false,
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "base_currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "holdings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "asset_type_id", "label", "market_value"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "asset_type_id": { "type": "string" },
+          "label": { "type": "string" },
+          "quantity": { "type": "number" },
+          "market_value": {
+            "type": "object",
+            "required": ["amount", "currency"],
+            "additionalProperties": false,
+            "properties": {
+              "amount": { "type": "number" },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

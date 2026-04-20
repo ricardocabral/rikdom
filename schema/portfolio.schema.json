@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "title": "Rikdom Portfolio",
+  "description": "Portable long-term portfolio schema focused on readability and extensibility.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "profile",
+    "settings",
+    "asset_type_catalog",
+    "holdings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Semantic version of this schema profile.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "profile": {
+      "type": "object",
+      "required": ["portfolio_id", "owner_kind", "display_name"],
+      "additionalProperties": false,
+      "properties": {
+        "portfolio_id": {
+          "type": "string"
+        },
+        "owner_kind": {
+          "type": "string",
+          "enum": ["person", "company", "family_office", "trust", "other"]
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "required": ["base_currency"],
+      "additionalProperties": false,
+      "properties": {
+        "base_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "country_context": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        }
+      }
+    },
+    "asset_type_catalog": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AssetTypeDefinition"
+      }
+    },
+    "holdings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Holding"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Namespace for custom long-term fields to avoid breaking core compatibility.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "Money": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "AssetTypeDefinition": {
+      "type": "object",
+      "required": ["id", "label", "asset_class"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "asset_class": {
+          "type": "string",
+          "description": "Top-level aggregation class.",
+          "enum": [
+            "stocks",
+            "reits",
+            "funds",
+            "real_estate",
+            "cash_equivalents",
+            "digital_assets",
+            "cryptocurrencies",
+            "private_equity",
+            "debt",
+            "other"
+          ]
+        },
+        "availability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "countries": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              }
+            },
+            "notes": {
+              "type": "string"
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "Holding": {
+      "type": "object",
+      "required": [
+        "id",
+        "asset_type_id",
+        "label",
+        "market_value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "asset_type_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "country": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          }
+        },
+        "identifiers": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "ticker": { "type": "string" },
+            "isin": { "type": "string" },
+            "provider_account_id": { "type": "string" },
+            "wallet": { "type": "string" }
+          }
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "unit_cost": {
+          "$ref": "#/$defs/Money"
+        },
+        "market_value": {
+          "$ref": "#/$defs/Money"
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

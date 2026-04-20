@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rikdom"
+version = "0.1.0"
+description = "Portable long-term JSON portfolio schema and local storage toolkit"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Rikdom Contributors" }
+]
+license = { text = "MIT" }
+keywords = ["portfolio", "json-schema", "wealth", "finance", "local-first"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only"
+]
+
+[project.optional-dependencies]
+schema = ["jsonschema>=4.0.0"]
+
+[project.scripts]
+rikdom = "rikdom.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
