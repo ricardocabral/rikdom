@@ -1,0 +1,10 @@
+{
+  "name": "quarto-portfolio-report",
+  "version": "0.1.0",
+  "api_version": "1.0",
+  "plugin_types": ["output"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Render portfolio graphics through Quarto"
+}
+

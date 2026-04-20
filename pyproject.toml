@@ -18,6 +18,10 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only"
 ]
+dependencies = [
+  "pluggy>=1.5.0",
+  "quarto-cli>=1.9.37",
+]
 
 [project.optional-dependencies]
 schema = ["jsonschema>=4.0.0"]

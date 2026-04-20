@@ -1,0 +1,276 @@
+---
+title: "Rikdom Portfolio Report"
+format:
+  html:
+    toc: true
+    theme: cosmo
+---
+
+```{=html}
+<style>
+  .rk-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .rk-card {
+    border: 1px solid #d8dee9;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fbfcfe;
+  }
+  .rk-card h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #334155;
+    font-weight: 600;
+  }
+  .rk-metric {
+    margin-top: 6px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .rk-bars {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .rk-row {
+    display: grid;
+    gap: 4px;
+  }
+  .rk-row-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.92rem;
+    color: #334155;
+  }
+  .rk-track {
+    width: 100%;
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .rk-fill {
+    height: 100%;
+    background: #0ea5e9;
+  }
+  .rk-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .rk-table th,
+  .rk-table td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 8px 6px;
+    text-align: left;
+    font-size: 0.92rem;
+  }
+  .rk-note {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-top: 6px;
+  }
+</style>
+
+<script src="report-data.js"></script>
+
+<section id="rk-overview"></section>
+
+<h2>Timeline</h2>
+<section id="rk-timeline"></section>
+
+<h2>Currency Split</h2>
+<section id="rk-currency"></section>
+
+<h2>Asset Type Breakdown</h2>
+<section id="rk-asset-type"></section>
+
+<h2>Geography</h2>
+<section id="rk-geo"></section>
+
+<h2>Top Holdings</h2>
+<section id="rk-top-holdings"></section>
+
+<script>
+  (() => {
+    const payload = window.RIKDOM_REPORT_DATA || {};
+    const profile = payload.profile || {};
+    const sections = payload.sections || {};
+    const timeline = Array.isArray(sections.timeline) ? sections.timeline : [];
+    const currencySplit = sections.currency_split || {};
+    const assetTypeBreakdown = sections.asset_type_breakdown || {};
+    const geography = sections.geography || {};
+    const topHoldings = (sections.risk && Array.isArray(sections.risk.top_holdings))
+      ? sections.risk.top_holdings
+      : [];
+
+    const baseCurrency = profile.base_currency || "USD";
+    const portfolioName = profile.display_name || "Portfolio";
+    const country = profile.country || "N/A";
+
+    const formatMoney = (value, currency) => {
+      const amount = Number(value || 0);
+      try {
+        return new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: currency || "USD",
+          maximumFractionDigits: 2
+        }).format(amount);
+      } catch (_e) {
+        return `${amount.toFixed(2)} ${currency || ""}`.trim();
+      }
+    };
+
+    const sumValues = (obj) => Object.values(obj || {}).reduce((acc, raw) => {
+      const value = Number(raw || 0);
+      return acc + (Number.isFinite(value) ? value : 0);
+    }, 0);
+
+    const totalByCurrency = sumValues(currencySplit);
+    const holdingsCount = topHoldings.length;
+    const timelineCount = timeline.length;
+
+    const overview = document.getElementById("rk-overview");
+    overview.innerHTML = `
+      <h2>Overview</h2>
+      <div class="rk-grid">
+        <article class="rk-card">
+          <h3>Portfolio</h3>
+          <div class="rk-metric">${portfolioName}</div>
+        </article>
+        <article class="rk-card">
+          <h3>Base Currency</h3>
+          <div class="rk-metric">${baseCurrency}</div>
+        </article>
+        <article class="rk-card">
+          <h3>Country</h3>
+          <div class="rk-metric">${country}</div>
+        </article>
+        <article class="rk-card">
+          <h3>Holdings (Top List)</h3>
+          <div class="rk-metric">${holdingsCount}</div>
+        </article>
+        <article class="rk-card">
+          <h3>Total (Currency Split Sum)</h3>
+          <div class="rk-metric">${formatMoney(totalByCurrency, baseCurrency)}</div>
+        </article>
+        <article class="rk-card">
+          <h3>Snapshot Count</h3>
+          <div class="rk-metric">${timelineCount}</div>
+        </article>
+      </div>
+    `;
+
+    const renderBars = (targetId, data, currency) => {
+      const target = document.getElementById(targetId);
+      const entries = Object.entries(data || {})
+        .map(([label, raw]) => [label, Number(raw || 0)])
+        .filter(([, value]) => Number.isFinite(value))
+        .sort((a, b) => b[1] - a[1]);
+
+      if (!entries.length) {
+        target.innerHTML = `<p class="rk-note">No data available.</p>`;
+        return;
+      }
+
+      const max = entries[0][1] || 1;
+      const rows = entries.map(([label, value]) => {
+        const pct = Math.max(0, Math.min(100, (value / max) * 100));
+        return `
+          <div class="rk-row">
+            <div class="rk-row-head">
+              <strong>${label}</strong>
+              <span>${formatMoney(value, currency)}</span>
+            </div>
+            <div class="rk-track"><div class="rk-fill" style="width:${pct}%"></div></div>
+          </div>
+        `;
+      }).join("");
+
+      target.innerHTML = `<div class="rk-bars">${rows}</div>`;
+    };
+
+    const renderTimeline = () => {
+      const target = document.getElementById("rk-timeline");
+      if (!timeline.length) {
+        target.innerHTML = `<p class="rk-note">No timeline snapshots available.</p>`;
+        return;
+      }
+
+      const values = timeline.map((row) => Number(row.portfolio_value_base || 0));
+      const cleanValues = values.filter((v) => Number.isFinite(v));
+      if (!cleanValues.length) {
+        target.innerHTML = `<p class="rk-note">No numeric timeline values available.</p>`;
+        return;
+      }
+
+      const width = 900;
+      const height = 260;
+      const pad = 28;
+      const min = Math.min(...cleanValues);
+      const max = Math.max(...cleanValues);
+      const range = max - min || 1;
+      const points = cleanValues.map((value, i) => {
+        const x = pad + (i * (width - pad * 2)) / Math.max(cleanValues.length - 1, 1);
+        const y = height - pad - ((value - min) / range) * (height - pad * 2);
+        return `${x},${y}`;
+      }).join(" ");
+
+      const firstTs = timeline[0].timestamp || "n/a";
+      const lastTs = timeline[timeline.length - 1].timestamp || "n/a";
+      target.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Portfolio timeline">
+          <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
+          <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#cbd5e1" />
+          <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#cbd5e1" />
+          <polyline points="${points}" fill="none" stroke="#0284c7" stroke-width="3" />
+        </svg>
+        <p class="rk-note">
+          From <strong>${firstTs}</strong> to <strong>${lastTs}</strong> |
+          min: ${formatMoney(min, baseCurrency)} | max: ${formatMoney(max, baseCurrency)}
+        </p>
+      `;
+    };
+
+    const renderTopHoldings = () => {
+      const target = document.getElementById("rk-top-holdings");
+      if (!topHoldings.length) {
+        target.innerHTML = `<p class="rk-note">No holdings available.</p>`;
+        return;
+      }
+
+      const rows = topHoldings.map((item) => `
+        <tr>
+          <td>${item.label || item.id || "unknown"}</td>
+          <td>${item.id || "n/a"}</td>
+          <td>${formatMoney(item.amount || 0, baseCurrency)}</td>
+        </tr>
+      `).join("");
+
+      target.innerHTML = `
+        <table class="rk-table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>ID</th>
+              <th>Amount (${baseCurrency})</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    };
+
+    renderTimeline();
+    renderBars("rk-currency", currencySplit, baseCurrency);
+    renderBars("rk-asset-type", assetTypeBreakdown, baseCurrency);
+    renderBars("rk-geo", geography, baseCurrency);
+    renderTopHoldings();
+  })();
+</script>
+```
