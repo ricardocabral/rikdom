@@ -16,6 +16,9 @@ older files forward while preserving unknown user data.
 ## CLI
 
 ```bash
+# Quick make shortcut (dry-run against sample portfolio)
+make migrate-dry-run
+
 # Preview a migration without writing anything
 uv run rikdom migrate --portfolio data/portfolio.json --dry-run
 

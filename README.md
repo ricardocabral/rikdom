@@ -183,19 +183,24 @@ make validate DATA_DIR=workspace-data OUT_DIR=workspace-out PORTFOLIO_NAME=paper
 - [Visualization module](docs/visualization.md)
 - [Plugin system](docs/plugin-system.md)
 
+Quick migration command:
+
+```bash
+make migrate-dry-run
+```
+
 ## Plugins
 
 - Canonical guide: [docs/plugin-system.md](docs/plugin-system.md)
 - Quickstart: [plugins/README.md](plugins/README.md)
 
-Core commands:
+Plugin quick commands:
 
 ```bash
 make plugins-list
 make import-sample
 make render-report
 make storage-sync
-make migrate-dry-run
 ```
 
 Portfolio view plugin (`quarto-portfolio-report`) preview:
