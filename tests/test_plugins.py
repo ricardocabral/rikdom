@@ -79,20 +79,36 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(len(portfolio["activities"]), 1)
         self.assertEqual(portfolio["activities"][0]["idempotency_key"], "idem-a1")
 
-        imported_with_idem_only = {
+        portfolio_with_legacy_idem_only: dict = {
+            "holdings": [],
             "activities": [
                 {
-                    "idempotency_key": "idem-a1",
+                    "idempotency_key": "idem-a2",
                     "event_type": "dividend",
-                    "effective_at": "2026-02-13T00:00:00Z",
+                    "effective_at": "2026-02-14T00:00:00Z",
                     "status": "posted",
-                    "money": {"amount": 1.0, "currency": "USD"},
+                    "money": {"amount": 2.0, "currency": "USD"},
+                }
+            ],
+        }
+
+        imported_with_id_and_idem = {
+            "activities": [
+                {
+                    "id": "a2",
+                    "idempotency_key": "idem-a2",
+                    "event_type": "dividend",
+                    "effective_at": "2026-02-14T00:00:00Z",
+                    "status": "posted",
+                    "money": {"amount": 2.0, "currency": "USD"},
                 }
             ]
         }
-        _, counts = merge_activities(portfolio, imported_with_idem_only)
-        self.assertEqual((counts.inserted, counts.updated, counts.skipped), (0, 0, 1))
-        self.assertEqual(len(portfolio["activities"]), 1)
+
+        _, counts = merge_activities(portfolio_with_legacy_idem_only, imported_with_id_and_idem)
+        self.assertEqual((counts.inserted, counts.updated, counts.skipped), (0, 1, 0))
+        self.assertEqual(len(portfolio_with_legacy_idem_only["activities"]), 1)
+        self.assertEqual(portfolio_with_legacy_idem_only["activities"][0]["id"], "a2")
 
     def test_merge_activities_rejects_invalid_entries(self) -> None:
         portfolio: dict = {"holdings": [], "activities": []}
@@ -106,6 +122,34 @@ class PluginTests(unittest.TestCase):
             ]
         }
         with self.assertRaisesRegex(ValueError, "missing event_type"):
+            merge_activities(portfolio, imported)
+
+    def test_merge_activities_rejects_none_for_required_fields(self) -> None:
+        portfolio: dict = {"holdings": [], "activities": []}
+        imported = {
+            "activities": [
+                {
+                    "id": "a1",
+                    "event_type": None,
+                    "effective_at": None,
+                }
+            ]
+        }
+        with self.assertRaisesRegex(ValueError, "missing event_type, effective_at"):
+            merge_activities(portfolio, imported)
+
+    def test_merge_activities_rejects_missing_id(self) -> None:
+        portfolio: dict = {"holdings": [], "activities": []}
+        imported = {
+            "activities": [
+                {
+                    "event_type": "dividend",
+                    "effective_at": "2026-02-13T00:00:00Z",
+                    "idempotency_key": "k1",
+                }
+            ]
+        }
+        with self.assertRaisesRegex(ValueError, "missing id"):
             merge_activities(portfolio, imported)
 
     def test_run_import_plugin_accepts_legacy_positional_signature(self) -> None:

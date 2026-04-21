@@ -159,18 +159,35 @@ def _activity_identity(entry: dict[str, Any]) -> tuple[str, str]:
 
 def _validate_activity_entry(entry: dict[str, Any], idx: int) -> None:
     missing: list[str] = []
+    invalid_types: list[str] = []
+
+    aid = entry.get("id")
+    if aid is None:
+        missing.append("id")
+    elif not isinstance(aid, str):
+        invalid_types.append("id")
+    elif not aid.strip():
+        missing.append("id")
+
     event_type = _as_text(entry.get("event_type"))
     if not event_type:
         missing.append("event_type")
     effective_at = _as_text(entry.get("effective_at"))
     if not effective_at:
         missing.append("effective_at")
-    aid, idem = _activity_identity(entry)
-    if not aid and not idem:
-        missing.append("id or idempotency_key")
+
+    idem = entry.get("idempotency_key")
+    if idem is not None and not isinstance(idem, str):
+        invalid_types.append("idempotency_key")
+
     if missing:
         rendered = ", ".join(missing)
         raise ValueError(f"Invalid imported activity at index {idx}: missing {rendered}")
+    if invalid_types:
+        rendered = ", ".join(invalid_types)
+        raise ValueError(
+            f"Invalid imported activity at index {idx}: non-string fields {rendered}"
+        )
 
 
 def merge_activities(
