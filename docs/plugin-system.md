@@ -213,7 +213,7 @@ from rikdom.plugin_engine.pipeline import run_import_pipeline
 payload = run_import_pipeline(
     plugin_name="broker-csv-source",
     plugins_dir="plugins",
-    input_path="data/statement.csv",
+    input_path="data-sample/sample_statement.csv",
 )
 ```
 
@@ -325,8 +325,8 @@ CLI call:
 uv run rikdom render-report \
   --plugin quarto-portfolio-report \
   --plugins-dir plugins \
-  --portfolio data/portfolio.json \
-  --snapshots data/snapshots.jsonl \
+  --portfolio data-sample/portfolio.json \
+  --snapshots data-sample/snapshots.jsonl \
   --out-dir out/reports
 ```
 
@@ -386,8 +386,8 @@ CLI call:
 uv run rikdom storage-sync \
   --plugin duckdb-storage \
   --plugins-dir plugins \
-  --portfolio data/portfolio.json \
-  --snapshots data/snapshots.jsonl \
+  --portfolio data-sample/portfolio.json \
+  --snapshots data-sample/snapshots.jsonl \
   --db-path out/rikdom.duckdb
 ```
 
@@ -435,7 +435,7 @@ uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
 For source/input and asset-type/catalog checks:
 
 ```bash
-uv run python -c "import json; from rikdom.plugin_engine.pipeline import run_import_pipeline; print(json.dumps(run_import_pipeline('broker-csv-source','plugins','data/statement.csv'), indent=2))"
+uv run python -c "import json; from rikdom.plugin_engine.pipeline import run_import_pipeline; print(json.dumps(run_import_pipeline('broker-csv-source','plugins','data-sample/sample_statement.csv'), indent=2))"
 uv run python -c "import json; from rikdom.plugin_engine.pipeline import build_asset_type_catalog; print(json.dumps(build_asset_type_catalog('plugins'), indent=2))"
 ```
 
