@@ -83,6 +83,74 @@ class PluginTests(unittest.TestCase):
             ],
         )
 
+    def test_csv_generic_plugin_holding_rejects_missing_required_column(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = f"{tmp}/statement.csv"
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write("id,asset_type_id,label,amount\n")
+                f.write("h-apple,stock-us,Apple,100.50\n")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                r"Invalid holding row: missing required column 'currency'",
+            ):
+                run_import_pipeline(
+                    plugin_name="csv-generic",
+                    plugins_dir="plugins",
+                    input_path=csv_path,
+                )
+
+    def test_csv_generic_plugin_holding_rejects_empty_required_value(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = f"{tmp}/statement.csv"
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write("id,asset_type_id,label,amount,currency\n")
+                f.write("h-apple,stock-us,,100.50,usd\n")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                r"Invalid holding row: required field 'label' is empty",
+            ):
+                run_import_pipeline(
+                    plugin_name="csv-generic",
+                    plugins_dir="plugins",
+                    input_path=csv_path,
+                )
+
+    def test_csv_generic_plugin_activity_rejects_missing_required_column(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = f"{tmp}/statement.csv"
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write("record_type,id,event_type,amount,effective_at\n")
+                f.write("activity,act-1,dividend,1.20,2026-02-13T00:00:00Z\n")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                r"Invalid activity row: missing required column 'currency'",
+            ):
+                run_import_pipeline(
+                    plugin_name="csv-generic",
+                    plugins_dir="plugins",
+                    input_path=csv_path,
+                )
+
+    def test_csv_generic_plugin_activity_rejects_empty_required_value(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = f"{tmp}/statement.csv"
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write("record_type,id,event_type,amount,currency,effective_at\n")
+                f.write("activity,,dividend,1.20,usd,2026-02-13T00:00:00Z\n")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                r"Invalid activity row: required field 'id' is empty",
+            ):
+                run_import_pipeline(
+                    plugin_name="csv-generic",
+                    plugins_dir="plugins",
+                    input_path=csv_path,
+                )
+
     def test_csv_generic_plugin_activity_requires_effective_at(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             csv_path = f"{tmp}/statement.csv"
