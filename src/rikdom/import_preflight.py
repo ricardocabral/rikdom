@@ -149,18 +149,40 @@ def _validate_holding(
             )
         )
     else:
-        _validate_amount_field(
-            issues,
-            row_key=row_key,
-            value=market_value.get("amount"),
-            field="market_value.amount",
-        )
-        _validate_currency_field(
-            issues,
-            row_key=row_key,
-            value=market_value.get("currency"),
-            field="market_value.currency",
-        )
+        if market_value.get("amount") is None:
+            issues.append(
+                _new_issue(
+                    code="MISSING_REQUIRED_FIELD",
+                    severity=_ERROR,
+                    message="Holding row is missing required field 'market_value.amount'",
+                    row_key=row_key,
+                    field="market_value.amount",
+                )
+            )
+        else:
+            _validate_amount_field(
+                issues,
+                row_key=row_key,
+                value=market_value.get("amount"),
+                field="market_value.amount",
+            )
+        if market_value.get("currency") is None:
+            issues.append(
+                _new_issue(
+                    code="MISSING_REQUIRED_FIELD",
+                    severity=_ERROR,
+                    message="Holding row is missing required field 'market_value.currency'",
+                    row_key=row_key,
+                    field="market_value.currency",
+                )
+            )
+        else:
+            _validate_currency_field(
+                issues,
+                row_key=row_key,
+                value=market_value.get("currency"),
+                field="market_value.currency",
+            )
     return hid, as_text(entry.get("asset_type_id"))
 
 
@@ -246,6 +268,21 @@ def _validate_activity(
 def build_preflight_report(portfolio: dict[str, Any], imported: dict[str, Any]) -> dict[str, Any]:
     rows_payload: list[dict[str, Any]] = []
     issues: list[dict[str, Any]] = []
+
+    for entity_type, key in (("holding", "holdings"), ("activity", "activities")):
+        if key in imported and not isinstance(imported.get(key), list):
+            issues.append(
+                _new_issue(
+                    code="INVALID_COLLECTION_TYPE",
+                    severity=_ERROR,
+                    message=(
+                        f"Imported '{key}' must be a list; got "
+                        f"{type(imported.get(key)).__name__}"
+                    ),
+                    row_key=f"{entity_type}:*",
+                    field=key,
+                )
+            )
 
     existing_holding_ids: set[str] = set()
     for item in portfolio.get("holdings", []) or []:

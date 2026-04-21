@@ -171,14 +171,16 @@ def _normalize_holding(item: dict[str, Any]) -> dict[str, Any]:
     amount: float | None = None
     raw_currency: Any = _pick(item, "currency", "currencyCode", "accountCurrency")
 
+    raw_amount_value: Any = raw_amount
     if isinstance(raw_amount, dict):
-        amount = parse_decimal(raw_amount.get("amount"))
+        raw_amount_value = raw_amount.get("amount")
+        amount = parse_decimal(raw_amount_value)
         raw_currency = raw_amount.get("currency") or raw_currency
     else:
         amount = parse_decimal(raw_amount)
 
     market_value: dict[str, Any] = {
-        "amount": amount if amount is not None else raw_amount,
+        "amount": amount if amount is not None else raw_amount_value,
         "currency": normalize_currency(raw_currency) or as_text(raw_currency),
     }
 
