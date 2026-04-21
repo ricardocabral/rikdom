@@ -10,7 +10,6 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 from rikdom.journal import (
-    CompactionPolicy,
     compact_snapshots,
     rotate_journal,
     select_compacted,

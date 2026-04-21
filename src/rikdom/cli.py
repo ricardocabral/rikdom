@@ -192,6 +192,9 @@ def cmd_imports_list(args: argparse.Namespace) -> int:
         entries = [e for e in entries if e.get("source_system") == args.source_system]
     if args.import_run_id:
         entries = [e for e in entries if e.get("import_run_id") == args.import_run_id]
+    if args.limit < 0:
+        print("--limit must be a non-negative integer", file=sys.stderr)
+        return 2
     if args.limit:
         entries = entries[-args.limit :]
     print(json.dumps({"imports": entries}, indent=2, ensure_ascii=False))

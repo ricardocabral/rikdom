@@ -133,14 +133,15 @@ def merge_holdings(
     return portfolio, counts
 
 
-def _activity_key(entry: dict[str, Any]) -> str | None:
+def _activity_keys(entry: dict[str, Any]) -> list[str]:
+    keys: list[str] = []
     idem = str(entry.get("idempotency_key", "")).strip()
     if idem:
-        return f"idem::{idem}"
+        keys.append(f"idem::{idem}")
     aid = str(entry.get("id", "")).strip()
     if aid:
-        return f"id::{aid}"
-    return None
+        keys.append(f"id::{aid}")
+    return keys
 
 
 def merge_activities(
@@ -155,37 +156,46 @@ def merge_activities(
     for i, item in enumerate(activities):
         if not isinstance(item, dict):
             continue
-        key = _activity_key(item)
-        if key is not None:
-            current_index[key] = i
+        for key in _activity_keys(item):
+            current_index.setdefault(key, i)
 
     counts = MergeCounts()
     for entry in imported.get("activities", []) or []:
         if not isinstance(entry, dict):
             counts.skipped += 1
             continue
-        key = _activity_key(entry)
-        if key is None:
+        keys = _activity_keys(entry)
+        if not keys:
             counts.skipped += 1
             continue
 
         normalized = dict(entry)
         normalized.setdefault("status", "posted")
 
-        if key in current_index:
-            existing = activities[current_index[key]]
+        matched_pos = next((current_index[k] for k in keys if k in current_index), None)
+        if matched_pos is not None:
+            existing = activities[matched_pos]
             existing_norm = dict(existing) if isinstance(existing, dict) else {}
             existing_norm.setdefault("status", "posted")
+            if isinstance(existing, dict):
+                if existing.get("idempotency_key") and not normalized.get("idempotency_key"):
+                    normalized["idempotency_key"] = existing["idempotency_key"]
+                if existing.get("id") and not normalized.get("id"):
+                    normalized["id"] = existing["id"]
             if _activity_content_hash(existing_norm) == _activity_content_hash(normalized):
                 counts.skipped += 1
                 continue
             if isinstance(existing, dict) and existing.get("ingested_at") and not normalized.get("ingested_at"):
                 normalized["ingested_at"] = existing["ingested_at"]
-            activities[current_index[key]] = normalized
+            activities[matched_pos] = normalized
+            for k in _activity_keys(normalized):
+                current_index[k] = matched_pos
             counts.updated += 1
         else:
             activities.append(normalized)
-            current_index[key] = len(activities) - 1
+            new_pos = len(activities) - 1
+            for k in keys:
+                current_index[k] = new_pos
             counts.inserted += 1
 
     return portfolio, counts

@@ -368,6 +368,10 @@
         "source_system": { "type": "string" },
         "source_ref": { "type": "string" },
         "import_run_id": { "type": "string" },
+        "ingested_at": {
+          "type": "string",
+          "format": "date-time"
+        },
         "idempotency_key": { "type": "string" },
         "asset_type_id": {
           "type": "string",
