@@ -16,7 +16,7 @@ Arquivo Excel no formato de relatório consolidado mensal da B3, com abas de pos
 
 ```bash
 uv run rikdom import-statement \
-  --portfolio data/portfolio.json \
+  --portfolio data-sample/portfolio.json \
   --plugin b3-consolidado-mensal \
   --input /caminho/relatorio-consolidado-mensal.xlsx
 ```

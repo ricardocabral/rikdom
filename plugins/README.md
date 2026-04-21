@@ -25,6 +25,7 @@ uv run pytest -q tests/test_plugins.py tests/test_asset_type_catalog_plugins.py
 ```
 
 Plugin-specific prerequisites and run commands are documented in each plugin README.
+Use tracked sample fixtures (for example `data-sample/portfolio.json` or `tests/fixtures/portfolio.json`) in examples so commands work in a clean checkout.
 
 ## Safety Baseline
 

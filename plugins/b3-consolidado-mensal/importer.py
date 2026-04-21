@@ -206,13 +206,18 @@ def _read_sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
     return targets
 
 
-def _read_sheet_rows(zf: zipfile.ZipFile, sheet_target: str, shared_strings: list[str]) -> list[dict[str, str]]:
+def _read_sheet_rows(
+    zf: zipfile.ZipFile,
+    sheet_target: str,
+    shared_strings: list[str],
+) -> tuple[list[dict[str, str]], set[str]]:
     root = ET.fromstring(zf.read(sheet_target))
     row_nodes = root.findall("x:sheetData/x:row", NS)
     if not row_nodes:
-        return []
+        return [], set()
 
     header_row: dict[int, str] | None = None
+    header_names: set[str] = set()
     rows: list[dict[str, str]] = []
     for row in row_nodes:
         cols: dict[int, str] = {}
@@ -228,6 +233,10 @@ def _read_sheet_rows(zf: zipfile.ZipFile, sheet_target: str, shared_strings: lis
 
         if header_row is None:
             header_row = cols
+            for header in cols.values():
+                header_name = _normalize_text(header)
+                if header_name:
+                    header_names.add(header_name)
             continue
 
         mapped: dict[str, str] = {}
@@ -240,7 +249,7 @@ def _read_sheet_rows(zf: zipfile.ZipFile, sheet_target: str, shared_strings: lis
         if any(v for v in mapped.values()):
             rows.append(mapped)
 
-    return rows
+    return rows, header_names
 
 
 def _choose_asset_type(spec: SheetSpec, row: dict[str, str]) -> str:
@@ -268,7 +277,12 @@ def _choose_asset_type(spec: SheetSpec, row: dict[str, str]) -> str:
 def _row_id(spec: SheetSpec, row: dict[str, str], label: str) -> str:
     account = _normalize_text(row.get("Conta", ""))
     institution = _normalize_text(row.get("Instituição", ""))
-    base = _slug(account or institution or "global")
+    scope_parts: list[str] = []
+    if institution:
+        scope_parts.append(_slug(institution))
+    if account:
+        scope_parts.append(_slug(account))
+    base = ":".join(scope_parts) or "global"
 
     code = (
         _normalize_text(row.get("Código de Negociação", ""))
@@ -377,11 +391,39 @@ def parse_workbook(path: Path) -> dict[str, Any]:
             target = targets.get(spec.name)
             if not target:
                 continue
+            rows, headers = _read_sheet_rows(zf, target, shared_strings)
+
+            missing_required = []
+            for header in ("Produto", spec.quantity_header):
+                if header not in headers:
+                    missing_required.append(header)
+            has_value_header = any(header in headers for header in spec.value_headers)
+            if missing_required or not has_value_header:
+                missing = [f"required={missing_required}"] if missing_required else []
+                if not has_value_header:
+                    missing.append(f"value_any_of={list(spec.value_headers)}")
+                raise ValueError(
+                    f"workbook is incompatible: sheet '{spec.name}' is missing columns "
+                    f"({', '.join(missing)})"
+                )
+
             parsed_sheets.append(spec.name)
-            for row in _read_sheet_rows(zf, target, shared_strings):
+            for row in rows:
                 holding = _to_holding(spec, row)
                 if holding is not None:
                     holdings.append(holding)
+
+    if not parsed_sheets:
+        expected = ", ".join(spec.name for spec in SHEET_SPECS)
+        raise ValueError(
+            "workbook is incompatible: expected at least one supported B3 position sheet "
+            f"({expected})"
+        )
+
+    if not holdings:
+        raise ValueError(
+            "workbook is incompatible: parsed supported B3 position sheets but produced zero holdings"
+        )
 
     return {
         "provider": "b3-consolidado-mensal",

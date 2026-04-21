@@ -111,6 +111,16 @@ def _content_types_xml(sheet_count: int) -> str:
     )
 
 
+def _write_workbook(path: Path, sheets: list[tuple[str, list[str], list[list[object]]]]) -> None:
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", _content_types_xml(len(sheets)))
+        zf.writestr("_rels/.rels", _root_rels_xml())
+        zf.writestr("xl/workbook.xml", _workbook_xml([s[0] for s in sheets]))
+        zf.writestr("xl/_rels/workbook.xml.rels", _workbook_rels_xml(len(sheets)))
+        for i, (_, headers, rows) in enumerate(sheets, start=1):
+            zf.writestr(f"xl/worksheets/sheet{i}.xml", _sheet_xml(headers, rows))
+
+
 def _write_test_workbook(path: Path) -> None:
     sheets: list[tuple[str, list[str], list[list[object]]]] = [
         (
@@ -292,14 +302,7 @@ def _write_test_workbook(path: Path) -> None:
             [["PETR4 - PETROBRAS", "26/03/2026", 500]],
         ),
     ]
-
-    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("[Content_Types].xml", _content_types_xml(len(sheets)))
-        zf.writestr("_rels/.rels", _root_rels_xml())
-        zf.writestr("xl/workbook.xml", _workbook_xml([s[0] for s in sheets]))
-        zf.writestr("xl/_rels/workbook.xml.rels", _workbook_rels_xml(len(sheets)))
-        for i, (_, headers, rows) in enumerate(sheets, start=1):
-            zf.writestr(f"xl/worksheets/sheet{i}.xml", _sheet_xml(headers, rows))
+    _write_workbook(path, sheets)
 
 
 def _holding_by_ticker(holdings: list[dict], ticker: str) -> dict:
@@ -353,6 +356,113 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
         self.assertEqual(tesouro["asset_type_id"], "tesouro_direto")
         self.assertEqual(tesouro["identifiers"]["isin"], "BRSTNCNTB3E2")
         self.assertEqual(tesouro["metadata"]["maturity_date"], "2035-05-15")
+
+    def test_row_id_uses_institution_and_account_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            statement = Path(tmp) / "relatorio.xlsx"
+            _write_workbook(
+                statement,
+                [
+                    (
+                        "Posição - Ações",
+                        [
+                            "Produto",
+                            "Instituição",
+                            "Conta",
+                            "Código de Negociação",
+                            "Quantidade",
+                            "Valor Atualizado",
+                        ],
+                        [
+                            ["PETR4 - PETROBRAS", "CORRETORA A", "12345", "PETR4", 10, 1000],
+                            ["PETR4 - PETROBRAS", "CORRETORA B", "12345", "PETR4", 20, 2000],
+                        ],
+                    )
+                ],
+            )
+
+            payload = run_import_pipeline(
+                plugin_name="b3-consolidado-mensal",
+                plugins_dir="plugins",
+                input_path=str(statement),
+            )
+
+        ids = [holding["id"] for holding in payload["holdings"]]
+        self.assertEqual(len(ids), 2)
+        self.assertEqual(len(set(ids)), 2)
+
+    def test_fails_when_supported_position_sheets_are_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            statement = Path(tmp) / "incompativel.xlsx"
+            _write_workbook(
+                statement,
+                [
+                    (
+                        "Proventos Recebidos",
+                        ["Produto", "Pagamento", "Valor líquido"],
+                        [["PETR4 - PETROBRAS", "26/03/2026", 500]],
+                    )
+                ],
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "expected at least one supported B3 position sheet",
+            ):
+                run_import_pipeline(
+                    plugin_name="b3-consolidado-mensal",
+                    plugins_dir="plugins",
+                    input_path=str(statement),
+                )
+
+    def test_fails_when_supported_sheet_has_incompatible_headers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            statement = Path(tmp) / "incompativel-colunas.xlsx"
+            _write_workbook(
+                statement,
+                [
+                    (
+                        "Posição - Ações",
+                        ["Produto", "Instituição", "Conta", "Código de Negociação"],
+                        [["PETR4 - PETROBRAS", "CORRETORA A", "12345", "PETR4"]],
+                    )
+                ],
+            )
+
+            with self.assertRaisesRegex(ValueError, "missing columns"):
+                run_import_pipeline(
+                    plugin_name="b3-consolidado-mensal",
+                    plugins_dir="plugins",
+                    input_path=str(statement),
+                )
+
+    def test_fails_when_supported_sheet_parses_zero_holdings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            statement = Path(tmp) / "sem-posicoes.xlsx"
+            _write_workbook(
+                statement,
+                [
+                    (
+                        "Posição - Ações",
+                        [
+                            "Produto",
+                            "Instituição",
+                            "Conta",
+                            "Código de Negociação",
+                            "Quantidade",
+                            "Valor Atualizado",
+                        ],
+                        [["Total", "", "", "", "", ""]],
+                    )
+                ],
+            )
+
+            with self.assertRaisesRegex(ValueError, "produced zero holdings"):
+                run_import_pipeline(
+                    plugin_name="b3-consolidado-mensal",
+                    plugins_dir="plugins",
+                    input_path=str(statement),
+                )
 
 if __name__ == "__main__":
     unittest.main()
