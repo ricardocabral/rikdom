@@ -33,6 +33,8 @@ _FUND_CATEGORY_ENUM = [
 _PREV_PLAN_TYPE_ENUM = ["PGBL", "VGBL"]
 _PREV_REGIME_ENUM = ["PROGRESSIVO", "REGRESSIVO"]
 _DEBENTURE_REGIME_ENUM = ["NAO_INCENTIVADA", "LEI_12431", "LEI_14801"]
+_ISO_3166_ALPHA2_REGEX = r"^[A-Z]{2}$"
+_ISIN_REGEX = r"^[A-Z]{2}[A-Z0-9]{9}\d$"
 
 
 def _attr(
@@ -307,8 +309,20 @@ class Plugin:
                         pattern=BRAZIL_CNPJ_REGEX,
                     ),
                     _attr("underlying_identifier", "Underlying Identifier", "string", required=True),
-                    _attr("underlying_country", "Underlying Country (ISO 3166-1 alpha-2)", "string", required=False),
-                    _attr("underlying_isin", "Underlying ISIN", "string", required=False),
+                    _attr(
+                        "underlying_country",
+                        "Underlying Country (ISO 3166-1 alpha-2)",
+                        "string",
+                        required=False,
+                        pattern=_ISO_3166_ALPHA2_REGEX,
+                    ),
+                    _attr(
+                        "underlying_isin",
+                        "Underlying ISIN",
+                        "string",
+                        required=False,
+                        pattern=_ISIN_REGEX,
+                    ),
                     _attr("parity_ratio", "Parity Ratio", "number", required=True),
                     _attr(
                         "tax_profile.ir_pf_treatment",
