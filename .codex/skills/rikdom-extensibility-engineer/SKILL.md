@@ -101,6 +101,15 @@ uv run rikdom storage-sync --data-dir <data-dir> --out-root <out-root> --plugin 
 
 ## Technical Validation Checklist
 
+On a fresh checkout, seed `data/*` from tracked samples first — the validation
+and import commands below read `data/portfolio.json` and related files:
+
+```bash
+make bootstrap
+```
+
+Then run the checklist:
+
 ```bash
 make validate
 make plugins-list

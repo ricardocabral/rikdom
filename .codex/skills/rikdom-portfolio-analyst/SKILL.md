@@ -73,6 +73,16 @@ Use these flows for common novice requests:
 
 ## Quick Commands
 
+On a fresh checkout, seed `data/*` from tracked samples before running the
+commands below — otherwise `make validate`, `make aggregate`, `make visualize`,
+etc. will fail on missing `data/portfolio.json` and friends:
+
+```bash
+make bootstrap
+```
+
+Then run the analysis commands:
+
 ```bash
 make validate
 make aggregate
