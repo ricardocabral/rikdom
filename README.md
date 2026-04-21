@@ -97,9 +97,6 @@ Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for your
 make sync
 ```
 
-Security policy note: this repo pins a global `uv` resolver guard in [`uv.toml`](uv.toml) with
-`exclude-newer = "7 days"`, so dependency resolution rejects package releases newer than 7 days.
-
 ### 3. Bootstrap local workspace files (optional)
 
 The CLI auto-bootstraps `data/portfolio.json` and `data/snapshots.jsonl` from `data-sample/` on first run. To seed them manually:
