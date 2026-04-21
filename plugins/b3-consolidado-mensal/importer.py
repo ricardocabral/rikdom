@@ -244,21 +244,31 @@ def _read_sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
         "xl/_rels/workbook.xml.rels",
     )
 
-    rel_by_id: dict[str, str] = {}
-    for rel in rels.findall("pr:Relationship", NS):
-        rel_id = rel.attrib.get("Id", "")
-        target = rel.attrib.get("Target", "")
-        if not rel_id or not target:
-            continue
-        normalized = _normalize_target_path(target)
-        rel_by_id[rel_id] = normalized
-
-    targets: dict[str, str] = {}
+    sheet_entries: list[tuple[str, str]] = []
     for sheet in workbook.findall("x:sheets/x:sheet", NS):
         name = _normalize_text(sheet.attrib.get("name", ""))
         rel_id = sheet.attrib.get(f"{{{DOC_REL_NS}}}id", "")
         if not name or not rel_id:
             continue
+        sheet_entries.append((name, rel_id))
+
+    referenced_rel_ids = {rel_id for _, rel_id in sheet_entries}
+
+    rel_by_id: dict[str, str] = {}
+    for rel in rels.findall("pr:Relationship", NS):
+        rel_id = rel.attrib.get("Id", "")
+        rel_type = rel.attrib.get("Type", "")
+        target = rel.attrib.get("Target", "")
+        if rel_id not in referenced_rel_ids:
+            continue
+        if not rel_type.endswith("/worksheet"):
+            continue
+        if not target:
+            continue
+        rel_by_id[rel_id] = _normalize_target_path(target)
+
+    targets: dict[str, str] = {}
+    for name, rel_id in sheet_entries:
         target = rel_by_id.get(rel_id)
         if target:
             targets[name] = target
