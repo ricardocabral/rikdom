@@ -22,6 +22,27 @@ Durable decisions applied across phases:
 
 ---
 
+## Adoption-first Priority Stack (Updated 2026-04-21)
+
+Highest-impact initiatives are now explicitly prioritized for adoption and retention:
+
+1. **P0**: Calculation trust layer (deterministic, explainable numbers and reconciliations).
+2. **P0**: First-party importer reliability (`ghostfolio`, `ibkr`, `portfolio-performance`, `wealthfolio`) with row-level errors and dry-run diff.
+3. **P0**: Native multi-currency valuation engine with deterministic FX context.
+4. **P0**: Dividend/income automation and monthly/yearly income views.
+5. **P0**: Multi-portfolio workspace model (real, paper, retirement, etc.).
+6. **P0/P1**: Beginner self-hosted onboarding (one-command bootstrap and guided import path).
+7. **P1**: No-surprises data-quality guardrails (drift, missing FX, inconsistent amounts).
+8. **P1**: Scheduled auto-refresh snapshots and end-of-day ingest runs.
+9. **P1**: Paper/experimental portfolios and strategy clusters.
+10. **P2**: AI decision/plugin layer after trust + import + valuation foundations are stable.
+
+Sequencing override:
+
+- Quote/FX history and valuation determinism previously scoped late are pulled forward into P0/P1 execution.
+
+---
+
 ## Phase 1 (P0): Canonical Schema + Validation + Migration Basis
 
 **User stories**: durable schema for years, easy evolution, country-specific asset classes
@@ -66,7 +87,7 @@ Storage plugin extension (DuckDB mirror):
 
 ---
 
-## Phase 3 (P0): Pluggy Import + Asset-Type Catalog Foundation
+## Phase 3 (P0): Pluggy Import + Import Reliability + Asset-Type Catalog Foundation
 
 **User stories**: safe recurring imports from providers into local files, plus country-aware asset-type extensibility through plugins
 
@@ -88,6 +109,15 @@ Ship the first production slice of the new plugin engine focused on statement im
 - Add CLI command to inspect catalog plugins and effective asset types.
 - Keep merge behavior (`inserted/updated`) deterministic.
 - Emit import run metadata suitable for audit/idempotency.
+- Ship first-party importers targeting migration from widely used tools:
+  - `ghostfolio_export_json`
+  - `ibkr_flex_xml`
+  - `portfolio_performance_csv`
+  - `wealthfolio_export_json` (+ `wealthfolio_activity_csv` fallback)
+- Add importer preflight and UX contracts:
+  - row-level validation report (`rows[]`, `issues[]`, severity, blocking flag)
+  - dry-run diff output (`create/update/noop`, field-level `changes[]`, summary counts)
+  - canonical issue codes (for example `DATE_PARSE_FAILED`, `INVALID_CURRENCY`, `DUPLICATE_EXISTING`)
 - Seed first country catalog plugins for Brazil:
   - Core sovereign/real-estate: `fii`, `tesouro_direto`
   - Bank credit letters: `lci`, `lca`
@@ -152,11 +182,42 @@ Research basis (official references):
 - [ ] Import commands capture provenance fields.
 - [ ] Duplicate imports are detected deterministically.
 - [ ] Import reports expose inserted/updated/skipped counts.
+- [ ] First-party `ghostfolio_export_json` importer ships with fixtures and mapping tests.
+- [ ] First-party `ibkr_flex_xml` importer ships with cancellation/corporate-action edge-case tests.
+- [ ] First-party `portfolio_performance_csv` importer ships with locale/date/number parsing tests.
+- [ ] First-party `wealthfolio_export_json` importer ships with enum mapping + fallback tests.
+- [ ] Row-level error report payload is emitted for all importers in dry-run and apply modes.
+- [ ] Dry-run diff payload is emitted before write with `create/update/noop` operation summaries.
 - [x] `csv-generic` is migrated to native Pluggy plugin class.
 - [ ] Wave 1 Brazilian asset-type plugins ship with at least `fii`, `tesouro_direto`, `lci`, `lca`, `cri`, and `cra`.
 - [ ] Wave 2 Brazilian asset-type plugins ship with `debenture_incentivada`, `debenture_infra`, `bdr`, and `coe`.
 - [ ] Wave 3 Brazilian asset-type plugins ship with `fidc_cota` and `fiagro_cota`.
 - [ ] Validation enforces Brazil identifier and instrument-attribute conventions for all shipped waves.
+
+---
+
+## Phase 3A (P0): Calculation Trust + Multi-Currency Valuation
+
+**User stories**: "numbers must be correct", reproducible FX handling, explainability for portfolio totals and changes
+
+### What to build
+
+- Deterministic valuation layer with explicit quote/FX provenance per calculation period.
+- Reconciliation views/contracts:
+  - per-holding explainability ("how this value was derived")
+  - activity-to-holding consistency checks
+  - cross-currency consistency checks (`money.currency`, FX source, FX timestamp).
+- Deterministic FX policy:
+  - allow locked FX per snapshot run
+  - explicit fallback policies and warnings when FX is missing.
+- Promote hard-fail validation mode for critical valuation integrity issues.
+
+### Acceptance criteria
+
+- [ ] Portfolio totals are reproducible given the same inputs and FX dataset.
+- [ ] Each computed holding value can be traced to source amount + FX + timestamp.
+- [ ] Validation can fail on missing/invalid FX when strict mode is enabled.
+- [ ] Reconciliation report flags amount/quantity inconsistencies with actionable diagnostics.
 
 ---
 
@@ -181,6 +242,31 @@ Output plugin extension (Quarto reports):
 - [ ] Output requires no external services.
 - [ ] Quarto output plugin renders allocation, timeline, currency split, asset-type, geography, and risk slices from default JSON files.
 - [ ] Quarto plugin emits artifact metadata and clear dependency/preflight errors.
+
+---
+
+## Phase 4A (P0/P1): Dividend/Income, Multi-Portfolio, and Onboarding
+
+**User stories**: dividend automation, multiple portfolios, easy self-hosted start
+
+### What to build
+
+- Dividend/income automation:
+  - normalize dividend/interest/cashflow activities
+  - monthly/yearly income summaries and report slices.
+- Multi-portfolio workspace:
+  - first-class portfolio registry (`main`, `paper`, `retirement`, etc.)
+  - isolated imports/reports + optional consolidated rollups.
+- Beginner onboarding:
+  - one-command bootstrap for self-hosted setup
+  - guided import checklist for first successful migration.
+
+### Acceptance criteria
+
+- [ ] Dividend and interest events roll up into monthly/yearly income views.
+- [ ] Multiple portfolios can be managed in one workspace without path-level hacks.
+- [ ] Consolidated view across selected portfolios is available and test-covered.
+- [ ] New users can run bootstrap + first import with documented happy path in under 15 minutes.
 
 ---
 
@@ -216,19 +302,44 @@ Expand from import-only foundation to full lifecycle/cross-cutting engine:
 
 ---
 
-## Phase 6 (P1/P2): Advanced Valuation + Interchange + Analytics
+## Phase 5A (P1): Data Quality Guardrails + Auto-Refresh + Paper Portfolios
+
+**User stories**: no-surprises operation, low-friction recurring updates, safe experimentation
+
+### What to build
+
+- Data quality guardrails:
+  - drift detection between activities and holdings
+  - strict duplicate detection controls
+  - policy-driven warnings vs blocking failures.
+- Scheduled refresh:
+  - recurring snapshot/import orchestration for end-of-day updates.
+- Paper/experimental portfolios:
+  - strategy sandbox support with clear isolation from real holdings.
+
+### Acceptance criteria
+
+- [ ] Guardrail checks run consistently and surface machine-readable issue codes.
+- [ ] Scheduled runs can append snapshots and emit import/validation diagnostics.
+- [ ] Paper portfolios are isolated and excluded from real portfolio totals by default.
+
+---
+
+## Phase 6 (P2): Interchange + Advanced Analytics + AI Plugin Layer
 
 **User stories**: richer analysis and portability ecosystem
 
 ### What to build
 
-Add quote/FX history model, export package format with checksums, and extended analytics roadmap.
+- Expand export/interchange package format with checksums and replay metadata.
+- Deliver advanced analytics scope beyond core trust and valuation baseline.
+- Introduce AI strategy/decision plugins only after P0/P1 trust and import foundations are stable.
 
 ### Acceptance criteria
 
-- [ ] Quote/FX model supports deterministic valuation snapshots.
 - [ ] Export package is self-describing and integrity-checked.
 - [ ] Advanced analytics scope is captured in roadmap issues.
+- [ ] AI plugin interfaces include guardrails/audit requirements before general enablement.
 
 ---
 
