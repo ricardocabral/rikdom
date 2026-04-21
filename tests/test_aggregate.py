@@ -171,6 +171,95 @@ class AggregateTests(unittest.TestCase):
             any("Quantity drift for holding 'h-petr4'" in warning for warning in result.warnings)
         )
 
+    def test_quantity_matching_unions_activities_across_high_confidence_fields(self) -> None:
+        portfolio = {
+            "settings": {"base_currency": "BRL"},
+            "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+            "holdings": [
+                {
+                    "id": "h-petr4",
+                    "asset_type_id": "stock",
+                    "label": "PETR4",
+                    "identifiers": {"isin": "BRPETRACNOR9", "ticker": "PETR4"},
+                    "quantity": 15,
+                    "market_value": {"amount": 1500.0, "currency": "BRL"},
+                }
+            ],
+            "activities": [
+                {
+                    "id": "act-by-isin",
+                    "event_type": "buy",
+                    "status": "posted",
+                    "effective_at": "2026-04-01T00:00:00Z",
+                    "asset_type_id": "stock",
+                    "instrument": {"isin": "BRPETRACNOR9"},
+                    "quantity": 10,
+                },
+                {
+                    "id": "act-by-ticker",
+                    "event_type": "buy",
+                    "status": "posted",
+                    "effective_at": "2026-04-02T00:00:00Z",
+                    "asset_type_id": "stock",
+                    "instrument": {"ticker": "PETR4"},
+                    "quantity": 5,
+                },
+            ],
+        }
+        result = aggregate_portfolio(portfolio)
+        self.assertFalse(
+            any("Quantity drift for holding 'h-petr4'" in warning for warning in result.warnings)
+        )
+
+    def test_quantity_low_confidence_prefers_provider_account_id_over_wallet(self) -> None:
+        portfolio = {
+            "settings": {"base_currency": "BRL"},
+            "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+            "holdings": [
+                {
+                    "id": "h-acct-a",
+                    "asset_type_id": "stock",
+                    "label": "Account A Position",
+                    "identifiers": {
+                        "wallet": "wallet-shared",
+                        "provider_account_id": "acct-a",
+                    },
+                    "quantity": 4,
+                    "market_value": {"amount": 400.0, "currency": "BRL"},
+                }
+            ],
+            "activities": [
+                {
+                    "id": "act-acct-a",
+                    "event_type": "buy",
+                    "status": "posted",
+                    "effective_at": "2026-04-01T00:00:00Z",
+                    "asset_type_id": "stock",
+                    "instrument": {
+                        "wallet": "wallet-shared",
+                        "provider_account_id": "acct-a",
+                    },
+                    "quantity": 4,
+                },
+                {
+                    "id": "act-acct-b",
+                    "event_type": "buy",
+                    "status": "posted",
+                    "effective_at": "2026-04-02T00:00:00Z",
+                    "asset_type_id": "stock",
+                    "instrument": {
+                        "wallet": "wallet-shared",
+                        "provider_account_id": "acct-b",
+                    },
+                    "quantity": 7,
+                },
+            ],
+        }
+        result = aggregate_portfolio(portfolio)
+        self.assertFalse(
+            any("Quantity drift for holding 'h-acct-a'" in warning for warning in result.warnings)
+        )
+
     def test_quantity_wallet_fallback_skips_activities_with_instrument_identifier(self) -> None:
         portfolio = {
             "settings": {"base_currency": "BRL"},

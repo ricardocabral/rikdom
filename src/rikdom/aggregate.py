@@ -16,7 +16,7 @@ class AggregateResult:
 
 _IDENTIFIER_FIELDS = ("isin", "ticker", "wallet", "provider_account_id", "id")
 _HIGH_CONFIDENCE_IDENTIFIER_FIELDS = ("isin", "ticker", "id")
-_LOW_CONFIDENCE_IDENTIFIER_FIELDS = ("wallet", "provider_account_id")
+_LOW_CONFIDENCE_IDENTIFIER_FIELDS = ("provider_account_id", "wallet")
 _HIGH_CONFIDENCE_IDENTIFIER_FIELDS_SET = set(_HIGH_CONFIDENCE_IDENTIFIER_FIELDS)
 
 _QUANTITY_EVENT_SIGNS: dict[str, float] = {
@@ -280,12 +280,8 @@ def _append_quantity_consistency_warnings(
 
         matching_indices: set[int] = set()
         for field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS:
-            indices_for_field: set[int] = set()
             for key in keys_by_field.get(field, ()):
-                indices_for_field.update(key_index.get(key, ()))
-            if indices_for_field:
-                matching_indices = indices_for_field
-                break
+                matching_indices.update(key_index.get(key, ()))
 
         holding_has_high_confidence = any(
             field in keys_by_field for field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS
