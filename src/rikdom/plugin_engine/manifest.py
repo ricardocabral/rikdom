@@ -18,6 +18,7 @@ class PluginManifest:
     class_name: str
     description: str
     path: Path
+    command: list[str] | None = None
 
 
 def _as_str_list(value: Any, field_name: str, required: bool = False) -> list[str]:
@@ -64,6 +65,20 @@ def load_manifest(plugin_dir: Path) -> PluginManifest:
         )
 
     description = str(raw.get("description", "")).strip()
+
+    command: list[str] | None = None
+    if "command" in raw:
+        raw_command = raw.get("command")
+        if not isinstance(raw_command, list) or not raw_command:
+            raise PluginManifestError(
+                f"plugin.json field 'command' must be a non-empty array of strings: {manifest_path}"
+            )
+        if not all(isinstance(part, str) and part for part in raw_command):
+            raise PluginManifestError(
+                f"plugin.json field 'command' must be a non-empty array of strings: {manifest_path}"
+            )
+        command = list(raw_command)
+
     return PluginManifest(
         name=name,
         version=version,
@@ -73,4 +88,5 @@ def load_manifest(plugin_dir: Path) -> PluginManifest:
         class_name=class_name.strip(),
         description=description,
         path=plugin_dir,
+        command=command,
     )

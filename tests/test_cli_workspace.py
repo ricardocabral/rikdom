@@ -10,7 +10,9 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from rikdom.cli import (
+    _validate_portfolio_name,
     _resolve_workspace_args,
+    build_parser,
     main,
 )
 from rikdom.storage import save_json
@@ -193,6 +195,53 @@ class CliWorkspaceTests(unittest.TestCase):
                 self.assertEqual(payload["totals_by_currency"]["USD"]["portfolio_value_base"], 80.0)
             finally:
                 os.chdir(cwd)
+
+
+class PortfolioNameValidationTests(unittest.TestCase):
+    def test_accepts_standard_names(self) -> None:
+        for name in ("main", "paper", "main.v2", "retirement_2025", "a-b_c.d", "_hidden", "A1"):
+            with self.subTest(name=name):
+                self.assertEqual(_validate_portfolio_name(name), name)
+
+    def test_rejects_traversal_and_separators(self) -> None:
+        for name in (
+            "",
+            ".hidden",
+            "-leading",
+            "..",
+            "../etc",
+            "foo/bar",
+            "foo\\bar",
+            "foo..bar",
+            "foo bar",
+            "foo:bar",
+        ):
+            with self.subTest(name=name):
+                with self.assertRaises(ValueError):
+                    _validate_portfolio_name(name)
+
+
+class CliOutRootParsingTests(unittest.TestCase):
+    def test_out_root_accepted_by_workspace_commands(self) -> None:
+        parser = build_parser()
+        cases = [
+            ["validate", "--out-root", "custom-out"],
+            ["aggregate", "--out-root", "custom-out"],
+            ["snapshot", "--out-root", "custom-out"],
+            [
+                "import-statement",
+                "--plugin",
+                "csv-generic",
+                "--input",
+                "data-sample/sample_statement.csv",
+                "--out-root",
+                "custom-out",
+            ],
+        ]
+        for argv in cases:
+            with self.subTest(argv=argv):
+                ns = parser.parse_args(argv)
+                self.assertEqual(ns.out_root, "custom-out")
 
 
 if __name__ == "__main__":

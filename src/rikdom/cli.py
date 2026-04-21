@@ -62,16 +62,21 @@ SAMPLE_SNAPSHOTS_PATH = "data-sample/snapshots.jsonl"
 SAMPLE_FX_HISTORY_PATH = "data-sample/fx_rates.jsonl"
 DEFAULT_WORKSPACE_PORTFOLIOS = ("main", "paper", "retirement")
 
-_PORTFOLIO_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+_PORTFOLIO_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 
 
 def _validate_portfolio_name(name: str) -> str:
     if not isinstance(name, str) or not name:
         raise ValueError("Portfolio name must be a non-empty string")
-    if not _PORTFOLIO_NAME_PATTERN.fullmatch(name):
+    if (
+        not _PORTFOLIO_NAME_PATTERN.fullmatch(name)
+        or ".." in name
+        or "/" in name
+        or "\\" in name
+    ):
         raise ValueError(
-            f"Invalid portfolio name '{name}': must match [A-Za-z0-9][A-Za-z0-9_-]* "
-            "(no path separators, '..', or leading dots/dashes)"
+            f"Invalid portfolio name '{name}': must not contain path separators, "
+            "'..', or leading dots/dashes"
         )
     return name
 
@@ -447,6 +452,8 @@ def cmd_plugins_list(args: argparse.Namespace) -> int:
                 "class_name": m.class_name,
                 "description": m.description,
                 "path": str(m.path),
+                "command": list(m.command) if m.command is not None else None,
+                "legacy": m.command is not None,
             }
         )
     print(json.dumps({"plugins": payload}, indent=2, ensure_ascii=False))
