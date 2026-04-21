@@ -16,6 +16,13 @@ class MergeCounts:
     skipped: int = 0
 
 
+@dataclass(slots=True)
+class DiffCounts:
+    create: int = 0
+    update: int = 0
+    noop: int = 0
+
+
 def _canonical_content(entry: dict[str, Any], exclude: tuple[str, ...]) -> str:
     filtered = {k: v for k, v in entry.items() if k not in exclude}
     return json.dumps(filtered, sort_keys=True, ensure_ascii=False)
@@ -39,6 +46,37 @@ def _holding_content_hash(entry: dict[str, Any]) -> str:
 
 def _activity_content_hash(entry: dict[str, Any]) -> str:
     return _canonical_content(entry, exclude=_RUN_SCOPED_FIELDS)
+
+
+def _strip_run_scoped_fields(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            k: _strip_run_scoped_fields(v)
+            for k, v in value.items()
+            if k not in _RUN_SCOPED_FIELDS
+        }
+    if isinstance(value, list):
+        return [_strip_run_scoped_fields(v) for v in value]
+    return value
+
+
+def _field_changes(before: Any, after: Any, *, prefix: str = "") -> list[dict[str, Any]]:
+    if isinstance(before, dict) and isinstance(after, dict):
+        changes: list[dict[str, Any]] = []
+        keys = sorted(set(before.keys()) | set(after.keys()))
+        for key in keys:
+            path = f"{prefix}.{key}" if prefix else key
+            if key not in before:
+                changes.append({"field": path, "before": None, "after": after[key]})
+                continue
+            if key not in after:
+                changes.append({"field": path, "before": before[key], "after": None})
+                continue
+            changes.extend(_field_changes(before[key], after[key], prefix=path))
+        return changes
+    if before != after:
+        return [{"field": prefix or "$", "before": before, "after": after}]
+    return []
 
 
 def _idempotency_key_for_holding(entry: dict[str, Any], source_system: str) -> str:
@@ -190,10 +228,141 @@ def _validate_activity_entry(entry: dict[str, Any], idx: int) -> None:
         )
 
 
+def _normalize_activity_for_compare(entry: dict[str, Any], existing: dict[str, Any] | None = None) -> dict[str, Any]:
+    normalized = dict(entry)
+    normalized.setdefault("status", "posted")
+    if existing:
+        if existing.get("idempotency_key") and not normalized.get("idempotency_key"):
+            normalized["idempotency_key"] = existing["idempotency_key"]
+        if existing.get("id") and not normalized.get("id"):
+            normalized["id"] = existing["id"]
+    return normalized
+
+
+def _counts_diff_dict(counts: DiffCounts) -> dict[str, int]:
+    return {"create": counts.create, "update": counts.update, "noop": counts.noop}
+
+
+def build_import_diff(portfolio: dict[str, Any], imported: dict[str, Any]) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    holdings_counts = DiffCounts()
+    activities_counts = DiffCounts()
+
+    holdings = portfolio.get("holdings")
+    existing_holdings: list[dict[str, Any]] = holdings if isinstance(holdings, list) else []
+    holding_index: dict[str, dict[str, Any]] = {}
+    for item in existing_holdings:
+        if isinstance(item, dict):
+            hid = _as_text(item.get("id"))
+            if hid and hid not in holding_index:
+                holding_index[hid] = item
+
+    for entry in imported.get("holdings", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        hid = _as_text(entry.get("id"))
+        if not hid:
+            continue
+        existing = holding_index.get(hid)
+        if existing is None:
+            rows.append({"entity_type": "holding", "id": hid, "operation": "create", "changes": []})
+            holdings_counts.create += 1
+            continue
+
+        existing_norm = _strip_run_scoped_fields(existing)
+        incoming_norm = _strip_run_scoped_fields(entry)
+        if _holding_content_hash(existing) == _holding_content_hash(entry):
+            rows.append({"entity_type": "holding", "id": hid, "operation": "noop", "changes": []})
+            holdings_counts.noop += 1
+            continue
+
+        rows.append(
+            {
+                "entity_type": "holding",
+                "id": hid,
+                "operation": "update",
+                "changes": _field_changes(existing_norm, incoming_norm),
+            }
+        )
+        holdings_counts.update += 1
+
+    activities = portfolio.get("activities")
+    existing_activities: list[dict[str, Any]] = activities if isinstance(activities, list) else []
+    current_index: dict[str, int] = {}
+    id_index: dict[str, int] = {}
+    idem_index: dict[str, int] = {}
+    for i, item in enumerate(existing_activities):
+        if not isinstance(item, dict):
+            continue
+        aid, idem = _activity_identity(item)
+        if aid:
+            id_index.setdefault(aid, i)
+        if idem:
+            idem_index.setdefault(idem, i)
+        for key in _activity_keys(item):
+            current_index.setdefault(key, i)
+
+    for entry in imported.get("activities", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        keys = _activity_keys(entry)
+        if not keys:
+            continue
+        aid, idem = _activity_identity(entry)
+        matched_pos: int | None = None
+        if aid and aid in id_index:
+            matched_pos = id_index[aid]
+        if matched_pos is None and idem and idem in idem_index:
+            matched_pos = idem_index[idem]
+        if matched_pos is None:
+            matched_pos = next((current_index[k] for k in keys if k in current_index), None)
+
+        entity_id = aid or idem or f"row-{len(rows)}"
+        if matched_pos is None:
+            rows.append(
+                {"entity_type": "activity", "id": entity_id, "operation": "create", "changes": []}
+            )
+            activities_counts.create += 1
+            continue
+
+        existing = existing_activities[matched_pos]
+        existing_norm = dict(existing) if isinstance(existing, dict) else {}
+        existing_norm.setdefault("status", "posted")
+        incoming_norm = _normalize_activity_for_compare(entry, existing_norm)
+
+        if _activity_content_hash(existing_norm) == _activity_content_hash(incoming_norm):
+            rows.append(
+                {"entity_type": "activity", "id": entity_id, "operation": "noop", "changes": []}
+            )
+            activities_counts.noop += 1
+            continue
+
+        rows.append(
+            {
+                "entity_type": "activity",
+                "id": entity_id,
+                "operation": "update",
+                "changes": _field_changes(
+                    _strip_run_scoped_fields(existing_norm),
+                    _strip_run_scoped_fields(incoming_norm),
+                ),
+            }
+        )
+        activities_counts.update += 1
+
+    return {
+        "summary": {
+            "holdings": _counts_diff_dict(holdings_counts),
+            "activities": _counts_diff_dict(activities_counts),
+        },
+        "rows": rows,
+    }
+
+
 def merge_activities(
     portfolio: dict[str, Any], imported: dict[str, Any]
 ) -> tuple[dict[str, Any], MergeCounts]:
-    imported_activities = imported.get("activities", []) or []
+    imported_activities = list(imported.get("activities", []) or [])
     for idx, entry in enumerate(imported_activities):
         if isinstance(entry, dict):
             _validate_activity_entry(entry, idx)
@@ -226,8 +395,7 @@ def merge_activities(
             counts.skipped += 1
             continue
 
-        normalized = dict(entry)
-        normalized.setdefault("status", "posted")
+        normalized = _normalize_activity_for_compare(entry)
         aid, idem = _activity_identity(normalized)
 
         matched_pos = None
@@ -242,10 +410,7 @@ def merge_activities(
             existing_norm = dict(existing) if isinstance(existing, dict) else {}
             existing_norm.setdefault("status", "posted")
             if isinstance(existing, dict):
-                if existing.get("idempotency_key") and not normalized.get("idempotency_key"):
-                    normalized["idempotency_key"] = existing["idempotency_key"]
-                if existing.get("id") and not normalized.get("id"):
-                    normalized["id"] = existing["id"]
+                normalized = _normalize_activity_for_compare(normalized, existing)
             normalized_id, normalized_idem = _activity_identity(normalized)
             if _activity_content_hash(existing_norm) == _activity_content_hash(normalized):
                 if normalized_id:

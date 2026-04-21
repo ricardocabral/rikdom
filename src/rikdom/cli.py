@@ -33,7 +33,14 @@ from .plugin_engine.pipeline import (
     run_output_pipeline,
     run_storage_sync_pipeline,
 )
-from .plugins import MergeCounts, merge_activities, merge_holdings, stamp_provenance
+from .import_preflight import build_preflight_report
+from .plugins import (
+    MergeCounts,
+    build_import_diff,
+    merge_activities,
+    merge_holdings,
+    stamp_provenance,
+)
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
 from .validate import CURRENT_SCHEMA_VERSION, validate_portfolio
@@ -331,13 +338,47 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         ingested_at=ingested_at,
     )
 
+    preflight_report = build_preflight_report(portfolio, imported)
+    dry_run_diff = build_import_diff(portfolio, imported)
+    dry_run = bool(getattr(args, "dry_run", False))
+    write_requested = bool(args.write)
+    write_applied = write_requested and not dry_run
+
+    if not preflight_report.get("ok", False):
+        print(
+            json.dumps(
+                {
+                    "import_run_id": import_run_id,
+                    "ingested_at": ingested_at,
+                    "source_system": source_system,
+                    "plugin": args.plugin,
+                    "input": args.input,
+                    "preflight": preflight_report,
+                    "dry_run_diff": dry_run_diff,
+                    "write": False,
+                    "write_requested": write_requested,
+                    "dry_run": dry_run,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        print(
+            (
+                "Import failed: preflight validation found "
+                f"{preflight_report['summary']['blocking_issues']} blocking issue(s)"
+            ),
+            file=sys.stderr,
+        )
+        return 1
+
     try:
         merged, h_counts = merge_holdings(portfolio, imported)
         merged, a_counts = merge_activities(merged, imported)
     except Exception as exc:
         print(f"Import failed: {exc}", file=sys.stderr)
         return 1
-    if args.write:
+    if write_applied:
         save_json(args.portfolio, merged)
 
     log_entry = {
@@ -346,12 +387,16 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         "source_system": source_system,
         "plugin": args.plugin,
         "input": args.input,
+        "preflight": preflight_report,
+        "dry_run_diff": dry_run_diff,
         "holdings": _counts_dict(h_counts),
         "activities": _counts_dict(a_counts),
-        "write": bool(args.write),
+        "write": bool(write_applied),
+        "write_requested": write_requested,
+        "dry_run": dry_run,
     }
 
-    if args.import_log and args.write:
+    if args.import_log and write_applied:
         append_jsonl(args.import_log, log_entry)
 
     print(json.dumps(log_entry, indent=2, ensure_ascii=False))
@@ -916,6 +961,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_import.add_argument("--input", required=True)
     p_import.add_argument("--plugins-dir", default="plugins")
     p_import.add_argument("--write", action="store_true")
+    p_import.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run preflight + merge diff without writing portfolio/import log",
+    )
     p_import.add_argument("--import-log", default=None)
     p_import.add_argument("--import-run-id", default=None, help="Override generated run id (mainly for tests).")
     p_import.add_argument("--ingested-at", default=None, help="Override ingested_at timestamp (ISO-8601).")

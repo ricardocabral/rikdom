@@ -7,6 +7,7 @@ Canonical docs:
 
 Plugin docs:
 - [csv-generic](csv-generic/README.md)
+- [ghostfolio_export_json](ghostfolio_export_json/README.md)
 - [b3-consolidado-mensal](b3-consolidado-mensal/README.md)
 - [quarto-portfolio-report](quarto-portfolio-report/README.md)
 - [duckdb-storage](duckdb-storage/README.md)

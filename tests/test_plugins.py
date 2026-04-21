@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import copy
 import tempfile
 import unittest
 from unittest import mock
 
 from rikdom.plugin_engine.pipeline import run_import_pipeline
-from rikdom.plugins import merge_activities, merge_holdings, run_import_plugin
+from rikdom.plugins import build_import_diff, merge_activities, merge_holdings, run_import_plugin
 
 
 class PluginTests(unittest.TestCase):
@@ -194,6 +195,72 @@ class PluginTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing event_type"):
             merge_activities(portfolio, imported)
 
+    def test_build_import_diff_reports_create_update_noop(self) -> None:
+        portfolio: dict = {
+            "holdings": [
+                {
+                    "id": "h-1",
+                    "asset_type_id": "stock",
+                    "label": "Apple",
+                    "market_value": {"amount": 100.0, "currency": "USD"},
+                }
+            ],
+            "activities": [
+                {
+                    "id": "a-1",
+                    "event_type": "dividend",
+                    "effective_at": "2026-02-13T00:00:00Z",
+                    "status": "posted",
+                    "money": {"amount": 1.0, "currency": "USD"},
+                    "idempotency_key": "k-1",
+                }
+            ],
+        }
+        imported = {
+            "holdings": [
+                {
+                    "id": "h-1",
+                    "asset_type_id": "stock",
+                    "label": "Apple Inc.",
+                    "market_value": {"amount": 110.0, "currency": "USD"},
+                },
+                {
+                    "id": "h-2",
+                    "asset_type_id": "stock",
+                    "label": "Microsoft",
+                    "market_value": {"amount": 200.0, "currency": "USD"},
+                },
+            ],
+            "activities": [
+                {
+                    "id": "a-1",
+                    "event_type": "dividend",
+                    "effective_at": "2026-02-13T00:00:00Z",
+                    "status": "posted",
+                    "money": {"amount": 1.0, "currency": "USD"},
+                    "idempotency_key": "k-1",
+                },
+                {
+                    "id": "a-2",
+                    "event_type": "buy",
+                    "effective_at": "2026-02-14T00:00:00Z",
+                    "status": "posted",
+                    "money": {"amount": 200.0, "currency": "USD"},
+                },
+            ],
+        }
+
+        report = build_import_diff(portfolio, imported)
+        self.assertEqual(report["summary"]["holdings"], {"create": 1, "update": 1, "noop": 0})
+        self.assertEqual(report["summary"]["activities"], {"create": 1, "update": 0, "noop": 1})
+        holding_update = next(
+            row
+            for row in report["rows"]
+            if row["entity_type"] == "holding" and row["id"] == "h-1"
+        )
+        self.assertEqual(holding_update["operation"], "update")
+        self.assertTrue(any(change["field"] == "label" for change in holding_update["changes"]))
+
     def test_merge_activities_rejects_none_for_required_fields(self) -> None:
         portfolio: dict = {"holdings": [], "activities": []}
         imported = {
@@ -235,7 +302,7 @@ class PluginTests(unittest.TestCase):
                 }
             ],
         }
-        original_activities = [dict(activity) for activity in portfolio["activities"]]
+        original_activities = copy.deepcopy(portfolio["activities"])
         imported = {
             "activities": [
                 {
