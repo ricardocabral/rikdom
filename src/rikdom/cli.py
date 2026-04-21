@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 import uuid
@@ -61,6 +62,19 @@ SAMPLE_SNAPSHOTS_PATH = "data-sample/snapshots.jsonl"
 SAMPLE_FX_HISTORY_PATH = "data-sample/fx_rates.jsonl"
 DEFAULT_WORKSPACE_PORTFOLIOS = ("main", "paper", "retirement")
 
+_PORTFOLIO_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+
+def _validate_portfolio_name(name: str) -> str:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Portfolio name must be a non-empty string")
+    if not _PORTFOLIO_NAME_PATTERN.fullmatch(name):
+        raise ValueError(
+            f"Invalid portfolio name '{name}': must match [A-Za-z0-9][A-Za-z0-9_-]* "
+            "(no path separators, '..', or leading dots/dashes)"
+        )
+    return name
+
 
 def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -82,6 +96,7 @@ def _default_workspace_paths(data_dir: str, out_root: str) -> dict[str, str]:
 
 
 def _portfolio_workspace_paths(portfolio_name: str, data_dir: str, out_root: str) -> dict[str, str]:
+    _validate_portfolio_name(portfolio_name)
     scoped_data = Path(data_dir) / "portfolios" / portfolio_name
     scoped_out = Path(out_root) / portfolio_name
     return {
@@ -476,6 +491,13 @@ def cmd_workspace_init(args: argparse.Namespace) -> int:
     names = _parse_csv_names(args.portfolios) if args.portfolios else list(DEFAULT_WORKSPACE_PORTFOLIOS)
     if not names:
         print("No portfolio names provided", file=sys.stderr)
+        return 2
+    try:
+        for name in names:
+            _validate_portfolio_name(name)
+        _validate_portfolio_name(args.default_portfolio)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 2
     if args.default_portfolio not in names:
         print("--default-portfolio must be one of --portfolios", file=sys.stderr)
@@ -890,7 +912,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_validate = sub.add_parser("validate", help="Validate portfolio structure")
     p_validate.add_argument("--portfolio", default=None)
-    _add_workspace_options(p_validate, with_portfolio_name=True, with_registry=True)
+    _add_workspace_options(
+        p_validate, with_out_root=True, with_portfolio_name=True, with_registry=True
+    )
     p_validate.set_defaults(func=cmd_validate)
 
     p_aggregate = sub.add_parser("aggregate", help="Aggregate holdings by asset class")
@@ -901,7 +925,9 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Treat missing FX conversion warnings as hard errors",
     )
-    _add_workspace_options(p_aggregate, with_portfolio_name=True, with_registry=True)
+    _add_workspace_options(
+        p_aggregate, with_out_root=True, with_portfolio_name=True, with_registry=True
+    )
     p_aggregate.set_defaults(func=cmd_aggregate)
 
     p_snapshot = sub.add_parser("snapshot", help="Append one snapshot into JSONL history")
@@ -925,7 +951,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="Rotate --snapshots before appending if it exceeds this size (0 disables)",
     )
-    _add_workspace_options(p_snapshot, with_portfolio_name=True, with_registry=True)
+    _add_workspace_options(
+        p_snapshot, with_out_root=True, with_portfolio_name=True, with_registry=True
+    )
     p_snapshot.set_defaults(func=cmd_snapshot)
 
     p_compact = sub.add_parser("compact", help="Compact and/or rotate a snapshots journal")
@@ -969,7 +997,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_import.add_argument("--import-log", default=None)
     p_import.add_argument("--import-run-id", default=None, help="Override generated run id (mainly for tests).")
     p_import.add_argument("--ingested-at", default=None, help="Override ingested_at timestamp (ISO-8601).")
-    _add_workspace_options(p_import, with_portfolio_name=True, with_registry=True)
+    _add_workspace_options(
+        p_import, with_out_root=True, with_portfolio_name=True, with_registry=True
+    )
     p_import.set_defaults(func=cmd_import_statement)
 
     p_imports = sub.add_parser("imports", help="Inspect import run history")
