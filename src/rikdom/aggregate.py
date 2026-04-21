@@ -15,6 +15,9 @@ class AggregateResult:
 
 
 _IDENTIFIER_FIELDS = ("isin", "ticker", "wallet", "provider_account_id", "id")
+_HIGH_CONFIDENCE_IDENTIFIER_FIELDS = ("isin", "ticker", "id")
+_LOW_CONFIDENCE_IDENTIFIER_FIELDS = ("wallet", "provider_account_id")
+_HIGH_CONFIDENCE_IDENTIFIER_FIELDS_SET = set(_HIGH_CONFIDENCE_IDENTIFIER_FIELDS)
 
 _QUANTITY_EVENT_SIGNS: dict[str, float] = {
     "buy": 1.0,
@@ -211,26 +214,35 @@ def _is_posted_activity(activity: dict[str, Any]) -> bool:
 
 def _build_quantity_ledger_index(
     activities: list[dict[str, Any]],
-) -> tuple[list[float | None], dict[tuple[str, str, str], set[int]]]:
+) -> tuple[
+    list[float | None],
+    dict[tuple[str, str, str], set[int]],
+    list[set[str]],
+]:
     deltas: list[float | None] = []
     key_index: dict[tuple[str, str, str], set[int]] = {}
+    activity_identifier_fields: list[set[str]] = []
 
     for idx, activity in enumerate(activities):
         if not _is_posted_activity(activity):
             deltas.append(None)
+            activity_identifier_fields.append(set())
             continue
         event_type = str(activity.get("event_type", "")).strip().lower()
         sign = _QUANTITY_EVENT_SIGNS.get(event_type)
         if sign is None:
             deltas.append(None)
+            activity_identifier_fields.append(set())
             continue
 
         quantity = activity.get("quantity")
         if not _is_numeric(quantity):
             deltas.append(None)
+            activity_identifier_fields.append(set())
             continue
 
         keys = _activity_instrument_keys(activity)
+        activity_identifier_fields.append({field for _, field, _ in keys})
         if not keys:
             deltas.append(None)
             continue
@@ -239,7 +251,7 @@ def _build_quantity_ledger_index(
         for key in keys:
             key_index.setdefault(key, set()).add(idx)
 
-    return deltas, key_index
+    return deltas, key_index, activity_identifier_fields
 
 
 def _append_quantity_consistency_warnings(
@@ -249,7 +261,7 @@ def _append_quantity_consistency_warnings(
     *,
     tolerance: float,
 ) -> None:
-    deltas, key_index = _build_quantity_ledger_index(activities)
+    deltas, key_index, activity_identifier_fields = _build_quantity_ledger_index(activities)
     if not key_index:
         return
 
@@ -262,9 +274,36 @@ def _append_quantity_consistency_warnings(
         if not keys:
             continue
 
-        matching_indices: set[int] = set()
+        keys_by_field: dict[str, list[tuple[str, str, str]]] = {}
         for key in keys:
-            matching_indices.update(key_index.get(key, ()))
+            keys_by_field.setdefault(key[1], []).append(key)
+
+        matching_indices: set[int] = set()
+        for field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS:
+            indices_for_field: set[int] = set()
+            for key in keys_by_field.get(field, ()):
+                indices_for_field.update(key_index.get(key, ()))
+            if indices_for_field:
+                matching_indices = indices_for_field
+                break
+
+        holding_has_high_confidence = any(
+            field in keys_by_field for field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS
+        )
+        if not matching_indices and not holding_has_high_confidence:
+            for field in _LOW_CONFIDENCE_IDENTIFIER_FIELDS:
+                indices_for_field: set[int] = set()
+                for key in keys_by_field.get(field, ()):
+                    indices_for_field.update(key_index.get(key, ()))
+                if not indices_for_field:
+                    continue
+                matching_indices = {
+                    idx
+                    for idx in indices_for_field
+                    if not (activity_identifier_fields[idx] & _HIGH_CONFIDENCE_IDENTIFIER_FIELDS_SET)
+                }
+                if matching_indices:
+                    break
         if not matching_indices:
             continue
 
