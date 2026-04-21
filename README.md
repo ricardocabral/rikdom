@@ -97,13 +97,14 @@ Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for your
 uv sync --extra schema
 ```
 
-### 3. Bootstrap local workspace files
+### 3. Bootstrap local workspace files (optional)
+
+The CLI auto-bootstraps `data/portfolio.json` and `data/snapshots.jsonl` from `data-sample/` on first run. To seed them manually:
 
 ```bash
 mkdir -p data
 cp -n data-sample/portfolio.json data/portfolio.json
 cp -n data-sample/snapshots.jsonl data/snapshots.jsonl
-touch data/import_log.jsonl
 ```
 
 ### 4. Validate portfolio data

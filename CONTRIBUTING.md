@@ -43,6 +43,12 @@ Run the test suite:
 uv run python -m unittest discover -s tests -v
 ```
 
+Run lint checks:
+
+```bash
+ruff check .
+```
+
 ## Development workflow
 
 1. Create a branch from `main`.
@@ -72,6 +78,7 @@ PR checklist:
 
 - [ ] Change is scoped and self-contained.
 - [ ] Tests added/updated for new behavior.
+- [ ] `ruff check .` passes.
 - [ ] `uv run rikdom validate --portfolio tests/fixtures/portfolio.json` passes.
 - [ ] `uv run python -m unittest discover -s tests -v` passes.
 - [ ] Docs updated when behavior, schema, or CLI changes.
