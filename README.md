@@ -4,6 +4,16 @@ Portable, local-first wealth portfolio schema + storage toolkit.
 
 `rikdom` is designed so your portfolio data can last for years as plain JSON files, independent of any broker app or SaaS dashboard.
 
+## Why The Name "rikdom"
+
+`rikdom` is a Norwegian word meaning "wealth" (or "riches").
+The name reflects the project goal: treat wealth data as durable, long-lived information, not a locked product database.
+
+## Why Now
+
+With coding agents and LLMs, it is much easier to build your own asset management software and adapt it to your needs over time.
+`rikdom` focuses on the durable layer beneath that iteration: a solid foundation for storing and evolving financial data, plus a plugin system you can extend with coding agents and enrich with reusable open-source plugins.
+
 ## What It Solves
 
 - Define a portfolio for a person or company.
@@ -20,6 +30,23 @@ Portable, local-first wealth portfolio schema + storage toolkit.
 - Durable formats: JSON schema and line-delimited snapshots.
 - Extensible by design: `metadata` and `extensions` fields.
 - Agent-friendly: explicit schema + instructions for Codex/Claude.
+
+## How rikdom differs from Ghostfolio and Wealthfolio
+
+`rikdom` is not trying to be another full investment app.
+It is a schema + CLI + plugin foundation focused on durability, portability, and auditable local files.
+
+| Project | Primary shape | Storage model | Core focus |
+| --- | --- | --- | --- |
+| [rikdom](https://github.com/ricardocabral/rikdom) | Python CLI toolkit + JSON schema + plugin engine | Plain `JSON` + append-only `JSONL` in your repo/workspace | Long-term, local-first data durability and machine-readable portfolio workflows |
+| [Ghostfolio](https://github.com/ghostfolio/ghostfolio) | Full web app (Angular + NestJS) for portfolio tracking | Server stack (`PostgreSQL` + `Redis`) with optional cloud offering | Operational wealth dashboard with rich UI, analytics, and continuous app runtime |
+| [Wealthfolio](https://github.com/afadil/wealthfolio) | Desktop investment tracker (Tauri + React + Rust) | Local `SQLite` database | Beautiful local desktop experience with performance analytics and addon ecosystem |
+
+Practical difference:
+
+- Choose `rikdom` when you want open contracts and file-level control first.
+- Choose Ghostfolio/Wealthfolio when you want a ready-made end-user app experience first.
+- Combine them when needed: keep `rikdom` as your canonical data layer and export/sync to other tools via plugins.
 
 ## Information Flow
 
@@ -125,6 +152,10 @@ uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugi
 uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
 uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
 ```
+
+Portfolio view plugin (`quarto-portfolio-report`) preview:
+
+![Rikdom portfolio view plugin preview](docs/assets/portfolio-view-plugin.png)
 
 Schema upgrades: see [docs/migrations.md](docs/migrations.md).
 Durability and journal compaction: see [docs/storage-durability.md](docs/storage-durability.md).
