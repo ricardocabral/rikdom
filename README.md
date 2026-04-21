@@ -73,7 +73,9 @@ flowchart TD
 ## Repository Structure
 
 - `schema/` JSON schemas and default asset types
-- `data/` local workspace files (`portfolio.json`, `snapshots.jsonl`, `import_log.jsonl`), gitignored
+- `data/` local workspace files (`portfolio.json`, `snapshots.jsonl`, `fx_rates.jsonl`, `import_log.jsonl`), gitignored
+- `data/portfolio_registry.json` optional multi-portfolio registry (`main`, `paper`, `retirement`, etc.)
+- `data/portfolios/<name>/` per-portfolio isolated data files when registry mode is used
 - `data-sample/` tracked starter templates copied into `data/` on first default CLI run
 - `src/rikdom/` Python package (CLI, validation, import pipeline, visualization)
 - `docs/` schema, storage, plugin docs, and execution plans
@@ -99,7 +101,7 @@ make sync
 
 ### 3. Bootstrap local workspace files (optional)
 
-The CLI auto-bootstraps `data/portfolio.json` and `data/snapshots.jsonl` from `data-sample/` on first run. To seed them manually:
+The CLI auto-bootstraps `data/portfolio.json`, `data/snapshots.jsonl`, and `data/fx_rates.jsonl` from `data-sample/` on first run. To seed them manually:
 
 ```bash
 make bootstrap
@@ -123,10 +125,39 @@ make aggregate
 make snapshot
 ```
 
+`snapshot` now auto-ingests missing FX history for non-base holdings and locks the FX rates used into the snapshot row metadata (`metadata.fx_lock`) for deterministic valuation history.
+
 ### 7. Generate dashboard
 
 ```bash
 make visualize
+```
+
+### 8. Multi-portfolio workspace (optional)
+
+Initialize a registry with isolated data paths:
+
+```bash
+uv run rikdom workspace init --data-dir data
+```
+
+List registered portfolios:
+
+```bash
+uv run rikdom workspace list --data-dir data
+```
+
+Run commands against a specific portfolio:
+
+```bash
+uv run rikdom aggregate --data-dir data --portfolio-name retirement
+uv run rikdom render-report --data-dir data --out-root out --portfolio-name retirement
+```
+
+Cross-portfolio rollup:
+
+```bash
+uv run rikdom workspace rollup --data-dir data
 ```
 
 ## Common Dev Tasks
@@ -135,6 +166,8 @@ make visualize
 make lint
 make test
 make check
+# Example: run against paper portfolio in alternate workspace root
+make validate DATA_DIR=workspace-data OUT_DIR=workspace-out PORTFOLIO_NAME=paper
 ```
 
 ## Schema Docs

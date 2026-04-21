@@ -2,8 +2,18 @@
 	plugins-list import-sample render-report storage-sync migrate-dry-run \
 	test lint check
 
+DATA_DIR ?= data
+OUT_DIR ?= out
+PORTFOLIO_NAME ?=
+
+WORKSPACE_ARGS = --data-dir $(DATA_DIR) --out-root $(OUT_DIR)
+ifneq ($(strip $(PORTFOLIO_NAME)),)
+WORKSPACE_ARGS += --portfolio-name $(PORTFOLIO_NAME)
+endif
+
 help:
 	@echo "Common tasks:"
+	@echo "  variables: DATA_DIR=data OUT_DIR=out PORTFOLIO_NAME=<name>"
 	@echo "  make sync             - Install/sync dependencies with uv"
 	@echo "  make bootstrap        - Seed local data files from data-sample/"
 	@echo "  make validate         - Validate default portfolio data"
@@ -24,36 +34,36 @@ sync:
 	uv sync --extra schema
 
 bootstrap:
-	mkdir -p data
-	cp -n data-sample/portfolio.json data/portfolio.json
-	cp -n data-sample/snapshots.jsonl data/snapshots.jsonl
+	mkdir -p $(DATA_DIR)
+	cp -n data-sample/portfolio.json $(DATA_DIR)/portfolio.json
+	cp -n data-sample/snapshots.jsonl $(DATA_DIR)/snapshots.jsonl
 
 validate:
-	uv run rikdom validate
+	uv run rikdom validate $(WORKSPACE_ARGS)
 
 validate-fixture:
 	uv run rikdom validate --portfolio tests/fixtures/portfolio.json
 
 aggregate:
-	uv run rikdom aggregate
+	uv run rikdom aggregate $(WORKSPACE_ARGS)
 
 snapshot:
-	uv run rikdom snapshot
+	uv run rikdom snapshot $(WORKSPACE_ARGS)
 
 visualize:
-	uv run rikdom visualize --out out/dashboard.html --include-current
+	uv run rikdom visualize $(WORKSPACE_ARGS) --include-current
 
 plugins-list:
 	uv run rikdom plugins list --plugins-dir plugins
 
 import-sample:
-	uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --write
+	uv run rikdom import-statement $(WORKSPACE_ARGS) --plugin csv-generic --input data-sample/sample_statement.csv --write
 
 render-report:
-	uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
+	uv run rikdom render-report $(WORKSPACE_ARGS) --plugin quarto-portfolio-report --plugins-dir plugins
 
 storage-sync:
-	uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
+	uv run rikdom storage-sync $(WORKSPACE_ARGS) --plugin duckdb-storage --plugins-dir plugins
 
 migrate-dry-run:
 	uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
