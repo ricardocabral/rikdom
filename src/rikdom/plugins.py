@@ -193,10 +193,13 @@ def _validate_activity_entry(entry: dict[str, Any], idx: int) -> None:
 def merge_activities(
     portfolio: dict[str, Any], imported: dict[str, Any]
 ) -> tuple[dict[str, Any], MergeCounts]:
-    activities = portfolio.get("activities")
-    if not isinstance(activities, list):
-        activities = []
-        portfolio["activities"] = activities
+    imported_activities = imported.get("activities", []) or []
+    for idx, entry in enumerate(imported_activities):
+        if isinstance(entry, dict):
+            _validate_activity_entry(entry, idx)
+
+    current_activities = portfolio.get("activities")
+    activities = list(current_activities) if isinstance(current_activities, list) else []
 
     current_index: dict[str, int] = {}
     id_index: dict[str, int] = {}
@@ -213,12 +216,10 @@ def merge_activities(
             current_index.setdefault(key, i)
 
     counts = MergeCounts()
-    for idx, entry in enumerate(imported.get("activities", []) or []):
+    for entry in imported_activities:
         if not isinstance(entry, dict):
             counts.skipped += 1
             continue
-
-        _validate_activity_entry(entry, idx)
 
         keys = _activity_keys(entry)
         if not keys:
@@ -278,6 +279,7 @@ def merge_activities(
                 current_index[f"idem::{normalized_idem}"] = new_pos
             counts.inserted += 1
 
+    portfolio["activities"] = activities
     return portfolio, counts
 
 

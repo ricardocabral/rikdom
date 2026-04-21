@@ -222,6 +222,40 @@ class PluginTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing id"):
             merge_activities(portfolio, imported)
 
+    def test_merge_activities_is_atomic_when_validation_fails(self) -> None:
+        portfolio: dict = {
+            "holdings": [],
+            "activities": [
+                {
+                    "id": "existing",
+                    "event_type": "dividend",
+                    "effective_at": "2026-02-13T00:00:00Z",
+                    "status": "posted",
+                    "money": {"amount": 1.0, "currency": "USD"},
+                }
+            ],
+        }
+        original_activities = [dict(activity) for activity in portfolio["activities"]]
+        imported = {
+            "activities": [
+                {
+                    "id": "existing",
+                    "event_type": "dividend",
+                    "effective_at": "2026-02-13T00:00:00Z",
+                    "status": "posted",
+                    "money": {"amount": 2.0, "currency": "USD"},
+                },
+                {
+                    "id": "bad",
+                    "effective_at": "2026-02-13T00:00:00Z",
+                },
+            ]
+        }
+
+        with self.assertRaisesRegex(ValueError, "Invalid imported activity at index 1: missing event_type"):
+            merge_activities(portfolio, imported)
+        self.assertEqual(portfolio["activities"], original_activities)
+
     def test_run_import_plugin_accepts_legacy_positional_signature(self) -> None:
         with mock.patch(
             "rikdom.plugin_engine.pipeline.run_import_pipeline",
