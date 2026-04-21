@@ -12,84 +12,93 @@ def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _read_rows(path: Path) -> list[dict[str, str]]:
+def _read_rows(path: Path) -> list[dict[str, str | None]]:
     with path.open("r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         return [dict(r) for r in reader]
 
 
-def _to_holding(row: dict[str, str]) -> dict:
-    amount = float(row["amount"])
+def _cell(row: dict[str, str | None], field: str) -> str:
+    return (row.get(field) or "").strip()
+
+
+def _to_holding(row: dict[str, str | None]) -> dict:
+    amount = float(_cell(row, "amount"))
     holding = {
-        "id": row["id"].strip(),
-        "asset_type_id": row["asset_type_id"].strip(),
-        "label": row["label"].strip(),
+        "id": _cell(row, "id"),
+        "asset_type_id": _cell(row, "asset_type_id"),
+        "label": _cell(row, "label"),
         "market_value": {
             "amount": amount,
-            "currency": row["currency"].strip().upper(),
+            "currency": _cell(row, "currency").upper(),
         },
     }
 
-    quantity = row.get("quantity", "").strip()
+    quantity = _cell(row, "quantity")
     if quantity:
         holding["quantity"] = float(quantity)
 
-    ticker = row.get("ticker", "").strip()
+    ticker = _cell(row, "ticker")
     if ticker:
         holding["identifiers"] = {"ticker": ticker}
 
-    country = row.get("country", "").strip().upper()
+    country = _cell(row, "country").upper()
     if country:
         holding["jurisdiction"] = {"country": country}
 
-    fx_rate = row.get("fx_rate_to_base", "").strip()
+    fx_rate = _cell(row, "fx_rate_to_base")
     if fx_rate:
         holding["metadata"] = {"fx_rate_to_base": float(fx_rate)}
 
     return holding
 
 
-def _to_activity(row: dict[str, str]) -> dict:
-    amount = float(row["amount"])
-    currency = row["currency"].strip().upper()
-    event_type = (row.get("event_type") or "").strip() or "other"
-    effective_at = (row.get("effective_at") or "").strip() or _now_iso()
+def _to_activity(row: dict[str, str | None]) -> dict:
+    amount = float(_cell(row, "amount"))
+    currency = _cell(row, "currency").upper()
+    event_type = _cell(row, "event_type") or "other"
+    effective_at = _cell(row, "effective_at")
+    activity_id = _cell(row, "id")
+    if not effective_at:
+        raise ValueError(
+            f"Invalid activity row id='{activity_id or '<missing>'}': missing required effective_at"
+        )
 
     activity: dict = {
-        "id": row["id"].strip(),
+        "id": activity_id,
         "event_type": event_type,
-        "status": (row.get("status") or "").strip() or "posted",
+        "status": _cell(row, "status") or "posted",
         "effective_at": effective_at,
         "money": {"amount": amount, "currency": currency},
     }
 
-    asset_type_id = (row.get("asset_type_id") or "").strip()
+    asset_type_id = _cell(row, "asset_type_id")
     if asset_type_id:
         activity["asset_type_id"] = asset_type_id
 
-    subtype = (row.get("subtype") or "").strip()
+    subtype = _cell(row, "subtype")
     if subtype:
         activity["subtype"] = subtype
 
-    quantity = (row.get("quantity") or "").strip()
+    quantity = _cell(row, "quantity")
     if quantity:
         activity["quantity"] = float(quantity)
 
     instrument: dict = {}
-    ticker = (row.get("ticker") or "").strip()
+    ticker = _cell(row, "ticker")
     if ticker:
         instrument["ticker"] = ticker
-    country = (row.get("country") or "").strip().upper()
+    country = _cell(row, "country").upper()
     if country:
         instrument["country"] = country
     if instrument:
         activity["instrument"] = instrument
 
-    idem = (row.get("idempotency_key") or "").strip()
+    idem = _cell(row, "idempotency_key")
     if idem:
         activity["idempotency_key"] = idem
 
-    source_ref = (row.get("source_ref") or "").strip()
+    source_ref = _cell(row, "source_ref")
     if source_ref:
         activity["source_ref"] = source_ref
 
