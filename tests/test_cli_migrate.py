@@ -112,6 +112,40 @@ class MigrateCliTests(unittest.TestCase):
         self.assertEqual(load_json(out_path)["schema_version"], "1.2.0")
         self.assertEqual(list(self.tmp.glob("*.bak-*")), [])
 
+    def test_output_same_as_portfolio_keeps_backup_behavior(self) -> None:
+        portfolio_path = self._stage(FIXTURE)
+        original_bytes = portfolio_path.read_bytes()
+
+        code, stdout, _ = _run(
+            [
+                "migrate",
+                "--portfolio",
+                str(portfolio_path),
+                "--output",
+                str(portfolio_path),
+            ]
+        )
+
+        self.assertEqual(code, 0)
+        payload = json.loads(stdout)
+        self.assertEqual(payload["status"], "written")
+        backups = list(self.tmp.glob("portfolio.json.bak-*"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_bytes(), original_bytes)
+
+    def test_missing_schema_uri_is_migrated(self) -> None:
+        portfolio_path = self._stage(FIXTURE)
+        data = load_json(portfolio_path)
+        data.pop("schema_uri", None)
+        portfolio_path.write_text(json.dumps(data), encoding="utf-8")
+
+        code, stdout, _ = _run(["migrate", "--portfolio", str(portfolio_path)])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(stdout)["status"], "written")
+        migrated = load_json(portfolio_path)
+        self.assertEqual(migrated["schema_uri"], CANONICAL_SCHEMA_URI)
+
     def test_rejects_invalid_portfolio(self) -> None:
         portfolio_path = self._stage(FIXTURE)
         data = load_json(portfolio_path)

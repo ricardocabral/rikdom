@@ -87,6 +87,15 @@ class SelectCompactedTests(unittest.TestCase):
         self.assertEqual(len(kept), 2)
         self.assertEqual(kept[0], {"note": "no ts"})
 
+    def test_mixed_naive_and_aware_timestamps_are_compared_in_utc(self) -> None:
+        rows = [
+            {"timestamp": "2026-01-06T12:00:00", "portfolio_value_base": 1.0},
+            {"timestamp": "2026-01-06T09:30:00-03:00", "portfolio_value_base": 2.0},
+        ]
+        kept = select_compacted(rows, today=date(2026, 4, 20))
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(kept[0]["portfolio_value_base"], 2.0)
+
 
 class CompactSnapshotsTests(unittest.TestCase):
     def test_round_trip_writes_policy_output_and_keeps_backup(self) -> None:
@@ -184,6 +193,36 @@ class CompactCliTests(unittest.TestCase):
             self.assertGreater(payload["rows_before"], payload["rows_after"])
             # File untouched.
             self.assertEqual(len(load_jsonl(path)), 120)
+
+    def test_cli_dry_run_with_rotate_does_not_mutate_journal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "snapshots.jsonl"
+            for row in _synthetic_history(120):
+                append_jsonl(path, row)
+            before = load_jsonl(path)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "rikdom.cli",
+                    "compact",
+                    "--snapshots",
+                    str(path),
+                    "--dry-run",
+                    "--rotate",
+                    "--rotate-bytes",
+                    "1",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["status"], "planned")
+            self.assertTrue(payload["rotation"]["would_rotate"])
+            self.assertEqual(load_jsonl(path), before)
+            self.assertEqual(list(path.parent.glob("snapshots.jsonl.*")), [])
 
     def test_cli_compact_writes_and_leaves_backup(self) -> None:
         with TemporaryDirectory() as tmp:

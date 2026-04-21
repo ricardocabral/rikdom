@@ -91,9 +91,12 @@ def _parse_snapshot_ts(row: dict[str, Any]) -> datetime | None:
     if not isinstance(raw, str):
         return None
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _bucket_key(ts: datetime, today: date, policy: CompactionPolicy) -> str:

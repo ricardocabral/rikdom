@@ -270,7 +270,72 @@ def _write_test_workbook(path: Path) -> None:
                     "-",
                     50.025,
                     1000.5,
-                ]
+                ],
+                [
+                    "LCA - BANCO TESTE",
+                    "BANCO BTG PACTUAL S/A",
+                    "BANCO TESTE S/A",
+                    "LCA123ABC",
+                    "IPCA",
+                    "14/01/2028",
+                    10,
+                    "-",
+                    "-",
+                    102.34,
+                    1023.4,
+                ],
+                [
+                    "LCI - BANCO TESTE",
+                    "BANCO BTG PACTUAL S/A",
+                    "BANCO TESTE S/A",
+                    "LCI123ABC",
+                    "CDI",
+                    "14/01/2029",
+                    12,
+                    "-",
+                    "-",
+                    101.2,
+                    1214.4,
+                ],
+                [
+                    "CRI - EMPRESA TESTE",
+                    "BANCO BTG PACTUAL S/A",
+                    "SECURITIZADORA TESTE S/A",
+                    "CRI123ABC",
+                    "IPCA",
+                    "14/01/2030",
+                    8,
+                    "-",
+                    "-",
+                    98.75,
+                    790,
+                ],
+                [
+                    "CRA - EMPRESA TESTE",
+                    "BANCO BTG PACTUAL S/A",
+                    "SECURITIZADORA TESTE S/A",
+                    "CRA123ABC",
+                    "IPCA",
+                    "14/01/2031",
+                    9,
+                    "-",
+                    "-",
+                    99.5,
+                    895.5,
+                ],
+                [
+                    "DEB - EMPRESA TESTE",
+                    "BANCO BTG PACTUAL S/A",
+                    "EMPRESA TESTE S/A",
+                    "DEB123ABC",
+                    "IPCA",
+                    "14/01/2032",
+                    7,
+                    "-",
+                    "-",
+                    103.25,
+                    722.75,
+                ],
             ],
         ),
         (
@@ -327,7 +392,7 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
 
         self.assertEqual(payload["provider"], "b3-consolidado-mensal")
         self.assertEqual(payload["base_currency"], "BRL")
-        self.assertEqual(len(payload["holdings"]), 6)
+        self.assertEqual(len(payload["holdings"]), 11)
 
         holdings = payload["holdings"]
 
@@ -346,11 +411,23 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
         xpml11 = _holding_by_ticker(holdings, "XPML11")
         self.assertEqual(xpml11["asset_type_id"], "reit")
 
-        renda_fixa = next(h for h in holdings if h["label"] == "CDB - BANCO TESTE")
-        self.assertEqual(renda_fixa["asset_type_id"], "cdb")
-        self.assertAlmostEqual(renda_fixa["market_value"]["amount"], 1000.5)
-        self.assertEqual(renda_fixa["metadata"]["indexer"], "DI")
-        self.assertEqual(renda_fixa["metadata"]["maturity_date"], "2027-01-14")
+        renda_fixa_asset_types = {
+            "CDB - BANCO TESTE": "cdb",
+            "LCA - BANCO TESTE": "lca",
+            "LCI - BANCO TESTE": "lci",
+            "CRI - EMPRESA TESTE": "cri",
+            "CRA - EMPRESA TESTE": "cra",
+            "DEB - EMPRESA TESTE": "debenture",
+        }
+        for label, expected_asset_type in renda_fixa_asset_types.items():
+            with self.subTest(label=label):
+                renda_fixa = next(h for h in holdings if h["label"] == label)
+                self.assertEqual(renda_fixa["asset_type_id"], expected_asset_type)
+
+        cdb = next(h for h in holdings if h["label"] == "CDB - BANCO TESTE")
+        self.assertAlmostEqual(cdb["market_value"]["amount"], 1000.5)
+        self.assertEqual(cdb["metadata"]["indexer"], "DI")
+        self.assertEqual(cdb["metadata"]["maturity_date"], "2027-01-14")
 
         tesouro = next(h for h in holdings if h["label"] == "Tesouro IPCA+ 2035")
         self.assertEqual(tesouro["asset_type_id"], "tesouro_direto")

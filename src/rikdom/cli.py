@@ -258,6 +258,28 @@ def _backup_path(portfolio_path: Path) -> Path:
     return portfolio_path.with_name(f"{portfolio_path.name}.bak-{stamp}")
 
 
+_SCHEMA_MISSING_KEYS = {"schema_version", "schema_uri"}
+
+
+def _is_schema_only_precheck_error(err: str) -> bool:
+    if err.startswith("Missing top-level keys: "):
+        raw_keys = err.split(":", maxsplit=1)[1]
+        missing_keys = {part.strip() for part in raw_keys.split(",") if part.strip()}
+        return bool(missing_keys) and missing_keys.issubset(_SCHEMA_MISSING_KEYS)
+
+    schema_prefixes = (
+        "'schema_version'",
+        "'schema_uri'",
+        "schema_version ",
+        "schema_uri ",
+    )
+    return err.startswith(schema_prefixes)
+
+
+def _is_same_path(left: Path, right: Path) -> bool:
+    return left.resolve(strict=False) == right.resolve(strict=False)
+
+
 def cmd_migrate(args: argparse.Namespace) -> int:
     portfolio_path = Path(args.portfolio)
     try:
@@ -269,10 +291,7 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     pre_errors = [
         err
         for err in validate_portfolio(portfolio)
-        if not err.startswith("schema_version")
-        and not err.startswith("schema_uri")
-        and not err.startswith("'schema_version'")
-        and not err.startswith("'schema_uri'")
+        if not _is_schema_only_precheck_error(err)
     ]
     if pre_errors:
         print("Refusing to migrate an invalid portfolio:", file=sys.stderr)
@@ -347,8 +366,9 @@ def cmd_migrate(args: argparse.Namespace) -> int:
         return 0
 
     output_path = Path(args.output) if args.output else portfolio_path
+    in_place = _is_same_path(output_path, portfolio_path)
     backup_written: str | None = None
-    if not args.output and not args.no_backup:
+    if in_place and not args.no_backup:
         backup = _backup_path(portfolio_path)
         shutil.copy2(portfolio_path, backup)
         backup_written = str(backup)
@@ -379,12 +399,7 @@ def cmd_compact(args: argparse.Namespace) -> int:
         },
     }
 
-    archived: Path | None = None
-    if args.rotate:
-        rotate_bytes = args.rotate_bytes if args.rotate_bytes is not None else 0
-        archived = rotate_journal(journal_path, max_bytes=rotate_bytes)
-        if archived is not None:
-            payload["rotated_to"] = str(archived)
+    rotate_bytes = args.rotate_bytes if args.rotate_bytes is not None else 0
 
     if args.dry_run:
         from .storage import load_jsonl as _load_jsonl
@@ -397,10 +412,24 @@ def cmd_compact(args: argparse.Namespace) -> int:
             "daily_days": policy.daily_days,
             "weekly_days": policy.weekly_days,
         }
+        if args.rotate:
+            current_bytes = journal_path.stat().st_size if journal_path.exists() else 0
+            payload["rotation"] = {
+                "requested": True,
+                "threshold_bytes": rotate_bytes,
+                "current_bytes": current_bytes,
+                "would_rotate": bool(journal_path.exists() and current_bytes >= rotate_bytes),
+            }
         payload["rows_before"] = len(rows)
         payload["rows_after"] = len(kept)
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
+
+    archived: Path | None = None
+    if args.rotate:
+        archived = rotate_journal(journal_path, max_bytes=rotate_bytes)
+        if archived is not None:
+            payload["rotated_to"] = str(archived)
 
     before, after = compact_snapshots(
         journal_path,

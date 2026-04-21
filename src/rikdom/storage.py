@@ -124,7 +124,15 @@ def append_jsonl(
     data = line.encode("utf-8")
     fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
     try:
-        os.write(fd, data)
+        remaining = memoryview(data)
+        while remaining:
+            try:
+                written = os.write(fd, remaining)
+            except InterruptedError:
+                continue
+            if written <= 0:
+                raise OSError("append_jsonl failed to write data")
+            remaining = remaining[written:]
         if durable:
             os.fsync(fd)
     finally:

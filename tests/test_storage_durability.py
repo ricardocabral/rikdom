@@ -41,6 +41,40 @@ class AppendJsonlDurabilityTests(unittest.TestCase):
             rows = load_jsonl(path)
             self.assertEqual([r["i"] for r in rows], [0, 1, 2, 3, 4])
 
+    def test_append_retries_until_full_write_on_short_writes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "journal.jsonl"
+            real_write = os.write
+
+            def short_write(fd: int, payload: bytes | bytearray | memoryview) -> int:
+                chunk = bytes(payload)
+                limit = max(1, len(chunk) // 2)
+                return real_write(fd, chunk[:limit])
+
+            with mock.patch("rikdom.storage.os.write", side_effect=short_write):
+                append_jsonl(path, {"i": 1}, durable=False)
+
+            rows = load_jsonl(path)
+            self.assertEqual(rows, [{"i": 1}])
+
+    def test_append_retries_on_interrupted_error(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "journal.jsonl"
+            real_write = os.write
+            raised = {"done": False}
+
+            def interrupted_then_write(fd: int, payload: bytes | bytearray | memoryview) -> int:
+                if not raised["done"]:
+                    raised["done"] = True
+                    raise InterruptedError()
+                return real_write(fd, bytes(payload))
+
+            with mock.patch("rikdom.storage.os.write", side_effect=interrupted_then_write):
+                append_jsonl(path, {"i": 2}, durable=False)
+
+            rows = load_jsonl(path)
+            self.assertEqual(rows, [{"i": 2}])
+
     def test_load_skips_torn_trailing_line(self) -> None:
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "journal.jsonl"
