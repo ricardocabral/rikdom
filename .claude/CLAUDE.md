@@ -56,6 +56,7 @@ Dispatch semantics:
 
 ## Working Rules
 
+- Prefer `make <target>` for routine local workflows; keep `uv run ...` for targeted debugging or when a target does not exist yet.
 - Use `uv run` for all project commands and tests.
 - On clean checkouts, bootstrap local `data/*` files from tracked `data-sample/*` before running commands that reference `data/*`.
 - For plugin changes, update tests and docs together.
@@ -66,21 +67,42 @@ Dispatch semantics:
 
 ## Common Commands
 
+Preferred task runner (mirrors `Makefile` targets):
+
 ```bash
-mkdir -p data
-[ -f data/portfolio.json ] || cp data-sample/portfolio.json data/portfolio.json
-[ -f data/snapshots.jsonl ] || cp data-sample/snapshots.jsonl data/snapshots.jsonl
-[ -f data/sample_statement.csv ] || cp data-sample/sample_statement.csv data/sample_statement.csv
-uv run rikdom validate --portfolio data/portfolio.json
-uv run rikdom aggregate --portfolio data/portfolio.json
-uv run rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl
-uv run rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.jsonl --out out/dashboard.html --include-current
+make sync
+make bootstrap
+make validate
+make validate-fixture
+make aggregate
+make snapshot
+make visualize
+make plugins-list
+make import-sample
+make render-report
+make storage-sync
+make migrate-dry-run
+make lint
+make test
+make check
+```
+
+Direct command equivalents (useful for focused debugging):
+
+```bash
+uv sync --extra schema
+uv run rikdom validate --data-dir data --out-root out
+uv run rikdom validate --portfolio tests/fixtures/portfolio.json
+uv run rikdom aggregate --data-dir data --out-root out
+uv run rikdom snapshot --data-dir data --out-root out
+uv run rikdom visualize --data-dir data --out-root out --include-current
 uv run rikdom plugins list --plugins-dir plugins
-uv run rikdom import-statement --plugin csv-generic --input data/sample_statement.csv --portfolio data/portfolio.json
-uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
-uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
-uv run rikdom migrate --portfolio data/portfolio.json --dry-run
-uv run rikdom migrate --portfolio data/portfolio.json
+uv run rikdom import-statement --data-dir data --out-root out --plugin csv-generic --input data-sample/sample_statement.csv --write
+uv run rikdom render-report --data-dir data --out-root out --plugin quarto-portfolio-report --plugins-dir plugins
+uv run rikdom storage-sync --data-dir data --out-root out --plugin duckdb-storage --plugins-dir plugins
+uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
+ruff check .
+uv run python -m unittest discover -s tests -v
 ```
 
 See `docs/migrations.md` for the migration authoring guide and backup strategy.

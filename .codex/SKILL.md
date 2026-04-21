@@ -35,10 +35,11 @@ mkdir -p data
 
 1. Read `README.md`, `docs/schema-design.md`, and `docs/plugin-system.md`.
 2. For plugin work, also read `plugins/README.md` and `src/rikdom/cli.py` to confirm active CLI wiring.
-3. Use `uv run` as the default launcher for `rikdom`, tests, and ad-hoc scripts.
+3. Prefer `make <target>` for routine workflows; use `uv run ...` for targeted debugging and ad-hoc scripts.
 4. Validate baseline behavior first:
-   - `uv run rikdom validate --portfolio data/portfolio.json`
-   - `uv run rikdom plugins list --plugins-dir plugins`
+   - `make bootstrap`
+   - `make validate`
+   - `make plugins-list`
 5. Match implementation to execution path:
    - `import-statement` changes: verify legacy command/plugin behavior and `tests/test_plugins.py`.
    - `render-report` / `storage-sync` / catalog changes: verify Pluggy pipeline behavior and plugin-engine tests.
@@ -61,15 +62,41 @@ Dispatch behavior:
 
 ## Validation Commands
 
+Preferred task runner (mirrors `Makefile`):
+
 ```bash
-uv run rikdom validate --portfolio data/portfolio.json
-uv run rikdom aggregate --portfolio data/portfolio.json
-uv run rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl
-uv run rikdom visualize --portfolio data/portfolio.json --snapshots data/snapshots.jsonl --out out/dashboard.html --include-current
+make sync
+make bootstrap
+make validate
+make validate-fixture
+make aggregate
+make snapshot
+make visualize
+make plugins-list
+make import-sample
+make render-report
+make storage-sync
+make migrate-dry-run
+make lint
+make test
+make check
+```
+
+Direct command equivalents:
+
+```bash
+uv sync --extra schema
+uv run rikdom validate --data-dir data --out-root out
+uv run rikdom validate --portfolio tests/fixtures/portfolio.json
+uv run rikdom aggregate --data-dir data --out-root out
+uv run rikdom snapshot --data-dir data --out-root out
+uv run rikdom visualize --data-dir data --out-root out --include-current
 uv run rikdom plugins list --plugins-dir plugins
-uv run rikdom import-statement --plugin csv-generic --input data/sample_statement.csv --portfolio data/portfolio.json
-uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
-uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
+uv run rikdom import-statement --data-dir data --out-root out --plugin csv-generic --input data-sample/sample_statement.csv --write
+uv run rikdom render-report --data-dir data --out-root out --plugin quarto-portfolio-report --plugins-dir plugins
+uv run rikdom storage-sync --data-dir data --out-root out --plugin duckdb-storage --plugins-dir plugins
+uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
+ruff check .
 uv run python -m unittest discover -s tests -v
 ```
 
