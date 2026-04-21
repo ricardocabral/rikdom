@@ -34,7 +34,7 @@ uv sync --extra schema
 Run a quick sanity check:
 
 ```bash
-uv run rikdom validate --portfolio data/portfolio.json
+uv run rikdom validate --portfolio tests/fixtures/portfolio.json
 ```
 
 Run the test suite:
@@ -72,7 +72,7 @@ PR checklist:
 
 - [ ] Change is scoped and self-contained.
 - [ ] Tests added/updated for new behavior.
-- [ ] `uv run rikdom validate --portfolio data/portfolio.json` passes.
+- [ ] `uv run rikdom validate --portfolio tests/fixtures/portfolio.json` passes.
 - [ ] `uv run python -m unittest discover -s tests -v` passes.
 - [ ] Docs updated when behavior, schema, or CLI changes.
 
