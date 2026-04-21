@@ -1,0 +1,2 @@
+# Reduce supply-chain risk by refusing package versions published in the last 7 days.
+exclude-newer = "7 days"

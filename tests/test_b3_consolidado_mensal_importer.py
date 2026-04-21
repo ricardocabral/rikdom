@@ -379,6 +379,51 @@ class B3ConsolidadoMensalImporterHelperTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "produced zero holdings"):
                 importer.parse_workbook(xlsx_path)
 
+    def test_parse_workbook_rejects_oversized_xml_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            xlsx_path = Path(tmp) / "oversized-sheet.xml.xlsx"
+            _write_workbook(
+                xlsx_path,
+                [
+                    (
+                        "Posição - Ações",
+                        ["Produto", "Quantidade", "Valor Atualizado"],
+                        [[f"PETR4-{'A' * 8192}", 10, 1234.56]],
+                    )
+                ],
+            )
+            with (
+                mock.patch.object(importer, "MAX_XML_ENTRY_SIZE_BYTES", 512),
+                self.assertRaisesRegex(ValueError, "exceeds"),
+            ):
+                importer.parse_workbook(xlsx_path)
+
+    def test_parse_workbook_rejects_worksheet_path_traversal(self) -> None:
+        workbook_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            '<sheets><sheet name="Posição - Ações" sheetId="1" r:id="rId1"/></sheets>'
+            "</workbook>"
+        )
+        rels_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+            'Target="../evil.xml"/>'
+            "</Relationships>"
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            xlsx_path = Path(tmp) / "path-traversal.xlsx"
+            with zipfile.ZipFile(xlsx_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("xl/workbook.xml", workbook_xml)
+                zf.writestr("xl/_rels/workbook.xml.rels", rels_xml)
+
+            with self.assertRaisesRegex(ValueError, "path traversal"):
+                importer.parse_workbook(xlsx_path)
+
     def test_main_returns_error_without_args(self) -> None:
         with mock.patch.object(importer.sys, "argv", ["importer.py"]):
             stderr = io.StringIO()

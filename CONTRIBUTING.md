@@ -25,6 +25,11 @@ Prerequisites:
 - Python 3.10+
 - `uv`: <https://docs.astral.sh/uv/getting-started/installation/>
 
+Dependency freshness guard:
+
+- This repository enforces `exclude-newer = "7 days"` via `uv.toml`.
+- `uv add`, `uv lock`, and `uv sync` will reject package versions published in the last 7 days.
+
 Install dependencies:
 
 ```bash

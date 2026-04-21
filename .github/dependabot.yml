@@ -1,0 +1,43 @@
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "Etc/UTC"
+    target-branch: "main"
+    # Keep Dependabot focused on security remediation in this repo.
+    # Security update PRs have a separate internal limit on GitHub.
+    open-pull-requests-limit: 0
+    labels:
+      - "dependencies"
+      - "security"
+      - "critical-candidate"
+    groups:
+      uv-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "Etc/UTC"
+    target-branch: "main"
+    # Keep Dependabot focused on security remediation in this repo.
+    # Security update PRs have a separate internal limit on GitHub.
+    open-pull-requests-limit: 0
+    labels:
+      - "dependencies"
+      - "security"
+      - "critical-candidate"
+    groups:
+      gha-security:
+        applies-to: security-updates
+        patterns:
+          - "*"

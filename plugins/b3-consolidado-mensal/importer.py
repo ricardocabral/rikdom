@@ -4,17 +4,22 @@ from __future__ import annotations
 import json
 import re
 import sys
-import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from defusedxml import ElementTree as DefusedET
+
 MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 DOC_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 NS = {"x": MAIN_NS, "r": DOC_REL_NS, "pr": PKG_REL_NS}
+
+MAX_WORKBOOK_FILE_SIZE_BYTES = 25 * 1024 * 1024
+MAX_XML_ENTRY_SIZE_BYTES = 5 * 1024 * 1024
+MAX_XML_COMPRESSION_RATIO = 100.0
 
 
 @dataclass(frozen=True)
@@ -142,7 +147,59 @@ def _col_letters_to_idx(ref: str) -> int:
     return col
 
 
-def _decode_cell(cell: ET.Element, shared_strings: list[str]) -> str:
+def _safe_read_xml_entry(zf: zipfile.ZipFile, member_name: str, *, required: bool) -> bytes | None:
+    try:
+        info = zf.getinfo(member_name)
+    except KeyError:
+        if required:
+            raise ValueError(f"workbook is incompatible: missing required XML part '{member_name}'") from None
+        return None
+
+    if info.file_size > MAX_XML_ENTRY_SIZE_BYTES:
+        raise ValueError(
+            f"workbook is incompatible: XML part '{member_name}' exceeds "
+            f"{MAX_XML_ENTRY_SIZE_BYTES} bytes"
+        )
+    if info.file_size > 0 and info.compress_size == 0:
+        raise ValueError(
+            f"workbook is incompatible: XML part '{member_name}' has invalid compression metadata"
+        )
+    if info.compress_size > 0:
+        ratio = info.file_size / info.compress_size
+        if ratio > MAX_XML_COMPRESSION_RATIO:
+            raise ValueError(
+                f"workbook is incompatible: XML part '{member_name}' has suspicious compression ratio"
+            )
+
+    raw = zf.read(member_name)
+    if len(raw) > MAX_XML_ENTRY_SIZE_BYTES:
+        raise ValueError(
+            f"workbook is incompatible: XML part '{member_name}' exceeds "
+            f"{MAX_XML_ENTRY_SIZE_BYTES} bytes"
+        )
+    return raw
+
+
+def _parse_xml(raw: bytes, member_name: str):
+    try:
+        return DefusedET.fromstring(raw)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"workbook is incompatible: invalid XML in '{member_name}'") from exc
+
+
+def _normalize_target_path(target: str) -> str:
+    candidate = target.lstrip("/") if target.startswith("/") else f"xl/{target}"
+    candidate = candidate.replace("\\", "/")
+    parts = [part for part in candidate.split("/") if part and part != "."]
+    if any(part == ".." for part in parts):
+        raise ValueError("workbook is incompatible: invalid worksheet path traversal in workbook rels")
+    normalized = "/".join(parts)
+    if not normalized.startswith("xl/"):
+        raise ValueError("workbook is incompatible: invalid worksheet path outside xl/")
+    return normalized
+
+
+def _decode_cell(cell: Any, shared_strings: list[str]) -> str:
     ctype = cell.attrib.get("t")
     if ctype == "inlineStr":
         parts = [t.text or "" for t in cell.findall(".//x:t", NS)]
@@ -166,11 +223,10 @@ def _decode_cell(cell: ET.Element, shared_strings: list[str]) -> str:
 
 
 def _read_shared_strings(zf: zipfile.ZipFile) -> list[str]:
-    try:
-        raw = zf.read("xl/sharedStrings.xml")
-    except KeyError:
+    raw = _safe_read_xml_entry(zf, "xl/sharedStrings.xml", required=False)
+    if raw is None:
         return []
-    root = ET.fromstring(raw)
+    root = _parse_xml(raw, "xl/sharedStrings.xml")
     values: list[str] = []
     for si in root.findall("x:si", NS):
         parts = [t.text or "" for t in si.findall(".//x:t", NS)]
@@ -179,8 +235,14 @@ def _read_shared_strings(zf: zipfile.ZipFile) -> list[str]:
 
 
 def _read_sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
-    workbook = ET.fromstring(zf.read("xl/workbook.xml"))
-    rels = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+    workbook = _parse_xml(
+        _safe_read_xml_entry(zf, "xl/workbook.xml", required=True),
+        "xl/workbook.xml",
+    )
+    rels = _parse_xml(
+        _safe_read_xml_entry(zf, "xl/_rels/workbook.xml.rels", required=True),
+        "xl/_rels/workbook.xml.rels",
+    )
 
     rel_by_id: dict[str, str] = {}
     for rel in rels.findall("pr:Relationship", NS):
@@ -188,10 +250,7 @@ def _read_sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
         target = rel.attrib.get("Target", "")
         if not rel_id or not target:
             continue
-        if target.startswith("/"):
-            normalized = target.lstrip("/")
-        else:
-            normalized = f"xl/{target}"
+        normalized = _normalize_target_path(target)
         rel_by_id[rel_id] = normalized
 
     targets: dict[str, str] = {}
@@ -211,7 +270,10 @@ def _read_sheet_rows(
     sheet_target: str,
     shared_strings: list[str],
 ) -> tuple[list[dict[str, str]], set[str]]:
-    root = ET.fromstring(zf.read(sheet_target))
+    root = _parse_xml(
+        _safe_read_xml_entry(zf, sheet_target, required=True),
+        sheet_target,
+    )
     row_nodes = root.findall("x:sheetData/x:row", NS)
     if not row_nodes:
         return [], set()
@@ -381,7 +443,17 @@ def _to_holding(spec: SheetSpec, row: dict[str, str]) -> dict[str, Any] | None:
 
 
 def parse_workbook(path: Path) -> dict[str, Any]:
-    with zipfile.ZipFile(path) as zf:
+    if path.stat().st_size > MAX_WORKBOOK_FILE_SIZE_BYTES:
+        raise ValueError(
+            f"workbook is incompatible: file size exceeds {MAX_WORKBOOK_FILE_SIZE_BYTES} bytes"
+        )
+
+    try:
+        zf_ctx = zipfile.ZipFile(path)
+    except zipfile.BadZipFile as exc:
+        raise ValueError("workbook is incompatible: invalid XLSX container") from exc
+
+    with zf_ctx as zf:
         shared_strings = _read_shared_strings(zf)
         targets = _read_sheet_targets(zf)
 

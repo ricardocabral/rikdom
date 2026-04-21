@@ -9,7 +9,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-13T22:31:50.808197Z"
+exclude-newer = "2026-04-14T18:41:43.601471Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -1557,6 +1557,7 @@ name = "rikdom"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "defusedxml" },
     { name = "pluggy" },
     { name = "quarto-cli" },
 ]
@@ -1568,6 +1569,7 @@ schema = [
 
 [package.metadata]
 requires-dist = [
+    { name = "defusedxml", specifier = ">=0.7.1" },
     { name = "jsonschema", marker = "extra == 'schema'", specifier = ">=4.0.0" },
     { name = "pluggy", specifier = ">=1.5.0" },
     { name = "quarto-cli", specifier = ">=1.9.37" },
