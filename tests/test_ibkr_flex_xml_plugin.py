@@ -45,6 +45,23 @@ class IbkrFlexXmlPluginTests(unittest.TestCase):
         ids = {a["id"] for a in payload["activities"]}
         self.assertNotIn("ibkr-trade-tx-cancel-1", ids)
 
+    def test_plugin_falls_back_to_other_for_unknown_classifications(self) -> None:
+        payload = run_import_pipeline(
+            plugin_name="ibkr_flex_xml",
+            plugins_dir="plugins",
+            input_path="tests/fixtures/ibkr_flex_statement_unknown_types.xml",
+        )
+
+        trade = next(a for a in payload["activities"] if a["id"] == "ibkr-trade-tx-exotic-1")
+        self.assertEqual(trade["event_type"], "other")
+        self.assertEqual(trade["subtype"], "ibkr_trade:exercise")
+        self.assertEqual(trade["metadata"]["buy_sell"], "EXERCISE")
+
+        cash = next(a for a in payload["activities"] if a["id"] == "ibkr-cash-cash-adj-1")
+        self.assertEqual(cash["event_type"], "other")
+        self.assertTrue(cash["subtype"].startswith("ibkr_cash:adjustment"))
+        self.assertEqual(cash["metadata"]["cash_type"], "Adjustment")
+
     def test_plugin_raises_for_unparseable_trade_date(self) -> None:
         with self.assertRaisesRegex(
             ValueError,

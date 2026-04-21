@@ -4,28 +4,36 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from xml.etree.ElementTree import Element, ParseError
+
+from defusedxml import ElementTree as DefusedET
 
 from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime, parse_decimal
 
 PROVIDER = "ibkr_flex_xml"
+MAX_XML_BYTES = 64 * 1024 * 1024
 
 
 def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _load_xml(path: Path) -> ET.Element:
+def _load_xml(path: Path) -> Element:
+    size = path.stat().st_size
+    if size > MAX_XML_BYTES:
+        raise ValueError(
+            f"IBKR Flex XML input exceeds {MAX_XML_BYTES} bytes (size={size})"
+        )
     raw = path.read_text(encoding="utf-8")
     if not raw.strip():
         raise ValueError("IBKR Flex XML input is empty")
 
     try:
-        return ET.fromstring(raw)
-    except ET.ParseError as exc:
+        return DefusedET.fromstring(raw, forbid_dtd=True)
+    except ParseError as exc:
         raise ValueError(f"Invalid IBKR Flex XML: {exc}") from exc
 
 
@@ -33,7 +41,7 @@ def _local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
 
-def _iter_elements(root: ET.Element, name: str):
+def _iter_elements(root: Element, name: str):
     for elem in root.iter():
         if _local_name(elem.tag) == name:
             yield elem
@@ -106,7 +114,7 @@ def _resolve_effective_at(row: dict[str, str], *, kind: str, row_id: str) -> str
     raise ValueError(f"IBKR {kind} row '{row_id}' has unparseable date/time fields")
 
 
-def _statement_account_id(root: ET.Element) -> str:
+def _statement_account_id(root: Element) -> str:
     for statement in _iter_elements(root, "FlexStatement"):
         account_id = as_text(statement.attrib.get("accountId") or statement.attrib.get("accountCode"))
         if account_id:
@@ -114,7 +122,7 @@ def _statement_account_id(root: ET.Element) -> str:
     return "unknown-account"
 
 
-def _generated_at(root: ET.Element) -> str:
+def _generated_at(root: Element) -> str:
     candidate_attrs = (
         "whenGenerated",
         "generatedAt",
@@ -143,7 +151,7 @@ def _trade_event_type(row: dict[str, str]) -> str:
         return "buy"
     if buy_sell.startswith("SELL"):
         return "sell"
-    return "trade"
+    return "other"
 
 
 def _cash_event_type(row: dict[str, str]) -> str:
@@ -153,14 +161,14 @@ def _cash_event_type(row: dict[str, str]) -> str:
     if "interest" in raw:
         return "interest"
     if "tax" in raw or "withholding" in raw:
-        return "tax"
+        return "other"
     if "fee" in raw or "commission" in raw:
         return "fee"
     if "deposit" in raw or "transfer in" in raw or "incoming" in raw:
         return "transfer_in"
     if "withdraw" in raw or "transfer out" in raw or "outgoing" in raw:
         return "transfer_out"
-    return "cash"
+    return "other"
 
 
 def _is_cancel_like_trade(row: dict[str, str]) -> bool:
@@ -212,6 +220,7 @@ def _trade_activity(row: dict[str, str], account_id: str) -> dict[str, Any]:
         gross = abs(quantity) * trade_price
         amount = -gross if event_type == "buy" else gross
 
+    buy_sell_raw = as_text(row.get("buySell"))
     activity: dict[str, Any] = {
         "id": f"ibkr-trade-{trade_ref}",
         "event_type": event_type,
@@ -221,9 +230,11 @@ def _trade_activity(row: dict[str, str], account_id: str) -> dict[str, Any]:
         "source_ref": f"ibkr:{account_id}#trade:{trade_ref}",
         "metadata": {
             "ibkr_row_type": "Trade",
-            "buy_sell": as_text(row.get("buySell")),
+            "buy_sell": buy_sell_raw,
         },
     }
+    if event_type == "other" and buy_sell_raw:
+        activity["subtype"] = f"ibkr_trade:{buy_sell_raw.lower()}"
 
     quantity = parse_decimal(row.get("quantity"))
     if quantity is not None:
@@ -262,19 +273,26 @@ def _cash_activity(row: dict[str, str], account_id: str) -> dict[str, Any]:
     if amount is None:
         raise ValueError(f"IBKR cash row '{cash_ref}' has missing/invalid amount")
 
+    event_type = _cash_event_type(row)
+    cash_type_raw = as_text(row.get("type"))
+    description_raw = as_text(row.get("description"))
     activity: dict[str, Any] = {
         "id": f"ibkr-cash-{cash_ref}",
-        "event_type": _cash_event_type(row),
+        "event_type": event_type,
         "effective_at": effective_at,
         "status": "posted",
         "money": {"amount": amount, "currency": currency},
         "source_ref": f"ibkr:{account_id}#cash:{cash_ref}",
         "metadata": {
             "ibkr_row_type": "CashTransaction",
-            "cash_type": as_text(row.get("type")),
-            "description": as_text(row.get("description")),
+            "cash_type": cash_type_raw,
+            "description": description_raw,
         },
     }
+    if event_type == "other":
+        raw_tag = cash_type_raw or description_raw
+        if raw_tag:
+            activity["subtype"] = f"ibkr_cash:{raw_tag.lower()[:64]}"
 
     instrument_symbol = as_text(row.get("symbol"))
     if instrument_symbol:

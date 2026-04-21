@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexQueryResponse queryName="ActivityStatement" type="AF">
+  <FlexStatements count="1">
+    <FlexStatement accountId="U7654321" whenGenerated="20260421;150000">
+      <Trades>
+        <Trade
+          transactionID="tx-exotic-1"
+          symbol="XYZ"
+          buySell="EXERCISE"
+          quantity="3"
+          tradePrice="50.00"
+          proceeds="-150.00"
+          currency="USD"
+          dateTime="20260420;120000"
+        />
+      </Trades>
+      <CashTransactions>
+        <CashTransaction
+          transactionID="cash-adj-1"
+          type="Adjustment"
+          description="Mystery adjustment"
+          currency="USD"
+          amount="3.21"
+          dateTime="20260421;130000"
+        />
+      </CashTransactions>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>
