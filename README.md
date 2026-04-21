@@ -211,6 +211,8 @@ Portfolio view plugin (`quarto-portfolio-report`) preview:
 ## AI Agent Skills
 
 - `.codex/SKILL.md`
+- `.codex/skills/rikdom-portfolio-analyst/SKILL.md`
+- `.codex/skills/rikdom-extensibility-engineer/SKILL.md`
 - `.claude/CLAUDE.md`
 
 These files guide coding agents to safely analyze and evolve your data model.
