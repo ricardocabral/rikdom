@@ -20,7 +20,7 @@ Plugin docs:
 ## Fast Validation Commands
 
 ```bash
-uv run rikdom plugins list --plugins-dir plugins
+make plugins-list
 uv run pytest -q tests/test_plugins.py tests/test_asset_type_catalog_plugins.py
 ```
 

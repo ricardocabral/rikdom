@@ -19,6 +19,14 @@ uv pip install duckdb
 
 ## Run
 
+Quick target from repo root:
+
+```bash
+make storage-sync
+```
+
+Full command:
+
 ```bash
 uv run rikdom storage-sync \
   --plugin duckdb-storage \

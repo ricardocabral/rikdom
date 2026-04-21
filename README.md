@@ -94,7 +94,7 @@ Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for your
 ### 2. Sync dependencies with uv
 
 ```bash
-uv sync --extra schema
+make sync
 ```
 
 ### 3. Bootstrap local workspace files (optional)
@@ -102,33 +102,39 @@ uv sync --extra schema
 The CLI auto-bootstraps `data/portfolio.json` and `data/snapshots.jsonl` from `data-sample/` on first run. To seed them manually:
 
 ```bash
-mkdir -p data
-cp -n data-sample/portfolio.json data/portfolio.json
-cp -n data-sample/snapshots.jsonl data/snapshots.jsonl
+make bootstrap
 ```
 
 ### 4. Validate portfolio data
 
 ```bash
-uv run rikdom validate
+make validate
 ```
 
 ### 5. Aggregate by asset class
 
 ```bash
-uv run rikdom aggregate
+make aggregate
 ```
 
 ### 6. Append a historical snapshot
 
 ```bash
-uv run rikdom snapshot
+make snapshot
 ```
 
 ### 7. Generate dashboard
 
 ```bash
-uv run rikdom visualize --out out/dashboard.html --include-current
+make visualize
+```
+
+## Common Dev Tasks
+
+```bash
+make lint
+make test
+make check
 ```
 
 ## Schema Docs
@@ -148,11 +154,11 @@ uv run rikdom visualize --out out/dashboard.html --include-current
 Core commands:
 
 ```bash
-uv run rikdom plugins list --plugins-dir plugins
-uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --write
-uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
-uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
-uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
+make plugins-list
+make import-sample
+make render-report
+make storage-sync
+make migrate-dry-run
 ```
 
 Portfolio view plugin (`quarto-portfolio-report`) preview:

@@ -18,6 +18,14 @@ Campos principais para `activity`:
 
 ## Execução (CLI)
 
+Atalho no root do repositório (usa fixture de exemplo e persiste import):
+
+```bash
+make import-sample
+```
+
+Comando completo:
+
 ```bash
 uv run rikdom import-statement \
   --plugin csv-generic \

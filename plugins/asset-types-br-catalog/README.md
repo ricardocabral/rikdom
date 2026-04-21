@@ -50,7 +50,7 @@ These validations are provided by the catalog metadata and are consumed by `rikd
 1. Confirm the plugin is installed and discoverable:
 
 ```bash
-uv run rikdom plugins list --plugins-dir plugins
+make plugins-list
 ```
 
 2. Build and inspect the effective asset-type catalog:
@@ -70,5 +70,5 @@ PY
 4. Validate your portfolio:
 
 ```bash
-uv run rikdom validate --portfolio tests/fixtures/portfolio.json
+make validate-fixture
 ```
