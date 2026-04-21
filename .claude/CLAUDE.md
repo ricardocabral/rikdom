@@ -57,6 +57,7 @@ Dispatch semantics:
 ## Working Rules
 
 - Use `uv run` for all project commands and tests.
+- On clean checkouts, bootstrap local `data/*` files from tracked `data-sample/*` before running commands that reference `data/*`.
 - For plugin changes, update tests and docs together.
 - If touching manifests or engine contracts, verify:
   - `uv run rikdom plugins list --plugins-dir plugins`
@@ -66,6 +67,10 @@ Dispatch semantics:
 ## Common Commands
 
 ```bash
+mkdir -p data
+[ -f data/portfolio.json ] || cp data-sample/portfolio.json data/portfolio.json
+[ -f data/snapshots.jsonl ] || cp data-sample/snapshots.jsonl data/snapshots.jsonl
+[ -f data/sample_statement.csv ] || cp data-sample/sample_statement.csv data/sample_statement.csv
 uv run rikdom validate --portfolio data/portfolio.json
 uv run rikdom aggregate --portfolio data/portfolio.json
 uv run rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl

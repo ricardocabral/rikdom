@@ -12,6 +12,17 @@ Use this when editing or analyzing rikdom portfolio data and plugin behavior.
 
 Do not assume `import-statement` uses Pluggy yet.
 
+## Bootstrap (Clean Checkout)
+
+Before running any command that references `data/*`, seed local workspace files from tracked samples:
+
+```bash
+mkdir -p data
+[ -f data/portfolio.json ] || cp data-sample/portfolio.json data/portfolio.json
+[ -f data/snapshots.jsonl ] || cp data-sample/snapshots.jsonl data/snapshots.jsonl
+[ -f data/sample_statement.csv ] || cp data-sample/sample_statement.csv data/sample_statement.csv
+```
+
 ## Inputs
 
 - `data/portfolio.json`

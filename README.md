@@ -70,27 +70,34 @@ Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for your
 uv sync --extra schema
 ```
 
-### 3. Initialize local workspace and validate
+### 3. Bootstrap local workspace files
+
+```bash
+mkdir -p data
+cp -n data-sample/portfolio.json data/portfolio.json
+cp -n data-sample/snapshots.jsonl data/snapshots.jsonl
+touch data/import_log.jsonl
+```
+
+### 4. Validate portfolio data
 
 ```bash
 uv run rikdom validate
 ```
 
-The first command that uses default paths copies tracked templates from `data-sample/` into `data/` when files are missing.
-
-### 4. Aggregate by asset class
+### 5. Aggregate by asset class
 
 ```bash
 uv run rikdom aggregate
 ```
 
-### 5. Append a historical snapshot
+### 6. Append a historical snapshot
 
 ```bash
 uv run rikdom snapshot
 ```
 
-### 6. Generate dashboard
+### 7. Generate dashboard
 
 ```bash
 uv run rikdom visualize --out out/dashboard.html --include-current
@@ -116,7 +123,7 @@ uv run rikdom plugins list --plugins-dir plugins
 uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --write
 uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
 uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
-uv run rikdom migrate --portfolio data/portfolio.json --dry-run
+uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
 ```
 
 Schema upgrades: see [docs/migrations.md](docs/migrations.md).
