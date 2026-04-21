@@ -9,6 +9,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .aggregate import aggregate_portfolio
+from .journal import (
+    DEFAULT_POLICY,
+    DEFAULT_ROTATE_BYTES,
+    CompactionPolicy,
+    compact_snapshots,
+    rotate_journal,
+    verify_journal,
+)
 from .migrations import (
     MigrationPlanError,
     apply_migrations,
@@ -100,6 +108,11 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
     result = aggregate_portfolio(portfolio)
     snap = snapshot_from_aggregate(result, timestamp=args.timestamp)
+    rotate_bytes = getattr(args, "rotate_bytes", 0) or 0
+    if rotate_bytes > 0:
+        archived = rotate_journal(args.snapshots, max_bytes=rotate_bytes)
+        if archived is not None:
+            print(f"Rotated journal: {archived}")
     append_jsonl(args.snapshots, snap)
     print(f"Snapshot appended to {args.snapshots}")
     if result.warnings:
@@ -350,6 +363,59 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compact(args: argparse.Namespace) -> int:
+    policy = CompactionPolicy(
+        daily_days=args.daily_days,
+        weekly_days=args.weekly_days,
+    )
+    journal_path = Path(args.snapshots)
+    verify = verify_journal(journal_path)
+    payload: dict = {
+        "path": str(journal_path),
+        "verify": {
+            "ok_rows": verify.ok_rows,
+            "torn_tail_bytes": verify.torn_tail_bytes,
+            "total_bytes": verify.total_bytes,
+        },
+    }
+
+    archived: Path | None = None
+    if args.rotate:
+        rotate_bytes = args.rotate_bytes if args.rotate_bytes is not None else 0
+        archived = rotate_journal(journal_path, max_bytes=rotate_bytes)
+        if archived is not None:
+            payload["rotated_to"] = str(archived)
+
+    if args.dry_run:
+        from .storage import load_jsonl as _load_jsonl
+        from .journal import select_compacted
+
+        rows = _load_jsonl(journal_path)
+        kept = select_compacted(rows, policy=policy)
+        payload["status"] = "planned"
+        payload["policy"] = {
+            "daily_days": policy.daily_days,
+            "weekly_days": policy.weekly_days,
+        }
+        payload["rows_before"] = len(rows)
+        payload["rows_after"] = len(kept)
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    before, after = compact_snapshots(
+        journal_path,
+        policy=policy,
+        keep_backup=not args.no_backup,
+    )
+    payload["status"] = "written"
+    payload["rows_before"] = before
+    payload["rows_after"] = after
+    if not args.no_backup:
+        payload["backup"] = str(journal_path.with_name(journal_path.name + ".bak"))
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rikdom")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -366,7 +432,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_snapshot.add_argument("--portfolio", default=DEFAULT_PORTFOLIO_PATH)
     p_snapshot.add_argument("--snapshots", default=DEFAULT_SNAPSHOTS_PATH)
     p_snapshot.add_argument("--timestamp")
+    p_snapshot.add_argument(
+        "--rotate-bytes",
+        type=int,
+        default=0,
+        help="Rotate --snapshots before appending if it exceeds this size (0 disables)",
+    )
     p_snapshot.set_defaults(func=cmd_snapshot)
+
+    p_compact = sub.add_parser("compact", help="Compact and/or rotate a snapshots journal")
+    p_compact.add_argument("--snapshots", default=DEFAULT_SNAPSHOTS_PATH)
+    p_compact.add_argument("--daily-days", type=int, default=DEFAULT_POLICY.daily_days)
+    p_compact.add_argument("--weekly-days", type=int, default=DEFAULT_POLICY.weekly_days)
+    p_compact.add_argument("--dry-run", action="store_true")
+    p_compact.add_argument("--no-backup", action="store_true")
+    p_compact.add_argument("--rotate", action="store_true", help="Rotate the journal aside before compacting")
+    p_compact.add_argument(
+        "--rotate-bytes",
+        type=int,
+        default=None,
+        help=f"Rotate only if above this size (default: always with --rotate; {DEFAULT_ROTATE_BYTES} threshold when set)",
+    )
+    p_compact.set_defaults(func=cmd_compact)
 
     p_visualize = sub.add_parser("visualize", help="Generate static HTML dashboard")
     p_visualize.add_argument("--portfolio", default=DEFAULT_PORTFOLIO_PATH)

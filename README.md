@@ -100,6 +100,7 @@ uv run rikdom visualize --out out/dashboard.html --include-current
 
 - [Schema design](docs/schema-design.md)
 - [Storage model](docs/storage.md)
+- [Storage durability](docs/storage-durability.md)
 - [Visualization module](docs/visualization.md)
 - [Plugin system](docs/plugin-system.md)
 
@@ -119,6 +120,7 @@ uv run rikdom migrate --portfolio data/portfolio.json --dry-run
 ```
 
 Schema upgrades: see [docs/migrations.md](docs/migrations.md).
+Durability and journal compaction: see [docs/storage-durability.md](docs/storage-durability.md).
 
 ## AI Agent Skills
 
