@@ -18,13 +18,15 @@ def _utc_now_iso() -> str:
 
 
 def _snapshot_as_of_date(snapshot_timestamp: str) -> str:
-    text = str(snapshot_timestamp).strip()
+    text = str(snapshot_timestamp or "").strip()
     if not text:
-        return datetime.now(tz=timezone.utc).date().isoformat()
+        raise ValueError("snapshot_timestamp is required and must be a non-empty ISO-8601 string")
     try:
         dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return datetime.now(tz=timezone.utc).date().isoformat()
+    except ValueError as exc:
+        raise ValueError(
+            f"snapshot_timestamp {snapshot_timestamp!r} is not a valid ISO-8601 timestamp"
+        ) from exc
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc).date().isoformat()
@@ -135,18 +137,17 @@ def ensure_snapshot_fx_lock(
     missing = [currency for currency in quote_currencies if currency not in rates_to_base]
     if missing and auto_ingest:
         fetch_fn = fetcher or fetch_daily_fx_rates_from_frankfurter
-        fetched_rates: dict[str, float] = {}
-        try:
-            fetched_rates = fetch_fn(
-                base_currency=base_currency,
-                quote_currencies=missing,
-                as_of_date=as_of_date,
-            )
-        except Exception as exc:  # pragma: no cover - network/provider failures are runtime-dependent
-            warnings.append(f"FX auto-ingest failed for {', '.join(missing)}: {exc}")
-
         for currency in missing:
-            fetched_rate = fetched_rates.get(currency)
+            try:
+                fetched = fetch_fn(
+                    base_currency=base_currency,
+                    quote_currencies=[currency],
+                    as_of_date=as_of_date,
+                )
+            except Exception as exc:
+                warnings.append(f"FX auto-ingest failed for {currency}: {exc}")
+                continue
+            fetched_rate = fetched.get(currency) if isinstance(fetched, dict) else None
             if not isinstance(fetched_rate, (int, float)) or fetched_rate <= 0:
                 continue
             rate_value = float(fetched_rate)
