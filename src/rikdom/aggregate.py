@@ -103,6 +103,19 @@ def _resolve_to_base_amount(
     return None
 
 
+def _report_invalid_money(
+    message: str,
+    *,
+    warnings: list[str],
+    errors: list[str],
+    strict: bool,
+) -> None:
+    if strict:
+        errors.append(message)
+    else:
+        warnings.append(message)
+
+
 def _to_base_amount(
     holding: dict[str, Any],
     base_currency: str,
@@ -114,12 +127,26 @@ def _to_base_amount(
     context: str,
 ) -> float | None:
     market_value = holding.get("market_value")
+    if market_value is None:
+        return None
     if not isinstance(market_value, dict):
+        _report_invalid_money(
+            f"{context} has non-object market_value; expected {{amount, currency}}",
+            warnings=warnings,
+            errors=errors,
+            strict=strict,
+        )
         return None
 
     amount = market_value.get("amount")
     currency = market_value.get("currency")
     if not _is_numeric(amount) or not isinstance(currency, str) or not currency.strip():
+        _report_invalid_money(
+            f"{context} has malformed market_value (amount={amount!r}, currency={currency!r})",
+            warnings=warnings,
+            errors=errors,
+            strict=strict,
+        )
         return None
 
     return _resolve_to_base_amount(
@@ -142,43 +169,34 @@ def _normalize_identifier(value: str, field: str) -> str:
     return normalized
 
 
-def _pick_identifier(payload: dict[str, Any]) -> tuple[str, str] | None:
+def _collect_identifier_keys(
+    asset_type_id: str, identifiers: Any
+) -> list[tuple[str, str, str]]:
+    if not asset_type_id or not isinstance(identifiers, dict):
+        return []
+    keys: list[tuple[str, str, str]] = []
     for attr_field in _IDENTIFIER_FIELDS:
-        raw = payload.get(attr_field)
+        raw = identifiers.get(attr_field)
         if not isinstance(raw, str):
             continue
         normalized = _normalize_identifier(raw, attr_field)
         if normalized:
-            return attr_field, normalized
-    return None
+            keys.append((asset_type_id, attr_field, normalized))
+    return keys
 
 
-def _holding_instrument_key(holding: dict[str, Any]) -> tuple[str, str, str] | None:
-    asset_type_id = str(holding.get("asset_type_id", "")).strip()
-    identifiers = holding.get("identifiers")
-    if not asset_type_id or not isinstance(identifiers, dict):
-        return None
-
-    picked = _pick_identifier(identifiers)
-    if picked is None:
-        return None
-
-    field, value = picked
-    return (asset_type_id, field, value)
+def _holding_instrument_keys(holding: dict[str, Any]) -> list[tuple[str, str, str]]:
+    return _collect_identifier_keys(
+        str(holding.get("asset_type_id", "")).strip(),
+        holding.get("identifiers"),
+    )
 
 
-def _activity_instrument_key(activity: dict[str, Any]) -> tuple[str, str, str] | None:
-    asset_type_id = str(activity.get("asset_type_id", "")).strip()
-    instrument = activity.get("instrument")
-    if not asset_type_id or not isinstance(instrument, dict):
-        return None
-
-    picked = _pick_identifier(instrument)
-    if picked is None:
-        return None
-
-    field, value = picked
-    return (asset_type_id, field, value)
+def _activity_instrument_keys(activity: dict[str, Any]) -> list[tuple[str, str, str]]:
+    return _collect_identifier_keys(
+        str(activity.get("asset_type_id", "")).strip(),
+        activity.get("instrument"),
+    )
 
 
 def _is_posted_activity(activity: dict[str, Any]) -> bool:
@@ -191,28 +209,37 @@ def _is_posted_activity(activity: dict[str, Any]) -> bool:
     return not status or status == "posted"
 
 
-def _quantity_from_activity_ledger(activities: list[dict[str, Any]]) -> dict[tuple[str, str, str], float]:
-    ledger: dict[tuple[str, str, str], float] = {}
+def _build_quantity_ledger_index(
+    activities: list[dict[str, Any]],
+) -> tuple[list[float | None], dict[tuple[str, str, str], set[int]]]:
+    deltas: list[float | None] = []
+    key_index: dict[tuple[str, str, str], set[int]] = {}
 
-    for activity in activities:
+    for idx, activity in enumerate(activities):
         if not _is_posted_activity(activity):
+            deltas.append(None)
             continue
         event_type = str(activity.get("event_type", "")).strip().lower()
         sign = _QUANTITY_EVENT_SIGNS.get(event_type)
         if sign is None:
+            deltas.append(None)
             continue
 
         quantity = activity.get("quantity")
         if not _is_numeric(quantity):
+            deltas.append(None)
             continue
 
-        key = _activity_instrument_key(activity)
-        if key is None:
+        keys = _activity_instrument_keys(activity)
+        if not keys:
+            deltas.append(None)
             continue
 
-        ledger[key] = ledger.get(key, 0.0) + (sign * float(quantity))
+        deltas.append(sign * float(quantity))
+        for key in keys:
+            key_index.setdefault(key, set()).add(idx)
 
-    return ledger
+    return deltas, key_index
 
 
 def _append_quantity_consistency_warnings(
@@ -222,8 +249,8 @@ def _append_quantity_consistency_warnings(
     *,
     tolerance: float,
 ) -> None:
-    ledger = _quantity_from_activity_ledger(activities)
-    if not ledger:
+    deltas, key_index = _build_quantity_ledger_index(activities)
+    if not key_index:
         return
 
     for holding in holdings:
@@ -231,12 +258,20 @@ def _append_quantity_consistency_warnings(
         if not _is_numeric(quantity):
             continue
 
-        key = _holding_instrument_key(holding)
-        if key is None or key not in ledger:
+        keys = _holding_instrument_keys(holding)
+        if not keys:
             continue
 
+        matching_indices: set[int] = set()
+        for key in keys:
+            matching_indices.update(key_index.get(key, ()))
+        if not matching_indices:
+            continue
+
+        ledger_qty = sum(
+            deltas[i] for i in matching_indices if deltas[i] is not None
+        )
         holding_qty = float(quantity)
-        ledger_qty = float(ledger[key])
         drift = holding_qty - ledger_qty
         if abs(drift) <= tolerance:
             continue
@@ -267,12 +302,26 @@ def _to_base_activity_money_delta(
         return None
 
     money = activity.get("money")
+    if money is None:
+        return None
     if not isinstance(money, dict):
+        _report_invalid_money(
+            f"{context} has non-object money; expected {{amount, currency}}",
+            warnings=warnings,
+            errors=errors,
+            strict=strict,
+        )
         return None
 
     amount = money.get("amount")
     currency = money.get("currency")
-    if not _is_numeric(amount) or not isinstance(currency, str):
+    if not _is_numeric(amount) or not isinstance(currency, str) or not currency.strip():
+        _report_invalid_money(
+            f"{context} has malformed money (amount={amount!r}, currency={currency!r})",
+            warnings=warnings,
+            errors=errors,
+            strict=strict,
+        )
         return None
 
     money_base = _resolve_to_base_amount(
@@ -292,23 +341,42 @@ def _to_base_activity_money_delta(
     delta = sign * money_base
 
     fees = activity.get("fees")
-    if isinstance(fees, dict):
-        fee_amount = fees.get("amount")
-        fee_currency = fees.get("currency")
-        if _is_numeric(fee_amount) and isinstance(fee_currency, str):
-            fee_base = _resolve_to_base_amount(
-                abs(float(fee_amount)),
-                fee_currency,
-                base_currency,
-                metadata=activity.get("metadata"),
-                fx_rates_to_base=fx_rates_to_base,
+    if fees is not None:
+        if not isinstance(fees, dict):
+            _report_invalid_money(
+                f"{context} has non-object fees; expected {{amount, currency}}",
                 warnings=warnings,
                 errors=errors,
                 strict=strict,
-                context=f"{context} fees",
             )
-            if fee_base is not None:
-                delta -= fee_base
+        else:
+            fee_amount = fees.get("amount")
+            fee_currency = fees.get("currency")
+            if (
+                not _is_numeric(fee_amount)
+                or not isinstance(fee_currency, str)
+                or not fee_currency.strip()
+            ):
+                _report_invalid_money(
+                    f"{context} has malformed fees (amount={fee_amount!r}, currency={fee_currency!r})",
+                    warnings=warnings,
+                    errors=errors,
+                    strict=strict,
+                )
+            else:
+                fee_base = _resolve_to_base_amount(
+                    abs(float(fee_amount)),
+                    fee_currency,
+                    base_currency,
+                    metadata=activity.get("metadata"),
+                    fx_rates_to_base=fx_rates_to_base,
+                    warnings=warnings,
+                    errors=errors,
+                    strict=strict,
+                    context=f"{context} fees",
+                )
+                if fee_base is not None:
+                    delta -= fee_base
 
     return delta
 
@@ -401,7 +469,11 @@ def aggregate_portfolio(
     cash_drift_tolerance_base: float = 0.01,
 ) -> AggregateResult:
     settings = portfolio.get("settings", {})
-    base_currency = str(settings.get("base_currency", "USD")).upper().strip() or "USD"
+    raw_base_currency = settings.get("base_currency") if isinstance(settings, dict) else None
+    if isinstance(raw_base_currency, str) and raw_base_currency.strip():
+        base_currency = raw_base_currency.strip().upper()
+    else:
+        base_currency = "USD"
 
     catalog = portfolio.get("asset_type_catalog", [])
     holdings = portfolio.get("holdings", [])
