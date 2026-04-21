@@ -64,6 +64,15 @@ SHEET_SPECS: tuple[SheetSpec, ...] = (
     ),
 )
 
+RENDA_FIXA_PREFIX_TO_ASSET_TYPE: dict[str, str] = {
+    "CDB": "cdb",
+    "LCA": "lca",
+    "LCI": "lci",
+    "CRI": "cri",
+    "CRA": "cra",
+    "DEB": "debenture",
+}
+
 
 def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -235,6 +244,14 @@ def _read_sheet_rows(zf: zipfile.ZipFile, sheet_target: str, shared_strings: lis
 
 
 def _choose_asset_type(spec: SheetSpec, row: dict[str, str]) -> str:
+    if spec.name == "Posição - Tesouro Direto":
+        return "tesouro_direto"
+
+    if spec.name == "Posição - Renda Fixa":
+        product = _normalize_text(row.get("Produto", "")).upper()
+        prefix = product.split(" - ", 1)[0]
+        return RENDA_FIXA_PREFIX_TO_ASSET_TYPE.get(prefix, spec.asset_type_id)
+
     if spec.name != "Posição - Fundos":
         return spec.asset_type_id
 

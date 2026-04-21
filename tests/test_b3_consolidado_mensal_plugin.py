@@ -344,13 +344,13 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
         self.assertEqual(xpml11["asset_type_id"], "reit")
 
         renda_fixa = next(h for h in holdings if h["label"] == "CDB - BANCO TESTE")
-        self.assertEqual(renda_fixa["asset_type_id"], "debt_instrument")
+        self.assertEqual(renda_fixa["asset_type_id"], "cdb")
         self.assertAlmostEqual(renda_fixa["market_value"]["amount"], 1000.5)
         self.assertEqual(renda_fixa["metadata"]["indexer"], "DI")
         self.assertEqual(renda_fixa["metadata"]["maturity_date"], "2027-01-14")
 
         tesouro = next(h for h in holdings if h["label"] == "Tesouro IPCA+ 2035")
-        self.assertEqual(tesouro["asset_type_id"], "debt_instrument")
+        self.assertEqual(tesouro["asset_type_id"], "tesouro_direto")
         self.assertEqual(tesouro["identifiers"]["isin"], "BRSTNCNTB3E2")
         self.assertEqual(tesouro["metadata"]["maturity_date"], "2035-05-15")
 

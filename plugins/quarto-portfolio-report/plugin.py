@@ -17,11 +17,34 @@ QUARTO_TIMEOUT_SECONDS = 120
 REPORT_FILENAME = "portfolio-report.html"
 
 
+def _asset_type_to_class(asset_type_catalog: Any) -> dict[str, str]:
+    index: dict[str, str] = {}
+    if not isinstance(asset_type_catalog, list):
+        return index
+    for item in asset_type_catalog:
+        if not isinstance(item, dict):
+            continue
+        asset_id = str(item.get("id", "")).strip()
+        asset_class = str(item.get("asset_class", "")).strip()
+        if asset_id and asset_class:
+            index[asset_id] = asset_class
+    return index
+
+
+def _asset_type_bucket(asset_type_id: str, asset_class: str) -> str:
+    if asset_type_id == "debt_instrument":
+        return "debt_instrument"
+    if asset_class == "debt":
+        return "debt_instrument"
+    return asset_type_id or "unknown"
+
+
 def _build_report_payload(portfolio: dict[str, Any], snapshots: list[dict[str, Any]]) -> dict[str, Any]:
     settings = portfolio.get("settings", {})
     profile = portfolio.get("profile", {})
     holdings = portfolio.get("holdings", [])
     asset_type_catalog = portfolio.get("asset_type_catalog", [])
+    asset_type_classes = _asset_type_to_class(asset_type_catalog)
 
     by_currency: dict[str, float] = {}
     by_asset_type: dict[str, float] = {}
@@ -38,8 +61,10 @@ def _build_report_payload(portfolio: dict[str, Any], snapshots: list[dict[str, A
             continue
         by_currency[currency] = by_currency.get(currency, 0.0) + float(amount)
 
-        asset_type_id = str(holding.get("asset_type_id", "")).strip() or "unknown"
-        by_asset_type[asset_type_id] = by_asset_type.get(asset_type_id, 0.0) + float(amount)
+        asset_type_id = str(holding.get("asset_type_id", "")).strip()
+        asset_class = asset_type_classes.get(asset_type_id, "")
+        bucket = _asset_type_bucket(asset_type_id, asset_class)
+        by_asset_type[bucket] = by_asset_type.get(bucket, 0.0) + float(amount)
 
         jurisdiction = holding.get("jurisdiction", {})
         country = ""

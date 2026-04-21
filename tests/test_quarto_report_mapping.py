@@ -107,6 +107,74 @@ class QuartoPluginTests(unittest.TestCase):
             html_artifact = next(a for a in result["artifacts"] if a["type"] == "html")
             self.assertTrue(Path(html_artifact["path"]).exists())
 
+    def test_quarto_asset_type_breakdown_rolls_debt_class_into_debt_instrument(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            portfolio_path = tmp / "portfolio.json"
+            snapshots_path = tmp / "snapshots.jsonl"
+            out_dir = tmp / "out"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            portfolio_path.write_text(
+                json.dumps(
+                    {
+                        "profile": {"display_name": "Debt Rollup"},
+                        "settings": {"base_currency": "BRL"},
+                        "asset_type_catalog": [
+                            {"id": "stock", "asset_class": "stocks"},
+                            {"id": "tesouro_direto_ipca", "asset_class": "debt"},
+                        ],
+                        "holdings": [
+                            {
+                                "id": "h-td",
+                                "asset_type_id": "tesouro_direto_ipca",
+                                "label": "Tesouro IPCA+",
+                                "market_value": {"amount": 28000, "currency": "BRL"},
+                            },
+                            {
+                                "id": "h-cdb",
+                                "asset_type_id": "debt_instrument",
+                                "label": "CDB",
+                                "market_value": {"amount": 1200, "currency": "BRL"},
+                            },
+                            {
+                                "id": "h-stock",
+                                "asset_type_id": "stock",
+                                "label": "Stock",
+                                "market_value": {"amount": 500, "currency": "BRL"},
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            snapshots_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-21T00:00:00Z",
+                        "totals": {"portfolio_value_base": 29700},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = run_output_pipeline(
+                plugin_name="quarto-portfolio-report",
+                plugins_dir="plugins",
+                portfolio_path=str(portfolio_path),
+                snapshots_path=str(snapshots_path),
+                output_dir=str(out_dir),
+            )
+
+            json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
+            payload = json.loads(Path(json_artifact["path"]).read_text(encoding="utf-8"))
+            breakdown = payload["sections"]["asset_type_breakdown"]
+
+            self.assertEqual(breakdown.get("debt_instrument"), 29200.0)
+            self.assertEqual(breakdown.get("stock"), 500.0)
+            self.assertNotIn("tesouro_direto_ipca", breakdown)
+
 
 if __name__ == "__main__":
     unittest.main()
