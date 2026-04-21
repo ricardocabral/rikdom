@@ -72,6 +72,6 @@ test:
 	uv run python -m unittest discover -s tests -v
 
 lint:
-	ruff check .
+	uvx ruff check .
 
 check: lint validate-fixture test

@@ -51,7 +51,7 @@ uv run python -m unittest discover -s tests -v
 Run lint checks:
 
 ```bash
-ruff check .
+make lint
 ```
 
 ## Development workflow
@@ -83,7 +83,7 @@ PR checklist:
 
 - [ ] Change is scoped and self-contained.
 - [ ] Tests added/updated for new behavior.
-- [ ] `ruff check .` passes.
+- [ ] `make lint` passes.
 - [ ] `uv run rikdom validate --portfolio tests/fixtures/portfolio.json` passes.
 - [ ] `uv run python -m unittest discover -s tests -v` passes.
 - [ ] Docs updated when behavior, schema, or CLI changes.
