@@ -87,6 +87,62 @@ class CliImportStatementTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Import failed: plugin boom", stderr.getvalue())
 
+    def test_cmd_import_statement_returns_error_for_unexpected_pipeline_exception(self) -> None:
+        args = Namespace(
+            portfolio="tests/fixtures/portfolio.json",
+            plugin="csv-generic",
+            input="tests/fixtures/sample_statement.csv",
+            plugins_dir="plugins",
+            write=False,
+            import_log=None,
+            import_run_id="run-test",
+            ingested_at="2026-04-20T00:00:00Z",
+        )
+        with (
+            mock.patch("rikdom.cli.load_json", return_value={"holdings": [], "activities": []}),
+            mock.patch(
+                "rikdom.cli.run_import_pipeline",
+                side_effect=RuntimeError("runtime boom"),
+            ),
+        ):
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                code = cmd_import_statement(args)
+
+        self.assertEqual(code, 1)
+        self.assertIn("Import failed: runtime boom", stderr.getvalue())
+
+    def test_cmd_import_statement_rejects_invalid_imported_activity(self) -> None:
+        args = Namespace(
+            portfolio="tests/fixtures/portfolio.json",
+            plugin="csv-generic",
+            input="tests/fixtures/sample_statement.csv",
+            plugins_dir="plugins",
+            write=False,
+            import_log=None,
+            import_run_id="run-test",
+            ingested_at="2026-04-20T00:00:00Z",
+        )
+        imported = {
+            "holdings": [],
+            "activities": [
+                {
+                    "id": "a1",
+                    "effective_at": "2026-02-13T00:00:00Z",
+                }
+            ],
+        }
+        with (
+            mock.patch("rikdom.cli.load_json", return_value={"holdings": [], "activities": []}),
+            mock.patch("rikdom.cli.run_import_pipeline", return_value=imported),
+        ):
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                code = cmd_import_statement(args)
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid imported activity at index 0", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

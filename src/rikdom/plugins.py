@@ -133,15 +133,44 @@ def merge_holdings(
     return portfolio, counts
 
 
+def _as_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def _activity_keys(entry: dict[str, Any]) -> list[str]:
+
     keys: list[str] = []
-    idem = str(entry.get("idempotency_key", "")).strip()
+    idem = _as_text(entry.get("idempotency_key"))
     if idem:
         keys.append(f"idem::{idem}")
-    aid = str(entry.get("id", "")).strip()
+    aid = _as_text(entry.get("id"))
     if aid:
         keys.append(f"id::{aid}")
     return keys
+
+
+def _activity_identity(entry: dict[str, Any]) -> tuple[str, str]:
+    aid = _as_text(entry.get("id"))
+    idem = _as_text(entry.get("idempotency_key"))
+    return aid, idem
+
+
+def _validate_activity_entry(entry: dict[str, Any], idx: int) -> None:
+    missing: list[str] = []
+    event_type = _as_text(entry.get("event_type"))
+    if not event_type:
+        missing.append("event_type")
+    effective_at = _as_text(entry.get("effective_at"))
+    if not effective_at:
+        missing.append("effective_at")
+    aid, idem = _activity_identity(entry)
+    if not aid and not idem:
+        missing.append("id or idempotency_key")
+    if missing:
+        rendered = ", ".join(missing)
+        raise ValueError(f"Invalid imported activity at index {idx}: missing {rendered}")
 
 
 def merge_activities(
@@ -153,17 +182,27 @@ def merge_activities(
         portfolio["activities"] = activities
 
     current_index: dict[str, int] = {}
+    id_index: dict[str, int] = {}
+    idem_index: dict[str, int] = {}
     for i, item in enumerate(activities):
         if not isinstance(item, dict):
             continue
+        aid, idem = _activity_identity(item)
+        if aid:
+            id_index.setdefault(aid, i)
+        if idem:
+            idem_index.setdefault(idem, i)
         for key in _activity_keys(item):
             current_index.setdefault(key, i)
 
     counts = MergeCounts()
-    for entry in imported.get("activities", []) or []:
+    for idx, entry in enumerate(imported.get("activities", []) or []):
         if not isinstance(entry, dict):
             counts.skipped += 1
             continue
+
+        _validate_activity_entry(entry, idx)
+
         keys = _activity_keys(entry)
         if not keys:
             counts.skipped += 1
@@ -171,8 +210,15 @@ def merge_activities(
 
         normalized = dict(entry)
         normalized.setdefault("status", "posted")
+        aid, idem = _activity_identity(normalized)
 
-        matched_pos = next((current_index[k] for k in keys if k in current_index), None)
+        matched_pos = None
+        if aid and aid in id_index:
+            matched_pos = id_index[aid]
+        if matched_pos is None and idem and idem in idem_index:
+            matched_pos = idem_index[idem]
+        if matched_pos is None:
+            matched_pos = next((current_index[k] for k in keys if k in current_index), None)
         if matched_pos is not None:
             existing = activities[matched_pos]
             existing_norm = dict(existing) if isinstance(existing, dict) else {}
@@ -182,20 +228,37 @@ def merge_activities(
                     normalized["idempotency_key"] = existing["idempotency_key"]
                 if existing.get("id") and not normalized.get("id"):
                     normalized["id"] = existing["id"]
+            normalized_id, normalized_idem = _activity_identity(normalized)
             if _activity_content_hash(existing_norm) == _activity_content_hash(normalized):
+                if normalized_id:
+                    id_index[normalized_id] = matched_pos
+                    current_index[f"id::{normalized_id}"] = matched_pos
+                if normalized_idem:
+                    idem_index[normalized_idem] = matched_pos
+                    current_index[f"idem::{normalized_idem}"] = matched_pos
                 counts.skipped += 1
                 continue
             if isinstance(existing, dict) and existing.get("ingested_at") and not normalized.get("ingested_at"):
                 normalized["ingested_at"] = existing["ingested_at"]
             activities[matched_pos] = normalized
-            for k in _activity_keys(normalized):
-                current_index[k] = matched_pos
+            normalized_id, normalized_idem = _activity_identity(normalized)
+            if normalized_id:
+                id_index[normalized_id] = matched_pos
+                current_index[f"id::{normalized_id}"] = matched_pos
+            if normalized_idem:
+                idem_index[normalized_idem] = matched_pos
+                current_index[f"idem::{normalized_idem}"] = matched_pos
             counts.updated += 1
         else:
             activities.append(normalized)
             new_pos = len(activities) - 1
-            for k in keys:
-                current_index[k] = new_pos
+            normalized_id, normalized_idem = _activity_identity(normalized)
+            if normalized_id:
+                id_index[normalized_id] = new_pos
+                current_index[f"id::{normalized_id}"] = new_pos
+            if normalized_idem:
+                idem_index[normalized_idem] = new_pos
+                current_index[f"idem::{normalized_idem}"] = new_pos
             counts.inserted += 1
 
     return portfolio, counts
@@ -205,9 +268,11 @@ def run_import_plugin(*args: Any, **kwargs: Any) -> dict[str, Any]:
     """Legacy entrypoint preserved for existing tests."""
     from .plugin_engine.pipeline import run_import_pipeline
 
-    plugin_name = kwargs.pop("plugin_name", None) or (args[0] if args else None)
-    input_path = kwargs.pop("input_path", None)
-    plugins_root = kwargs.pop("plugins_root", "plugins")
+    plugin_name = kwargs.pop("plugin_name", None) or (args[0] if len(args) >= 1 else None)
+    input_path = kwargs.pop("input_path", None) or (args[1] if len(args) >= 2 else None)
+    plugins_root = kwargs.pop("plugins_root", None)
+    if plugins_root is None:
+        plugins_root = args[2] if len(args) >= 3 else "plugins"
     if plugin_name is None or input_path is None:
         raise TypeError("run_import_plugin requires plugin_name and input_path")
     return run_import_pipeline(plugin_name, plugins_root, input_path)

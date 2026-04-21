@@ -151,6 +151,9 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
     except PluginEngineError as exc:
         print(f"Import failed: {exc}", file=sys.stderr)
         return 1
+    except Exception as exc:
+        print(f"Import failed: {exc}", file=sys.stderr)
+        return 1
 
     import_run_id = args.import_run_id or f"run-{uuid.uuid4().hex[:16]}"
     ingested_at = args.ingested_at or _now_iso()
@@ -163,8 +166,12 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         ingested_at=ingested_at,
     )
 
-    merged, h_counts = merge_holdings(portfolio, imported)
-    merged, a_counts = merge_activities(merged, imported)
+    try:
+        merged, h_counts = merge_holdings(portfolio, imported)
+        merged, a_counts = merge_activities(merged, imported)
+    except Exception as exc:
+        print(f"Import failed: {exc}", file=sys.stderr)
+        return 1
     if args.write:
         save_json(args.portfolio, merged)
 
