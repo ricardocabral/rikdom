@@ -19,7 +19,7 @@ If Quarto is missing, the plugin still runs but generates a fallback HTML artifa
 uv run rikdom render-report \
   --plugin quarto-portfolio-report \
   --plugins-dir plugins \
-  --portfolio data/portfolio.json \
-  --snapshots data/snapshots.jsonl \
+  --portfolio data-sample/portfolio.json \
+  --snapshots data-sample/snapshots.jsonl \
   --out-dir out/reports
 ```

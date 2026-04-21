@@ -107,6 +107,34 @@ class QuartoPluginTests(unittest.TestCase):
             html_artifact = next(a for a in result["artifacts"] if a["type"] == "html")
             self.assertTrue(Path(html_artifact["path"]).exists())
 
+    def test_quarto_plugin_falls_back_on_non_zero_exit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with (
+                patch("shutil.which", return_value="/usr/local/bin/quarto"),
+                patch(
+                    "subprocess.run",
+                    return_value=subprocess.CompletedProcess(
+                        args=["quarto", "render"],
+                        returncode=1,
+                        stdout="",
+                        stderr="render failed",
+                    ),
+                ),
+            ):
+                result = run_output_pipeline(
+                    plugin_name="quarto-portfolio-report",
+                    plugins_dir="plugins",
+                    portfolio_path="tests/fixtures/portfolio.json",
+                    snapshots_path="tests/fixtures/snapshots.jsonl",
+                    output_dir=tmp_dir,
+                )
+
+            self.assertTrue(result["warnings"])
+            self.assertIn("render failed", result["warnings"][0].lower())
+            html_artifact = next(a for a in result["artifacts"] if a["type"] == "html")
+            html_text = Path(html_artifact["path"]).read_text(encoding="utf-8")
+            self.assertIn("Fallback", html_text)
+
     def test_quarto_asset_type_breakdown_rolls_debt_class_into_debt_instrument(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp = Path(tmp_dir)
@@ -174,6 +202,141 @@ class QuartoPluginTests(unittest.TestCase):
             self.assertEqual(breakdown.get("debt_instrument"), 29200.0)
             self.assertEqual(breakdown.get("stock"), 500.0)
             self.assertNotIn("tesouro_direto_ipca", breakdown)
+
+    def test_quarto_breakdowns_only_aggregate_base_converted_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            portfolio_path = tmp / "portfolio.json"
+            snapshots_path = tmp / "snapshots.jsonl"
+            out_dir = tmp / "out"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            portfolio_path.write_text(
+                json.dumps(
+                    {
+                        "profile": {"display_name": "FX Portfolio", "country": "BR"},
+                        "settings": {"base_currency": "BRL"},
+                        "asset_type_catalog": [
+                            {"id": "stock", "asset_class": "stocks"},
+                            {"id": "fund", "asset_class": "funds"},
+                        ],
+                        "holdings": [
+                            {
+                                "id": "h-us-converted",
+                                "asset_type_id": "stock",
+                                "label": "US Converted",
+                                "jurisdiction": {"country": "US"},
+                                "market_value": {"amount": 100, "currency": "USD"},
+                                "metadata": {"fx_rate_to_base": 5.0},
+                            },
+                            {
+                                "id": "h-us-missing-fx",
+                                "asset_type_id": "stock",
+                                "label": "US Missing FX",
+                                "jurisdiction": {"country": "US"},
+                                "market_value": {"amount": 200, "currency": "USD"},
+                            },
+                            {
+                                "id": "h-brl",
+                                "asset_type_id": "fund",
+                                "label": "Local Fund",
+                                "jurisdiction": {"country": "BR"},
+                                "market_value": {"amount": 300, "currency": "BRL"},
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            snapshots_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-21T00:00:00Z",
+                        "totals": {"portfolio_value_base": 800},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = run_output_pipeline(
+                plugin_name="quarto-portfolio-report",
+                plugins_dir="plugins",
+                portfolio_path=str(portfolio_path),
+                snapshots_path=str(snapshots_path),
+                output_dir=str(out_dir),
+            )
+
+            json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
+            payload = json.loads(Path(json_artifact["path"]).read_text(encoding="utf-8"))
+            sections = payload["sections"]
+
+            self.assertEqual(sections["currency_split"].get("USD"), 300.0)
+            self.assertEqual(sections["currency_split"].get("BRL"), 300.0)
+            self.assertEqual(sections["asset_type_breakdown"].get("stock"), 500.0)
+            self.assertEqual(sections["asset_type_breakdown"].get("fund"), 300.0)
+            self.assertEqual(sections["geography"].get("US"), 500.0)
+            self.assertEqual(sections["geography"].get("BR"), 300.0)
+
+    def test_quarto_top_holdings_handles_malformed_market_value_amount(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            portfolio_path = tmp / "portfolio.json"
+            snapshots_path = tmp / "snapshots.jsonl"
+            out_dir = tmp / "out"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            portfolio_path.write_text(
+                json.dumps(
+                    {
+                        "profile": {"display_name": "Malformed Amounts"},
+                        "settings": {"base_currency": "USD"},
+                        "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+                        "holdings": [
+                            {
+                                "id": "h-good",
+                                "asset_type_id": "stock",
+                                "label": "Good",
+                                "market_value": {"amount": "12.5", "currency": "USD"},
+                            },
+                            {
+                                "id": "h-bad",
+                                "asset_type_id": "stock",
+                                "label": "Bad",
+                                "market_value": {"amount": "", "currency": "USD"},
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            snapshots_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-21T00:00:00Z",
+                        "totals": {"portfolio_value_base": 12.5},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = run_output_pipeline(
+                plugin_name="quarto-portfolio-report",
+                plugins_dir="plugins",
+                portfolio_path=str(portfolio_path),
+                snapshots_path=str(snapshots_path),
+                output_dir=str(out_dir),
+            )
+
+            json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
+            payload = json.loads(Path(json_artifact["path"]).read_text(encoding="utf-8"))
+            top_holdings = payload["sections"]["risk"]["top_holdings"]
+
+            self.assertEqual(top_holdings[0]["id"], "h-good")
+            self.assertEqual(top_holdings[0]["amount"], 12.5)
+            self.assertEqual(top_holdings[1]["id"], "h-bad")
+            self.assertEqual(top_holdings[1]["amount"], 0.0)
 
 
 if __name__ == "__main__":

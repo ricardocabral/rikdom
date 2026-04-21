@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -15,6 +16,36 @@ from rikdom.storage import load_json, load_jsonl
 
 QUARTO_TIMEOUT_SECONDS = 120
 REPORT_FILENAME = "portfolio-report.html"
+
+
+def _safe_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        amount = float(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            amount = float(text)
+        except ValueError:
+            return None
+    else:
+        return None
+    if not math.isfinite(amount):
+        return None
+    return amount
+
+
+def _to_base_amount(holding: dict[str, Any], amount: float, currency: str, base_currency: str) -> float | None:
+    if currency == base_currency:
+        return amount
+    metadata = holding.get("metadata")
+    fx_rate = _safe_float(metadata.get("fx_rate_to_base")) if isinstance(metadata, dict) else None
+    if fx_rate is None or fx_rate <= 0:
+        return None
+    return amount * fx_rate
 
 
 def _asset_type_to_class(asset_type_catalog: Any) -> dict[str, str]:
@@ -45,6 +76,7 @@ def _build_report_payload(portfolio: dict[str, Any], snapshots: list[dict[str, A
     holdings = portfolio.get("holdings", [])
     asset_type_catalog = portfolio.get("asset_type_catalog", [])
     asset_type_classes = _asset_type_to_class(asset_type_catalog)
+    base_currency = str(settings.get("base_currency", "USD")).upper().strip() or "USD"
 
     by_currency: dict[str, float] = {}
     by_asset_type: dict[str, float] = {}
@@ -55,16 +87,19 @@ def _build_report_payload(portfolio: dict[str, Any], snapshots: list[dict[str, A
         market_value = holding.get("market_value", {})
         if not isinstance(market_value, dict):
             continue
-        amount = market_value.get("amount")
-        currency = str(market_value.get("currency", "")).upper().strip()
-        if not isinstance(amount, (int, float)):
+        amount = _safe_float(market_value.get("amount"))
+        if amount is None:
             continue
-        by_currency[currency] = by_currency.get(currency, 0.0) + float(amount)
+        currency = str(market_value.get("currency", "")).upper().strip() or "UNKNOWN"
+        by_currency[currency] = by_currency.get(currency, 0.0) + amount
 
         asset_type_id = str(holding.get("asset_type_id", "")).strip()
         asset_class = asset_type_classes.get(asset_type_id, "")
         bucket = _asset_type_bucket(asset_type_id, asset_class)
-        by_asset_type[bucket] = by_asset_type.get(bucket, 0.0) + float(amount)
+        amount_base = _to_base_amount(holding, amount, currency, base_currency)
+        if amount_base is None:
+            continue
+        by_asset_type[bucket] = by_asset_type.get(bucket, 0.0) + amount_base
 
         jurisdiction = holding.get("jurisdiction", {})
         country = ""
@@ -72,23 +107,29 @@ def _build_report_payload(portfolio: dict[str, Any], snapshots: list[dict[str, A
             country = str(jurisdiction.get("country", "")).upper().strip()
         if not country:
             country = str(profile.get("country", "")).upper().strip() or "UNKNOWN"
-        geo[country] = geo.get(country, 0.0) + float(amount)
+        geo[country] = geo.get(country, 0.0) + amount_base
 
-    top_holdings = sorted(
-        [
+    top_holdings = []
+    for holding in holdings if isinstance(holdings, list) else []:
+        if not isinstance(holding, dict):
+            continue
+        market_value = holding.get("market_value", {})
+        amount = 0.0
+        currency = base_currency
+        if isinstance(market_value, dict):
+            parsed_amount = _safe_float(market_value.get("amount"))
+            if parsed_amount is not None:
+                amount = parsed_amount
+            currency = str(market_value.get("currency", currency)).upper().strip() or currency
+        top_holdings.append(
             {
-                "id": str(h.get("id", "")),
-                "label": str(h.get("label", "")),
-                "amount": float(h.get("market_value", {}).get("amount", 0.0))
-                if isinstance(h.get("market_value"), dict)
-                else 0.0,
+                "id": str(holding.get("id", "")),
+                "label": str(holding.get("label", "")),
+                "amount": amount,
+                "currency": currency,
             }
-            for h in holdings
-            if isinstance(h, dict)
-        ],
-        key=lambda item: item["amount"],
-        reverse=True,
-    )[:5]
+        )
+    top_holdings = sorted(top_holdings, key=lambda item: item["amount"], reverse=True)[:5]
 
     timeline = []
     for snapshot in snapshots:
@@ -112,7 +153,7 @@ def _build_report_payload(portfolio: dict[str, Any], snapshots: list[dict[str, A
         "profile": {
             "display_name": profile.get("display_name", "Portfolio"),
             "country": profile.get("country"),
-            "base_currency": settings.get("base_currency", "USD"),
+            "base_currency": base_currency,
             "timezone": settings.get("timezone"),
         },
         "asset_type_catalog": asset_type_catalog,

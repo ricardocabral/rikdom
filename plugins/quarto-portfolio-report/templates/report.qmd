@@ -2,275 +2,753 @@
 title: "Rikdom Portfolio Report"
 format:
   html:
-    toc: true
+    toc: false
     theme: cosmo
 ---
 
 ```{=html}
 <style>
-  .rk-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
-    margin-bottom: 20px;
+  :root {
+    --rk-bg: #f3f5f9;
+    --rk-surface: #ffffff;
+    --rk-surface-2: #f8fafc;
+    --rk-border: #d8e0ea;
+    --rk-text: #111827;
+    --rk-muted: #5b6678;
+    --rk-positive: #157f3b;
+    --rk-negative: #b42318;
+    --rk-primary: #2b67f6;
+    --rk-primary-soft: #dfe9ff;
+    --rk-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
   }
-  .rk-card {
-    border: 1px solid #d8dee9;
-    border-radius: 10px;
-    padding: 12px;
-    background: #fbfcfe;
+
+  body {
+    background:
+      radial-gradient(circle at 0% -10%, #eef3ff 0%, #f3f5f9 50%),
+      radial-gradient(circle at 100% 0%, #ecfdf3 0%, rgba(236, 253, 243, 0) 40%),
+      var(--rk-bg);
+    color: var(--rk-text);
   }
-  .rk-card h3 {
-    margin: 0;
-    font-size: 0.9rem;
-    color: #334155;
-    font-weight: 600;
+
+  .rk-app {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 12px 8px 40px;
   }
-  .rk-metric {
-    margin-top: 6px;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #0f172a;
-  }
-  .rk-bars {
-    display: grid;
-    gap: 8px;
-    margin-bottom: 18px;
-  }
-  .rk-row {
-    display: grid;
-    gap: 4px;
-  }
-  .rk-row-head {
+
+  .rk-topbar {
     display: flex;
     justify-content: space-between;
-    gap: 10px;
-    font-size: 0.92rem;
-    color: #334155;
+    align-items: baseline;
+    gap: 12px;
+    margin: 6px 4px 16px;
   }
-  .rk-track {
-    width: 100%;
-    height: 10px;
-    background: #e5e7eb;
+
+  .rk-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .rk-subtitle {
+    color: var(--rk-muted);
+    font-size: 0.92rem;
+  }
+
+  .rk-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .rk-chip {
+    border: 1px solid var(--rk-border);
+    background: var(--rk-surface);
+    color: var(--rk-muted);
+    font-size: 0.78rem;
     border-radius: 999px;
+    padding: 4px 10px;
+  }
+
+  .rk-grid-main {
+    display: grid;
+    grid-template-columns: 1.75fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .rk-card {
+    background: var(--rk-surface);
+    border: 1px solid var(--rk-border);
+    border-radius: 14px;
+    box-shadow: var(--rk-shadow);
     overflow: hidden;
   }
-  .rk-fill {
-    height: 100%;
-    background: #0ea5e9;
+
+  .rk-card-body {
+    padding: 16px;
   }
-  .rk-table {
+
+  .rk-label {
+    color: var(--rk-muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .rk-hero-value {
+    margin-top: 4px;
+    font-size: clamp(1.8rem, 3.8vw, 2.65rem);
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+  }
+
+  .rk-signed {
+    margin-top: 6px;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .rk-positive {
+    color: var(--rk-positive);
+  }
+
+  .rk-negative {
+    color: var(--rk-negative);
+  }
+
+  .rk-chart-shell {
+    margin-top: 14px;
+    background: linear-gradient(180deg, #f7f9fe 0%, #ffffff 90%);
+    border: 1px solid var(--rk-border);
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .rk-chart-meta {
+    margin-top: 8px;
+    color: var(--rk-muted);
+    font-size: 0.82rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+
+  .rk-kpi-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr;
+  }
+
+  .rk-kpi {
+    border: 1px solid var(--rk-border);
+    background: linear-gradient(180deg, #ffffff 0%, var(--rk-surface-2) 100%);
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .rk-kpi .value {
+    margin-top: 6px;
+    font-size: 1.2rem;
+    font-weight: 750;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+
+  .rk-period-strip {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .rk-period {
+    border: 1px solid var(--rk-border);
+    border-radius: 10px;
+    padding: 9px;
+    background: #fff;
+  }
+
+  .rk-period .name {
+    font-size: 0.76rem;
+    color: var(--rk-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .rk-period .value {
+    margin-top: 4px;
+    font-size: 0.98rem;
+    font-weight: 700;
+  }
+
+  .rk-grid-mid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .rk-alloc {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rk-donut-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .rk-donut {
+    width: 106px;
+    height: 106px;
+    border-radius: 50%;
+    background: var(--rk-donut-gradient, #dbeafe);
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .rk-donut::after {
+    content: "";
+    position: absolute;
+    inset: 17px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--rk-border);
+  }
+
+  .rk-list {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .rk-list-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.86rem;
+  }
+
+  .rk-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+
+  .rk-list-row .name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #1f2937;
+  }
+
+  .rk-list-row .value {
+    color: var(--rk-muted);
+    font-size: 0.82rem;
+  }
+
+  .rk-holdings table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 0.88rem;
   }
-  .rk-table th,
-  .rk-table td {
-    border-bottom: 1px solid #e5e7eb;
-    padding: 8px 6px;
+
+  .rk-holdings th,
+  .rk-holdings td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #ebeff5;
     text-align: left;
-    font-size: 0.92rem;
+    vertical-align: middle;
   }
-  .rk-note {
-    color: #64748b;
+
+  .rk-holdings th {
+    color: var(--rk-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #fbfcff;
+  }
+
+  .rk-bar-track {
+    height: 8px;
+    border-radius: 999px;
+    background: #edf1f7;
+    overflow: hidden;
+  }
+
+  .rk-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2b67f6 0%, #4f8cff 100%);
+  }
+
+  .rk-empty {
     font-size: 0.9rem;
-    margin-top: 6px;
+    color: var(--rk-muted);
+    margin: 0;
+  }
+
+  .rk-footnote {
+    margin-top: 10px;
+    color: var(--rk-muted);
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 980px) {
+    .rk-grid-main,
+    .rk-grid-mid {
+      grid-template-columns: 1fr;
+    }
+
+    .rk-period-strip {
+      grid-template-columns: 1fr;
+    }
+
+    .rk-donut-row {
+      align-items: flex-start;
+    }
   }
 </style>
 
 <script src="report-data.js"></script>
 
-<section id="rk-overview"></section>
-
-<h2>Timeline</h2>
-<section id="rk-timeline"></section>
-
-<h2>Currency Split</h2>
-<section id="rk-currency"></section>
-
-<h2>Asset Type Breakdown</h2>
-<section id="rk-asset-type"></section>
-
-<h2>Geography</h2>
-<section id="rk-geo"></section>
-
-<h2>Top Holdings</h2>
-<section id="rk-top-holdings"></section>
+<div id="rk-app" class="rk-app"></div>
 
 <script>
   (() => {
     const payload = window.RIKDOM_REPORT_DATA || {};
     const profile = payload.profile || {};
     const sections = payload.sections || {};
-    const timeline = Array.isArray(sections.timeline) ? sections.timeline : [];
+
+    const timeline = (Array.isArray(sections.timeline) ? sections.timeline : [])
+      .map((row) => ({
+        timestamp: row && row.timestamp ? String(row.timestamp) : "",
+        value: Number(row && row.portfolio_value_base)
+      }))
+      .filter((row) => Number.isFinite(row.value));
+
+    timeline.sort((a, b) => {
+      const aTs = Date.parse(a.timestamp || "");
+      const bTs = Date.parse(b.timestamp || "");
+      if (Number.isFinite(aTs) && Number.isFinite(bTs)) {
+        return aTs - bTs;
+      }
+      return 0;
+    });
+
     const currencySplit = sections.currency_split || {};
     const assetTypeBreakdown = sections.asset_type_breakdown || {};
     const geography = sections.geography || {};
-    const topHoldings = (sections.risk && Array.isArray(sections.risk.top_holdings))
+    const topHoldings = sections.risk && Array.isArray(sections.risk.top_holdings)
       ? sections.risk.top_holdings
       : [];
 
-    const baseCurrency = profile.base_currency || "USD";
-    const portfolioName = profile.display_name || "Portfolio";
-    const country = profile.country || "N/A";
-
-    const formatMoney = (value, currency) => {
-      const amount = Number(value || 0);
-      try {
-        return new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: currency || "USD",
-          maximumFractionDigits: 2
-        }).format(amount);
-      } catch (_e) {
-        return `${amount.toFixed(2)} ${currency || ""}`.trim();
-      }
+    const normalizeCurrency = (value, fallback = "USD") => {
+      const normalized = String(value || "").toUpperCase().trim();
+      return /^[A-Z]{3}$/.test(normalized) ? normalized : fallback;
     };
+
+    const baseCurrency = normalizeCurrency(profile.base_currency, "USD");
+    const portfolioName = String(profile.display_name || "Portfolio");
+    const country = String(profile.country || "N/A");
+    const timezone = String(profile.timezone || "UTC");
+
+    const app = document.getElementById("rk-app");
+    if (!app) {
+      return;
+    }
 
     const sumValues = (obj) => Object.values(obj || {}).reduce((acc, raw) => {
       const value = Number(raw || 0);
       return acc + (Number.isFinite(value) ? value : 0);
     }, 0);
 
-    const totalByCurrency = sumValues(currencySplit);
-    const holdingsCount = topHoldings.length;
-    const timelineCount = timeline.length;
+    const totalFromSplit = sumValues(currencySplit);
+    const latestValue = timeline.length ? timeline[timeline.length - 1].value : totalFromSplit;
+    const previousValue = timeline.length > 1 ? timeline[timeline.length - 2].value : null;
+    const firstValue = timeline.length ? timeline[0].value : null;
 
-    const overview = document.getElementById("rk-overview");
-    overview.innerHTML = `
-      <h2>Overview</h2>
-      <div class="rk-grid">
-        <article class="rk-card">
-          <h3>Portfolio</h3>
-          <div class="rk-metric">${portfolioName}</div>
-        </article>
-        <article class="rk-card">
-          <h3>Base Currency</h3>
-          <div class="rk-metric">${baseCurrency}</div>
-        </article>
-        <article class="rk-card">
-          <h3>Country</h3>
-          <div class="rk-metric">${country}</div>
-        </article>
-        <article class="rk-card">
-          <h3>Holdings (Top List)</h3>
-          <div class="rk-metric">${holdingsCount}</div>
-        </article>
-        <article class="rk-card">
-          <h3>Total (Currency Split Sum)</h3>
-          <div class="rk-metric">${formatMoney(totalByCurrency, baseCurrency)}</div>
-        </article>
-        <article class="rk-card">
-          <h3>Snapshot Count</h3>
-          <div class="rk-metric">${timelineCount}</div>
-        </article>
-      </div>
-    `;
+    const intervalChange = previousValue === null ? null : latestValue - previousValue;
+    const intervalChangePct = previousValue && previousValue !== 0
+      ? (latestValue - previousValue) / previousValue
+      : null;
+    const maxChange = firstValue === null ? null : latestValue - firstValue;
+    const maxChangePct = firstValue && firstValue !== 0 ? (latestValue - firstValue) / firstValue : null;
 
-    const renderBars = (targetId, data, currency) => {
-      const target = document.getElementById(targetId);
+    const maxValue = timeline.length ? Math.max(...timeline.map((point) => point.value)) : latestValue;
+    const minValue = timeline.length ? Math.min(...timeline.map((point) => point.value)) : latestValue;
+
+    const holdingsTotal = topHoldings.reduce((acc, item) => {
+      const value = Number(item && item.amount);
+      return acc + (Number.isFinite(value) ? value : 0);
+    }, 0);
+
+    const largestHolding = topHoldings.length
+      ? Number(topHoldings[0].amount || 0)
+      : 0;
+    const largestHoldingShare = latestValue > 0 ? largestHolding / latestValue : 0;
+
+    const currencyEntries = Object.entries(currencySplit)
+      .map(([name, raw]) => [name, Number(raw || 0)])
+      .filter(([, value]) => Number.isFinite(value) && value > 0)
+      .sort((a, b) => b[1] - a[1]);
+    const maxCurrencyShare = currencyEntries.length && totalFromSplit > 0
+      ? currencyEntries[0][1] / totalFromSplit
+      : 0;
+
+    const dateLabel = (isoDate) => {
+      if (!isoDate) return "n/a";
+      const parsed = Date.parse(isoDate);
+      if (!Number.isFinite(parsed)) {
+        return isoDate;
+      }
+      return new Date(parsed).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit"
+      });
+    };
+
+    const dateTimeLabel = (isoDate) => {
+      if (!isoDate) return "n/a";
+      const parsed = Date.parse(isoDate);
+      if (!Number.isFinite(parsed)) {
+        return isoDate;
+      }
+      return new Date(parsed).toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    };
+
+    const formatMoney = (value, currency) => {
+      const amount = Number(value || 0);
+      if (!Number.isFinite(amount)) {
+        return "-";
+      }
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: currency || "USD",
+          maximumFractionDigits: 2
+        }).format(amount);
+      } catch (_error) {
+        return `${amount.toFixed(2)} ${currency || ""}`.trim();
+      }
+    };
+
+    const formatSignedMoney = (value, currency) => {
+      const amount = Number(value || 0);
+      if (!Number.isFinite(amount)) {
+        return "-";
+      }
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: currency || "USD",
+          maximumFractionDigits: 2,
+          signDisplay: "exceptZero"
+        }).format(amount);
+      } catch (_error) {
+        const prefix = amount > 0 ? "+" : "";
+        return `${prefix}${formatMoney(amount, currency)}`;
+      }
+    };
+
+    const formatPct = (value, digits = 2) => {
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) {
+        return "-";
+      }
+      return `${(amount * 100).toFixed(digits)}%`;
+    };
+
+    const formatSignedPct = (value, digits = 2) => {
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) {
+        return "-";
+      }
+      const sign = amount > 0 ? "+" : "";
+      return `${sign}${(amount * 100).toFixed(digits)}%`;
+    };
+
+    const signClass = (value) => {
+      const amount = Number(value || 0);
+      if (!Number.isFinite(amount) || amount === 0) {
+        return "";
+      }
+      return amount > 0 ? "rk-positive" : "rk-negative";
+    };
+
+    const escapeHtml = (value) => String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+
+    const palette = [
+      "#2b67f6",
+      "#19a974",
+      "#f59e0b",
+      "#ef4444",
+      "#8b5cf6",
+      "#06b6d4",
+      "#6366f1",
+      "#14b8a6"
+    ];
+
+    const renderTrendChart = () => {
+      if (!timeline.length) {
+        return '<p class="rk-empty">No timeline snapshots available.</p>';
+      }
+
+      const width = 920;
+      const height = 250;
+      const padX = 24;
+      const padY = 22;
+      const points = timeline.map((point, index) => {
+        const x = padX + (index * (width - padX * 2)) / Math.max(timeline.length - 1, 1);
+        const range = maxValue - minValue || 1;
+        const y = height - padY - ((point.value - minValue) / range) * (height - padY * 2);
+        return { x, y, value: point.value, timestamp: point.timestamp };
+      });
+
+      const line = points
+        .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+        .join(" ");
+      const area = `${line} L ${points[points.length - 1].x.toFixed(1)} ${(height - padY).toFixed(1)} L ${points[0].x.toFixed(1)} ${(height - padY).toFixed(1)} Z`;
+
+      const last = points[points.length - 1];
+      const first = points[0];
+
+      return `
+        <svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Portfolio evolution chart">
+          <defs>
+            <linearGradient id="rk-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#4f8cff" stop-opacity="0.34" />
+              <stop offset="100%" stop-color="#4f8cff" stop-opacity="0.03" />
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
+          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#d9e1ec" />
+          <path d="${area}" fill="url(#rk-area)"></path>
+          <path d="${line}" fill="none" stroke="#2b67f6" stroke-width="3"></path>
+          <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4.5" fill="#2b67f6"></circle>
+          <circle cx="${first.x.toFixed(1)}" cy="${first.y.toFixed(1)}" r="3" fill="#93c5fd"></circle>
+        </svg>
+      `;
+    };
+
+    const renderAllocation = (title, data, currency) => {
       const entries = Object.entries(data || {})
-        .map(([label, raw]) => [label, Number(raw || 0)])
-        .filter(([, value]) => Number.isFinite(value))
+        .map(([name, raw]) => [name, Number(raw || 0)])
+        .filter(([, value]) => Number.isFinite(value) && value > 0)
         .sort((a, b) => b[1] - a[1]);
 
       if (!entries.length) {
-        target.innerHTML = `<p class="rk-note">No data available.</p>`;
-        return;
+        return `
+          <article class="rk-card">
+            <div class="rk-card-body rk-alloc">
+              <div>
+                <div class="rk-label">Breakdown</div>
+                <h3 style="margin:4px 0 0;font-size:1.05rem;">${escapeHtml(title)}</h3>
+              </div>
+              <p class="rk-empty">No data available.</p>
+            </div>
+          </article>
+        `;
       }
 
-      const max = entries[0][1] || 1;
-      const rows = entries.map(([label, value]) => {
-        const pct = Math.max(0, Math.min(100, (value / max) * 100));
+      const total = entries.reduce((acc, [, value]) => acc + value, 0);
+      let cursor = 0;
+      const segments = entries.map(([, value], index) => {
+        const pct = total > 0 ? (value / total) * 100 : 0;
+        const from = cursor;
+        cursor += pct;
+        const color = palette[index % palette.length];
+        return `${color} ${from.toFixed(2)}% ${cursor.toFixed(2)}%`;
+      });
+
+      const rows = entries.map(([name, value], index) => {
+        const color = palette[index % palette.length];
+        const share = total > 0 ? value / total : 0;
         return `
-          <div class="rk-row">
-            <div class="rk-row-head">
-              <strong>${label}</strong>
-              <span>${formatMoney(value, currency)}</span>
-            </div>
-            <div class="rk-track"><div class="rk-fill" style="width:${pct}%"></div></div>
+          <div class="rk-list-row">
+            <span class="rk-dot" style="background:${color}"></span>
+            <span class="name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+            <span class="value">${formatPct(share, 1)} · ${formatMoney(value, currency)}</span>
           </div>
         `;
       }).join("");
 
-      target.innerHTML = `<div class="rk-bars">${rows}</div>`;
-    };
-
-    const renderTimeline = () => {
-      const target = document.getElementById("rk-timeline");
-      if (!timeline.length) {
-        target.innerHTML = `<p class="rk-note">No timeline snapshots available.</p>`;
-        return;
-      }
-
-      const values = timeline.map((row) => Number(row.portfolio_value_base || 0));
-      const cleanValues = values.filter((v) => Number.isFinite(v));
-      if (!cleanValues.length) {
-        target.innerHTML = `<p class="rk-note">No numeric timeline values available.</p>`;
-        return;
-      }
-
-      const width = 900;
-      const height = 260;
-      const pad = 28;
-      const min = Math.min(...cleanValues);
-      const max = Math.max(...cleanValues);
-      const range = max - min || 1;
-      const points = cleanValues.map((value, i) => {
-        const x = pad + (i * (width - pad * 2)) / Math.max(cleanValues.length - 1, 1);
-        const y = height - pad - ((value - min) / range) * (height - pad * 2);
-        return `${x},${y}`;
-      }).join(" ");
-
-      const firstTs = timeline[0].timestamp || "n/a";
-      const lastTs = timeline[timeline.length - 1].timestamp || "n/a";
-      target.innerHTML = `
-        <svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Portfolio timeline">
-          <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
-          <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#cbd5e1" />
-          <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#cbd5e1" />
-          <polyline points="${points}" fill="none" stroke="#0284c7" stroke-width="3" />
-        </svg>
-        <p class="rk-note">
-          From <strong>${firstTs}</strong> to <strong>${lastTs}</strong> |
-          min: ${formatMoney(min, baseCurrency)} | max: ${formatMoney(max, baseCurrency)}
-        </p>
+      return `
+        <article class="rk-card">
+          <div class="rk-card-body rk-alloc">
+            <div>
+              <div class="rk-label">Breakdown</div>
+              <h3 style="margin:4px 0 0;font-size:1.05rem;">${escapeHtml(title)}</h3>
+            </div>
+            <div class="rk-donut-row">
+              <div class="rk-donut" style="--rk-donut-gradient: conic-gradient(${segments.join(",")});"></div>
+              <div class="rk-list">${rows}</div>
+            </div>
+          </div>
+        </article>
       `;
     };
 
-    const renderTopHoldings = () => {
-      const target = document.getElementById("rk-top-holdings");
+    const renderHoldingsTable = () => {
       if (!topHoldings.length) {
-        target.innerHTML = `<p class="rk-note">No holdings available.</p>`;
-        return;
+        return '<p class="rk-empty">No holdings available.</p>';
       }
 
-      const rows = topHoldings.map((item) => `
-        <tr>
-          <td>${item.label || item.id || "unknown"}</td>
-          <td>${item.id || "n/a"}</td>
-          <td>${formatMoney(item.amount || 0, baseCurrency)}</td>
-        </tr>
-      `).join("");
+      const maxAmount = Math.max(...topHoldings.map((item) => Number(item.amount || 0)), 1);
 
-      target.innerHTML = `
-        <table class="rk-table">
-          <thead>
-            <tr>
-              <th>Label</th>
-              <th>ID</th>
-              <th>Amount (${baseCurrency})</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+      const rows = topHoldings.map((item) => {
+        const amount = Number(item.amount || 0);
+        const width = Math.max(0, Math.min(100, (amount / maxAmount) * 100));
+        const exposure = holdingsTotal > 0 ? amount / holdingsTotal : 0;
+        const holdingCurrency = normalizeCurrency(item.currency, baseCurrency);
+        const label = item.label || item.id || "unknown";
+
+        return `
+          <tr>
+            <td title="${escapeHtml(label)}">${escapeHtml(label)}</td>
+            <td>${escapeHtml(item.id || "n/a")}</td>
+            <td>${formatMoney(amount, holdingCurrency)}</td>
+            <td>${formatPct(exposure, 1)}</td>
+            <td style="min-width:160px;">
+              <div class="rk-bar-track"><div class="rk-bar-fill" style="width:${width.toFixed(1)}%"></div></div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      return `
+        <div class="rk-holdings">
+          <table>
+            <thead>
+              <tr>
+                <th>Holding</th>
+                <th>ID</th>
+                <th>Amount</th>
+                <th>Share (Top List)</th>
+                <th>Relative Size</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       `;
     };
 
-    renderTimeline();
-    renderBars("rk-currency", currencySplit, baseCurrency);
-    renderBars("rk-asset-type", assetTypeBreakdown, baseCurrency);
-    renderBars("rk-geo", geography, baseCurrency);
-    renderTopHoldings();
+    const timelineFirst = timeline.length ? timeline[0].timestamp : "";
+    const timelineLast = timeline.length ? timeline[timeline.length - 1].timestamp : "";
+
+    app.innerHTML = `
+      <header class="rk-topbar">
+        <div>
+          <h1 class="rk-title">${escapeHtml(portfolioName)}</h1>
+          <div class="rk-subtitle">Static portfolio dashboard inspired by Ghostfolio's overview and analysis layout.</div>
+        </div>
+        <div class="rk-chip-row">
+          <span class="rk-chip">Base ${escapeHtml(baseCurrency)}</span>
+          <span class="rk-chip">Country ${escapeHtml(country)}</span>
+          <span class="rk-chip">TZ ${escapeHtml(timezone)}</span>
+        </div>
+      </header>
+
+      <section class="rk-grid-main">
+        <article class="rk-card">
+          <div class="rk-card-body">
+            <div class="rk-label">Total Amount</div>
+            <div class="rk-hero-value">${formatMoney(latestValue, baseCurrency)}</div>
+            <div class="rk-signed ${signClass(maxChange)}">
+              ${maxChange === null ? "-" : `${formatSignedMoney(maxChange, baseCurrency)} (${formatSignedPct(maxChangePct)})`}
+              <span style="color:var(--rk-muted);font-weight:500;"> since first snapshot</span>
+            </div>
+
+            <div class="rk-period-strip">
+              <div class="rk-period">
+                <div class="name">Latest Interval</div>
+                <div class="value ${signClass(intervalChange)}">
+                  ${intervalChange === null ? "-" : `${formatSignedMoney(intervalChange, baseCurrency)} (${formatSignedPct(intervalChangePct)})`}
+                </div>
+              </div>
+              <div class="rk-period">
+                <div class="name">Period Min/Max</div>
+                <div class="value">${formatMoney(minValue, baseCurrency)} / ${formatMoney(maxValue, baseCurrency)}</div>
+              </div>
+              <div class="rk-period">
+                <div class="name">Largest Currency Share</div>
+                <div class="value">${formatPct(maxCurrencyShare, 1)}</div>
+              </div>
+            </div>
+
+            <div class="rk-chart-shell">${renderTrendChart()}</div>
+            <div class="rk-chart-meta">
+              <span>Coverage: <strong>${escapeHtml(dateLabel(timelineFirst))}</strong> to <strong>${escapeHtml(dateLabel(timelineLast))}</strong></span>
+              <span>Snapshots: <strong>${timeline.length}</strong></span>
+              <span>Updated: <strong>${escapeHtml(dateTimeLabel(timelineLast))}</strong></span>
+            </div>
+          </div>
+        </article>
+
+        <aside class="rk-kpi-grid">
+          <article class="rk-kpi">
+            <div class="rk-label">Top Holding Concentration</div>
+            <div class="value">${formatPct(largestHoldingShare, 1)}</div>
+            <div class="rk-footnote">Largest holding relative to latest total value.</div>
+          </article>
+          <article class="rk-kpi">
+            <div class="rk-label">Currencies Tracked</div>
+            <div class="value">${Object.keys(currencySplit || {}).length}</div>
+            <div class="rk-footnote">From current holdings market values.</div>
+          </article>
+          <article class="rk-kpi">
+            <div class="rk-label">Asset Buckets</div>
+            <div class="value">${Object.keys(assetTypeBreakdown || {}).length}</div>
+            <div class="rk-footnote">Debt classes are grouped into debt_instrument.</div>
+          </article>
+          <article class="rk-kpi">
+            <div class="rk-label">Top Holdings Listed</div>
+            <div class="value">${topHoldings.length}</div>
+            <div class="rk-footnote">Limited to report payload top list.</div>
+          </article>
+        </aside>
+      </section>
+
+      <section class="rk-grid-mid">
+        ${renderAllocation("Currency Split", currencySplit, baseCurrency)}
+        ${renderAllocation("Asset Type Breakdown", assetTypeBreakdown, baseCurrency)}
+        ${renderAllocation("Geography", geography, baseCurrency)}
+      </section>
+
+      <section class="rk-card">
+        <div class="rk-card-body">
+          <div class="rk-label">Holdings</div>
+          <h2 style="margin:4px 0 12px;font-size:1.15rem;">Top Holdings</h2>
+          ${renderHoldingsTable()}
+          <p class="rk-footnote">
+            Holdings use the amounts provided in the current payload. When holdings contain multiple currencies,
+            each row preserves its own currency code.
+          </p>
+        </div>
+      </section>
+    `;
   })();
 </script>
 ```
