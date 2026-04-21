@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import unittest
+from unittest.mock import patch
 
 from rikdom.storage import load_json
 from rikdom.validate import validate_portfolio
@@ -107,6 +108,18 @@ class ValidateTests(unittest.TestCase):
             msg=f"Expected future-version warning, got: {errors}",
         )
 
+    def test_schema_version_below_minimum_is_reported(self) -> None:
+        portfolio = load_json("tests/fixtures/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["schema_version"] = "1.0.0"
+
+        with patch("rikdom.validate.MIN_COMPATIBLE_SCHEMA_VERSION", (1, 1, 0)):
+            errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("below minimum compatible" in e for e in errors),
+            msg=f"Expected minimum-compatible error, got: {errors}",
+        )
+
     def test_non_semver_schema_version_is_reported(self) -> None:
         portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
@@ -127,6 +140,17 @@ class ValidateTests(unittest.TestCase):
         self.assertTrue(
             any("does not match canonical" in e for e in errors),
             msg=f"Expected canonical uri error, got: {errors}",
+        )
+
+    def test_empty_schema_uri_is_reported_as_non_canonical(self) -> None:
+        portfolio = load_json("tests/fixtures/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["schema_uri"] = ""
+
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("does not match canonical" in e for e in errors),
+            msg=f"Expected canonical uri error for empty string, got: {errors}",
         )
 
     def test_instrument_attribute_type_must_match_definition(self) -> None:

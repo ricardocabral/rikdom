@@ -71,7 +71,7 @@ def _check_schema_compatibility(portfolio: dict[str, Any], errors: list[str]) ->
         )
 
     schema_uri = portfolio.get("schema_uri")
-    if isinstance(schema_uri, str) and schema_uri and schema_uri != CANONICAL_SCHEMA_URI:
+    if isinstance(schema_uri, str) and schema_uri != CANONICAL_SCHEMA_URI:
         errors.append(
             f"schema_uri '{schema_uri}' does not match canonical '{CANONICAL_SCHEMA_URI}'"
         )
