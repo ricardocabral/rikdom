@@ -25,6 +25,25 @@ class ValidateTests(unittest.TestCase):
             msg=f"Expected task reference error, got: {errors}",
         )
 
+    def test_operations_event_reference_rejected_with_empty_or_missing_catalog(self) -> None:
+        portfolio = load_json("tests/fixtures/portfolio.json")
+
+        for mutate_catalog in ("empty", "missing"):
+            with self.subTest(catalog_state=mutate_catalog):
+                candidate = copy.deepcopy(portfolio)
+                candidate["operations"]["task_events"][0]["task_id"] = "unknown-task"
+
+                if mutate_catalog == "empty":
+                    candidate["operations"]["task_catalog"] = []
+                else:
+                    del candidate["operations"]["task_catalog"]
+
+                errors = validate_portfolio(candidate)
+                self.assertTrue(
+                    any("not in operations.task_catalog" in error for error in errors),
+                    msg=f"Expected task reference error with {mutate_catalog} catalog, got: {errors}",
+                )
+
     def test_operations_last_event_must_exist(self) -> None:
         portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
@@ -48,6 +67,22 @@ class ValidateTests(unittest.TestCase):
         self.assertTrue(
             any("missing required key 'expiration_year'" in error for error in errors),
             msg=f"Expected required instrument attribute error, got: {errors}",
+        )
+
+    def test_instrument_attribute_is_rejected_when_asset_type_declares_none(self) -> None:
+        portfolio = load_json("tests/fixtures/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+
+        stock_holding = next(h for h in candidate["holdings"] if h["asset_type_id"] == "stock")
+        stock_holding["instrument_attributes"] = {"ticker": "PETR4"}
+
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any(
+                "instrument_attributes.ticker not declared for asset_type_id 'stock'" in error
+                for error in errors
+            ),
+            msg=f"Expected undeclared instrument attribute error, got: {errors}",
         )
 
     def test_major_version_mismatch_is_reported(self) -> None:

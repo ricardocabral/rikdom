@@ -223,33 +223,32 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                 errors.append(f"holdings[{i}].instrument_attributes must be an object when provided")
             attrs_obj = instrument_attrs if isinstance(instrument_attrs, dict) else {}
             declared_attrs = catalog_attr_defs.get(asset_type_id, {})
-            if declared_attrs:
-                for attr_id, attr_def in declared_attrs.items():
-                    if attr_def.get("required") and attr_id not in attrs_obj:
-                        errors.append(
-                            f"holdings[{i}].instrument_attributes missing required key '{attr_id}' for asset_type_id '{asset_type_id}'"
-                        )
+            for attr_id, attr_def in declared_attrs.items():
+                if attr_def.get("required") and attr_id not in attrs_obj:
+                    errors.append(
+                        f"holdings[{i}].instrument_attributes missing required key '{attr_id}' for asset_type_id '{asset_type_id}'"
+                    )
 
-                for attr_key, attr_value in attrs_obj.items():
-                    attr_def = declared_attrs.get(attr_key)
-                    if attr_def is None:
-                        errors.append(
-                            f"holdings[{i}].instrument_attributes.{attr_key} not declared for asset_type_id '{asset_type_id}'"
-                        )
-                        continue
+            for attr_key, attr_value in attrs_obj.items():
+                attr_def = declared_attrs.get(attr_key)
+                if attr_def is None:
+                    errors.append(
+                        f"holdings[{i}].instrument_attributes.{attr_key} not declared for asset_type_id '{asset_type_id}'"
+                    )
+                    continue
 
-                    expected_type = str(attr_def.get("value_type", "")).strip()
-                    if not _is_typed_value(attr_value, expected_type):
-                        errors.append(
-                            f"holdings[{i}].instrument_attributes.{attr_key} must be {expected_type}"
-                        )
-                        continue
+                expected_type = str(attr_def.get("value_type", "")).strip()
+                if not _is_typed_value(attr_value, expected_type):
+                    errors.append(
+                        f"holdings[{i}].instrument_attributes.{attr_key} must be {expected_type}"
+                    )
+                    continue
 
-                    enum_values = attr_def.get("enum")
-                    if isinstance(enum_values, list) and enum_values and attr_value not in enum_values:
-                        errors.append(
-                            f"holdings[{i}].instrument_attributes.{attr_key} must be one of {enum_values}"
-                        )
+                enum_values = attr_def.get("enum")
+                if isinstance(enum_values, list) and enum_values and attr_value not in enum_values:
+                    errors.append(
+                        f"holdings[{i}].instrument_attributes.{attr_key} must be one of {enum_values}"
+                    )
 
             market_value = holding.get("market_value")
             if not isinstance(market_value, dict):
@@ -328,7 +327,7 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                         event_ids.add(eid)
 
                     task_id = str(event.get("task_id", "")).strip()
-                    if task_id and task_ids and task_id not in task_ids:
+                    if task_id and task_id not in task_ids:
                         errors.append(
                             f"operations.task_events[{i}].task_id '{task_id}' not in operations.task_catalog"
                         )
