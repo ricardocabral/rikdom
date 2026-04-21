@@ -70,5 +70,5 @@ PY
 4. Validate your portfolio:
 
 ```bash
-uv run rikdom validate --portfolio data/portfolio.json
+uv run rikdom validate --portfolio tests/fixtures/portfolio.json
 ```

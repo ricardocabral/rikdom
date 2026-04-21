@@ -88,6 +88,38 @@ class AssetTypeCatalogPluginTests(unittest.TestCase):
             self.assertIn("issue_date", attrs)
             self.assertIn("maturity_date", attrs)
 
+    def test_credit_and_securitized_assets_do_not_share_attribute_instances(self) -> None:
+        catalog = build_asset_type_catalog("plugins")
+        by_id = {item["id"]: item for item in catalog}
+
+        pairs = [
+            ("lci", "lca"),
+            ("lci", "debenture"),
+            ("debenture", "debenture_incentivada"),
+            ("debenture_incentivada", "debenture_infra"),
+            ("cri", "cra"),
+        ]
+
+        for left_id, right_id in pairs:
+            left_attrs = by_id[left_id]["instrument_attributes"]
+            right_attrs = by_id[right_id]["instrument_attributes"]
+            self.assertIsNot(left_attrs, right_attrs)
+
+            left_by_attr_id = {attr["id"]: attr for attr in left_attrs}
+            right_by_attr_id = {attr["id"]: attr for attr in right_attrs}
+            shared_attr_ids = set(left_by_attr_id) & set(right_by_attr_id)
+
+            for attr_id in shared_attr_ids:
+                left_attr = left_by_attr_id[attr_id]
+                right_attr = right_by_attr_id[attr_id]
+                self.assertIsNot(left_attr, right_attr, msg=f"{left_id}/{right_id} shared '{attr_id}' dict")
+                if "enum" in left_attr and "enum" in right_attr:
+                    self.assertIsNot(
+                        left_attr["enum"],
+                        right_attr["enum"],
+                        msg=f"{left_id}/{right_id} shared '{attr_id}' enum list",
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -51,7 +51,8 @@ def _attr(
         "required": required,
     }
     if enum:
-        item["enum"] = enum
+        # Copy to avoid cross-asset mutation when consumers edit metadata in place.
+        item["enum"] = list(enum)
     if pattern:
         item["pattern"] = pattern
     return item
@@ -122,8 +123,6 @@ def _attrs_securitized() -> list[dict]:
 class Plugin:
     @hookimpl
     def asset_type_catalog(self, ctx):
-        credit_attrs = _attrs_credit_letter_or_debenture()
-        securitized_attrs = _attrs_securitized()
         return [
             {
                 "id": "fii",
@@ -178,7 +177,7 @@ class Plugin:
                 "label": "LCI",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": credit_attrs
+                "instrument_attributes": _attrs_credit_letter_or_debenture()
                 + [
                     _attr(
                         "min_holding_period_months",
@@ -193,7 +192,7 @@ class Plugin:
                 "label": "LCA",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": credit_attrs
+                "instrument_attributes": _attrs_credit_letter_or_debenture()
                 + [
                     _attr(
                         "min_holding_period_months",
@@ -208,7 +207,7 @@ class Plugin:
                 "label": "CDB",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": credit_attrs
+                "instrument_attributes": _attrs_credit_letter_or_debenture()
                 + [
                     _attr("fgc_eligible", "FGC Eligible", "boolean", required=False),
                     _attr("liquidity_type", "Liquidity Type", "string", required=False,
@@ -220,35 +219,35 @@ class Plugin:
                 "label": "LIG",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": credit_attrs,
+                "instrument_attributes": _attrs_credit_letter_or_debenture(),
             },
             {
                 "id": "lf",
                 "label": "Letra Financeira",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": credit_attrs,
+                "instrument_attributes": _attrs_credit_letter_or_debenture(),
             },
             {
                 "id": "cri",
                 "label": "CRI",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": securitized_attrs,
+                "instrument_attributes": _attrs_securitized(),
             },
             {
                 "id": "cra",
                 "label": "CRA",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": securitized_attrs,
+                "instrument_attributes": _attrs_securitized(),
             },
             {
                 "id": "debenture",
                 "label": "Debenture",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": credit_attrs
+                "instrument_attributes": _attrs_credit_letter_or_debenture()
                 + [
                     _attr(
                         "tax_benefit_regime",
@@ -264,7 +263,7 @@ class Plugin:
                 "label": "Debenture Incentivada (Lei 12.431)",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": credit_attrs
+                "instrument_attributes": _attrs_credit_letter_or_debenture()
                 + [
                     _attr(
                         "tax_benefit_regime",
@@ -280,7 +279,7 @@ class Plugin:
                 "label": "Debenture de Infraestrutura (Lei 14.801)",
                 "asset_class": "debt",
                 "availability": {"countries": ["BR"]},
-                "instrument_attributes": credit_attrs
+                "instrument_attributes": _attrs_credit_letter_or_debenture()
                 + [
                     _attr(
                         "tax_benefit_regime",
