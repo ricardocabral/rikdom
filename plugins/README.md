@@ -5,18 +5,12 @@ This directory contains local plugins loaded by `rikdom`.
 Canonical docs:
 - [docs/plugin-system.md](../docs/plugin-system.md)
 
-Current plugin examples:
-- `csv-generic`: Pluggy `source/input` import for holdings and activities.
-- `b3-consolidado-mensal`: Pluggy `source/input` import for B3 monthly consolidated XLSX.
-- `quarto-portfolio-report`: Pluggy `output` plugin.
-- `duckdb-storage`: Pluggy `state/storage` plugin.
-- `asset-types-br-catalog`: Pluggy `asset-type/catalog` plugin with Brazilian asset types (`fii`, `tesouro_direto`, `lci`, `lca`, `cri`, `cra`, `debenture_incentivada`, `debenture_infra`, `bdr`, `coe`, `fidc_cota`, `fiagro_cota`).
-
-Plugin readmes:
-- [b3-consolidado-mensal/README.md](b3-consolidado-mensal/README.md)
-- [quarto-portfolio-report/README.md](quarto-portfolio-report/README.md)
-- [duckdb-storage/README.md](duckdb-storage/README.md)
-- [asset-types-br-catalog/README.md](asset-types-br-catalog/README.md)
+Plugin docs:
+- [csv-generic](csv-generic/README.md)
+- [b3-consolidado-mensal](b3-consolidado-mensal/README.md)
+- [quarto-portfolio-report](quarto-portfolio-report/README.md)
+- [duckdb-storage](duckdb-storage/README.md)
+- [asset-types-br-catalog](asset-types-br-catalog/README.md)
 
 ## Folder Shape
 
@@ -27,30 +21,10 @@ Plugin readmes:
 
 ```bash
 uv run rikdom plugins list --plugins-dir plugins
-uv run rikdom import-statement --plugin csv-generic --input data-sample/sample_statement.csv --portfolio data-sample/portfolio.json
-uv run rikdom import-statement --plugin b3-consolidado-mensal --input /path/to/relatorio-consolidado-mensal.xlsx --portfolio data/portfolio.json
-uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins
-uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins
-uv run pytest -q tests/test_plugins.py tests/test_b3_consolidado_mensal_plugin.py tests/test_cli_import_statement.py tests/test_output_plugin_pipeline.py tests/test_duckdb_storage_plugin.py tests/test_quarto_report_mapping.py
+uv run pytest -q tests/test_plugins.py tests/test_asset_type_catalog_plugins.py
 ```
 
-## Prerequisites
-
-Pluggy does not install dependencies by itself. Dependencies must be installed in the Python/runtime environment before running a plugin.
-
-`quarto-portfolio-report`:
-
-```bash
-brew install --cask quarto
-quarto --version
-```
-
-`duckdb-storage`:
-
-```bash
-uv add duckdb
-uv run python -c "import duckdb; print(duckdb.__version__)"
-```
+Plugin-specific prerequisites and run commands are documented in each plugin README.
 
 ## Safety Baseline
 
