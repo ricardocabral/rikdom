@@ -36,6 +36,11 @@ def load_json(path: str | Path) -> dict[str, Any]:
 def save_json(path: str | Path, data: dict[str, Any]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
+    existing_stat: os.stat_result | None = None
+    try:
+        existing_stat = os.stat(p)
+    except FileNotFoundError:
+        pass
     fd, tmp_path = tempfile.mkstemp(
         prefix=f".{p.name}.", suffix=".tmp", dir=str(p.parent)
     )
@@ -44,7 +49,17 @@ def save_json(path: str | Path, data: dict[str, Any]) -> None:
             json.dump(data, f, ensure_ascii=False, indent=2)
             f.write("\n")
             f.flush()
+            if existing_stat is not None:
+                try:
+                    os.fchmod(f.fileno(), existing_stat.st_mode & 0o7777)
+                except (OSError, NotImplementedError):
+                    pass
             os.fsync(f.fileno())
+        if existing_stat is not None:
+            try:
+                os.chown(tmp_path, existing_stat.st_uid, existing_stat.st_gid)
+            except (OSError, NotImplementedError, AttributeError):
+                pass
         os.replace(tmp_path, p)
         fsync_dir(p.parent)
     except Exception:

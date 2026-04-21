@@ -31,6 +31,26 @@ class SaveJsonAtomicityTests(unittest.TestCase):
             save_json(path, {"a": 1})
             self.assertEqual(json.loads(path.read_text()), {"a": 1})
 
+    def test_save_json_preserves_existing_mode(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "portfolio.json"
+            save_json(path, {"ok": 1})
+            os.chmod(path, 0o640)
+            original_mode = path.stat().st_mode & 0o7777
+            self.assertEqual(original_mode, 0o640)
+
+            save_json(path, {"ok": 2})
+
+            self.assertEqual(path.stat().st_mode & 0o7777, 0o640)
+            self.assertEqual(json.loads(path.read_text()), {"ok": 2})
+
+    def test_save_json_fsyncs_parent_dir(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "portfolio.json"
+            with mock.patch("rikdom.storage.fsync_dir") as spy:
+                save_json(path, {"ok": 1})
+            spy.assert_called_once_with(path.parent)
+
 
 class AppendJsonlDurabilityTests(unittest.TestCase):
     def test_append_then_load_roundtrip(self) -> None:
