@@ -22,15 +22,24 @@ def _cell(row: dict[str, str | None], field: str) -> str:
     return (row.get(field) or "").strip()
 
 
+def _required_cell(row: dict[str, str | None], field: str, *, context: str) -> str:
+    if field not in row:
+        raise ValueError(f"Invalid {context} row: missing required column '{field}'")
+    value = (row.get(field) or "").strip()
+    if not value:
+        raise ValueError(f"Invalid {context} row: required field '{field}' is empty")
+    return value
+
+
 def _to_holding(row: dict[str, str | None]) -> dict:
-    amount = float(_cell(row, "amount"))
+    amount = float(_required_cell(row, "amount", context="holding"))
     holding = {
-        "id": _cell(row, "id"),
-        "asset_type_id": _cell(row, "asset_type_id"),
-        "label": _cell(row, "label"),
+        "id": _required_cell(row, "id", context="holding"),
+        "asset_type_id": _required_cell(row, "asset_type_id", context="holding"),
+        "label": _required_cell(row, "label", context="holding"),
         "market_value": {
             "amount": amount,
-            "currency": _cell(row, "currency").upper(),
+            "currency": _required_cell(row, "currency", context="holding").upper(),
         },
     }
 
@@ -54,14 +63,14 @@ def _to_holding(row: dict[str, str | None]) -> dict:
 
 
 def _to_activity(row: dict[str, str | None]) -> dict:
-    amount = float(_cell(row, "amount"))
-    currency = _cell(row, "currency").upper()
+    activity_id = _required_cell(row, "id", context="activity")
+    amount = float(_required_cell(row, "amount", context="activity"))
+    currency = _required_cell(row, "currency", context="activity").upper()
     event_type = _cell(row, "event_type") or "other"
     effective_at = _cell(row, "effective_at")
-    activity_id = _cell(row, "id")
     if not effective_at:
         raise ValueError(
-            f"Invalid activity row id='{activity_id or '<missing>'}': missing required effective_at"
+            f"Invalid activity row id='{activity_id}': missing required effective_at"
         )
 
     activity: dict = {
