@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 schema = ["jsonschema>=4.0.0"]
+dev = ["ruff==0.14.14"]
 
 [project.scripts]
 rikdom = "rikdom.cli:main"

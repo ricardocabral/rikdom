@@ -33,7 +33,7 @@ Dependency freshness guard:
 Install dependencies:
 
 ```bash
-uv sync --extra schema
+uv sync --extra schema --extra dev
 ```
 
 Run a quick sanity check:

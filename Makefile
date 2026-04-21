@@ -31,7 +31,7 @@ help:
 	@echo "  make check            - Run lint + validate-fixture + test"
 
 sync:
-	uv sync --extra schema
+	uv sync --extra schema --extra dev
 
 bootstrap:
 	mkdir -p $(DATA_DIR)
