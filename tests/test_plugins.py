@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
 from unittest import mock
 
@@ -25,6 +26,75 @@ class PluginTests(unittest.TestCase):
 
         reimb = next(a for a in payload["activities"] if a["id"] == "act-broker-reimb-2026-03")
         self.assertEqual(reimb["event_type"], "reimbursement")
+
+    def test_csv_generic_plugin_handles_missing_trailing_optional_holding_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = f"{tmp}/statement.csv"
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write("id,asset_type_id,label,amount,currency,quantity,ticker,country,fx_rate_to_base\n")
+                f.write("h-apple,stock-us,Apple,100.50,usd\n")
+
+            payload = run_import_pipeline(
+                plugin_name="csv-generic",
+                plugins_dir="plugins",
+                input_path=csv_path,
+            )
+
+        self.assertEqual(payload["provider"], "csv-generic")
+        self.assertEqual(
+            payload["holdings"],
+            [
+                {
+                    "id": "h-apple",
+                    "asset_type_id": "stock-us",
+                    "label": "Apple",
+                    "market_value": {"amount": 100.50, "currency": "USD"},
+                }
+            ],
+        )
+
+    def test_csv_generic_plugin_activity_allows_missing_trailing_optional_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = f"{tmp}/statement.csv"
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write(
+                    "record_type,id,event_type,amount,currency,effective_at,status,"
+                    "asset_type_id,subtype,quantity,ticker,country,idempotency_key,source_ref\n"
+                )
+                f.write("activity,act-1,dividend,1.20,usd,2026-02-13T00:00:00Z\n")
+
+            payload = run_import_pipeline(
+                plugin_name="csv-generic",
+                plugins_dir="plugins",
+                input_path=csv_path,
+            )
+
+        self.assertEqual(
+            payload["activities"],
+            [
+                {
+                    "id": "act-1",
+                    "event_type": "dividend",
+                    "status": "posted",
+                    "effective_at": "2026-02-13T00:00:00Z",
+                    "money": {"amount": 1.20, "currency": "USD"},
+                }
+            ],
+        )
+
+    def test_csv_generic_plugin_activity_requires_effective_at(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = f"{tmp}/statement.csv"
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write("record_type,id,event_type,amount,currency,effective_at\n")
+                f.write("activity,act-1,dividend,1.20,usd\n")
+
+            with self.assertRaisesRegex(ValueError, "missing required effective_at"):
+                run_import_pipeline(
+                    plugin_name="csv-generic",
+                    plugins_dir="plugins",
+                    input_path=csv_path,
+                )
 
     def test_merge_activities_is_idempotent_by_idempotency_key(self) -> None:
         portfolio: dict = {"holdings": [], "activities": []}
