@@ -155,7 +155,8 @@ uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
 
 Portfolio view plugin (`quarto-portfolio-report`) preview:
 
-![Rikdom portfolio view plugin preview](docs/assets/portfolio-view-plugin.png)
+![Rikdom portfolio view plugin preview 1](docs/assets/portfolio-view-plugin-1.png)
+![Rikdom portfolio view plugin preview 2](docs/assets/portfolio-view-plugin-2.png)
 
 Schema upgrades: see [docs/migrations.md](docs/migrations.md).
 Durability and journal compaction: see [docs/storage-durability.md](docs/storage-durability.md).

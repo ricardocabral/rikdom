@@ -10,14 +10,16 @@
 
 ## Core Files
 
-- `schema/portfolio.schema.json`: canonical current-state portfolio model (`data/portfolio.json`) with core sections (`profile`, `settings`, `asset_type_catalog`, `holdings`) and optional ledgers (`activities`, `operations`).
-- `schema/snapshot.schema.json`: one historical snapshot record from `data/snapshots.jsonl` with `timestamp`, `base_currency`, and aggregated totals.
+- `schema/portfolio.schema.json`: canonical current-state portfolio model (reproducible fixture: `data-sample/portfolio.json`) with core sections (`profile`, `settings`, `asset_type_catalog`, `holdings`) and optional ledgers (`activities`, `operations`).
+- `schema/snapshot.schema.json`: one historical snapshot record from reproducible fixture `data-sample/snapshots.jsonl` with `timestamp`, `base_currency`, and aggregated totals.
 - `schema/plugin-statement.schema.json`: normalized provider/plugin import payload contract before merge into canonical portfolio state.
 - `schema/default-asset-types.json`: starter catalog of asset-type definitions (for example `stock`, `reit`, `fund`) mapped to top-level `asset_class` values.
+- Local workspace files under `data/` are intentionally gitignored. Bootstrap them from fixtures when needed:
+  `mkdir -p data && cp data-sample/portfolio.json data/portfolio.json && cp data-sample/snapshots.jsonl data/snapshots.jsonl`
 
 ## Quick Term Guide
 
-- `asset_type_catalog`: dictionary of allowed asset types in a portfolio.
+- `asset_type_catalog`: array/list of allowed asset type definitions in a portfolio (unique by `id`).
 - `asset_type_id`: reference from each holding to one entry in `asset_type_catalog`.
 - `asset_class`: top-level reporting group (for example `stocks`, `funds`, `real_estate`).
 - `activities`: immutable event ledger for financial events (`buy`, `sell`, `dividend`, `fee`, etc.).
@@ -108,8 +110,8 @@ When non-base-currency values are present, optional `metadata.fx_rate_to_base` e
 
 ### 4. Time Dimension
 
-- Current state: `data/portfolio.json`
-- Historical trend: `data/snapshots.jsonl`
+- Current state fixture: `data-sample/portfolio.json` (often copied to local `data/portfolio.json`).
+- Historical trend fixture: `data-sample/snapshots.jsonl` (often copied to local `data/snapshots.jsonl`).
 
 Snapshots avoid rewriting full history and remain append-only.
 
