@@ -134,6 +134,7 @@ uv run rikdom visualize --out out/dashboard.html --include-current
 
 - [Schema design](docs/schema-design.md)
 - [Storage model](docs/storage.md)
+- [Migrations](docs/migrations.md)
 - [Storage durability](docs/storage-durability.md)
 - [Visualization module](docs/visualization.md)
 - [Plugin system](docs/plugin-system.md)
@@ -158,9 +159,6 @@ Portfolio view plugin (`quarto-portfolio-report`) preview:
 ![Rikdom portfolio view plugin preview 1](docs/assets/portfolio-view-plugin-1.png)
 ![Rikdom portfolio view plugin preview 2](docs/assets/portfolio-view-plugin-2.png)
 
-Schema upgrades: see [docs/migrations.md](docs/migrations.md).
-Durability and journal compaction: see [docs/storage-durability.md](docs/storage-durability.md).
-
 ## AI Agent Skills
 
 - `.codex/SKILL.md`
@@ -172,12 +170,7 @@ These files guide coding agents to safely analyze and evolve your data model.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing expectations, and pull request guidelines.
 
-## Roadmap And Planning
-
-- [Phased roadmap](ROADMAP.md)
-- [Execution plan](docs/superpowers/plans/2026-04-20-pluggy-plugin-engine.md)
-- GitHub issue templates: [.github/ISSUE_TEMPLATE/feature_request.md](.github/ISSUE_TEMPLATE/feature_request.md), [.github/ISSUE_TEMPLATE/bug_report.md](.github/ISSUE_TEMPLATE/bug_report.md)
-- Publish local issue spec files (`*.md`): `scripts/create_github_issues.py --repo <owner/name> --issues-dir <path>`
+Project roadmap: [ROADMAP.md](ROADMAP.md)
 
 ## License
 
