@@ -294,6 +294,37 @@ class B3ConsolidadoMensalImporterHelperTests(unittest.TestCase):
 
         self.assertEqual(targets["Posição - Ações"], "xl/worksheets/sheet1.xml")
 
+    def test_read_sheet_targets_ignores_unrelated_non_worksheet_relationships(self) -> None:
+        workbook_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            '<sheets><sheet name="Posição - Ações" sheetId="1" r:id="rId1"/></sheets>'
+            "</workbook>"
+        )
+        rels_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+            'Target="worksheets/sheet1.xml"/>'
+            '<Relationship Id="rIdCustom1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" '
+            'Target="../customXml/item1.xml"/>'
+            "</Relationships>"
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            xlsx_path = Path(tmp) / "sample.xlsx"
+            with zipfile.ZipFile(xlsx_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("xl/workbook.xml", workbook_xml)
+                zf.writestr("xl/_rels/workbook.xml.rels", rels_xml)
+
+            with zipfile.ZipFile(xlsx_path) as zf:
+                targets = importer._read_sheet_targets(zf)
+
+        self.assertEqual(targets["Posição - Ações"], "xl/worksheets/sheet1.xml")
+
     def test_read_sheet_rows_decodes_shared_string_cells(self) -> None:
         sheet_xml = (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -396,6 +427,43 @@ class B3ConsolidadoMensalImporterHelperTests(unittest.TestCase):
                 mock.patch.object(importer, "MAX_XML_ENTRY_SIZE_BYTES", 512),
                 self.assertRaisesRegex(ValueError, "exceeds"),
             ):
+                importer.parse_workbook(xlsx_path)
+
+    def test_safe_read_xml_entry_rejects_invalid_compression_metadata(self) -> None:
+        zf = mock.Mock(spec=zipfile.ZipFile)
+        zf.getinfo.return_value = zipfile.ZipInfo("xl/workbook.xml")
+        zf.getinfo.return_value.file_size = 10
+        zf.getinfo.return_value.compress_size = 0
+
+        with self.assertRaisesRegex(ValueError, "invalid compression metadata"):
+            importer._safe_read_xml_entry(zf, "xl/workbook.xml", required=True)
+
+    def test_safe_read_xml_entry_rejects_suspicious_compression_ratio(self) -> None:
+        zf = mock.Mock(spec=zipfile.ZipFile)
+        zf.getinfo.return_value = zipfile.ZipInfo("xl/workbook.xml")
+        zf.getinfo.return_value.file_size = 1024
+        zf.getinfo.return_value.compress_size = 1
+
+        with self.assertRaisesRegex(ValueError, "suspicious compression ratio"):
+            importer._safe_read_xml_entry(zf, "xl/workbook.xml", required=True)
+
+    def test_parse_workbook_rejects_oversized_xlsx_container(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            xlsx_path = Path(tmp) / "oversized-container.xlsx"
+            xlsx_path.write_bytes(b"small")
+
+            with (
+                mock.patch.object(importer, "MAX_WORKBOOK_FILE_SIZE_BYTES", 1),
+                self.assertRaisesRegex(ValueError, "file size exceeds"),
+            ):
+                importer.parse_workbook(xlsx_path)
+
+    def test_parse_workbook_rejects_invalid_xlsx_container(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            xlsx_path = Path(tmp) / "invalid-container.xlsx"
+            xlsx_path.write_text("not-a-zip", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "invalid XLSX container"):
                 importer.parse_workbook(xlsx_path)
 
     def test_parse_workbook_rejects_worksheet_path_traversal(self) -> None:
