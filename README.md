@@ -160,6 +160,10 @@ Cross-portfolio rollup:
 uv run rikdom workspace rollup --data-dir data
 ```
 
+## User Guides
+
+- [Native Multi-Currency Engine guide](docs/native-multi-currency-engine.md)
+
 ## Common Dev Tasks
 
 ```bash

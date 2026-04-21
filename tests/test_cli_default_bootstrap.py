@@ -7,8 +7,10 @@ from argparse import Namespace
 from pathlib import Path
 
 from rikdom.cli import (
+    DEFAULT_FX_HISTORY_PATH,
     DEFAULT_PORTFOLIO_PATH,
     DEFAULT_SNAPSHOTS_PATH,
+    SAMPLE_FX_HISTORY_PATH,
     SAMPLE_PORTFOLIO_PATH,
     SAMPLE_SNAPSHOTS_PATH,
     _bootstrap_default_workspace,
@@ -24,15 +26,21 @@ class CliDefaultBootstrapTests(unittest.TestCase):
                 Path(SAMPLE_PORTFOLIO_PATH).parent.mkdir(parents=True, exist_ok=True)
                 Path(SAMPLE_PORTFOLIO_PATH).write_text('{"profile": {"display_name": "Sample"}}\n', encoding="utf-8")
                 Path(SAMPLE_SNAPSHOTS_PATH).write_text('{"timestamp":"2026-01-01T00:00:00Z"}\n', encoding="utf-8")
+                Path(SAMPLE_FX_HISTORY_PATH).write_text(
+                    '{"as_of_date":"2026-01-01","base_currency":"BRL","quote_currency":"USD","rate_to_base":5.0}\n',
+                    encoding="utf-8",
+                )
 
                 args = Namespace(
                     portfolio=DEFAULT_PORTFOLIO_PATH,
                     snapshots=DEFAULT_SNAPSHOTS_PATH,
+                    fx_history=DEFAULT_FX_HISTORY_PATH,
                 )
                 _bootstrap_default_workspace(args)
 
                 self.assertTrue(Path(DEFAULT_PORTFOLIO_PATH).exists())
                 self.assertTrue(Path(DEFAULT_SNAPSHOTS_PATH).exists())
+                self.assertTrue(Path(DEFAULT_FX_HISTORY_PATH).exists())
                 self.assertEqual(
                     Path(DEFAULT_PORTFOLIO_PATH).read_text(encoding="utf-8"),
                     Path(SAMPLE_PORTFOLIO_PATH).read_text(encoding="utf-8"),
@@ -40,6 +48,10 @@ class CliDefaultBootstrapTests(unittest.TestCase):
                 self.assertEqual(
                     Path(DEFAULT_SNAPSHOTS_PATH).read_text(encoding="utf-8"),
                     Path(SAMPLE_SNAPSHOTS_PATH).read_text(encoding="utf-8"),
+                )
+                self.assertEqual(
+                    Path(DEFAULT_FX_HISTORY_PATH).read_text(encoding="utf-8"),
+                    Path(SAMPLE_FX_HISTORY_PATH).read_text(encoding="utf-8"),
                 )
             finally:
                 os.chdir(cwd)
@@ -52,15 +64,21 @@ class CliDefaultBootstrapTests(unittest.TestCase):
                 Path(SAMPLE_PORTFOLIO_PATH).parent.mkdir(parents=True, exist_ok=True)
                 Path(SAMPLE_PORTFOLIO_PATH).write_text('{"profile": {"display_name": "Sample"}}\n', encoding="utf-8")
                 Path(SAMPLE_SNAPSHOTS_PATH).write_text('{"timestamp":"2026-01-01T00:00:00Z"}\n', encoding="utf-8")
+                Path(SAMPLE_FX_HISTORY_PATH).write_text(
+                    '{"as_of_date":"2026-01-01","base_currency":"BRL","quote_currency":"USD","rate_to_base":5.0}\n',
+                    encoding="utf-8",
+                )
 
                 args = Namespace(
                     portfolio="custom/portfolio.json",
                     snapshots="custom/snapshots.jsonl",
+                    fx_history="custom/fx_rates.jsonl",
                 )
                 _bootstrap_default_workspace(args)
 
                 self.assertFalse(Path("custom/portfolio.json").exists())
                 self.assertFalse(Path("custom/snapshots.jsonl").exists())
+                self.assertFalse(Path("custom/fx_rates.jsonl").exists())
             finally:
                 os.chdir(cwd)
 

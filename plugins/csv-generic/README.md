@@ -10,7 +10,7 @@ CSV com cabeçalho. Cada linha é interpretada por `record_type`:
 
 Campos principais para `holding`:
 - obrigatórios: `id`, `asset_type_id`, `label`, `amount`, `currency`
-- opcionais: `quantity`, `ticker`, `country`, `fx_rate_to_base`
+- opcionais: `quantity`, `ticker`, `country`, `fx_rate_to_base` (compatibilidade legada; o fluxo padrão usa histórico FX nativo)
 
 Campos principais para `activity`:
 - obrigatórios: `id`, `amount`, `currency`

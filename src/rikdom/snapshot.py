@@ -12,7 +12,7 @@ def utc_now_iso() -> str:
 
 
 def snapshot_from_aggregate(result: AggregateResult, timestamp: str | None = None) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "timestamp": timestamp or utc_now_iso(),
         "base_currency": result.base_currency,
         "totals": {
@@ -20,3 +20,6 @@ def snapshot_from_aggregate(result: AggregateResult, timestamp: str | None = Non
             "by_asset_class": result.by_asset_class,
         },
     }
+    if isinstance(result.fx_lock, dict) and result.fx_lock:
+        payload["metadata"] = {"fx_lock": result.fx_lock}
+    return payload
