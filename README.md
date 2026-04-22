@@ -1,5 +1,14 @@
 # rikdom
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12618/badge)](https://www.bestpractices.dev/projects/12618)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ricardocabral/rikdom/badge)](https://scorecard.dev/viewer/?uri=github.com/ricardocabral/rikdom)
+[![CI](https://github.com/ricardocabral/rikdom/actions/workflows/ci.yml/badge.svg)](https://github.com/ricardocabral/rikdom/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/ricardocabral/rikdom/actions/workflows/codeql.yml/badge.svg)](https://github.com/ricardocabral/rikdom/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 Portable, local-first wealth portfolio schema + storage toolkit.
 
 `rikdom` is designed so your portfolio data can last for years as plain JSON files, independent of any broker app or SaaS dashboard.
