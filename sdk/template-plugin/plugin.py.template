@@ -1,0 +1,71 @@
+"""Plugin implementation for {{plugin_name}}.
+
+Scaffolded by ``rikdom plugin init``. Implements the ``source/input``
+plugin type via the ``source_input`` hook.
+"""
+from __future__ import annotations
+
+import csv
+from datetime import datetime, timezone
+from pathlib import Path
+
+from rikdom.plugin_engine.hookspecs import hookimpl
+
+
+def _now_iso() -> str:
+    return (
+        datetime.now(tz=timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def _cell(row: dict, field: str) -> str:
+    return (row.get(field) or "").strip()
+
+
+def _required(row: dict, field: str) -> str:
+    value = _cell(row, field)
+    if not value:
+        raise ValueError(f"Missing required field '{field}' in row: {row!r}")
+    return value
+
+
+def _to_holding(row: dict) -> dict:
+    symbol = _required(row, "symbol")
+    quantity = float(_required(row, "quantity"))
+    price = float(_required(row, "price"))
+    currency = _required(row, "currency").upper()
+    amount = round(quantity * price, 2)
+    return {
+        "id": symbol,
+        "asset_type_id": "stock",
+        "label": symbol,
+        "quantity": quantity,
+        "market_value": {"amount": amount, "currency": currency},
+        "identifiers": {"ticker": symbol},
+    }
+
+
+def parse_statement(path: Path) -> dict:
+    """Read the CSV at ``path`` and return a normalized statement payload."""
+    with path.open("r", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = [dict(r) for r in reader]
+
+    holdings = [_to_holding(row) for row in rows]
+    payload: dict = {
+        "provider": "{{plugin_name}}",
+        "generated_at": _now_iso(),
+        "holdings": holdings,
+    }
+    return payload
+
+
+class Plugin:
+    """{{plugin_name}} plugin entrypoint."""
+
+    @hookimpl
+    def source_input(self, ctx, input_path):
+        return parse_statement(Path(input_path))

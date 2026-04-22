@@ -9,7 +9,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-14T19:50:06.453414Z"
+exclude-newer = "2026-04-14T20:24:32.508214Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -1558,6 +1558,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "defusedxml" },
+    { name = "jsonschema" },
     { name = "pluggy" },
     { name = "quarto-cli" },
 ]
@@ -1573,6 +1574,7 @@ schema = [
 [package.metadata]
 requires-dist = [
     { name = "defusedxml", specifier = ">=0.7.1" },
+    { name = "jsonschema", specifier = ">=4.0.0" },
     { name = "jsonschema", marker = "extra == 'schema'", specifier = ">=4.0.0" },
     { name = "pluggy", specifier = ">=1.5.0" },
     { name = "quarto-cli", specifier = ">=1.9.37" },

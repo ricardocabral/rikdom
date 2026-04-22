@@ -1,0 +1,35 @@
+"""Smoke test for the {{plugin_name}} plugin."""
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+from plugin import Plugin, parse_statement
+
+
+FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "sample.csv"
+
+
+class PluginTests(unittest.TestCase):
+    def test_parse_statement_returns_expected_shape(self) -> None:
+        payload = parse_statement(FIXTURE)
+        self.assertIsInstance(payload, dict)
+        self.assertEqual(payload["provider"], "{{plugin_name}}")
+        self.assertIn("generated_at", payload)
+        self.assertIn("holdings", payload)
+        self.assertEqual(len(payload["holdings"]), 3)
+
+        first = payload["holdings"][0]
+        self.assertEqual(first["id"], "AAPL")
+        self.assertEqual(first["market_value"]["currency"], "USD")
+        self.assertAlmostEqual(first["market_value"]["amount"], 1800.00)
+
+    def test_plugin_source_input_hook(self) -> None:
+        plugin = Plugin()
+        payload = plugin.source_input(ctx=None, input_path=str(FIXTURE))
+        self.assertIsInstance(payload, dict)
+        self.assertEqual(len(payload["holdings"]), 3)
+
+
+if __name__ == "__main__":
+    unittest.main()

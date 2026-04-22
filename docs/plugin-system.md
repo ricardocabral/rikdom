@@ -461,3 +461,122 @@ uv run python -c "import json; from rikdom.plugin_engine.pipeline import build_a
 - Artifacts or storage writes are produced at expected locations.
 - Repeated execution is deterministic/idempotent where applicable.
 - Error paths are explicit and test-covered.
+
+## Authoring a plugin
+
+This walkthrough uses the bundled SDK scaffold in `sdk/template-plugin/` to
+build a working `source/input` plugin end-to-end. For semver, stability tiers,
+and the legacy-to-Pluggy migration path, see
+[plugin-compatibility.md](plugin-compatibility.md).
+
+### 1. Bootstrap from the scaffold
+
+Use the `plugin init` subcommand. The slug must match
+`^[a-z][a-z0-9-]{1,63}$`:
+
+```bash
+uv run rikdom plugin init my-plugin --dest plugins --description "Parse my broker statement"
+```
+
+Flags:
+
+- `name` (positional, required): plugin slug / directory name.
+- `--dest` (default: `plugins`): parent directory to create the plugin in.
+- `--description` (optional): becomes `description` in `plugin.json`.
+
+The command refuses to overwrite an existing directory and substitutes
+`{{plugin_name}}` / `{{plugin_description}}` through the templates. Result:
+
+```text
+plugins/my-plugin/
+  plugin.json           # Manifest (api_version "1.0", validated against schema/plugin.manifest.schema.json)
+  plugin.py             # Plugin class with @hookimpl source_input
+  README.md             # Authoring notes pointing back here
+  fixtures/sample.csv   # Three-row CSV used by the smoke test
+  tests/test_plugin.py  # Unittest exercising parse_statement() and the hook
+```
+
+### 2. Implement the `source_input` hook
+
+The scaffold already implements it. The minimal shape:
+
+```python
+from rikdom.plugin_engine.hookspecs import hookimpl
+
+
+class Plugin:
+    @hookimpl
+    def source_input(self, ctx, input_path):
+        return {
+            "provider": "my-plugin",
+            "generated_at": "2026-04-21T00:00:00Z",
+            "holdings": [
+                {
+                    "id": "AAPL",
+                    "asset_type_id": "stock",
+                    "label": "AAPL",
+                    "quantity": 10,
+                    "market_value": {"amount": 1800.0, "currency": "USD"},
+                    "identifiers": {"ticker": "AAPL"},
+                }
+            ],
+            # Optional: "activities": [ ... ]
+        }
+```
+
+Normalized payload shape consumed by `run_import_pipeline` and
+`cmd_import_statement` (see `src/rikdom/cli.py` and `plugins/csv-generic/`
+for the richest reference):
+
+- `provider` (string): defaults source_system for the import log.
+- `generated_at` (ISO-8601 string): statement generation timestamp.
+- `holdings` (list of dicts): each requires `id`, `asset_type_id`, `label`,
+  `market_value.amount`, `market_value.currency`; optional `quantity`,
+  `identifiers`, `metadata`.
+- `activities` (optional list): ledger events if the source exposes them.
+
+See `src/rikdom/plugin_engine/hookspecs.py` for the full surface of all eight
+v1 hooks.
+
+### 3. Run the plugin's own tests
+
+From the generated plugin directory:
+
+```bash
+cd plugins/my-plugin
+uv run python -m unittest tests.test_plugin
+```
+
+The scaffold's test imports `plugin` directly, so no packaging or
+`PYTHONPATH` setup is needed.
+
+### 4. Verify discovery
+
+```bash
+uv run rikdom plugins list --plugins-dir plugins
+```
+
+Each entry includes `api_version`, `plugin_types`, and a `legacy` boolean
+that is `true` when the manifest declares a subprocess `command` instead of
+Pluggy entrypoints.
+
+### 5. Run the import pipeline
+
+Dry-run first, then `--write` to merge into the workspace portfolio:
+
+```bash
+uv run rikdom import-statement \
+  --plugin my-plugin \
+  --input plugins/my-plugin/fixtures/sample.csv \
+  --data-dir data --out-root out \
+  --dry-run
+
+uv run rikdom import-statement \
+  --plugin my-plugin \
+  --input plugins/my-plugin/fixtures/sample.csv \
+  --data-dir data --out-root out \
+  --write
+```
+
+For versioning policy and the legacy `command`-based migration recipe, see
+[plugin-compatibility.md](plugin-compatibility.md).

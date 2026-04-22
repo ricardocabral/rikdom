@@ -20,6 +20,7 @@ classifiers = [
 ]
 dependencies = [
   "defusedxml>=0.7.1",
+  "jsonschema>=4.0.0",
   "pluggy>=1.5.0",
   "quarto-cli>=1.9.37",
 ]

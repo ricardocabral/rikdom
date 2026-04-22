@@ -460,6 +460,115 @@ def cmd_plugins_list(args: argparse.Namespace) -> int:
     return 0
 
 
+_PLUGIN_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
+
+
+def _locate_sdk_template() -> Path:
+    """Locate the ``sdk/template-plugin/`` directory relative to this package.
+
+    Walks up from this module to find the repo's ``sdk/`` directory.
+    """
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "sdk" / "template-plugin"
+        if candidate.is_dir():
+            return candidate
+    raise FileNotFoundError(
+        "Unable to locate sdk/template-plugin/ relative to rikdom package"
+    )
+
+
+def _render_template(text: str, substitutions: dict[str, str]) -> str:
+    rendered = text
+    for key, value in substitutions.items():
+        rendered = rendered.replace("{{" + key + "}}", value)
+    return rendered
+
+
+def _copy_template_tree(
+    source: Path, destination: Path, substitutions: dict[str, str]
+) -> list[Path]:
+    created: list[Path] = []
+    for src_path in sorted(source.rglob("*")):
+        rel = src_path.relative_to(source)
+        target_rel_name = rel.name
+        if target_rel_name.endswith(".template"):
+            target_rel_name = target_rel_name[: -len(".template")]
+        target = destination / rel.parent / target_rel_name
+        if src_path.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        raw = src_path.read_text(encoding="utf-8")
+        rendered = _render_template(raw, substitutions)
+        target.write_text(rendered, encoding="utf-8")
+        created.append(target)
+    return created
+
+
+def cmd_plugin_init(args: argparse.Namespace) -> int:
+    name = args.name
+    if not isinstance(name, str) or not _PLUGIN_NAME_PATTERN.fullmatch(name):
+        print(
+            (
+                f"Invalid plugin name '{name}': must match "
+                "^[a-z][a-z0-9-]{1,63}$ (lowercase letter start, 2-64 chars, "
+                "lowercase letters/digits/hyphens only)"
+            ),
+            file=sys.stderr,
+        )
+        return 1
+    if "/" in name or "\\" in name or ".." in name:
+        print(f"Invalid plugin name '{name}': path separators are not allowed", file=sys.stderr)
+        return 1
+
+    dest_root = Path(args.dest)
+    plugin_dir = dest_root / name
+    if plugin_dir.exists():
+        print(
+            f"Refusing to overwrite existing plugin directory: {plugin_dir}",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        template_root = _locate_sdk_template()
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    description = args.description or "TODO: describe this plugin"
+    substitutions = {
+        "plugin_name": name,
+        "plugin_description": description,
+    }
+
+    dest_root.mkdir(parents=True, exist_ok=True)
+    plugin_dir.mkdir(parents=True, exist_ok=False)
+    try:
+        _copy_template_tree(template_root, plugin_dir, substitutions)
+    except Exception as exc:
+        shutil.rmtree(plugin_dir, ignore_errors=True)
+        print(f"Failed to scaffold plugin: {exc}", file=sys.stderr)
+        return 1
+
+    print(
+        json.dumps(
+            {"created": str(plugin_dir), "name": name},
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
+    print(
+        (
+            f"Scaffolded plugin '{name}' at {plugin_dir}. "
+            f"Next: cd {plugin_dir} && uv run python -m unittest tests.test_plugin"
+        ),
+        file=sys.stderr,
+    )
+    return 0
+
+
 def cmd_render_report(args: argparse.Namespace) -> int:
     try:
         payload = run_output_pipeline(
@@ -1025,6 +1134,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_plugins_list = p_plugins_sub.add_parser("list", help="List plugin manifests")
     p_plugins_list.add_argument("--plugins-dir", default="plugins")
     p_plugins_list.set_defaults(func=cmd_plugins_list)
+
+    p_plugin = sub.add_parser("plugin", help="Author plugins (scaffold new ones)")
+    p_plugin_sub = p_plugin.add_subparsers(dest="plugin_command", required=True)
+    p_plugin_init = p_plugin_sub.add_parser(
+        "init", help="Scaffold a new plugin from the SDK template"
+    )
+    p_plugin_init.add_argument(
+        "name",
+        help="Plugin slug (must match ^[a-z][a-z0-9-]{1,63}$)",
+    )
+    p_plugin_init.add_argument(
+        "--dest",
+        default="plugins",
+        help="Directory to create the plugin under (default: plugins)",
+    )
+    p_plugin_init.add_argument(
+        "--description",
+        default=None,
+        help="Human-readable plugin description",
+    )
+    p_plugin_init.set_defaults(func=cmd_plugin_init)
 
     p_render = sub.add_parser("render-report", help="Render report using output plugin")
     p_render.add_argument("--plugin", default="quarto-portfolio-report")

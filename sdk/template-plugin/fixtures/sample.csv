@@ -1,0 +1,4 @@
+symbol,quantity,price,currency,as_of_date
+AAPL,10,180.00,USD,2026-01-02
+MSFT,5,400.00,USD,2026-01-02
+VTI,20,240.50,USD,2026-01-02

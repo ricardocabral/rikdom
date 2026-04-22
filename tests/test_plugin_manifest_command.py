@@ -12,6 +12,7 @@ from rikdom.plugin_engine.manifest import load_manifest
 BASE_MANIFEST: dict = {
     "name": "sample-plugin",
     "version": "0.1.0",
+    "api_version": "1.0",
     "plugin_types": ["source_input"],
     "module": "sample.module",
     "class_name": "SamplePlugin",

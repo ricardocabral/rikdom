@@ -193,6 +193,8 @@ make migrate-dry-run
 
 - Canonical guide: [docs/plugin-system.md](docs/plugin-system.md)
 - Quickstart: [plugins/README.md](plugins/README.md)
+- Scaffold a new plugin: `uv run rikdom plugin init my-plugin --dest plugins`
+- Versioning, stability tiers, and legacy migration: [docs/plugin-compatibility.md](docs/plugin-compatibility.md)
 
 Plugin quick commands:
 
