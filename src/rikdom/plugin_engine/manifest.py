@@ -25,7 +25,6 @@ class PluginManifest:
     class_name: str
     description: str
     path: Path
-    command: list[str] | None = None
 
 
 def _load_manifest_schema_text() -> str:
@@ -88,7 +87,6 @@ def load_manifest(plugin_dir: Path) -> PluginManifest:
     module = str(raw["module"]).strip()
     class_name = str(raw["class_name"]).strip()
     description = str(raw.get("description", "")).strip()
-    command: list[str] | None = list(raw["command"]) if "command" in raw else None
 
     return PluginManifest(
         name=name,
@@ -99,5 +97,4 @@ def load_manifest(plugin_dir: Path) -> PluginManifest:
         class_name=class_name,
         description=description,
         path=plugin_dir,
-        command=command,
     )

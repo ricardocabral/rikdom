@@ -467,7 +467,7 @@ uv run python -c "import json; from rikdom.plugin_engine.pipeline import build_a
 This walkthrough uses the bundled SDK scaffold shipped as a package
 resource under `src/rikdom/_resources/template-plugin/` (exposed via
 `rikdom plugin init`) to build a working `source/input` plugin end-to-end.
-For semver, stability tiers, and the legacy-to-Pluggy migration path, see
+For semver and stability tiers, see
 [plugin-compatibility.md](plugin-compatibility.md).
 
 ### 1. Bootstrap from the scaffold
@@ -557,9 +557,8 @@ The scaffold's test imports `plugin` directly, so no packaging or
 uv run rikdom plugins list --plugins-dir plugins
 ```
 
-Each entry includes `api_version`, `plugin_types`, and a `legacy` boolean
-that is `true` when the manifest declares a subprocess `command` instead of
-Pluggy entrypoints.
+Each entry includes `api_version`, `plugin_types`, `module`, and
+`class_name` — the fields needed to load the plugin through Pluggy.
 
 ### 5. Run the import pipeline
 
@@ -579,5 +578,68 @@ uv run rikdom import-statement \
   --write
 ```
 
-For versioning policy and the legacy `command`-based migration recipe, see
+For versioning policy and stability tiers, see
 [plugin-compatibility.md](plugin-compatibility.md).
+
+## Contract Test Fixtures
+
+Every Pluggy plugin that declares a v1 data hook (`source_input`,
+`asset_type_catalog`, `output`, `state_storage_sync`, `state_storage_query`,
+`state_storage_health`) must ship at least one contract-test fixture. The
+runner in `src/rikdom/plugin_engine/contract_runner.py` discovers fixtures,
+loads the plugin through the real `PluginRuntime`, invokes the declared
+hook, optionally validates against a canonical schema, and asserts
+byte-identical reruns (determinism). A dedicated CI step fails when a
+plugin declares a data hook with zero fixtures.
+
+### Fixture layout
+
+```
+plugins/<plugin-name>/fixtures/<case>/
+  case.json           # required — describes hook + inputs (see below)
+  input.*             # required for source_input hooks
+  portfolio.json      # required for output / state_storage_sync hooks
+  snapshots.jsonl     # required for output / state_storage_sync hooks
+  expected.json       # canonical expected payload
+  expected.jsonl      # alternative line-delimited form
+  expected_error.json # alternative — for failure-mode fixtures
+```
+
+### `case.json` keys
+
+| Key | Required | Description |
+|---|---|---|
+| `hook` | yes | One of the v1 hook names above. |
+| `input` | source_input | Filename inside the fixture dir (defaults to first `input.*` match). |
+| `portfolio` / `snapshots` | output, sync | Filenames inside the fixture dir. Default `portfolio.json` / `snapshots.jsonl`. |
+| `options` | optional | `dict` passed through to hooks that accept options. |
+| `query_name` / `params` | query | Inputs for `state_storage_query`. |
+| `env` | optional | Env vars to set for the duration of the invocation (e.g. `RIKDOM_DISABLE_QUARTO=1`). |
+| `requires` | optional | List of importable modules that must be available — the case is skipped if any is missing (e.g. `["duckdb"]`). |
+| `ignore_fields` | optional | Keys to strip *anywhere* in the payload tree before equality/determinism compare. `generated_at` is always stripped. |
+| `validate_schema` | optional | Alias for a canonical JSON Schema: `plugin-statement`, `portfolio`, or `snapshot`. |
+
+### Determinism contract
+
+For each case the runner invokes the hook twice in fresh tmpdirs and
+asserts byte-identical canonical JSON after `ignore_fields` are stripped.
+The contract uses a fixed `PluginContext.run_id` (`contract-<plugin>-<case>`)
+so any hook that seeds IDs from the context will produce identical output.
+Hooks that pull `datetime.now()` should list `generated_at` (or the
+offending field name) in `ignore_fields`; this is the default for the
+`generated_at` key.
+
+### Failure-mode fixtures
+
+Drop an `expected_error.json` file (instead of `expected.json`) with
+`{"type": "<ExceptionClassName>", "message_contains": "<substring>"}` to
+assert that a given input causes the hook to raise a specific error.
+
+### Running the contract suite locally
+
+```bash
+uv run python -m unittest tests.test_plugin_contracts -v
+```
+
+CI runs the same command in a dedicated job so failures are directly
+attributable to plugin contracts rather than mixed with other unit tests.

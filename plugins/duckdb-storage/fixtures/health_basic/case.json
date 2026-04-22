@@ -1,0 +1,4 @@
+{
+  "hook": "state_storage_health",
+  "options": {"db_path": "out/rikdom.duckdb"}
+}

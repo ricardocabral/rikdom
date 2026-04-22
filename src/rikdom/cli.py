@@ -453,8 +453,6 @@ def cmd_plugins_list(args: argparse.Namespace) -> int:
                 "class_name": m.class_name,
                 "description": m.description,
                 "path": str(m.path),
-                "command": list(m.command) if m.command is not None else None,
-                "legacy": m.command is not None,
             }
         )
     print(json.dumps({"plugins": payload}, indent=2, ensure_ascii=False))

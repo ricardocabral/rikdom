@@ -36,7 +36,6 @@ class LoadManifestSchemaTest(unittest.TestCase):
         self.assertEqual(manifest.plugin_types, ["source/input"])
         self.assertEqual(manifest.module, "sample.module")
         self.assertEqual(manifest.class_name, "SamplePlugin")
-        self.assertIsNone(manifest.command)
 
     def test_missing_api_version_rejected(self) -> None:
         payload = dict(BASE_MANIFEST)

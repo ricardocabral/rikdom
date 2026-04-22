@@ -31,7 +31,7 @@ Schemas:
 
 Plugin and runtime internals:
 - `src/rikdom/cli.py` (CLI command wiring and workspace path resolution)
-- `src/rikdom/plugins.py` (legacy subprocess import path)
+- `src/rikdom/plugins.py` (portfolio merge / provenance helpers)
 - `src/rikdom/plugin_engine/contracts.py` (`PhaseName` taxonomy)
 - `src/rikdom/plugin_engine/hookspecs.py` (hook contracts)
 - `src/rikdom/plugin_engine/manifest.py`
@@ -46,8 +46,8 @@ Docs:
 
 ## Plugin Runtime Reality (Important)
 
-- `import-statement` currently runs through legacy subprocess plugins (`plugin.json.command`, `src/rikdom/plugins.py`).
-- `render-report`, `storage-sync`, and asset-type catalog run through Pluggy (`src/rikdom/plugin_engine/*`).
+- All plugins run through Pluggy (`src/rikdom/plugin_engine/*`). There is no
+  subprocess-style plugin path.
 - Do not assume all plugin taxonomy phases are already wired to CLI subcommands.
 
 ## Plugin Management And Invocation
@@ -58,19 +58,19 @@ Inspect plugins:
 uv run rikdom plugins list --plugins-dir plugins
 ```
 
-Invoke import plugin (legacy path):
+Invoke import plugin:
 
 ```bash
 uv run rikdom import-statement --data-dir <data-dir> --out-root <out-root> --plugin <plugin-name> --input <statement-path> --write
 ```
 
-Invoke output plugin (Pluggy path):
+Invoke output plugin:
 
 ```bash
 uv run rikdom render-report --data-dir <data-dir> --out-root <out-root> --plugin <plugin-name> --plugins-dir plugins
 ```
 
-Invoke storage plugin (Pluggy path):
+Invoke storage plugin:
 
 ```bash
 uv run rikdom storage-sync --data-dir <data-dir> --out-root <out-root> --plugin <plugin-name> --plugins-dir plugins
@@ -78,7 +78,7 @@ uv run rikdom storage-sync --data-dir <data-dir> --out-root <out-root> --plugin 
 
 ## Extensibility Workflow
 
-1. Confirm active execution path (legacy vs Pluggy) in `src/rikdom/cli.py`.
+1. Confirm hook surface and CLI wiring in `src/rikdom/cli.py` + `src/rikdom/plugin_engine/`.
 2. Read or define contract in relevant schema file.
 3. Add/update plugin manifest `plugins/<name>/plugin.json`.
 4. Implement plugin code in `plugins/<name>/plugin.py` (and helpers).

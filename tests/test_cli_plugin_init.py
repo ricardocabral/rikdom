@@ -73,7 +73,6 @@ class PluginInitCliTests(unittest.TestCase):
             self.assertEqual(manifest.name, "my-new-plugin")
             self.assertEqual(manifest.api_version, "1.0")
             self.assertEqual(manifest.plugin_types, ["source/input"])
-            self.assertIsNone(manifest.command)
 
     def test_discover_plugins_finds_generated_plugin(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

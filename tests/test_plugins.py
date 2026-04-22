@@ -3,10 +3,9 @@ from __future__ import annotations
 import copy
 import tempfile
 import unittest
-from unittest import mock
 
 from rikdom.plugin_engine.pipeline import run_import_pipeline
-from rikdom.plugins import build_import_diff, merge_activities, merge_holdings, run_import_plugin
+from rikdom.plugins import build_import_diff, merge_activities, merge_holdings
 
 
 class PluginTests(unittest.TestCase):
@@ -390,15 +389,6 @@ class PluginTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Invalid imported activity at index 1: missing event_type"):
             merge_activities(portfolio, imported)
         self.assertEqual(portfolio["activities"], original_activities)
-
-    def test_run_import_plugin_accepts_legacy_positional_signature(self) -> None:
-        with mock.patch(
-            "rikdom.plugin_engine.pipeline.run_import_pipeline",
-            return_value={"provider": "csv-generic", "holdings": [], "activities": []},
-        ) as mock_run:
-            payload = run_import_plugin("csv-generic", "input.csv", "plugins-alt")
-        mock_run.assert_called_once_with("csv-generic", "plugins-alt", "input.csv")
-        self.assertEqual(payload["provider"], "csv-generic")
 
     def test_merge_holdings_ignores_missing_holdings_key(self) -> None:
         portfolio: dict = {"holdings": []}

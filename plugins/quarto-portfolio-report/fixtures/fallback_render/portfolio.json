@@ -1,0 +1,247 @@
+{
+  "schema_version": "1.2.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "demo-main",
+    "owner_kind": "person",
+    "display_name": "Demo Portfolio",
+    "country": "BR",
+    "created_at": "2026-04-20T00:00:00Z"
+  },
+  "settings": {
+    "base_currency": "BRL",
+    "timezone": "America/Sao_Paulo",
+    "country_context": "BR"
+  },
+  "asset_type_catalog": [
+    {
+      "id": "stock",
+      "label": "Stock",
+      "asset_class": "stocks",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "reit",
+      "label": "REIT",
+      "asset_class": "reits",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "fund",
+      "label": "Fund",
+      "asset_class": "funds",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "cash_equivalent",
+      "label": "Cash Equivalent",
+      "asset_class": "cash_equivalents",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "cryptocurrency",
+      "label": "Cryptocurrency",
+      "asset_class": "cryptocurrencies",
+      "availability": { "countries": ["US", "BR"] }
+    },
+    {
+      "id": "tesouro_direto_ipca",
+      "label": "Tesouro Direto IPCA+",
+      "asset_class": "debt",
+      "availability": {
+        "countries": ["BR"],
+        "notes": "Brazilian sovereign inflation-linked bonds"
+      },
+      "metadata": {
+        "country_program": "Tesouro Direto"
+      },
+      "instrument_attributes": [
+        {
+          "id": "index",
+          "label": "Index",
+          "value_type": "string",
+          "enum": ["IPCA", "SELIC", "PREFIXADO"],
+          "required": true
+        },
+        {
+          "id": "expiration_year",
+          "label": "Expiration Year",
+          "value_type": "integer",
+          "required": true
+        },
+        {
+          "id": "semestral_payments",
+          "label": "Semestral Payments",
+          "value_type": "boolean",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "holdings": [
+    {
+      "id": "h-stock-aapl",
+      "asset_type_id": "stock",
+      "label": "Apple Inc.",
+      "identifiers": { "ticker": "AAPL", "isin": "US0378331005" },
+      "quantity": 12,
+      "market_value": { "amount": 2520, "currency": "USD" },
+      "as_of": "2026-04-19T20:00:00Z",
+      "metadata": { "fx_rate_to_base": 5.25 },
+      "provenance": {
+        "source_system": "broker-csv",
+        "source_ref": "statement-2026-04.csv#row12",
+        "import_run_id": "run-2026-04-20-01",
+        "idempotency_key": "sha256:aapl-2026-04-19-2520",
+        "ingested_at": "2026-04-20T00:10:00Z"
+      }
+    },
+    {
+      "id": "h-reit-hglg11",
+      "asset_type_id": "reit",
+      "label": "HGLG11",
+      "identifiers": { "ticker": "HGLG11" },
+      "quantity": 80,
+      "market_value": { "amount": 13600, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    },
+    {
+      "id": "h-fund-global",
+      "asset_type_id": "fund",
+      "label": "Global Multi-Asset Fund",
+      "market_value": { "amount": 45000, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    },
+    {
+      "id": "h-cash-brl",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash Reserve",
+      "market_value": { "amount": 12000, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    },
+    {
+      "id": "h-crypto-btc",
+      "asset_type_id": "cryptocurrency",
+      "label": "Bitcoin",
+      "quantity": 0.22,
+      "market_value": { "amount": 54000, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    },
+    {
+      "id": "h-td-ipca",
+      "asset_type_id": "tesouro_direto_ipca",
+      "label": "Tesouro IPCA+ 2035",
+      "instrument_attributes": {
+        "index": "IPCA",
+        "expiration_year": 2035,
+        "semestral_payments": false
+      },
+      "market_value": { "amount": 28000, "currency": "BRL" },
+      "as_of": "2026-04-19T20:00:00Z"
+    }
+  ],
+  "activities": [
+    {
+      "id": "act-buy-aapl-20260419",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-19T15:00:00Z",
+      "source_system": "broker-csv",
+      "source_ref": "statement-2026-04.csv#row12",
+      "import_run_id": "run-2026-04-20-01",
+      "idempotency_key": "sha256:aapl-buy-2026-04-19",
+      "asset_type_id": "stock",
+      "instrument": { "ticker": "AAPL" },
+      "quantity": 2,
+      "money": { "amount": 420, "currency": "USD", "scale": 2 }
+    }
+  ],
+  "operations": {
+    "task_catalog": [
+      {
+        "id": "monthly-rebalance",
+        "label": "Portfolio rebalance review",
+        "category": "rebalancing",
+        "status": "active",
+        "cadence": {
+          "frequency": "monthly",
+          "interval": 1,
+          "by_month_day": 5,
+          "due_timezone": "America/Sao_Paulo"
+        },
+        "last_completed_at": "2026-04-05T14:10:00Z",
+        "last_event_id": "op-evt-rebalance-20260405",
+        "next_due_at": "2026-05-05T03:00:00Z",
+        "owner": "investment-committee"
+      },
+      {
+        "id": "monthly-cash-sweep",
+        "label": "Monthly cash sweep to strategic reserve",
+        "category": "cash_management",
+        "status": "active",
+        "cadence": {
+          "frequency": "monthly",
+          "interval": 1,
+          "by_month_day": 2,
+          "due_timezone": "America/Sao_Paulo"
+        },
+        "last_completed_at": "2026-04-02T12:30:00Z",
+        "last_event_id": "op-evt-cash-sweep-20260402",
+        "next_due_at": "2026-05-02T03:00:00Z",
+        "owner": "treasury"
+      },
+      {
+        "id": "annual-tax-package",
+        "label": "Annual tax package reconciliation",
+        "category": "tax",
+        "status": "active",
+        "cadence": {
+          "frequency": "yearly",
+          "interval": 1,
+          "by_month": [3],
+          "by_month_day": 31,
+          "due_timezone": "America/Sao_Paulo"
+        },
+        "last_completed_at": "2026-03-25T19:05:00Z",
+        "last_event_id": "op-evt-tax-2026",
+        "next_due_at": "2027-03-31T03:00:00Z",
+        "owner": "accounting"
+      }
+    ],
+    "task_events": [
+      {
+        "id": "op-evt-rebalance-20260405",
+        "task_id": "monthly-rebalance",
+        "event_type": "completed",
+        "occurred_at": "2026-04-05T14:10:00Z",
+        "period_start": "2026-03-05T03:00:00Z",
+        "period_end": "2026-04-05T03:00:00Z",
+        "performed_by": "investment-committee",
+        "summary": "Targets within tolerance after FX normalization"
+      },
+      {
+        "id": "op-evt-cash-sweep-20260402",
+        "task_id": "monthly-cash-sweep",
+        "event_type": "completed",
+        "occurred_at": "2026-04-02T12:30:00Z",
+        "period_start": "2026-03-02T03:00:00Z",
+        "period_end": "2026-04-02T03:00:00Z",
+        "performed_by": "treasury",
+        "summary": "Moved excess BRL cash above policy threshold"
+      },
+      {
+        "id": "op-evt-tax-2026",
+        "task_id": "annual-tax-package",
+        "event_type": "completed",
+        "occurred_at": "2026-03-25T19:05:00Z",
+        "period_start": "2025-01-01T03:00:00Z",
+        "period_end": "2025-12-31T03:00:00Z",
+        "performed_by": "accounting",
+        "summary": "Closed yearly tax support package for filing cycle 2026"
+      }
+    ]
+  },
+  "notes": [
+    "This is an example portfolio. Replace values with your own data."
+  ]
+}

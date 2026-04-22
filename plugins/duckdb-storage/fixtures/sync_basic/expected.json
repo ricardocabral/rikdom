@@ -1,0 +1,9 @@
+{
+  "rows_written": {
+    "portfolio_header": 1,
+    "holdings": 6,
+    "snapshots": 4
+  },
+  "source_hash_portfolio": "b9d5713b0c1c037e8387bff8717139b2d7639faf71e564a52bcbe29fdcdb0494",
+  "source_hash_snapshots": "b3da94e835e669aeda22d61d5da04299702f4daa65e27a30a562bae4f9034ac9"
+}

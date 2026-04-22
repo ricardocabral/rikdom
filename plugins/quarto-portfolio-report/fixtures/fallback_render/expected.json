@@ -1,0 +1,11 @@
+{
+  "plugin": "quarto-portfolio-report",
+  "artifacts": [
+    {"type": "html"},
+    {"type": "json"},
+    {"type": "js"}
+  ],
+  "warnings": [
+    "Quarto binary 'quarto' not found in PATH. Generated fallback HTML artifact."
+  ]
+}

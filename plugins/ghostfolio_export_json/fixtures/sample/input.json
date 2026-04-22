@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-04-20T14:00:00Z",
+  "activities": [
+    {
+      "id": "gf-act-1",
+      "type": "BUY",
+      "date": "2026-03-01",
+      "symbol": "AAPL",
+      "amount": "-1500.20",
+      "currency": "usd",
+      "quantity": "10",
+      "fee": "3.5",
+      "accountId": "broker-main"
+    },
+    {
+      "id": "gf-act-2",
+      "type": "DIVIDEND",
+      "date": "2026-03-20T00:00:00-03:00",
+      "symbol": "AAPL",
+      "amount": "12.40",
+      "currency": "USD",
+      "accountId": "broker-main"
+    }
+  ],
+  "positions": [
+    {
+      "id": "gf-hold-aapl",
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "assetClass": "stock",
+      "quantity": 10,
+      "marketValue": {
+        "amount": 1675.1,
+        "currency": "USD"
+      },
+      "accountId": "broker-main"
+    }
+  ]
+}

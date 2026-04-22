@@ -16,14 +16,13 @@ You are working on a local-first wealth portfolio schema project.
 3. `plugins/README.md`
 4. `src/rikdom/cli.py`
 5. `src/rikdom/plugin_engine/*`
-6. `src/rikdom/plugins.py` (legacy import path)
+6. `src/rikdom/plugins.py` (portfolio merge / provenance helpers)
 
 ## Plugin System: Current Reality (Important)
 
-The repo is currently hybrid:
-
-- `import-statement` CLI path uses legacy subprocess plugins via `src/rikdom/plugins.py` and `plugin.json.command`.
-- `render-report`, `storage-sync`, and asset-type catalog plumbing use the Pluggy engine in `src/rikdom/plugin_engine/`.
+All plugins are Pluggy plugins loaded through `src/rikdom/plugin_engine/`.
+There is no subprocess-style plugin path; the manifest schema rejects any
+field outside the Pluggy set.
 
 Do not assume all plugin types are wired into CLI entrypoints yet.
 
@@ -31,9 +30,7 @@ Do not assume all plugin types are wired into CLI entrypoints yet.
 
 - Plugin folder: `plugins/<plugin-name>/`
 - Required file: `plugins/<plugin-name>/plugin.json`
-- Manifest required fields: `name`, `version`
-- Pluggy plugins should also define: `plugin_types`, `module`, `class_name`
-- Legacy import plugins may define `command` for subprocess execution
+- Manifest required fields: `name`, `version`, `api_version`, `plugin_types`, `module`, `class_name`
 
 Source of truth for taxonomy:
 - `src/rikdom/plugin_engine/contracts.py` (`PhaseName`)

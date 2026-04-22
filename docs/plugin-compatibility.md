@@ -59,37 +59,13 @@ Any removal or breaking change to a Stable surface follows this policy:
 - The deprecation note in release notes names the replacement and the
   earliest major version that may remove the old surface.
 
-## Legacy `command` -> Pluggy migration
+## Plugin model
 
-The older subprocess-style plugin contract remains supported in v1:
+All rikdom plugins are Pluggy plugins declaring `module` and `class_name` in
+`plugin.json`. There is no subprocess-based plugin contract: the manifest
+schema rejects any field outside the set defined in
+`src/rikdom/_resources/plugin.manifest.schema.json`, so a plugin must
+expose a Python class that registers `@hookimpl` methods.
 
-- When a manifest declares `command` (a non-empty array of strings), rikdom
-  invokes that command as a subprocess through the legacy code path in
-  `src/rikdom/plugins.py`. Only the `import-statement` CLI dispatches
-  through this path today; all other plugin types are Pluggy-only.
-- `rikdom plugins list` marks these entries with `"legacy": true`, so you
-  can inventory remaining subprocess plugins at a glance.
-
-### Migration recipe
-
-1. Port the subprocess logic into a Python class with a
-   `@hookimpl source_input` method that returns the same normalized payload
-   the subprocess used to emit on stdout.
-2. Remove `command` from `plugin.json`.
-3. Add `module` and `class_name` (typically `"plugin"` and `"Plugin"`) to
-   the manifest, keeping `api_version: "1.0"`.
-4. Scaffold the test layout with `uv run rikdom plugin init ...` in a scratch
-   directory and copy `tests/test_plugin.py` + `fixtures/` into the plugin
-   to lock in the shape.
-
-The SDK scaffold under `src/rikdom/_resources/template-plugin/` (exposed
-via `rikdom plugin init`) is a ready-to-copy starting point.
-
-### Timeline
-
-- **v1 (now)**: legacy `command` manifests keep working; new plugins should
-  use the Pluggy contract.
-- **Later v1.x**: once all bundled plugins under `plugins/` have migrated,
-  the legacy path enters the deprecation window described above.
-- **v2**: the legacy `command` path is removed. All plugins must be Pluggy
-  classes by then.
+Use the SDK scaffold under `src/rikdom/_resources/template-plugin/`
+(exposed via `rikdom plugin init`) as a ready-to-copy starting point.

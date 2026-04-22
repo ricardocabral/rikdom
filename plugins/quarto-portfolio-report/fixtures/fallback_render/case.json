@@ -1,0 +1,5 @@
+{
+  "hook": "output",
+  "env": {"RIKDOM_DISABLE_QUARTO": "1"},
+  "ignore_fields": ["path"]
+}

@@ -1,0 +1,1848 @@
+[
+  {
+    "asset_class": "real_estate",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "fii",
+    "instrument_attributes": [
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "TIJOLO",
+          "PAPEL",
+          "HIBRIDO",
+          "FOF",
+          "DESENVOLVIMENTO"
+        ],
+        "id": "fii_type",
+        "label": "FII Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "segment",
+        "label": "Segment",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "admin_cnpj",
+        "label": "Administrator CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "FII"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "tesouro_direto",
+    "instrument_attributes": [
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "index",
+        "label": "Tesouro Index",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "expiration_year",
+        "label": "Expiration Year",
+        "required": true,
+        "value_type": "integer"
+      },
+      {
+        "id": "semestral_payments",
+        "label": "Semestral Payments",
+        "required": false,
+        "value_type": "boolean"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "Tesouro Direto"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "lci",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "min_holding_period_months",
+        "label": "Minimum Holding Period (months)",
+        "required": false,
+        "value_type": "integer"
+      }
+    ],
+    "label": "LCI"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "lca",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "min_holding_period_months",
+        "label": "Minimum Holding Period (months)",
+        "required": false,
+        "value_type": "integer"
+      }
+    ],
+    "label": "LCA"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "cdb",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fgc_eligible",
+        "label": "FGC Eligible",
+        "required": false,
+        "value_type": "boolean"
+      },
+      {
+        "enum": [
+          "DIARIA",
+          "NO_VENCIMENTO",
+          "CARENCIA_PARCIAL"
+        ],
+        "id": "liquidity_type",
+        "label": "Liquidity Type",
+        "required": false,
+        "value_type": "string"
+      }
+    ],
+    "label": "CDB"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "lig",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      }
+    ],
+    "label": "LIG"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "lf",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      }
+    ],
+    "label": "Letra Financeira"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "cri",
+    "instrument_attributes": [
+      {
+        "id": "securitizadora_cnpj",
+        "label": "Securitizadora CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      }
+    ],
+    "label": "CRI"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "cra",
+    "instrument_attributes": [
+      {
+        "id": "securitizadora_cnpj",
+        "label": "Securitizadora CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      }
+    ],
+    "label": "CRA"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "debenture",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "NAO_INCENTIVADA"
+        ],
+        "id": "tax_benefit_regime",
+        "label": "Tax Benefit Regime",
+        "required": false,
+        "value_type": "string"
+      }
+    ],
+    "label": "Debenture"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "debenture_incentivada",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "LEI_12431"
+        ],
+        "id": "tax_benefit_regime",
+        "label": "Tax Benefit Regime",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "Debenture Incentivada (Lei 12.431)"
+  },
+  {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "debenture_infra",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "spread_pct",
+        "label": "Spread (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "spread_bps",
+        "label": "Spread (bps)",
+        "required": false,
+        "value_type": "integer"
+      },
+      {
+        "id": "amortization_schedule",
+        "label": "Amortization Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "interest_schedule",
+        "label": "Interest Schedule",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "tax_profile.source_rule_ref",
+        "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "LEI_14801"
+        ],
+        "id": "tax_benefit_regime",
+        "label": "Tax Benefit Regime",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "Debenture de Infraestrutura (Lei 14.801)"
+  },
+  {
+    "asset_class": "stocks",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "bdr",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "N1_NAO_PATROCINADO",
+          "N1_PATROCINADO",
+          "N2_PATROCINADO",
+          "N3_PATROCINADO"
+        ],
+        "id": "bdr_level",
+        "label": "BDR Level",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "depositary_cnpj",
+        "label": "Depositary CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "underlying_identifier",
+        "label": "Underlying Identifier",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "underlying_country",
+        "label": "Underlying Country (ISO 3166-1 alpha-2)",
+        "pattern": "^[A-Z]{2}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "underlying_isin",
+        "label": "Underlying ISIN",
+        "pattern": "^[A-Z]{2}[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "parity_ratio",
+        "label": "Parity Ratio",
+        "required": true,
+        "value_type": "number"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "BDR"
+  },
+  {
+    "asset_class": "other",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "coe",
+    "instrument_attributes": [
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "VALOR_NOMINAL_PROTEGIDO",
+          "VALOR_NOMINAL_EM_RISCO"
+        ],
+        "id": "modalidade",
+        "label": "Modalidade",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "underlying_reference",
+        "label": "Underlying Reference",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "payoff_formula",
+        "label": "Payoff Formula",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PREFIXADO",
+          "POS",
+          "HIBRIDO"
+        ],
+        "id": "remuneration_type",
+        "label": "Remuneration Type",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "COE"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "fidc_cota",
+    "instrument_attributes": [
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "class_id",
+        "label": "Class ID",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "SENIOR",
+          "SUBORDINADA_MEZANINO",
+          "SUBORDINADA_JUNIOR"
+        ],
+        "id": "subclass_type",
+        "label": "Subclass Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "VAREJO",
+          "QUALIFICADO",
+          "PROFISSIONAL"
+        ],
+        "id": "target_investor",
+        "label": "Target Investor",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ABERTO",
+          "FECHADO"
+        ],
+        "id": "open_closed",
+        "label": "Open or Closed",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "FIDC Cota"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "fiagro_cota",
+    "instrument_attributes": [
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "class_id",
+        "label": "Class ID",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CADEIA_AGRO"
+        ],
+        "id": "target_chain",
+        "label": "Target Chain",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "TERRA",
+          "FIDC_LIKE",
+          "FIP_LIKE",
+          "MULTI"
+        ],
+        "id": "fiagro_strategy",
+        "label": "FIAGRO Strategy",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ABERTO",
+          "FECHADO"
+        ],
+        "id": "open_closed",
+        "label": "Open or Closed",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "FIAGRO Cota"
+  },
+  {
+    "asset_class": "stocks",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "acao",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issuer_cnpj",
+        "label": "Issuer CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ON",
+          "PN",
+          "PNA",
+          "PNB",
+          "UNIT"
+        ],
+        "id": "share_class",
+        "label": "Share Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "segment",
+        "label": "B3 Listing Segment",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "Ação"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "etf",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_VARIAVEL",
+          "RENDA_FIXA",
+          "CRIPTO",
+          "COMMODITIES",
+          "INTERNACIONAL"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "fundo_investimento",
+    "instrument_attributes": [
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_FIXA",
+          "MULTIMERCADO",
+          "ACOES",
+          "CAMBIAL",
+          "FIC",
+          "FIDC",
+          "PREVIDENCIARIO"
+        ],
+        "id": "category",
+        "label": "Anbima Category",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "admin_cnpj",
+        "label": "Administrator CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "manager_cnpj",
+        "label": "Manager CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ABERTO",
+          "FECHADO"
+        ],
+        "id": "open_closed",
+        "label": "Open or Closed",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark",
+        "label": "Benchmark",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "come_cotas_applicable",
+        "label": "Come-Cotas Applicable",
+        "required": false,
+        "value_type": "boolean"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "Fundo de Investimento"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "previdencia_privada",
+    "instrument_attributes": [
+      {
+        "enum": [
+          "PGBL",
+          "VGBL"
+        ],
+        "id": "plan_type",
+        "label": "Plan Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "provider_cnpj",
+        "label": "Provider CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Underlying Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "susep_process",
+        "label": "SUSEP Process Number",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PROGRESSIVO",
+          "REGRESSIVO"
+        ],
+        "id": "tax_regime",
+        "label": "Tax Regime",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "Previdência Privada"
+  }
+]

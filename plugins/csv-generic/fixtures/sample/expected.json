@@ -1,0 +1,86 @@
+{
+  "activities": [
+    {
+      "asset_type_id": "stock",
+      "effective_at": "2026-02-13T00:00:00Z",
+      "event_type": "dividend",
+      "id": "act-aapl-div-2026q1",
+      "idempotency_key": "us-aapl-2026q1-div",
+      "instrument": {
+        "country": "US",
+        "ticker": "AAPL"
+      },
+      "money": {
+        "amount": 1.2,
+        "currency": "USD"
+      },
+      "source_ref": "broker:us-aapl-2026q1",
+      "status": "posted"
+    },
+    {
+      "asset_type_id": "stock",
+      "effective_at": "2026-03-20T00:00:00Z",
+      "event_type": "dividend",
+      "id": "act-petr4-prov-2026-03",
+      "idempotency_key": "br-petr4-2026-03-jcp",
+      "instrument": {
+        "country": "BR",
+        "ticker": "PETR4"
+      },
+      "money": {
+        "amount": 45.7,
+        "currency": "BRL"
+      },
+      "source_ref": "broker:petr4-2026-03",
+      "status": "posted",
+      "subtype": "juros_sobre_capital"
+    },
+    {
+      "effective_at": "2026-03-28T00:00:00Z",
+      "event_type": "reimbursement",
+      "id": "act-broker-reimb-2026-03",
+      "idempotency_key": "broker-reimb-2026-03",
+      "money": {
+        "amount": 12.5,
+        "currency": "BRL"
+      },
+      "source_ref": "broker:reimb-2026-03",
+      "status": "posted",
+      "subtype": "custody_fee_refund"
+    }
+  ],
+  "holdings": [
+    {
+      "asset_type_id": "stock",
+      "id": "new-aapl",
+      "identifiers": {
+        "ticker": "AAPL"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "label": "Apple Inc.",
+      "market_value": {
+        "amount": 1000.0,
+        "currency": "USD"
+      },
+      "metadata": {
+        "fx_rate_to_base": 5.2
+      },
+      "quantity": 5.0
+    },
+    {
+      "asset_type_id": "cash_equivalent",
+      "id": "new-cash",
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "Cash BRL",
+      "market_value": {
+        "amount": 2500.0,
+        "currency": "BRL"
+      }
+    }
+  ],
+  "provider": "csv-generic"
+}

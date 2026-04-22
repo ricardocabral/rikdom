@@ -1,0 +1,5 @@
+{
+  "hook": "state_storage_sync",
+  "requires": ["duckdb"],
+  "ignore_fields": ["db_path"]
+}

@@ -446,17 +446,3 @@ def merge_activities(
 
     portfolio["activities"] = activities
     return portfolio, counts
-
-
-def run_import_plugin(*args: Any, **kwargs: Any) -> dict[str, Any]:
-    """Legacy entrypoint preserved for existing tests."""
-    from .plugin_engine.pipeline import run_import_pipeline
-
-    plugin_name = kwargs.pop("plugin_name", None) or (args[0] if len(args) >= 1 else None)
-    input_path = kwargs.pop("input_path", None) or (args[1] if len(args) >= 2 else None)
-    plugins_root = kwargs.pop("plugins_root", None)
-    if plugins_root is None:
-        plugins_root = args[2] if len(args) >= 3 else "plugins"
-    if plugin_name is None or input_path is None:
-        raise TypeError("run_import_plugin requires plugin_name and input_path")
-    return run_import_pipeline(plugin_name, plugins_root, input_path)

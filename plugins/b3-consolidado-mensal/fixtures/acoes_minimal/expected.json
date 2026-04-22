@@ -1,0 +1,34 @@
+{
+  "base_currency": "BRL",
+  "holdings": [
+    {
+      "asset_type_id": "stock",
+      "id": "b3:btg-pactual:12345:posi-o-a-es:brpetracnpr6",
+      "identifiers": {
+        "isin": "BRPETRACNPR6",
+        "provider_account_id": "12345"
+      },
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "PETR4 - PETROBRAS",
+      "market_value": {
+        "amount": 2500.5,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "institution": "BTG PACTUAL",
+        "provider": "b3",
+        "source_sheet": "Posição - Ações"
+      },
+      "quantity": 100.0
+    }
+  ],
+  "metadata": {
+    "parsed_position_sheets": [
+      "Posição - Ações"
+    ],
+    "source_file": "input.xlsx"
+  },
+  "provider": "b3-consolidado-mensal"
+}

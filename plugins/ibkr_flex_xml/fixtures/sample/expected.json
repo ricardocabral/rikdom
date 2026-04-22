@@ -1,0 +1,118 @@
+{
+  "activities": [
+    {
+      "effective_at": "2026-04-20T14:30:15Z",
+      "event_type": "buy",
+      "fees": {
+        "amount": 1.25,
+        "currency": "USD"
+      },
+      "id": "ibkr-trade-tx-buy-1",
+      "instrument": {
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "buy_sell": "BUY",
+        "ibkr_row_type": "Trade"
+      },
+      "money": {
+        "amount": -1702.5,
+        "currency": "USD"
+      },
+      "quantity": 10.0,
+      "source_ref": "ibkr:U1234567#trade:tx-buy-1",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-20T15:45:00Z",
+      "event_type": "sell",
+      "fees": {
+        "amount": 1.0,
+        "currency": "USD"
+      },
+      "id": "ibkr-trade-tx-sell-1",
+      "instrument": {
+        "ticker": "MSFT"
+      },
+      "metadata": {
+        "buy_sell": "SELL",
+        "ibkr_row_type": "Trade"
+      },
+      "money": {
+        "amount": 2000.0,
+        "currency": "USD"
+      },
+      "quantity": 5.0,
+      "source_ref": "ibkr:U1234567#trade:tx-sell-1",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-21T08:00:00Z",
+      "event_type": "dividend",
+      "id": "ibkr-cash-cash-div-1",
+      "instrument": {
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "cash_type": "Dividends",
+        "description": "DIVIDEND AAPL",
+        "ibkr_row_type": "CashTransaction"
+      },
+      "money": {
+        "amount": 12.34,
+        "currency": "USD"
+      },
+      "source_ref": "ibkr:U1234567#cash:cash-div-1",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-21T09:00:00Z",
+      "event_type": "interest",
+      "id": "ibkr-cash-cash-int-1",
+      "metadata": {
+        "cash_type": "Broker Interest Received",
+        "description": "",
+        "ibkr_row_type": "CashTransaction"
+      },
+      "money": {
+        "amount": 0.56,
+        "currency": "USD"
+      },
+      "source_ref": "ibkr:U1234567#cash:cash-int-1",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-21T10:00:00Z",
+      "event_type": "transfer_in",
+      "id": "ibkr-cash-cash-dep-1",
+      "metadata": {
+        "cash_type": "Deposits",
+        "description": "",
+        "ibkr_row_type": "CashTransaction"
+      },
+      "money": {
+        "amount": 1000.0,
+        "currency": "USD"
+      },
+      "source_ref": "ibkr:U1234567#cash:cash-dep-1",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-21T10:15:00Z",
+      "event_type": "fee",
+      "id": "ibkr-cash-cash-fee-1",
+      "metadata": {
+        "cash_type": "Other Fees",
+        "description": "",
+        "ibkr_row_type": "CashTransaction"
+      },
+      "money": {
+        "amount": -5.0,
+        "currency": "USD"
+      },
+      "source_ref": "ibkr:U1234567#cash:cash-fee-1",
+      "status": "posted"
+    }
+  ],
+  "provider": "ibkr_flex_xml"
+}

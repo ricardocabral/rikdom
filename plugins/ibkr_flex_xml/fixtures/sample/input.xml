@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexQueryResponse queryName="ActivityStatement" type="AF">
+  <FlexStatements count="1">
+    <FlexStatement accountId="U1234567" whenGenerated="20260421;143000">
+      <Trades>
+        <Trade
+          transactionID="tx-buy-1"
+          symbol="AAPL"
+          buySell="BUY"
+          quantity="10"
+          tradePrice="170.25"
+          proceeds="-1702.50"
+          ibCommission="-1.25"
+          currency="USD"
+          dateTime="20260420;143015"
+        />
+        <Trade
+          transactionID="tx-sell-1"
+          symbol="MSFT"
+          buySell="SELL"
+          quantity="5"
+          tradePrice="400.00"
+          proceeds="2000.00"
+          ibCommission="-1.00"
+          currency="USD"
+          tradeDate="20260420"
+          tradeTime="154500"
+        />
+        <Trade
+          transactionID="tx-buy-1"
+          symbol="AAPL"
+          buySell="BUY"
+          quantity="10"
+          tradePrice="170.25"
+          proceeds="-1702.50"
+          ibCommission="-1.25"
+          currency="USD"
+          dateTime="20260420;143015"
+        />
+        <Trade
+          transactionID="tx-cancel-1"
+          symbol="TSLA"
+          buySell="BUY"
+          quantity="1"
+          tradePrice="250"
+          proceeds="-250"
+          ibCommission="-0.50"
+          currency="USD"
+          dateTime="20260420;160000"
+          notes="Order Cancelled"
+        />
+      </Trades>
+      <CashTransactions>
+        <CashTransaction
+          transactionID="cash-div-1"
+          type="Dividends"
+          description="DIVIDEND AAPL"
+          currency="USD"
+          amount="12.34"
+          symbol="AAPL"
+          dateTime="20260421;080000"
+        />
+        <CashTransaction
+          transactionID="cash-int-1"
+          type="Broker Interest Received"
+          currency="USD"
+          amount="0.56"
+          dateTime="20260421;090000"
+        />
+        <CashTransaction
+          transactionID="cash-dep-1"
+          type="Deposits"
+          currency="USD"
+          amount="1000.00"
+          dateTime="20260421;100000"
+        />
+        <CashTransaction
+          transactionID="cash-fee-1"
+          type="Other Fees"
+          currency="USD"
+          amount="-5.00"
+          dateTime="20260421;101500"
+        />
+      </CashTransactions>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

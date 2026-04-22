@@ -1,0 +1,62 @@
+{
+  "activities": [
+    {
+      "effective_at": "2026-03-01T00:00:00Z",
+      "event_type": "buy",
+      "fees": {
+        "amount": 3.5,
+        "currency": "USD"
+      },
+      "id": "gf-act-1",
+      "instrument": {
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "raw_type": "BUY"
+      },
+      "money": {
+        "amount": -1500.2,
+        "currency": "USD"
+      },
+      "quantity": 10.0,
+      "source_ref": "broker-main",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-03-20T03:00:00Z",
+      "event_type": "dividend",
+      "id": "gf-act-2",
+      "instrument": {
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "raw_type": "DIVIDEND"
+      },
+      "money": {
+        "amount": 12.4,
+        "currency": "USD"
+      },
+      "source_ref": "broker-main",
+      "status": "posted"
+    }
+  ],
+  "holdings": [
+    {
+      "asset_type_id": "stock",
+      "id": "gf-hold-aapl",
+      "identifiers": {
+        "ticker": "AAPL"
+      },
+      "label": "Apple Inc.",
+      "market_value": {
+        "amount": 1675.1,
+        "currency": "USD"
+      },
+      "provenance": {
+        "source_ref": "broker-main"
+      },
+      "quantity": 10.0
+    }
+  ],
+  "provider": "ghostfolio_export_json"
+}
