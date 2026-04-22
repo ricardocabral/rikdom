@@ -172,6 +172,8 @@ uv run rikdom workspace rollup --data-dir data
 ## User Guides
 
 - [Native Multi-Currency Engine guide](docs/native-multi-currency-engine.md)
+- [Visualization module](docs/visualization.md)
+- [Plugin system](docs/plugin-system.md)
 
 ## Common Dev Tasks
 
@@ -189,8 +191,6 @@ make validate DATA_DIR=workspace-data OUT_DIR=workspace-out PORTFOLIO_NAME=paper
 - [Storage model](docs/storage.md)
 - [Migrations](docs/migrations.md)
 - [Storage durability](docs/storage-durability.md)
-- [Visualization module](docs/visualization.md)
-- [Plugin system](docs/plugin-system.md)
 
 Quick migration command:
 
