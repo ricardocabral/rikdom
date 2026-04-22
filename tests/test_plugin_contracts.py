@@ -37,15 +37,27 @@ class PluginContractTests(unittest.TestCase):
 
     def test_every_declared_hook_has_a_fixture(self) -> None:
         missing: list[str] = []
+        load_errors: list[str] = []
         for report in coverage_report(PLUGINS_DIR, self.cases):
+            if report.load_error is not None:
+                load_errors.append(f"{report.plugin_name}: {report.load_error}")
+                continue
             uncovered = sorted(report.declared_hooks - report.covered_hooks)
             for hook in uncovered:
                 missing.append(f"{report.plugin_name}:{hook}")
+        failures: list[str] = []
+        if load_errors:
+            failures.append(
+                "Plugins failed to load (cannot verify hook coverage): "
+                + "; ".join(load_errors)
+            )
         if missing:
-            self.fail(
+            failures.append(
                 "Plugins declare v1 hooks with no contract fixture: "
                 + ", ".join(missing)
             )
+        if failures:
+            self.fail(" | ".join(failures))
 
     def test_at_least_one_fixture_discovered(self) -> None:
         self.assertGreater(

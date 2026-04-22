@@ -75,6 +75,7 @@ class PluginCoverage:
     plugin_name: str
     declared_hooks: set[str] = field(default_factory=set)
     covered_hooks: set[str] = field(default_factory=set)
+    load_error: str | None = None
 
 
 @lru_cache(maxsize=None)
@@ -338,9 +339,18 @@ def coverage_report(plugins_dir: str | Path, cases: list[FixtureCase]) -> list[P
 
     reports: list[PluginCoverage] = []
     for plugin_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+        # Skip directories that aren't plugins (no manifest). Directories that
+        # do declare a plugin.json but fail to load are surfaced as explicit
+        # load errors so the coverage gate can't pass by silently ignoring
+        # broken plugins.
+        if not (plugin_dir / "plugin.json").exists():
+            continue
         try:
             pm, _manifest, plugin_obj = _load_plugin(plugin_dir.name, root)
-        except PluginEngineError:
+        except PluginEngineError as exc:
+            reports.append(
+                PluginCoverage(plugin_name=plugin_dir.name, load_error=str(exc))
+            )
             continue
         hooks = declared_hooks(plugin_obj)
         # Side-effect hooks are excluded from the coverage requirement because

@@ -52,7 +52,12 @@ jobs:
         run: uv run rikdom validate --portfolio data-sample/portfolio.json
 
       - name: Run Unit Tests
-        run: uv run python -m unittest discover -s tests -v
+        # Contract tests run in a dedicated step below; exclude them here to
+        # avoid executing the suite twice.
+        run: |
+          modules=$(find tests -maxdepth 1 -name 'test_*.py' ! -name 'test_plugin_contracts.py' -print | sed -E 's|/|.|g; s|\.py$||' | sort)
+          uv run python -m unittest $modules -v
 
       - name: Run Plugin Contract Tests
         run: uv run python -m unittest tests.test_plugin_contracts -v
+
