@@ -152,6 +152,97 @@ class CliImportStatementTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("preflight validation found", stderr.getvalue())
 
+    def test_cmd_import_statement_auto_syncs_asset_type_catalog_from_plugins(self) -> None:
+        args = Namespace(
+            portfolio="tests/fixtures/portfolio.json",
+            plugin="csv-generic",
+            input="tests/fixtures/sample_statement.csv",
+            plugins_dir="plugins",
+            write=False,
+            dry_run=False,
+            import_log=None,
+            import_run_id="run-test",
+            ingested_at="2026-04-20T00:00:00Z",
+        )
+        imported = {
+            "holdings": [
+                {
+                    "id": "new-cdb",
+                    "asset_type_id": "cdb",
+                    "label": "CDB Test",
+                    "market_value": {"amount": 1000.0, "currency": "BRL"},
+                }
+            ],
+            "activities": [],
+        }
+
+        with (
+            mock.patch(
+                "rikdom.cli.load_json",
+                return_value={
+                    "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+                    "holdings": [],
+                    "activities": [],
+                },
+            ),
+            mock.patch("rikdom.cli.build_asset_type_catalog", return_value=[{"id": "cdb", "asset_class": "debt"}]),
+            mock.patch("rikdom.cli.run_import_pipeline", return_value=imported),
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                code = cmd_import_statement(args)
+
+        self.assertEqual(code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["catalog_sync"], {"added": 1, "total": 2})
+        self.assertTrue(payload["preflight"]["ok"])
+
+    def test_cmd_import_statement_catalog_sync_failure_is_warning(self) -> None:
+        args = Namespace(
+            portfolio="tests/fixtures/portfolio.json",
+            plugin="csv-generic",
+            input="tests/fixtures/sample_statement.csv",
+            plugins_dir="plugins",
+            write=False,
+            dry_run=False,
+            import_log=None,
+            import_run_id="run-test",
+            ingested_at="2026-04-20T00:00:00Z",
+        )
+        imported = {
+            "holdings": [
+                {
+                    "id": "new-aapl",
+                    "asset_type_id": "stock",
+                    "label": "Apple Inc.",
+                    "market_value": {"amount": 1000.0, "currency": "USD"},
+                }
+            ],
+            "activities": [],
+        }
+
+        with (
+            mock.patch(
+                "rikdom.cli.load_json",
+                return_value={
+                    "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+                    "holdings": [],
+                    "activities": [],
+                },
+            ),
+            mock.patch("rikdom.cli.build_asset_type_catalog", side_effect=RuntimeError("boom")),
+            mock.patch("rikdom.cli.run_import_pipeline", return_value=imported),
+        ):
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                code = cmd_import_statement(args)
+
+        self.assertEqual(code, 0)
+        self.assertIn("Warning: failed to load asset-type catalog plugins", stderr.getvalue())
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["catalog_sync"], {"added": 0, "total": 1})
+
     def test_cmd_import_statement_dry_run_overrides_write(self) -> None:
         args = Namespace(
             portfolio="tests/fixtures/portfolio.json",

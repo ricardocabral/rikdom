@@ -31,6 +31,7 @@ from .migrations import (
 from .plugin_engine.errors import PluginEngineError
 from .plugin_engine.loader import discover_plugins
 from .plugin_engine.pipeline import (
+    build_asset_type_catalog,
     run_import_pipeline,
     run_output_pipeline,
     run_storage_sync_pipeline,
@@ -337,8 +338,45 @@ def _counts_dict(counts: MergeCounts) -> dict[str, int]:
     return {"inserted": counts.inserted, "updated": counts.updated, "skipped": counts.skipped}
 
 
+def _sync_asset_type_catalog_from_plugins(portfolio: dict[str, Any], plugins_dir: str) -> dict[str, int]:
+    existing = portfolio.get("asset_type_catalog")
+    if not isinstance(existing, list):
+        existing = []
+        portfolio["asset_type_catalog"] = existing
+
+    existing_ids: set[str] = set()
+    for item in existing:
+        if isinstance(item, dict):
+            item_id = str(item.get("id", "")).strip()
+            if item_id:
+                existing_ids.add(item_id)
+
+    try:
+        discovered = build_asset_type_catalog(plugins_dir)
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"Warning: failed to load asset-type catalog plugins from '{plugins_dir}': {exc}",
+            file=sys.stderr,
+        )
+        return {"added": 0, "total": len(existing_ids)}
+
+    added = 0
+    for item in discovered:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id", "")).strip()
+        if not item_id or item_id in existing_ids:
+            continue
+        existing.append(item)
+        existing_ids.add(item_id)
+        added += 1
+
+    return {"added": added, "total": len(existing_ids)}
+
+
 def cmd_import_statement(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
+    catalog_sync = _sync_asset_type_catalog_from_plugins(portfolio, args.plugins_dir)
     try:
         imported = run_import_pipeline(args.plugin, args.plugins_dir, args.input)
     except PluginEngineError as exc:
@@ -379,6 +417,7 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
                     "write": False,
                     "write_requested": write_requested,
                     "dry_run": dry_run,
+                    "catalog_sync": catalog_sync,
                 },
                 indent=2,
                 ensure_ascii=False,
@@ -415,6 +454,7 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         "write": bool(write_applied),
         "write_requested": write_requested,
         "dry_run": dry_run,
+        "catalog_sync": catalog_sync,
     }
 
     if args.import_log and write_applied:
