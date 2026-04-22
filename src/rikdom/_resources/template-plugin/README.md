@@ -10,7 +10,7 @@ statement payload that the rikdom import pipeline can consume.
 ```
 <plugin-name>/
   plugin.json           # Manifest (api_version 1.0, validated against
-                        # schema/plugin.manifest.schema.json)
+                        # the bundled rikdom._resources/plugin.manifest.schema.json)
   plugin.py             # Plugin class with @hookimpl source_input
   fixtures/sample.csv   # Three-row CSV used by the smoke test
   tests/test_plugin.py  # Unittest that exercises parse_statement()

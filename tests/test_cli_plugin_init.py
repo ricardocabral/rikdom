@@ -125,6 +125,31 @@ class PluginInitCliTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIn("existing plugin directory", stderr)
 
+    def test_description_with_special_chars_is_json_escaped(self) -> None:
+        tricky = 'Parse broker "statements"\nwith\\backslashes'
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "plugins"
+            code, _, stderr = _run(
+                [
+                    "plugin",
+                    "init",
+                    "quoted-plugin",
+                    "--dest",
+                    str(dest),
+                    "--description",
+                    tricky,
+                ]
+            )
+            self.assertEqual(code, 0, stderr)
+
+            plugin_dir = dest / "quoted-plugin"
+            manifest_raw = (plugin_dir / "plugin.json").read_text(encoding="utf-8")
+            manifest = json.loads(manifest_raw)
+            self.assertEqual(manifest["description"], tricky)
+
+            loaded = load_manifest(plugin_dir)
+            self.assertEqual(loaded.description, tricky)
+
     def test_generated_test_passes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / "plugins"

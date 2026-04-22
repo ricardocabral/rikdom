@@ -7,6 +7,7 @@ import shutil
 import sys
 import uuid
 from datetime import datetime, timezone
+from importlib.resources import as_file, files as resource_files
 from pathlib import Path
 from typing import Any
 
@@ -463,19 +464,14 @@ def cmd_plugins_list(args: argparse.Namespace) -> int:
 _PLUGIN_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 
 
-def _locate_sdk_template() -> Path:
-    """Locate the ``sdk/template-plugin/`` directory relative to this package.
-
-    Walks up from this module to find the repo's ``sdk/`` directory.
-    """
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        candidate = parent / "sdk" / "template-plugin"
-        if candidate.is_dir():
-            return candidate
-    raise FileNotFoundError(
-        "Unable to locate sdk/template-plugin/ relative to rikdom package"
-    )
+def _locate_sdk_template() -> Any:
+    """Return the bundled ``template-plugin`` resource tree (a Traversable)."""
+    root = resource_files("rikdom._resources").joinpath("template-plugin")
+    if not root.is_dir():
+        raise FileNotFoundError(
+            "Bundled template-plugin resources are missing from rikdom._resources"
+        )
+    return root
 
 
 def _render_template(text: str, substitutions: dict[str, str]) -> str:
@@ -485,24 +481,63 @@ def _render_template(text: str, substitutions: dict[str, str]) -> str:
     return rendered
 
 
+def _render_manifest_template(text: str, substitutions: dict[str, str]) -> str:
+    """Render ``plugin.json.template`` structurally.
+
+    The manifest is parsed as JSON after a syntactic placeholder swap so that
+    user-supplied values (name, description) are serialized with ``json.dumps``
+    and cannot inject invalid JSON characters (quotes, backslashes, newlines).
+    """
+    sentinel_map: dict[str, str] = {}
+    staged = text
+    for key in substitutions:
+        sentinel = f"__RIKDOM_TPL_{key.upper()}__"
+        sentinel_map[sentinel] = substitutions[key]
+        staged = staged.replace("{{" + key + "}}", sentinel)
+    try:
+        document = json.loads(staged)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"plugin.json template is not valid JSON: {exc}") from exc
+
+    def _substitute(value: Any) -> Any:
+        if isinstance(value, str):
+            replaced = value
+            for sentinel, actual in sentinel_map.items():
+                replaced = replaced.replace(sentinel, actual)
+            return replaced
+        if isinstance(value, list):
+            return [_substitute(item) for item in value]
+        if isinstance(value, dict):
+            return {k: _substitute(v) for k, v in value.items()}
+        return value
+
+    document = _substitute(document)
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
 def _copy_template_tree(
-    source: Path, destination: Path, substitutions: dict[str, str]
+    source: Any, destination: Path, substitutions: dict[str, str]
 ) -> list[Path]:
     created: list[Path] = []
-    for src_path in sorted(source.rglob("*")):
-        rel = src_path.relative_to(source)
-        target_rel_name = rel.name
-        if target_rel_name.endswith(".template"):
-            target_rel_name = target_rel_name[: -len(".template")]
-        target = destination / rel.parent / target_rel_name
-        if src_path.is_dir():
-            target.mkdir(parents=True, exist_ok=True)
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        raw = src_path.read_text(encoding="utf-8")
-        rendered = _render_template(raw, substitutions)
-        target.write_text(rendered, encoding="utf-8")
-        created.append(target)
+    with as_file(source) as source_path:
+        source_root = Path(source_path)
+        for src_path in sorted(source_root.rglob("*")):
+            rel = src_path.relative_to(source_root)
+            target_rel_name = rel.name
+            if target_rel_name.endswith(".template"):
+                target_rel_name = target_rel_name[: -len(".template")]
+            target = destination / rel.parent / target_rel_name
+            if src_path.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            raw = src_path.read_text(encoding="utf-8")
+            if target.name == "plugin.json":
+                rendered = _render_manifest_template(raw, substitutions)
+            else:
+                rendered = _render_template(raw, substitutions)
+            target.write_text(rendered, encoding="utf-8")
+            created.append(target)
     return created
 
 
@@ -543,8 +578,15 @@ def cmd_plugin_init(args: argparse.Namespace) -> int:
         "plugin_description": description,
     }
 
-    dest_root.mkdir(parents=True, exist_ok=True)
-    plugin_dir.mkdir(parents=True, exist_ok=False)
+    try:
+        dest_root.mkdir(parents=True, exist_ok=True)
+        plugin_dir.mkdir(parents=True, exist_ok=False)
+    except OSError as exc:
+        print(
+            f"Failed to create plugin directory {plugin_dir}: {exc}",
+            file=sys.stderr,
+        )
+        return 1
     try:
         _copy_template_tree(template_root, plugin_dir, substitutions)
     except Exception as exc:

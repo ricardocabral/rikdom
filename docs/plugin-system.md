@@ -464,9 +464,10 @@ uv run python -c "import json; from rikdom.plugin_engine.pipeline import build_a
 
 ## Authoring a plugin
 
-This walkthrough uses the bundled SDK scaffold in `sdk/template-plugin/` to
-build a working `source/input` plugin end-to-end. For semver, stability tiers,
-and the legacy-to-Pluggy migration path, see
+This walkthrough uses the bundled SDK scaffold shipped as a package
+resource under `src/rikdom/_resources/template-plugin/` (exposed via
+`rikdom plugin init`) to build a working `source/input` plugin end-to-end.
+For semver, stability tiers, and the legacy-to-Pluggy migration path, see
 [plugin-compatibility.md](plugin-compatibility.md).
 
 ### 1. Bootstrap from the scaffold
@@ -489,7 +490,7 @@ The command refuses to overwrite an existing directory and substitutes
 
 ```text
 plugins/my-plugin/
-  plugin.json           # Manifest (api_version "1.0", validated against schema/plugin.manifest.schema.json)
+  plugin.json           # Manifest (api_version "1.0", validated against the bundled rikdom._resources/plugin.manifest.schema.json)
   plugin.py             # Plugin class with @hookimpl source_input
   README.md             # Authoring notes pointing back here
   fixtures/sample.csv   # Three-row CSV used by the smoke test

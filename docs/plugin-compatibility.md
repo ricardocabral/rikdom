@@ -8,7 +8,9 @@ plugin API. It complements the authoring guide in
 
 Every plugin manifest declares an `api_version` field that pins the plugin
 against a specific rikdom plugin API contract. The field is required and
-validated by `schema/plugin.manifest.schema.json`.
+validated by the bundled manifest schema at
+`src/rikdom/_resources/plugin.manifest.schema.json` (shipped as a package
+resource so it resolves in installed distributions too).
 
 - v1 is the string `"1.0"`. It is the only currently accepted value; the
   schema enum rejects anything else.
@@ -80,8 +82,8 @@ The older subprocess-style plugin contract remains supported in v1:
    directory and copy `tests/test_plugin.py` + `fixtures/` into the plugin
    to lock in the shape.
 
-The SDK scaffold in `sdk/template-plugin/` is a ready-to-copy starting
-point.
+The SDK scaffold under `src/rikdom/_resources/template-plugin/` (exposed
+via `rikdom plugin init`) is a ready-to-copy starting point.
 
 ### Timeline
 

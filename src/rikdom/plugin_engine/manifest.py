@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from functools import lru_cache
+from importlib.resources import files as resource_files
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,8 @@ import jsonschema
 from jsonschema import Draft202012Validator
 
 from .errors import PluginManifestError
+
+_MANIFEST_SCHEMA_RESOURCE = "plugin.manifest.schema.json"
 
 
 @dataclass(slots=True)
@@ -25,29 +28,26 @@ class PluginManifest:
     command: list[str] | None = None
 
 
-def _locate_schema_file() -> Path:
-    """Locate the plugin manifest schema file.
-
-    Walks up from this module to find the repo's ``schema/`` directory.
-    """
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        candidate = parent / "schema" / "plugin.manifest.schema.json"
-        if candidate.exists():
-            return candidate
-    raise PluginManifestError(
-        "Unable to locate schema/plugin.manifest.schema.json relative to rikdom package"
-    )
+def _load_manifest_schema_text() -> str:
+    """Read the plugin manifest schema from bundled package resources."""
+    resource = resource_files("rikdom._resources").joinpath(_MANIFEST_SCHEMA_RESOURCE)
+    try:
+        return resource.read_text(encoding="utf-8")
+    except (FileNotFoundError, OSError) as exc:
+        raise PluginManifestError(
+            f"Unable to load bundled plugin manifest schema "
+            f"({_MANIFEST_SCHEMA_RESOURCE}) from rikdom._resources"
+        ) from exc
 
 
 @lru_cache(maxsize=1)
 def _manifest_validator() -> Draft202012Validator:
-    schema_path = _locate_schema_file()
+    raw = _load_manifest_schema_text()
     try:
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        schema = json.loads(raw)
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive
         raise PluginManifestError(
-            f"Invalid JSON in plugin manifest schema: {schema_path}"
+            "Invalid JSON in bundled plugin manifest schema"
         ) from exc
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
