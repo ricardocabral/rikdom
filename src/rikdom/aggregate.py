@@ -279,17 +279,18 @@ def _append_quantity_consistency_warnings(
             keys_by_field.setdefault(key[1], []).append(key)
 
         matching_indices: set[int] = set()
-        for field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS:
-            for key in keys_by_field.get(field, ()):
+        for identifier_field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS:
+            for key in keys_by_field.get(identifier_field, ()):
                 matching_indices.update(key_index.get(key, ()))
 
         holding_has_high_confidence = any(
-            field in keys_by_field for field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS
+            identifier_field in keys_by_field
+            for identifier_field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS
         )
         if not matching_indices and not holding_has_high_confidence:
-            for field in _LOW_CONFIDENCE_IDENTIFIER_FIELDS:
+            for identifier_field in _LOW_CONFIDENCE_IDENTIFIER_FIELDS:
                 indices_for_field: set[int] = set()
-                for key in keys_by_field.get(field, ()):
+                for key in keys_by_field.get(identifier_field, ()):
                     indices_for_field.update(key_index.get(key, ()))
                 if not indices_for_field:
                     continue
