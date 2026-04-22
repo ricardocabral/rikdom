@@ -100,7 +100,8 @@ def fetch_daily_fx_rates_from_frankfurter(
     for quote_currency in quote_currencies:
         params = urlencode({"from": quote_currency, "to": base_currency})
         url = f"https://api.frankfurter.app/{as_of_date}?{params}"
-        with urlopen(url, timeout=10) as response:
+        # Bandit B310 false positive: endpoint host/scheme are fixed and query params are encoded.
+        with urlopen(url, timeout=10) as response:  # nosec B310
             payload = json.loads(response.read().decode("utf-8"))
         value = payload.get("rates", {}).get(base_currency)
         if isinstance(value, (int, float)) and value > 0:
