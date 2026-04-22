@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE FlexQueryResponse [
+  <!ENTITY xxe "expanded">
+]>
+<FlexQueryResponse queryName="ActivityStatement" type="AF">
+  <FlexStatements count="1">
+    <FlexStatement accountId="U1234567" whenGenerated="20260421;150000">
+      <Trades/>
+      <CashTransactions/>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

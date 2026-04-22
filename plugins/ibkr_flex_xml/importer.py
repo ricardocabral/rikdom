@@ -10,6 +10,7 @@ from typing import Any
 from xml.etree.ElementTree import Element, ParseError
 
 from defusedxml import ElementTree as DefusedET
+from defusedxml.common import DefusedXmlException
 
 from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime, parse_decimal
 
@@ -33,6 +34,8 @@ def _load_xml(path: Path) -> Element:
 
     try:
         return DefusedET.fromstring(raw, forbid_dtd=True)
+    except DefusedXmlException as exc:
+        raise ValueError(f"Unsafe IBKR Flex XML rejected: {exc}") from exc
     except ParseError as exc:
         raise ValueError(f"Invalid IBKR Flex XML: {exc}") from exc
 
@@ -211,6 +214,11 @@ def _trade_activity(row: dict[str, str], account_id: str) -> dict[str, Any]:
 
     amount = parse_decimal(row.get("proceeds") or row.get("netCash"))
     if amount is None:
+        if event_type not in {"buy", "sell"}:
+            raise ValueError(
+                f"IBKR trade row '{trade_ref}' has event_type='{event_type}' and "
+                "no numeric proceeds/netCash; cannot infer cashflow sign"
+            )
         quantity = parse_decimal(row.get("quantity"))
         trade_price = parse_decimal(row.get("tradePrice") or row.get("price"))
         if quantity is None or trade_price is None:

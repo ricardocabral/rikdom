@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest import mock
 
+from plugins.ibkr_flex_xml import importer as ibkr_importer
 from rikdom.plugin_engine.pipeline import run_import_pipeline
 
 
@@ -61,6 +65,42 @@ class IbkrFlexXmlPluginTests(unittest.TestCase):
         self.assertEqual(cash["event_type"], "other")
         self.assertTrue(cash["subtype"].startswith("ibkr_cash:adjustment"))
         self.assertEqual(cash["metadata"]["cash_type"], "Adjustment")
+
+    def test_load_xml_rejects_oversized_input(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "big.xml"
+            path.write_text("<FlexQueryResponse/>", encoding="utf-8")
+            with mock.patch.object(ibkr_importer, "MAX_XML_BYTES", 4):
+                with self.assertRaisesRegex(ValueError, r"exceeds .* bytes"):
+                    ibkr_importer._load_xml(path)
+
+    def test_load_xml_rejects_forbidden_dtd(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"Unsafe IBKR Flex XML rejected"):
+            run_import_pipeline(
+                plugin_name="ibkr_flex_xml",
+                plugins_dir="plugins",
+                input_path="tests/fixtures/ibkr_flex_statement_with_dtd.xml",
+            )
+
+    def test_unknown_trade_type_without_proceeds_fails(self) -> None:
+        xml = """<?xml version="1.0" encoding="UTF-8"?>
+<FlexQueryResponse>
+  <FlexStatements count="1">
+    <FlexStatement accountId="U1" whenGenerated="20260421;150000">
+      <Trades>
+        <Trade transactionID="tx-unknown-1" symbol="XYZ" buySell="EXERCISE"
+               quantity="3" tradePrice="50.00" currency="USD"
+               dateTime="20260420;120000"/>
+      </Trades>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>
+"""
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "unknown.xml"
+            path.write_text(xml, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, r"event_type='other'.*cannot infer cashflow sign"):
+                ibkr_importer.parse_statement(path)
 
     def test_plugin_raises_for_unparseable_trade_date(self) -> None:
         with self.assertRaisesRegex(
