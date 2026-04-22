@@ -53,9 +53,9 @@ Stabilize canonical schema contracts (`portfolio`, `snapshot`, plugin statement)
 
 ### Acceptance criteria
 
-- [ ] Core schemas document versioning and extension rules.
-- [ ] Validation command catches compatibility and integrity issues.
-- [ ] Migration conventions are documented for future bumps.
+- [ ] Document core schema versioning and extension rules.
+- [ ] Document migration conventions for future schema/version bumps.
+- [ ] Ensure the validation command catches compatibility and integrity issues.
 
 ---
 
@@ -78,12 +78,12 @@ Storage plugin extension (DuckDB mirror):
 
 ### Acceptance criteria
 
-- [ ] Writes are atomic (temp+rename or equivalent strategy).
-- [ ] Append-only history is documented and test-covered.
-- [ ] Backup/restore metadata strategy is documented.
-- [ ] DuckDB mirror plugin can sync from canonical JSON transactionally and idempotently.
-- [ ] Mirror consistency metadata (`source_hash_portfolio`, `source_hash_snapshots`) is persisted and checked.
-- [ ] Backup/checkpoint runbook exists for DuckDB mirror mode.
+- [ ] Ensure writes are atomic (temp+rename or equivalent strategy).
+- [ ] Document and test-cover append-only history behavior.
+- [ ] Document backup/restore metadata strategy.
+- [ ] Ensure the DuckDB mirror plugin syncs from canonical JSON transactionally and idempotently.
+- [ ] Persist and validate mirror consistency metadata (`source_hash_portfolio`, `source_hash_snapshots`).
+- [ ] Publish a backup/checkpoint runbook for DuckDB mirror mode.
 
 ---
 
@@ -177,22 +177,20 @@ Research basis (official references):
 
 ### Acceptance criteria
 
-- [x] `import-statement` executes a `source/input` plugin through Pluggy.
-- [ ] `asset_type_catalog` can be composed from `asset-type/catalog` plugins before import merge.
-- [ ] Import commands capture provenance fields.
-- [ ] Duplicate imports are detected deterministically.
-- [ ] Import reports expose inserted/updated/skipped counts.
-- [ ] First-party `ghostfolio_export_json` importer ships with fixtures and mapping tests.
-- [ ] First-party `ibkr_flex_xml` importer ships with cancellation/corporate-action edge-case tests.
-- [ ] First-party `portfolio_performance_csv` importer ships with locale/date/number parsing tests.
-- [ ] First-party `wealthfolio_export_json` importer ships with enum mapping + fallback tests.
-- [ ] Row-level error report payload is emitted for all importers in dry-run and apply modes.
-- [ ] Dry-run diff payload is emitted before write with `create/update/noop` operation summaries.
-- [x] `csv-generic` is migrated to native Pluggy plugin class.
-- [ ] Wave 1 Brazilian asset-type plugins ship with at least `fii`, `tesouro_direto`, `lci`, `lca`, `cri`, and `cra`.
-- [ ] Wave 2 Brazilian asset-type plugins ship with `debenture_incentivada`, `debenture_infra`, `bdr`, and `coe`.
-- [ ] Wave 3 Brazilian asset-type plugins ship with `fidc_cota` and `fiagro_cota`.
-- [ ] Validation enforces Brazil identifier and instrument-attribute conventions for all shipped waves.
+- [ ] Compose `asset_type_catalog` from `asset-type/catalog` plugins before import merge.
+- [ ] Capture provenance fields in import commands.
+- [ ] Detect duplicate imports deterministically.
+- [ ] Emit inserted/updated/skipped counts in import reports.
+- [ ] Emit row-level error report payloads for all importers in dry-run and apply modes.
+- [ ] Emit dry-run diff payloads before write with `create/update/noop` operation summaries.
+- [ ] Ship first-party `ghostfolio_export_json` importer with fixtures and mapping tests.
+- [ ] Ship first-party `ibkr_flex_xml` importer with cancellation/corporate-action edge-case tests.
+- [ ] Ship first-party `portfolio_performance_csv` importer with locale/date/number parsing tests.
+- [ ] Ship first-party `wealthfolio_export_json` importer with enum mapping and fallback tests.
+- [ ] Ship Wave 1 Brazilian asset-type plugins with at least `fii`, `tesouro_direto`, `lci`, `lca`, `cri`, and `cra`.
+- [ ] Ship Wave 2 Brazilian asset-type plugins with `debenture_incentivada`, `debenture_infra`, `bdr`, and `coe`.
+- [ ] Ship Wave 3 Brazilian asset-type plugins with `fidc_cota` and `fiagro_cota`.
+- [ ] Enforce Brazil identifier and instrument-attribute conventions for all shipped waves during validation.
 
 ---
 
@@ -214,10 +212,10 @@ Research basis (official references):
 
 ### Acceptance criteria
 
-- [ ] Portfolio totals are reproducible given the same inputs and FX dataset.
-- [ ] Each computed holding value can be traced to source amount + FX + timestamp.
-- [ ] Validation can fail on missing/invalid FX when strict mode is enabled.
-- [ ] Reconciliation report flags amount/quantity inconsistencies with actionable diagnostics.
+- [ ] Make each computed holding value traceable to source amount + FX + timestamp.
+- [ ] Ensure portfolio totals are reproducible given the same inputs and FX dataset.
+- [ ] Fail strict-mode validation on missing/invalid FX.
+- [ ] Ensure reconciliation reports flag amount/quantity inconsistencies with actionable diagnostics.
 
 ---
 
@@ -237,11 +235,11 @@ Output plugin extension (Quarto reports):
 
 ### Acceptance criteria
 
-- [ ] Total value, timeline, and class allocation render offline.
-- [ ] Dashboard is usable on desktop and mobile.
-- [ ] Output requires no external services.
-- [ ] Quarto output plugin renders allocation, timeline, currency split, asset-type, geography, and risk slices from default JSON files.
-- [ ] Quarto plugin emits artifact metadata and clear dependency/preflight errors.
+- [ ] Ensure output requires no external services.
+- [ ] Render total value, timeline, and class allocation offline.
+- [ ] Ensure the dashboard is usable on desktop and mobile.
+- [ ] Render allocation, timeline, currency split, asset-type, geography, and risk slices via the Quarto output plugin from default JSON files.
+- [ ] Emit artifact metadata and clear dependency/preflight errors from the Quarto plugin.
 
 ---
 
@@ -263,10 +261,10 @@ Output plugin extension (Quarto reports):
 
 ### Acceptance criteria
 
-- [ ] Dividend and interest events roll up into monthly/yearly income views.
-- [ ] Multiple portfolios can be managed in one workspace without path-level hacks.
-- [ ] Consolidated view across selected portfolios is available and test-covered.
-- [ ] New users can run bootstrap + first import with documented happy path in under 15 minutes.
+- [ ] Support managing multiple portfolios in one workspace without path-level hacks.
+- [ ] Provide a test-covered consolidated view across selected portfolios.
+- [ ] Roll up dividend and interest events into monthly/yearly income views.
+- [ ] Enable new users to run bootstrap + first import using a documented happy path in under 15 minutes.
 
 ---
 
@@ -290,15 +288,15 @@ Expand from import-only foundation to full lifecycle/cross-cutting engine:
 
 ### Acceptance criteria
 
-- [ ] Plugin manifest and API version are enforced at load time.
-- [ ] Loader rejects unknown `plugin_types` and invalid module/class targets.
-- [ ] SDK template reduces boilerplate for new plugins.
-- [ ] CI checks plugin fixtures against schema and hook contracts.
-- [ ] Plugin listing command exposes installed plugin metadata.
-- [ ] Asset-type plugin packs include compatibility checks against `schema/portfolio.schema.json`.
-- [ ] Asset-type plugin packs include contract tests for `cnpj`, `isin`, indexer enums, and type-specific required attributes.
-- [ ] Output plugin packs include contract tests for artifact generation and error classes.
-- [ ] Storage plugin packs include contract tests for transactional sync, stale-read detection, and health checks.
+- [ ] Enforce plugin manifest and API version checks at load time.
+- [ ] Reject unknown `plugin_types` and invalid module/class targets in the loader.
+- [ ] Emit installed plugin metadata through the plugin listing command.
+- [ ] Reduce boilerplate for new plugins via SDK templates.
+- [ ] Include compatibility checks against `schema/portfolio.schema.json` in asset-type plugin packs.
+- [ ] Include contract tests for `cnpj`, `isin`, indexer enums, and type-specific required attributes in asset-type plugin packs.
+- [ ] Include contract tests for artifact generation and error classes in output plugin packs.
+- [ ] Include contract tests for transactional sync, stale-read detection, and health checks in storage plugin packs.
+- [ ] Check plugin fixtures against schema and hook contracts in CI.
 
 ---
 
@@ -319,9 +317,9 @@ Expand from import-only foundation to full lifecycle/cross-cutting engine:
 
 ### Acceptance criteria
 
-- [ ] Guardrail checks run consistently and surface machine-readable issue codes.
-- [ ] Scheduled runs can append snapshots and emit import/validation diagnostics.
-- [ ] Paper portfolios are isolated and excluded from real portfolio totals by default.
+- [ ] Run guardrail checks consistently and surface machine-readable issue codes.
+- [ ] Allow scheduled runs to append snapshots and emit import/validation diagnostics.
+- [ ] Isolate paper portfolios and exclude them from real portfolio totals by default.
 
 ---
 
@@ -337,9 +335,9 @@ Expand from import-only foundation to full lifecycle/cross-cutting engine:
 
 ### Acceptance criteria
 
-- [ ] Export package is self-describing and integrity-checked.
-- [ ] Advanced analytics scope is captured in roadmap issues.
-- [ ] AI plugin interfaces include guardrails/audit requirements before general enablement.
+- [ ] Deliver a self-describing, integrity-checked export package.
+- [ ] Capture advanced analytics scope in roadmap issues.
+- [ ] Define AI plugin interfaces with guardrails/audit requirements before general enablement.
 
 ---
 
