@@ -120,7 +120,13 @@ def build_asset_type_catalog_with_warnings(plugins_dir: str | Path) -> tuple[lis
     seen: set[str] = set()
     warnings: list[str] = []
 
-    for manifest in discover_plugins(plugins_dir):
+    try:
+        manifests = list(discover_plugins(plugins_dir))
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"Asset type catalog discovery failed: {exc}")
+        return merged, warnings
+
+    for manifest in manifests:
         if PhaseName.ASSET_TYPE_CATALOG not in manifest.plugin_types:
             continue
         if not manifest.module or not manifest.class_name:

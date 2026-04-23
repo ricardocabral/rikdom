@@ -351,7 +351,11 @@ def _sync_asset_type_catalog_from_plugins(portfolio: dict[str, Any], plugins_dir
             if item_id:
                 existing_ids.add(item_id)
 
-    discovered, warnings = build_asset_type_catalog_with_warnings(plugins_dir)
+    try:
+        discovered, warnings = build_asset_type_catalog_with_warnings(plugins_dir)
+    except Exception as exc:  # noqa: BLE001
+        print(f"Warning: asset type catalog sync failed: {exc}", file=sys.stderr)
+        return {"added": 0, "total": len(existing_ids)}
     for warning in warnings:
         print(f"Warning: {warning}", file=sys.stderr)
 
