@@ -31,7 +31,7 @@ from .migrations import (
 from .plugin_engine.errors import PluginEngineError
 from .plugin_engine.loader import discover_plugins
 from .plugin_engine.pipeline import (
-    build_asset_type_catalog,
+    build_asset_type_catalog_with_warnings,
     run_import_pipeline,
     run_output_pipeline,
     run_storage_sync_pipeline,
@@ -351,14 +351,9 @@ def _sync_asset_type_catalog_from_plugins(portfolio: dict[str, Any], plugins_dir
             if item_id:
                 existing_ids.add(item_id)
 
-    try:
-        discovered = build_asset_type_catalog(plugins_dir)
-    except Exception as exc:  # noqa: BLE001
-        print(
-            f"Warning: failed to load asset-type catalog plugins from '{plugins_dir}': {exc}",
-            file=sys.stderr,
-        )
-        return {"added": 0, "total": len(existing_ids)}
+    discovered, warnings = build_asset_type_catalog_with_warnings(plugins_dir)
+    for warning in warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
 
     added = 0
     for item in discovered:

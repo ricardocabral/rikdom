@@ -3,6 +3,7 @@
 from .errors import PluginEngineError, PluginLoadError, PluginManifestError, PluginTypeError
 from .pipeline import (
     build_asset_type_catalog,
+    build_asset_type_catalog_with_warnings,
     run_import_pipeline,
     run_output_pipeline,
     run_storage_health_pipeline,
@@ -15,6 +16,7 @@ __all__ = [
     "PluginLoadError",
     "PluginTypeError",
     "build_asset_type_catalog",
+    "build_asset_type_catalog_with_warnings",
     "run_import_pipeline",
     "run_output_pipeline",
     "run_storage_sync_pipeline",

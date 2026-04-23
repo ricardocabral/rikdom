@@ -185,7 +185,10 @@ class CliImportStatementTests(unittest.TestCase):
                     "activities": [],
                 },
             ),
-            mock.patch("rikdom.cli.build_asset_type_catalog", return_value=[{"id": "cdb", "asset_class": "debt"}]),
+            mock.patch(
+                "rikdom.cli.build_asset_type_catalog_with_warnings",
+                return_value=([{"id": "cdb", "asset_class": "debt"}], []),
+            ),
             mock.patch("rikdom.cli.run_import_pipeline", return_value=imported),
         ):
             stdout = io.StringIO()
@@ -197,7 +200,7 @@ class CliImportStatementTests(unittest.TestCase):
         self.assertEqual(payload["catalog_sync"], {"added": 1, "total": 2})
         self.assertTrue(payload["preflight"]["ok"])
 
-    def test_cmd_import_statement_catalog_sync_failure_is_warning(self) -> None:
+    def test_cmd_import_statement_catalog_sync_partial_failure_still_applies_successful_entries(self) -> None:
         args = Namespace(
             portfolio="tests/fixtures/portfolio.json",
             plugin="csv-generic",
@@ -230,7 +233,13 @@ class CliImportStatementTests(unittest.TestCase):
                     "activities": [],
                 },
             ),
-            mock.patch("rikdom.cli.build_asset_type_catalog", side_effect=RuntimeError("boom")),
+            mock.patch(
+                "rikdom.cli.build_asset_type_catalog_with_warnings",
+                return_value=(
+                    [{"id": "cdb", "asset_class": "debt"}],
+                    ["Skipping catalog plugin 'broken-plugin': hook error (boom)"],
+                ),
+            ),
             mock.patch("rikdom.cli.run_import_pipeline", return_value=imported),
         ):
             stdout = io.StringIO()
@@ -239,9 +248,9 @@ class CliImportStatementTests(unittest.TestCase):
                 code = cmd_import_statement(args)
 
         self.assertEqual(code, 0)
-        self.assertIn("Warning: failed to load asset-type catalog plugins", stderr.getvalue())
+        self.assertIn("Warning: Skipping catalog plugin 'broken-plugin': hook error (boom)", stderr.getvalue())
         payload = json.loads(stdout.getvalue())
-        self.assertEqual(payload["catalog_sync"], {"added": 0, "total": 1})
+        self.assertEqual(payload["catalog_sync"], {"added": 1, "total": 2})
 
     def test_cmd_import_statement_dry_run_overrides_write(self) -> None:
         args = Namespace(

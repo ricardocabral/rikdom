@@ -113,24 +113,51 @@ def run_storage_health_pipeline(
     return result
 
 
-def build_asset_type_catalog(plugins_dir: str | Path) -> list[dict]:
-    pm = build_manager()
+def build_asset_type_catalog_with_warnings(plugins_dir: str | Path) -> tuple[list[dict], list[str]]:
+    ctx = PluginContext(run_id=_new_run_id("asset-catalog"), plugin_name="catalog")
+
+    merged: list[dict] = []
+    seen: set[str] = set()
+    warnings: list[str] = []
+
     for manifest in discover_plugins(plugins_dir):
         if PhaseName.ASSET_TYPE_CATALOG not in manifest.plugin_types:
             continue
         if not manifest.module or not manifest.class_name:
+            warnings.append(
+                f"Skipping catalog plugin '{manifest.name}': missing module/class_name in manifest"
+            )
             continue
-        plugin_obj = load_plugin_instance(Path(plugins_dir) / manifest.name, manifest)
-        pm.register(plugin_obj, name=manifest.name)
 
-    ctx = PluginContext(run_id=_new_run_id("asset-catalog"), plugin_name="catalog")
-    chunks = pm.hook.asset_type_catalog(ctx=ctx)
+        try:
+            plugin_obj = load_plugin_instance(Path(plugins_dir) / manifest.name, manifest)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(
+                f"Skipping catalog plugin '{manifest.name}': failed to load ({exc})"
+            )
+            continue
 
-    merged: list[dict] = []
-    seen: set[str] = set()
-    for chunk in chunks:
+        hook = getattr(plugin_obj, "asset_type_catalog", None)
+        if not callable(hook):
+            warnings.append(
+                f"Skipping catalog plugin '{manifest.name}': missing asset_type_catalog hook"
+            )
+            continue
+
+        try:
+            chunk = hook(ctx=ctx)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(
+                f"Skipping catalog plugin '{manifest.name}': hook error ({exc})"
+            )
+            continue
+
         if not isinstance(chunk, list):
+            warnings.append(
+                f"Skipping catalog plugin '{manifest.name}': hook returned non-list payload"
+            )
             continue
+
         for item in chunk:
             if not isinstance(item, dict):
                 continue
@@ -139,5 +166,11 @@ def build_asset_type_catalog(plugins_dir: str | Path) -> list[dict]:
                 continue
             merged.append(item)
             seen.add(item_id)
-    return merged
+
+    return merged, warnings
+
+
+def build_asset_type_catalog(plugins_dir: str | Path) -> list[dict]:
+    catalog, _warnings = build_asset_type_catalog_with_warnings(plugins_dir)
+    return catalog
 
