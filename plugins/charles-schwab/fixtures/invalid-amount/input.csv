@@ -1,0 +1,2 @@
+record_type,account_number,account_name,statement_date,currency,date,action,amount,reference_id
+transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,03/04/2026,Buy,not-a-number,TXN-9999

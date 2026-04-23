@@ -1,0 +1,107 @@
+{
+  "provider": "charles-schwab",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.csv",
+    "accounts": [
+      {
+        "account_number": "ROTH-7788",
+        "currency": "USD",
+        "account_name": "Roth IRA"
+      }
+    ]
+  },
+  "holdings": [
+    {
+      "id": "schwab:roth-7788:pos:swppx",
+      "asset_type_id": "fund",
+      "label": "Schwab S&P 500 Index Fund",
+      "quantity": 125.25,
+      "market_value": {
+        "amount": 10830.15,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "SWPPX",
+        "provider_account_id": "ROTH-7788"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Mutual Fund"
+      }
+    },
+    {
+      "id": "schwab:roth-7788:cash:usd",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash balance (USD)",
+      "market_value": {
+        "amount": 220.1,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "provider_account_id": "ROTH-7788",
+        "ticker": "CASH"
+      },
+      "jurisdiction": {
+        "country": "US"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "schwab-txn-roth-7788-RIRA-2001",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-02-14T00:00:00Z",
+      "money": {
+        "amount": 45.77,
+        "currency": "USD"
+      },
+      "idempotency_key": "schwab:roth-7788:90993b42fedecf25",
+      "source_ref": "schwab:ROTH-7788#txn:RIRA-2001",
+      "metadata": {
+        "action": "Cash Dividend",
+        "description": "Dividend reinvestment"
+      },
+      "instrument": {
+        "ticker": "SWPPX",
+        "country": "US"
+      },
+      "quantity": 0.95
+    },
+    {
+      "id": "schwab-txn-roth-7788-RIRA-2002",
+      "event_type": "transfer_in",
+      "status": "posted",
+      "effective_at": "2026-02-20T00:00:00Z",
+      "money": {
+        "amount": 500.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "schwab:roth-7788:a6afcf4a236180ad",
+      "source_ref": "schwab:ROTH-7788#txn:RIRA-2002",
+      "metadata": {
+        "action": "Transfer In",
+        "description": ""
+      }
+    },
+    {
+      "id": "schwab-txn-roth-7788-RIRA-2003",
+      "event_type": "transfer_out",
+      "status": "posted",
+      "effective_at": "2026-02-26T00:00:00Z",
+      "money": {
+        "amount": -150.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "schwab:roth-7788:8053843dfdb632d6",
+      "source_ref": "schwab:ROTH-7788#txn:RIRA-2003",
+      "metadata": {
+        "action": "Transfer Out",
+        "description": ""
+      }
+    }
+  ]
+}

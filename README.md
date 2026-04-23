@@ -212,6 +212,7 @@ make migrate-dry-run
 | Importing statements | [`csv-generic`](plugins/csv-generic/README.md) | Imports holdings and activities from a generic CSV statement. |
 | Importing statements | [`ghostfolio_export_json`](plugins/ghostfolio_export_json/README.md) | Imports holdings and activities from Ghostfolio JSON export files. |
 | Importing statements | [`ibkr_flex_xml`](plugins/ibkr_flex_xml/README.md) | Imports activities from Interactive Brokers Flex XML statements. |
+| Importing statements | [`charles-schwab`](plugins/charles-schwab/README.md) | Imports account metadata, holdings, cash balances, and activities from Charles Schwab CSV statement exports. |
 | Importing statements | [`b3-consolidado-mensal`](plugins/b3-consolidado-mensal/README.md) | Imports holdings from B3 consolidated monthly XLSX reports. |
 | Asset type enrichment | [`asset-types-br-catalog`](plugins/asset-types-br-catalog/README.md) | Brazilian asset-type catalog for FIIs, public/private debt, BDRs, COEs, and special funds. |
 | Storage sync / analytics | [`duckdb-storage`](plugins/duckdb-storage/README.md) | Mirrors rikdom canonical JSON data into DuckDB for local analytics workflows. |

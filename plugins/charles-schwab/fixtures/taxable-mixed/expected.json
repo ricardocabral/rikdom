@@ -1,0 +1,176 @@
+{
+  "provider": "charles-schwab",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.csv",
+    "accounts": [
+      {
+        "account_number": "ABCD-1234",
+        "currency": "USD",
+        "account_name": "Individual Brokerage"
+      }
+    ]
+  },
+  "holdings": [
+    {
+      "id": "schwab:abcd-1234:pos:msft",
+      "asset_type_id": "stock",
+      "label": "Microsoft Corp",
+      "quantity": 15.0,
+      "market_value": {
+        "amount": 5670.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "MSFT",
+        "provider_account_id": "ABCD-1234"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Equity"
+      }
+    },
+    {
+      "id": "schwab:abcd-1234:pos:vti",
+      "asset_type_id": "fund",
+      "label": "Vanguard Total Stock Market ETF",
+      "quantity": 20.0,
+      "market_value": {
+        "amount": 5200.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VTI",
+        "provider_account_id": "ABCD-1234"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "ETF"
+      }
+    },
+    {
+      "id": "schwab:abcd-1234:cash:usd",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash balance (USD)",
+      "market_value": {
+        "amount": 1250.44,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "provider_account_id": "ABCD-1234",
+        "ticker": "CASH"
+      },
+      "jurisdiction": {
+        "country": "US"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "schwab-txn-abcd-1234-TXN-1001",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-03-04T00:00:00Z",
+      "money": {
+        "amount": -760.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "schwab:abcd-1234:d42772792eca792c",
+      "source_ref": "schwab:ABCD-1234#txn:TXN-1001",
+      "metadata": {
+        "action": "Buy",
+        "description": "Buy shares"
+      },
+      "instrument": {
+        "ticker": "MSFT",
+        "country": "US"
+      },
+      "quantity": 2.0,
+      "fees": {
+        "amount": 1.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "schwab-txn-abcd-1234-TXN-1002",
+      "event_type": "sell",
+      "status": "posted",
+      "effective_at": "2026-03-12T00:00:00Z",
+      "money": {
+        "amount": 395.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "schwab:abcd-1234:c6bd914b86e57afe",
+      "source_ref": "schwab:ABCD-1234#txn:TXN-1002",
+      "metadata": {
+        "action": "Sell",
+        "description": "Sell shares"
+      },
+      "instrument": {
+        "ticker": "MSFT",
+        "country": "US"
+      },
+      "quantity": 1.0,
+      "fees": {
+        "amount": 1.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "schwab-txn-abcd-1234-TXN-1003",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-03-20T00:00:00Z",
+      "money": {
+        "amount": 32.5,
+        "currency": "USD"
+      },
+      "idempotency_key": "schwab:abcd-1234:5e7be1953cba9dbc",
+      "source_ref": "schwab:ABCD-1234#txn:TXN-1003",
+      "metadata": {
+        "action": "Cash Dividend",
+        "description": "Cash dividend"
+      },
+      "instrument": {
+        "ticker": "VTI",
+        "country": "US"
+      }
+    },
+    {
+      "id": "schwab-txn-abcd-1234-TXN-1004",
+      "event_type": "interest",
+      "status": "posted",
+      "effective_at": "2026-03-28T00:00:00Z",
+      "money": {
+        "amount": 1.12,
+        "currency": "USD"
+      },
+      "idempotency_key": "schwab:abcd-1234:69a2fac730e374e3",
+      "source_ref": "schwab:ABCD-1234#txn:TXN-1004",
+      "metadata": {
+        "action": "Bank Interest",
+        "description": "Interest payment"
+      }
+    },
+    {
+      "id": "schwab-txn-abcd-1234-TXN-1005",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-03-30T00:00:00Z",
+      "money": {
+        "amount": -5.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "schwab:abcd-1234:e32fea56aa28d848",
+      "source_ref": "schwab:ABCD-1234#txn:TXN-1005",
+      "metadata": {
+        "action": "Service Fee",
+        "description": "Monthly account fee"
+      }
+    }
+  ]
+}
