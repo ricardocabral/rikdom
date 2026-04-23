@@ -205,6 +205,18 @@ make migrate-dry-run
 - Scaffold a new plugin: `uv run rikdom plugin init my-plugin --dest plugins`
 - Versioning and stability tiers: [docs/plugin-compatibility.md](docs/plugin-compatibility.md)
 
+### Community plugin showcase
+
+| Use case | Plugin | Description |
+| --- | --- | --- |
+| Importing statements | [`csv-generic`](plugins/csv-generic/README.md) | Imports holdings and activities from a generic CSV statement. |
+| Importing statements | [`ghostfolio_export_json`](plugins/ghostfolio_export_json/README.md) | Imports holdings and activities from Ghostfolio JSON export files. |
+| Importing statements | [`ibkr_flex_xml`](plugins/ibkr_flex_xml/README.md) | Imports activities from Interactive Brokers Flex XML statements. |
+| Importing statements | [`b3-consolidado-mensal`](plugins/b3-consolidado-mensal/README.md) | Imports holdings from B3 consolidated monthly XLSX reports. |
+| Asset type enrichment | [`asset-types-br-catalog`](plugins/asset-types-br-catalog/README.md) | Brazilian asset-type catalog for FIIs, public/private debt, BDRs, COEs, and special funds. |
+| Storage sync / analytics | [`duckdb-storage`](plugins/duckdb-storage/README.md) | Mirrors rikdom canonical JSON data into DuckDB for local analytics workflows. |
+| Reporting / visualization | [`quarto-portfolio-report`](plugins/quarto-portfolio-report/README.md) | Renders portfolio graphics and reports through Quarto. |
+
 Plugin quick commands:
 
 ```bash
