@@ -1,0 +1,10 @@
+record_type,account_number,account_name,statement_date,currency,security_type,symbol,description,quantity,market_value,cash_balance,date,action,amount,fees,reference_id
+account,ABCD-1234,Individual Brokerage,2026-03-31,USD,,,,,,,,,,,
+position,ABCD-1234,Individual Brokerage,2026-03-31,USD,Equity,MSFT,Microsoft Corp,15,5670.00,,,,,,
+position,ABCD-1234,Individual Brokerage,2026-03-31,USD,ETF,VTI,Vanguard Total Stock Market ETF,20,5200.00,,,,,,
+cash,ABCD-1234,Individual Brokerage,2026-03-31,USD,,,,,,1250.44,,,,,
+transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,Equity,MSFT,Buy shares,2,,,03/04/2026,Buy,-760.00,1.00,TXN-1001
+transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,Equity,MSFT,Sell shares,1,,,03/12/2026,Sell,395.00,1.00,TXN-1002
+transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,Equity,VTI,Cash dividend,,,,03/20/2026,Cash Dividend,32.50,,TXN-1003
+transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,,,Interest payment,,,,03/28/2026,Bank Interest,1.12,,TXN-1004
+transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,,,Monthly account fee,,,,03/30/2026,Service Fee,-5.00,,TXN-1005

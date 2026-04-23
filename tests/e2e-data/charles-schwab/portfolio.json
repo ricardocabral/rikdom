@@ -1,0 +1,45 @@
+{
+	"schema_version": "1.2.0",
+	"schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+	"profile": {
+		"portfolio_id": "e2e-charles-schwab",
+		"owner_kind": "person",
+		"display_name": "Charles Schwab E2E",
+		"country": "US",
+		"created_at": "2026-04-23T00:00:00Z"
+	},
+	"settings": {
+		"base_currency": "USD",
+		"timezone": "America/New_York",
+		"country_context": "US"
+	},
+	"asset_type_catalog": [
+		{
+			"id": "stock",
+			"label": "Stock",
+			"asset_class": "stocks"
+		},
+		{
+			"id": "fund",
+			"label": "Fund",
+			"asset_class": "funds"
+		},
+		{
+			"id": "cash_equivalent",
+			"label": "Cash Equivalent",
+			"asset_class": "cash_equivalents"
+		},
+		{
+			"id": "debt_instrument",
+			"label": "Debt Instrument",
+			"asset_class": "debt"
+		},
+		{
+			"id": "other",
+			"label": "Other",
+			"asset_class": "other"
+		}
+	],
+	"holdings": [],
+	"activities": []
+}

@@ -1,0 +1,7 @@
+record_type,account_number,account_name,statement_date,currency,security_type,symbol,description,quantity,market_value,cash_balance,date,action,amount,fees,reference_id
+account,ROTH-7788,Roth IRA,2026-02-28,USD,,,,,,,,,,,
+position,ROTH-7788,Roth IRA,2026-02-28,USD,Mutual Fund,SWPPX,Schwab S&P 500 Index Fund,125.250,10830.15,,,,,,
+cash,ROTH-7788,Roth IRA,2026-02-28,USD,,,,,,220.10,,,,,
+transaction,ROTH-7788,Roth IRA,2026-02-28,USD,Mutual Fund,SWPPX,Dividend reinvestment,0.950,,,02/14/2026,Cash Dividend,45.77,,RIRA-2001
+transaction,ROTH-7788,Roth IRA,2026-02-28,USD,,,,,,,02/20/2026,Transfer In,500.00,,RIRA-2002
+transaction,ROTH-7788,Roth IRA,2026-02-28,USD,,,,,,,02/26/2026,Transfer Out,-150.00,,RIRA-2003
