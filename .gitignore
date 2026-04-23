@@ -11,3 +11,4 @@ venv/
 out/
 data/
 .DS_Store
+.pi-lens/cache/*
