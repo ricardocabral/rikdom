@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from .contracts import OutputRequest, PhaseName, PluginContext
 from .errors import PluginEngineError, PluginLoadError, PluginTypeError
-from .loader import discover_plugins, plugin_index
+from .loader import discover_plugins_with_warnings, plugin_index
 from .runtime import build_manager, load_plugin_instance
 
 
@@ -121,10 +121,11 @@ def build_asset_type_catalog_with_warnings(plugins_dir: str | Path) -> tuple[lis
     warnings: list[str] = []
 
     try:
-        manifests = list(discover_plugins(plugins_dir))
+        manifests, discovery_warnings = discover_plugins_with_warnings(plugins_dir)
     except Exception as exc:  # noqa: BLE001
         warnings.append(f"Asset type catalog discovery failed: {exc}")
         return merged, warnings
+    warnings.extend(discovery_warnings)
 
     for manifest in manifests:
         if PhaseName.ASSET_TYPE_CATALOG not in manifest.plugin_types:

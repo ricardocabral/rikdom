@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from rikdom.plugin_engine.contracts import BRAZIL_CNPJ_REGEX, BRAZIL_INDEXER_ENUM
 from rikdom.plugin_engine.loader import discover_plugins
-from rikdom.plugin_engine.pipeline import build_asset_type_catalog
+from rikdom.plugin_engine.pipeline import (
+    build_asset_type_catalog,
+    build_asset_type_catalog_with_warnings,
+)
 
 
 class AssetTypeCatalogPluginTests(unittest.TestCase):
@@ -182,6 +186,46 @@ class AssetTypeCatalogPluginTests(unittest.TestCase):
                         right_attr["enum"],
                         msg=f"{left_id}/{right_id} shared '{attr_id}' enum list",
                     )
+
+
+class AssetTypeCatalogDiscoveryResilienceTests(unittest.TestCase):
+    def test_discovery_failure_returns_warning_not_exception(self) -> None:
+        with mock.patch(
+            "rikdom.plugin_engine.pipeline.discover_plugins_with_warnings",
+            side_effect=RuntimeError("boom"),
+        ):
+            catalog, warnings = build_asset_type_catalog_with_warnings("plugins")
+
+        self.assertEqual(catalog, [])
+        self.assertTrue(
+            any("Asset type catalog discovery failed: boom" in w for w in warnings),
+            msg=f"warnings={warnings}",
+        )
+
+    def test_partial_discovery_warnings_propagate_and_valid_plugins_still_load(self) -> None:
+        from rikdom.plugin_engine.loader import discover_plugins_with_warnings
+
+        real_manifests, _ = discover_plugins_with_warnings("plugins")
+        self.assertTrue(real_manifests, "expected real plugins to be discoverable")
+
+        def fake_discovery(plugins_dir, *, strict=False):
+            assert not strict
+            return list(real_manifests), [
+                "Skipping plugin directory 'bad-plugin': failed to load manifest (bad json)"
+            ]
+
+        with mock.patch(
+            "rikdom.plugin_engine.pipeline.discover_plugins_with_warnings",
+            side_effect=fake_discovery,
+        ):
+            catalog, warnings = build_asset_type_catalog_with_warnings("plugins")
+
+        ids = {item["id"] for item in catalog}
+        self.assertIn("acao", ids, msg="valid plugin entries should still be merged")
+        self.assertTrue(
+            any("Skipping plugin directory 'bad-plugin'" in w for w in warnings),
+            msg=f"warnings={warnings}",
+        )
 
 
 if __name__ == "__main__":
