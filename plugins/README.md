@@ -11,6 +11,7 @@ Plugin docs:
 - [ghostfolio_export_json](ghostfolio_export_json/README.md)
 - [ibkr_flex_xml](ibkr_flex_xml/README.md)
 - [b3-consolidado-mensal](b3-consolidado-mensal/README.md)
+- [btg_wm_conta_internacional](btg_wm_conta_internacional/README.md)
 - [quarto-portfolio-report](quarto-portfolio-report/README.md)
 - [duckdb-storage](duckdb-storage/README.md)
 - [asset-types-br-catalog](asset-types-br-catalog/README.md)

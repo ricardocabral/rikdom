@@ -1,0 +1,5 @@
+{
+  "hook": "source_input",
+  "input": "input.txt",
+  "validate_schema": "plugin-statement"
+}

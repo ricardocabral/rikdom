@@ -50,6 +50,8 @@ Dispatch semantics:
 - Keep plugin runs deterministic and idempotent.
 - Treat plugin code as trusted local code with potential side effects.
 - Do not commit secrets in plugin manifests or code.
+- Never commit PII in repository fixtures/samples (names, real account IDs, addresses, emails, phone numbers, government IDs, raw broker exports).
+- Before committing fixture/sample files, sanitize to synthetic data and random identifiers/amounts.
 
 ## Working Rules
 

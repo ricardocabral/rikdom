@@ -87,6 +87,7 @@ PR checklist:
 - [ ] `uv run rikdom validate --portfolio tests/fixtures/portfolio.json` passes.
 - [ ] `uv run python -m unittest discover -s tests -v` passes.
 - [ ] Docs updated when behavior, schema, or CLI changes.
+- [ ] Added/updated fixtures are sanitized (no real PII or real statement exports).
 
 ## Coding standards
 
@@ -102,6 +103,7 @@ PR checklist:
 - New features should include unit tests for happy path and edge cases.
 - Prefer deterministic tests without network access.
 - Keep test fixtures minimal and representative.
+- Never commit fixtures containing PII; use synthetic names, randomized account IDs, and randomized numeric values.
 
 ## Schema and storage changes
 

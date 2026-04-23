@@ -1,0 +1,529 @@
+{
+  "provider": "btg_wm_conta_internacional",
+  "generated_at": "2026-04-30T00:00:00Z",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.txt",
+    "account_number": "BTGP-001-RNDX472911",
+    "statement_period_start": "2026-04-01",
+    "statement_period_end": "2026-04-30",
+    "ending_account_value": 1845914.9,
+    "parsed_holdings_total": 1845914.9
+  },
+  "holdings": [
+    {
+      "id": "btgwm:btgp-001-rndx472911:acwi",
+      "asset_type_id": "stock",
+      "label": "ISHARES TR MSCI ACWI ETF",
+      "quantity": 4021.11893452,
+      "market_value": {
+        "amount": 612345.67,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "ACWI",
+        "provider_account_id": "BTGP-001-RNDX472911"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 140.28,
+        "total_cost": 564081.39,
+        "market_price": 152.28,
+        "gain_loss": 48264.28,
+        "account_type": "M"
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx472911:bnd",
+      "asset_type_id": "stock",
+      "label": "VANGUARD BD INDEX FDS TOTAL BND MRKT",
+      "quantity": 3981.927451,
+      "market_value": {
+        "amount": 301234.56,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "BND",
+        "provider_account_id": "BTGP-001-RNDX472911"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 72.65,
+        "total_cost": 289286.03,
+        "market_price": 75.65,
+        "gain_loss": 11948.53,
+        "account_type": "M"
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx472911:gld",
+      "asset_type_id": "stock",
+      "label": "SPDR GOLD TR GOLD SHS",
+      "quantity": 233.81221,
+      "market_value": {
+        "amount": 98765.43,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "GLD",
+        "provider_account_id": "BTGP-001-RNDX472911"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 381.22,
+        "total_cost": 89144.69,
+        "market_price": 422.41,
+        "gain_loss": 9620.74,
+        "account_type": "M"
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx472911:schh",
+      "asset_type_id": "stock",
+      "label": "SCHWAB STRATEGIC TR US REIT ETF",
+      "quantity": 7010.45,
+      "market_value": {
+        "amount": 155432.1,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "SCHH",
+        "provider_account_id": "BTGP-001-RNDX472911"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 22.4,
+        "total_cost": 157034.08,
+        "market_price": 22.17,
+        "gain_loss": -1601.98,
+        "account_type": "M"
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx472911:schp",
+      "asset_type_id": "stock",
+      "label": "SCHWAB STRATEGIC TR US TIPS ETF",
+      "quantity": 7604.21,
+      "market_value": {
+        "amount": 204567.89,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "SCHP",
+        "provider_account_id": "BTGP-001-RNDX472911"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 27.41,
+        "total_cost": 208429.42,
+        "market_price": 26.9,
+        "gain_loss": -3861.53,
+        "account_type": "M"
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx472911:sgov",
+      "asset_type_id": "stock",
+      "label": "ISHARES TR 0-3 MNTH TREASRY",
+      "quantity": 520.0,
+      "market_value": {
+        "amount": 52468.12,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "SGOV",
+        "provider_account_id": "BTGP-001-RNDX472911"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 100.45,
+        "total_cost": 52234.0,
+        "market_price": 100.9,
+        "gain_loss": 234.12,
+        "account_type": "M"
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx472911:voo",
+      "asset_type_id": "stock",
+      "label": "VANGUARD INDEX FDS S&P 500 ETF SHS",
+      "quantity": 680.7123,
+      "market_value": {
+        "amount": 417890.34,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VOO",
+        "provider_account_id": "BTGP-001-RNDX472911"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 574.8,
+        "total_cost": 391673.03,
+        "market_price": 613.89,
+        "gain_loss": 26217.31,
+        "account_type": "M"
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx472911:dwbds",
+      "asset_type_id": "cash_equivalent",
+      "label": "DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC)",
+      "quantity": 3210.79,
+      "market_value": {
+        "amount": 3210.79,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "DWBDS",
+        "provider_account_id": "BTGP-001-RNDX472911"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "MoneyMarket funds",
+        "unit_cost": 1.0,
+        "total_cost": 3210.79,
+        "market_price": 1.0,
+        "gain_loss": 0.0,
+        "account_type": "M"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "btgwm-act-ffd1e8987f9a01",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-04-03T00:00:00Z",
+      "money": {
+        "amount": 512.44,
+        "currency": "USD"
+      },
+      "quantity": 0.0,
+      "instrument": {
+        "ticker": "BND",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#activity:1",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIV",
+        "description": "BND - VANGUARD BD INDEX FDS TOTAL BND MRKT - DIV:BND(0.1287/sh):TAXCD:A",
+        "price": 0.0,
+        "settle_at": "2026-04-03T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock"
+    },
+    {
+      "id": "btgwm-act-5fe1b76748b1e1",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-04-03T00:00:00Z",
+      "money": {
+        "amount": -153.73,
+        "currency": "USD"
+      },
+      "quantity": 0.0,
+      "instrument": {
+        "ticker": "BND",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#activity:2",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIVNRA",
+        "description": "BND - VANGUARD BD INDEX FDS TOTAL BND MRKT - DIVNRA:BND(0.1287/sh):NRA withholding",
+        "price": 0.0,
+        "settle_at": "2026-04-03T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock",
+      "subtype": "withholding_tax"
+    },
+    {
+      "id": "btgwm-act-ca9db52bc3d41d",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-04-08T00:00:00Z",
+      "money": {
+        "amount": 94.18,
+        "currency": "USD"
+      },
+      "quantity": 0.0,
+      "instrument": {
+        "ticker": "SGOV",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#activity:3",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIV",
+        "description": "SGOV - ISHARES TR 0-3 MNTH TREASRY - DIV:SGOV(0.1811/sh):TAXCD:4",
+        "price": 0.0,
+        "settle_at": "2026-04-08T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock"
+    },
+    {
+      "id": "btgwm-act-bc9f5857ee962f",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-04-08T00:00:00Z",
+      "money": {
+        "amount": -28.25,
+        "currency": "USD"
+      },
+      "quantity": 0.0,
+      "instrument": {
+        "ticker": "SGOV",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#activity:4",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIVNRA",
+        "description": "SGOV - ISHARES TR 0-3 MNTH TREASRY - DIVNRA:SGOV(0.1811/sh):NRA withholding @30.00%",
+        "price": 0.0,
+        "settle_at": "2026-04-08T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock",
+      "subtype": "withholding_tax"
+    },
+    {
+      "id": "btgwm-act-3e7502c35657fb",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-04-23T00:00:00Z",
+      "money": {
+        "amount": 688.31,
+        "currency": "USD"
+      },
+      "quantity": 0.0,
+      "instrument": {
+        "ticker": "SCHH",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#activity:5",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIV",
+        "description": "SCHH - SCHWAB STRATEGIC TR US REIT ETF - DIV:SCHH(0.0982/sh):TAXCD:A",
+        "price": 0.0,
+        "settle_at": "2026-04-23T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock"
+    },
+    {
+      "id": "btgwm-act-ca60d09bd88c01",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-04-23T00:00:00Z",
+      "money": {
+        "amount": -206.49,
+        "currency": "USD"
+      },
+      "quantity": 0.0,
+      "instrument": {
+        "ticker": "SCHH",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#activity:6",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIVNRA",
+        "description": "SCHH - SCHWAB STRATEGIC TR US REIT ETF - DIVNRA:SCHH(0.0982/sh):NRA withholding @30.00%",
+        "price": 0.0,
+        "settle_at": "2026-04-23T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock",
+      "subtype": "withholding_tax"
+    },
+    {
+      "id": "btgwm-act-c97d35e1dc66ff",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-04-29T00:00:00Z",
+      "money": {
+        "amount": 901.22,
+        "currency": "USD"
+      },
+      "quantity": 0.0,
+      "instrument": {
+        "ticker": "VOO",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#activity:7",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIV",
+        "description": "VOO - VANGUARD INDEX FDS S&P 500 ETF SHS - DIV:VOO(1.3237/sh):TAXCD:A",
+        "price": 0.0,
+        "settle_at": "2026-04-29T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock"
+    },
+    {
+      "id": "btgwm-act-744d660e717c7d",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-04-29T00:00:00Z",
+      "money": {
+        "amount": -270.37,
+        "currency": "USD"
+      },
+      "quantity": 0.0,
+      "instrument": {
+        "ticker": "VOO",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#activity:8",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIVNRA",
+        "description": "VOO - VANGUARD INDEX FDS S&P 500 ETF SHS - DIVNRA:VOO(1.3237/sh):NRA withholding @30.00%",
+        "price": 0.0,
+        "settle_at": "2026-04-29T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock",
+      "subtype": "withholding_tax"
+    },
+    {
+      "id": "btgwm-act-db02d3067fc380",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-03T00:00:00Z",
+      "money": {
+        "amount": -421.11,
+        "currency": "USD"
+      },
+      "quantity": 421.11,
+      "instrument": {
+        "ticker": "DWBDS",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#sweep_activity:9",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "BUY",
+        "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
+        "price": 1.0,
+        "settle_at": "2026-04-03T00:00:00Z",
+        "source_block": "sweep_activity"
+      },
+      "asset_type_id": "cash_equivalent"
+    },
+    {
+      "id": "btgwm-act-15b922bc74e405",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-08T00:00:00Z",
+      "money": {
+        "amount": -76.04,
+        "currency": "USD"
+      },
+      "quantity": 76.04,
+      "instrument": {
+        "ticker": "DWBDS",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#sweep_activity:10",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "BUY",
+        "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
+        "price": 1.0,
+        "settle_at": "2026-04-08T00:00:00Z",
+        "source_block": "sweep_activity"
+      },
+      "asset_type_id": "cash_equivalent"
+    },
+    {
+      "id": "btgwm-act-fcdd1fa0a0534c",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-23T00:00:00Z",
+      "money": {
+        "amount": -602.58,
+        "currency": "USD"
+      },
+      "quantity": 602.58,
+      "instrument": {
+        "ticker": "DWBDS",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#sweep_activity:11",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "BUY",
+        "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
+        "price": 1.0,
+        "settle_at": "2026-04-23T00:00:00Z",
+        "source_block": "sweep_activity"
+      },
+      "asset_type_id": "cash_equivalent"
+    },
+    {
+      "id": "btgwm-act-04c4c1ca9d27b3",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-29T00:00:00Z",
+      "money": {
+        "amount": -868.42,
+        "currency": "USD"
+      },
+      "quantity": 868.42,
+      "instrument": {
+        "ticker": "DWBDS",
+        "country": "US"
+      },
+      "source_ref": "btgwm:BTGP-001-RNDX472911#sweep_activity:12",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "BUY",
+        "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
+        "price": 1.0,
+        "settle_at": "2026-04-29T00:00:00Z",
+        "source_block": "sweep_activity"
+      },
+      "asset_type_id": "cash_equivalent"
+    }
+  ]
+}

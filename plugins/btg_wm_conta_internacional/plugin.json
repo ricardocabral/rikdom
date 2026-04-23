@@ -1,0 +1,9 @@
+{
+  "name": "btg_wm_conta_internacional",
+  "version": "0.1.0",
+  "api_version": "1.0",
+  "plugin_types": ["source/input"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Import holdings and activities from BTG WM conta internacional monthly PDF statements"
+}
