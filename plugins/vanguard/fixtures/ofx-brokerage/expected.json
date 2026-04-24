@@ -1,0 +1,177 @@
+{
+  "provider": "vanguard",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.ofx",
+    "input_format": "ofx",
+    "accounts": [
+      {
+        "account_number": "VG-OFX-445566",
+        "currency": "USD",
+        "account_type": "INDIVIDUAL",
+        "broker_id": "Vanguard"
+      }
+    ]
+  },
+  "holdings": [
+    {
+      "id": "vanguard:vg-ofx-445566:pos:vtsax",
+      "asset_type_id": "fund",
+      "label": "Vanguard Total Stock Market Index Fund Admiral Shares",
+      "quantity": 120.5,
+      "market_value": {
+        "amount": 15062.5,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VTSAX",
+        "provider_account_id": "VG-OFX-445566",
+        "isin": "US9229087286"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Mutual Fund"
+      }
+    },
+    {
+      "id": "vanguard:vg-ofx-445566:pos:vbtlx",
+      "asset_type_id": "fund",
+      "label": "Vanguard Total Bond Market Index Fund Admiral Shares",
+      "quantity": 85.25,
+      "market_value": {
+        "amount": 8943.11,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VBTLX",
+        "provider_account_id": "VG-OFX-445566",
+        "isin": "US9219378356"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Mutual Fund"
+      }
+    },
+    {
+      "id": "vanguard:vg-ofx-445566:cash:usd",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash balance (USD)",
+      "market_value": {
+        "amount": 320.18,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "provider_account_id": "VG-OFX-445566",
+        "ticker": "CASH"
+      },
+      "jurisdiction": {
+        "country": "US"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "vanguard-txn-vg-ofx-445566-OFX-1001",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-03-05T10:30:00Z",
+      "money": {
+        "amount": -617.25,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-ofx-445566:dbf265bc835850b9",
+      "source_ref": "vanguard:VG-OFX-445566#txn:OFX-1001",
+      "metadata": {
+        "activity_type": "Buy",
+        "description": "Vanguard Total Stock Market Index Fund Admiral Shares",
+        "input_format": "ofx"
+      },
+      "instrument": {
+        "ticker": "VTSAX",
+        "country": "US"
+      },
+      "quantity": 5.0
+    },
+    {
+      "id": "vanguard-txn-vg-ofx-445566-OFX-1002",
+      "event_type": "sell",
+      "status": "posted",
+      "effective_at": "2026-03-12T12:00:00Z",
+      "money": {
+        "amount": 190.2,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-ofx-445566:f3a6decf202ee5d5",
+      "source_ref": "vanguard:VG-OFX-445566#txn:OFX-1002",
+      "metadata": {
+        "activity_type": "Sell",
+        "description": "Vanguard Total Bond Market Index Fund Admiral Shares",
+        "input_format": "ofx"
+      },
+      "instrument": {
+        "ticker": "VBTLX",
+        "country": "US"
+      },
+      "quantity": 2.0
+    },
+    {
+      "id": "vanguard-txn-vg-ofx-445566-OFX-1003",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-03-20T17:00:00Z",
+      "money": {
+        "amount": 35.55,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-ofx-445566:964574371f35bd4e",
+      "source_ref": "vanguard:VG-OFX-445566#txn:OFX-1003",
+      "metadata": {
+        "activity_type": "Dividend",
+        "description": "Vanguard Total Stock Market Index Fund Admiral Shares",
+        "input_format": "ofx"
+      },
+      "instrument": {
+        "ticker": "VTSAX",
+        "country": "US"
+      }
+    },
+    {
+      "id": "vanguard-txn-vg-ofx-445566-OFX-1004",
+      "event_type": "interest",
+      "status": "posted",
+      "effective_at": "2026-03-29T15:00:00Z",
+      "money": {
+        "amount": 1.22,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-ofx-445566:6d12dfd9eddc1ded",
+      "source_ref": "vanguard:VG-OFX-445566#txn:OFX-1004",
+      "metadata": {
+        "activity_type": "Interest",
+        "description": "",
+        "input_format": "ofx"
+      }
+    },
+    {
+      "id": "vanguard-txn-vg-ofx-445566-OFX-1005",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-03-30T16:00:00Z",
+      "money": {
+        "amount": -4.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-ofx-445566:2621aeb1a15312e6",
+      "source_ref": "vanguard:VG-OFX-445566#txn:OFX-1005",
+      "metadata": {
+        "activity_type": "Fee",
+        "description": "Service fee",
+        "input_format": "ofx"
+      }
+    }
+  ]
+}

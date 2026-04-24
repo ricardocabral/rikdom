@@ -29,6 +29,28 @@ class VanguardPluginTests(unittest.TestCase):
         accounts = payload["metadata"]["accounts"]
         self.assertEqual(accounts[0]["account_number"], "VG-00112233")
 
+    def test_plugin_parses_ofx_fixture(self) -> None:
+        payload = run_import_pipeline(
+            plugin_name="vanguard",
+            plugins_dir="plugins",
+            input_path="plugins/vanguard/fixtures/ofx-brokerage/input.ofx",
+        )
+
+        self.assertEqual(payload["provider"], "vanguard")
+        self.assertEqual(payload["base_currency"], "USD")
+        self.assertEqual(payload["metadata"]["input_format"], "ofx")
+        self.assertEqual(len(payload["holdings"]), 3)
+        self.assertEqual(len(payload["activities"]), 5)
+
+        interest = next(
+            a for a in payload["activities"] if a["event_type"] == "interest"
+        )
+        self.assertEqual(interest["money"], {"amount": 1.22, "currency": "USD"})
+
+        buy = next(a for a in payload["activities"] if a["event_type"] == "buy")
+        self.assertEqual(buy["money"]["amount"], -617.25)
+        self.assertEqual(buy["instrument"]["ticker"], "VTSAX")
+
     def test_plugin_import_is_idempotent_for_repeated_statement(self) -> None:
         payload = run_import_pipeline(
             plugin_name="vanguard",

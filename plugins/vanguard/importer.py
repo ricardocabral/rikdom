@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import html
 import json
 import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from xml.etree.ElementTree import Element, ParseError
+
+from defusedxml import ElementTree as DefusedET
+from defusedxml.common import DefusedXmlException
 
 from rikdom.import_normalization import (
     normalize_currency,
@@ -18,6 +23,7 @@ from rikdom.import_normalization import (
 
 PROVIDER = "vanguard"
 _DEFAULT_CURRENCY = "USD"
+_MAX_OFX_BYTES = 32 * 1024 * 1024
 
 
 def _now_iso() -> str:
@@ -88,6 +94,29 @@ def _normalize_vanguard_date(value: str) -> str | None:
             continue
 
     return normalize_datetime(raw)
+
+
+def _normalize_ofx_datetime(value: str) -> str | None:
+    raw = value.strip()
+    if not raw:
+        return None
+
+    normalized = normalize_datetime(raw)
+    if normalized:
+        return normalized
+
+    compact = re.sub(r"\[.*\]$", "", raw)
+    compact = compact.split(".", 1)[0]
+    compact = compact.strip()
+
+    for fmt in ("%Y%m%d%H%M%S", "%Y%m%d"):
+        try:
+            dt = datetime.strptime(compact, fmt)
+            return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+        except ValueError:
+            continue
+
+    return None
 
 
 def _activity_type(action: str) -> tuple[str, str | None]:
@@ -252,10 +281,472 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
     return activity
 
 
-def parse_statement(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        raise ValueError(f"input file does not exist: {path}")
+def _local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1].upper()
 
+
+def _iter_elements(root: Element, name: str):
+    wanted = name.upper()
+    for elem in root.iter():
+        if _local_name(elem.tag) == wanted:
+            yield elem
+
+
+def _first_text(parent: Element, name: str) -> str:
+    for elem in _iter_elements(parent, name):
+        raw = (elem.text or "").strip()
+        if raw:
+            return raw
+    return ""
+
+
+def _close_ofx_sgml_leaf_tags(raw: str) -> str:
+    lines = raw.splitlines()
+    out: list[str] = []
+    leaf_pattern = re.compile(r"^(\s*)<([A-Za-z0-9_.:-]+)>([^<]+?)\s*$")
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            out.append(line)
+            continue
+        if stripped.startswith("<?") or stripped.startswith("<!"):
+            out.append(line)
+            continue
+        match = leaf_pattern.match(line)
+        if match:
+            indent, tag, value = match.groups()
+            escaped_value = html.escape(value.strip(), quote=False)
+            out.append(f"{indent}<{tag}>{escaped_value}</{tag}>")
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+def _load_ofx_root(path: Path) -> Element:
+    size = path.stat().st_size
+    if size > _MAX_OFX_BYTES:
+        raise ValueError(
+            f"Vanguard OFX input exceeds {_MAX_OFX_BYTES} bytes (size={size})"
+        )
+
+    raw = path.read_text(encoding="utf-8")
+    if not raw.strip():
+        raise ValueError("Vanguard OFX input is empty")
+
+    start = raw.upper().find("<OFX")
+    body = raw[start:] if start >= 0 else raw
+    xml_like = _close_ofx_sgml_leaf_tags(body)
+
+    try:
+        return DefusedET.fromstring(xml_like, forbid_dtd=True)
+    except DefusedXmlException as exc:
+        raise ValueError(f"Unsafe Vanguard OFX rejected: {exc}") from exc
+    except ParseError as exc:
+        raise ValueError(f"Invalid Vanguard OFX: {exc}") from exc
+
+
+def _security_type_from_position_tag(tag: str) -> str:
+    mapping = {
+        "POSSTOCK": "Stock",
+        "POSMF": "Mutual Fund",
+        "POSDEBT": "Bond",
+        "POSOTHER": "Other",
+    }
+    return mapping.get(tag.upper(), "Other")
+
+
+def _asset_type_from_position_tag(tag: str) -> str:
+    mapping = {
+        "POSSTOCK": "stock",
+        "POSMF": "fund",
+        "POSDEBT": "debt_instrument",
+        "POSOTHER": "other",
+    }
+    return mapping.get(tag.upper(), "other")
+
+
+def _parse_ofx_securities(root: Element) -> dict[str, dict[str, str]]:
+    securities: dict[str, dict[str, str]] = {}
+    for info in _iter_elements(root, "SECINFO"):
+        unique_id = _first_text(info, "UNIQUEID")
+        if not unique_id:
+            continue
+        securities[unique_id] = {
+            "ticker": _first_text(info, "TICKER").upper(),
+            "name": _first_text(info, "SECNAME"),
+            "unique_id_type": _first_text(info, "UNIQUEIDTYPE").upper(),
+        }
+    return securities
+
+
+def _parse_ofx_position(
+    position: Element,
+    *,
+    account_number: str,
+    currency: str,
+    securities: dict[str, dict[str, str]],
+) -> dict[str, Any] | None:
+    position_tag = _local_name(position.tag)
+    unique_id = _first_text(position, "UNIQUEID")
+    quantity = parse_decimal(_first_text(position, "UNITS"))
+    market_value = parse_decimal(_first_text(position, "MKTVAL"))
+    unit_price = parse_decimal(_first_text(position, "UNITPRICE"))
+
+    if quantity is None:
+        return None
+    if market_value is None and unit_price is not None:
+        market_value = quantity * unit_price
+    if market_value is None:
+        return None
+
+    sec = securities.get(unique_id, {})
+    ticker = sec.get("ticker") or unique_id or "UNKNOWN"
+    label = sec.get("name") or ticker
+
+    holding: dict[str, Any] = {
+        "id": f"vanguard:{_slug(account_number)}:pos:{_slug(ticker)}",
+        "asset_type_id": _asset_type_from_position_tag(position_tag),
+        "label": label,
+        "quantity": quantity,
+        "market_value": {"amount": market_value, "currency": currency},
+        "identifiers": {
+            "ticker": ticker,
+            "provider_account_id": account_number,
+        },
+        "jurisdiction": {"country": "US"},
+        "metadata": {"security_type": _security_type_from_position_tag(position_tag)},
+    }
+
+    unique_id_type = sec.get("unique_id_type", "")
+    if unique_id and unique_id_type == "ISIN":
+        holding["identifiers"]["isin"] = unique_id
+
+    return holding
+
+
+def _parse_ofx_trade_activity(
+    tx: Element,
+    *,
+    account_number: str,
+    currency: str,
+    securities: dict[str, dict[str, str]],
+) -> dict[str, Any] | None:
+    tag = _local_name(tx.tag)
+    if tag.startswith("BUY"):
+        event_type = "buy"
+        action_label = "Buy"
+    elif tag.startswith("SELL"):
+        event_type = "sell"
+        action_label = "Sell"
+    else:
+        return None
+
+    invtran = next(_iter_elements(tx, "INVTRAN"), None)
+    if invtran is None:
+        return None
+
+    fitid = _first_text(invtran, "FITID")
+    traded_at = _normalize_ofx_datetime(_first_text(invtran, "DTTRADE"))
+    if not traded_at:
+        return None
+
+    sec_id = _first_text(tx, "UNIQUEID")
+    sec = securities.get(sec_id, {})
+    ticker = (sec.get("ticker") or sec_id).upper()
+
+    quantity = parse_decimal(_first_text(tx, "UNITS"))
+    total = parse_decimal(_first_text(tx, "TOTAL"))
+    if total is None:
+        return None
+    total = _normalize_amount_sign(event_type, total)
+
+    commission = parse_decimal(_first_text(tx, "COMMISSION"))
+
+    fingerprint = {
+        "account_number": account_number,
+        "effective_at": traded_at,
+        "event_type": event_type,
+        "ticker": ticker,
+        "amount": total,
+        "quantity": quantity,
+        "fitid": fitid,
+    }
+    digest = _stable_digest(fingerprint)
+    tx_ref = fitid or digest
+
+    activity: dict[str, Any] = {
+        "id": f"vanguard-txn-{_slug(account_number)}-{tx_ref}",
+        "event_type": event_type,
+        "status": "posted",
+        "effective_at": traded_at,
+        "money": {"amount": total, "currency": currency},
+        "idempotency_key": f"vanguard:{_slug(account_number)}:{digest}",
+        "source_ref": f"vanguard:{account_number}#txn:{tx_ref}",
+        "metadata": {
+            "activity_type": action_label,
+            "description": sec.get("name") or ticker,
+            "input_format": "ofx",
+        },
+    }
+
+    if ticker and ticker not in {"CASH", "USD"}:
+        activity["instrument"] = {"ticker": ticker, "country": "US"}
+
+    if quantity is not None and quantity != 0:
+        activity["quantity"] = abs(quantity)
+
+    if commission is not None and commission != 0:
+        activity["fees"] = {"amount": abs(commission), "currency": currency}
+
+    return activity
+
+
+def _parse_ofx_income_activity(
+    tx: Element,
+    *,
+    account_number: str,
+    currency: str,
+    securities: dict[str, dict[str, str]],
+) -> dict[str, Any] | None:
+    invtran = next(_iter_elements(tx, "INVTRAN"), None)
+    if invtran is None:
+        return None
+
+    fitid = _first_text(invtran, "FITID")
+    effective_at = _normalize_ofx_datetime(_first_text(invtran, "DTTRADE"))
+    if not effective_at:
+        effective_at = _normalize_ofx_datetime(_first_text(invtran, "DTSETTLE"))
+    if not effective_at:
+        return None
+
+    amount = parse_decimal(_first_text(tx, "TOTAL"))
+    if amount is None:
+        return None
+
+    income_type = _first_text(tx, "INCOMETYPE").upper()
+    if income_type == "DIV":
+        event_type = "dividend"
+        action_label = "Dividend"
+    elif income_type == "INTEREST":
+        event_type = "interest"
+        action_label = "Interest"
+    else:
+        event_type = "other"
+        action_label = income_type or "Income"
+
+    sec_id = _first_text(tx, "UNIQUEID")
+    sec = securities.get(sec_id, {})
+    ticker = (sec.get("ticker") or sec_id).upper()
+
+    fingerprint = {
+        "account_number": account_number,
+        "effective_at": effective_at,
+        "event_type": event_type,
+        "ticker": ticker,
+        "amount": abs(amount),
+        "fitid": fitid,
+    }
+    digest = _stable_digest(fingerprint)
+    tx_ref = fitid or digest
+
+    activity: dict[str, Any] = {
+        "id": f"vanguard-txn-{_slug(account_number)}-{tx_ref}",
+        "event_type": event_type,
+        "status": "posted",
+        "effective_at": effective_at,
+        "money": {"amount": abs(amount), "currency": currency},
+        "idempotency_key": f"vanguard:{_slug(account_number)}:{digest}",
+        "source_ref": f"vanguard:{account_number}#txn:{tx_ref}",
+        "metadata": {
+            "activity_type": action_label,
+            "description": sec.get("name") or ticker or "",
+            "input_format": "ofx",
+        },
+    }
+
+    if event_type == "other" and income_type:
+        activity["subtype"] = f"vanguard:{_slug(income_type)}"
+
+    if ticker and ticker not in {"CASH", "USD"}:
+        activity["instrument"] = {"ticker": ticker, "country": "US"}
+
+    return activity
+
+
+def _parse_ofx_expense_activity(
+    tx: Element,
+    *,
+    account_number: str,
+    currency: str,
+) -> dict[str, Any] | None:
+    invtran = next(_iter_elements(tx, "INVTRAN"), None)
+    if invtran is None:
+        return None
+
+    fitid = _first_text(invtran, "FITID")
+    effective_at = _normalize_ofx_datetime(_first_text(invtran, "DTTRADE"))
+    if not effective_at:
+        return None
+
+    amount = parse_decimal(_first_text(tx, "TOTAL"))
+    if amount is None:
+        return None
+
+    memo = _first_text(tx, "MEMO")
+    fee_amount = -abs(amount)
+
+    fingerprint = {
+        "account_number": account_number,
+        "effective_at": effective_at,
+        "event_type": "fee",
+        "amount": fee_amount,
+        "fitid": fitid,
+    }
+    digest = _stable_digest(fingerprint)
+    tx_ref = fitid or digest
+
+    return {
+        "id": f"vanguard-txn-{_slug(account_number)}-{tx_ref}",
+        "event_type": "fee",
+        "status": "posted",
+        "effective_at": effective_at,
+        "money": {"amount": fee_amount, "currency": currency},
+        "idempotency_key": f"vanguard:{_slug(account_number)}:{digest}",
+        "source_ref": f"vanguard:{account_number}#txn:{tx_ref}",
+        "metadata": {
+            "activity_type": "Fee",
+            "description": memo,
+            "input_format": "ofx",
+        },
+    }
+
+
+def _parse_ofx_statement(path: Path) -> dict[str, Any]:
+    root = _load_ofx_root(path)
+
+    account_number = _first_text(root, "ACCTID") or "unknown-account"
+    currency = normalize_currency(_first_text(root, "CURDEF")) or _DEFAULT_CURRENCY
+    generated_at = (
+        _normalize_ofx_datetime(_first_text(root, "DTSERVER"))
+        or _normalize_ofx_datetime(_first_text(root, "DTASOF"))
+        or _normalize_ofx_datetime(_first_text(root, "DTEND"))
+        or _now_iso()
+    )
+
+    account_type = _first_text(root, "ACCTTYPE")
+    broker_id = _first_text(root, "BROKERID")
+    securities = _parse_ofx_securities(root)
+
+    holdings: list[dict[str, Any]] = []
+    seen_holding_ids: set[str] = set()
+    for position_tag in ("POSSTOCK", "POSMF", "POSDEBT", "POSOTHER"):
+        for position in _iter_elements(root, position_tag):
+            holding = _parse_ofx_position(
+                position,
+                account_number=account_number,
+                currency=currency,
+                securities=securities,
+            )
+            if holding is None:
+                continue
+            hid = holding["id"]
+            if hid in seen_holding_ids:
+                continue
+            seen_holding_ids.add(hid)
+            holdings.append(holding)
+
+    available_cash = parse_decimal(_first_text(root, "AVAILCASH"))
+    if available_cash is not None:
+        cash_holding = {
+            "id": f"vanguard:{_slug(account_number)}:cash:{currency.lower()}",
+            "asset_type_id": "cash_equivalent",
+            "label": f"Cash balance ({currency})",
+            "market_value": {"amount": available_cash, "currency": currency},
+            "identifiers": {
+                "provider_account_id": account_number,
+                "ticker": "CASH",
+            },
+            "jurisdiction": {"country": "US"},
+        }
+        if cash_holding["id"] not in seen_holding_ids:
+            holdings.append(cash_holding)
+            seen_holding_ids.add(cash_holding["id"])
+
+    activities: list[dict[str, Any]] = []
+    seen_activity_ids: set[str] = set()
+
+    for tag in ("BUYMF", "BUYSTOCK", "BUYOTHER", "SELLMF", "SELLSTOCK", "SELLOTHER"):
+        for tx in _iter_elements(root, tag):
+            activity = _parse_ofx_trade_activity(
+                tx,
+                account_number=account_number,
+                currency=currency,
+                securities=securities,
+            )
+            if activity is None:
+                continue
+            aid = activity["id"]
+            if aid in seen_activity_ids:
+                continue
+            activities.append(activity)
+            seen_activity_ids.add(aid)
+
+    for tx in _iter_elements(root, "INCOME"):
+        activity = _parse_ofx_income_activity(
+            tx,
+            account_number=account_number,
+            currency=currency,
+            securities=securities,
+        )
+        if activity is None:
+            continue
+        aid = activity["id"]
+        if aid in seen_activity_ids:
+            continue
+        activities.append(activity)
+        seen_activity_ids.add(aid)
+
+    for tx in _iter_elements(root, "INVEXPENSE"):
+        activity = _parse_ofx_expense_activity(
+            tx,
+            account_number=account_number,
+            currency=currency,
+        )
+        if activity is None:
+            continue
+        aid = activity["id"]
+        if aid in seen_activity_ids:
+            continue
+        activities.append(activity)
+        seen_activity_ids.add(aid)
+
+    if not holdings and not activities:
+        raise ValueError("Vanguard OFX did not contain usable holdings or activities")
+
+    metadata: dict[str, Any] = {
+        "source_file": path.name,
+        "input_format": "ofx",
+        "accounts": [
+            {
+                "account_number": account_number,
+                "currency": currency,
+                **({"account_type": account_type} if account_type else {}),
+                **({"broker_id": broker_id} if broker_id else {}),
+            }
+        ],
+    }
+
+    return {
+        "provider": PROVIDER,
+        "generated_at": generated_at,
+        "base_currency": currency,
+        "metadata": metadata,
+        **({"holdings": holdings} if holdings else {}),
+        **({"activities": activities} if activities else {}),
+    }
+
+
+def _parse_csv_statement(path: Path) -> dict[str, Any]:
     rows = _read_rows(path)
     if not rows:
         raise ValueError("Vanguard CSV contains no rows")
@@ -337,9 +828,22 @@ def parse_statement(path: Path) -> dict[str, Any]:
     }
 
 
+def parse_statement(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise ValueError(f"input file does not exist: {path}")
+
+    suffix = path.suffix.lower()
+    if suffix in {".ofx", ".qfx"}:
+        return _parse_ofx_statement(path)
+    return _parse_csv_statement(path)
+
+
 def main() -> int:
     if len(sys.argv) < 2:
-        print("usage: importer.py <vanguard-statement.csv>", file=sys.stderr)
+        print(
+            "usage: importer.py <vanguard-statement.csv|vanguard-statement.ofx>",
+            file=sys.stderr,
+        )
         return 1
 
     payload = parse_statement(Path(sys.argv[1]))

@@ -1,0 +1,167 @@
+OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+SECURITY:NONE
+ENCODING:USASCII
+CHARSET:1252
+COMPRESSION:NONE
+OLDFILEUID:NONE
+NEWFILEUID:NONE
+
+<OFX>
+  <SIGNONMSGSRSV1>
+    <SONRS>
+      <STATUS>
+        <CODE>0
+        <SEVERITY>INFO
+      </STATUS>
+      <DTSERVER>20260331120000.000[-5:EST]
+      <LANGUAGE>ENG
+    </SONRS>
+  </SIGNONMSGSRSV1>
+  <INVSTMTMSGSRSV1>
+    <INVSTMTTRNRS>
+      <TRNUID>1001
+      <STATUS>
+        <CODE>0
+        <SEVERITY>INFO
+      </STATUS>
+      <INVSTMTRS>
+        <DTASOF>20260331
+        <CURDEF>USD
+        <INVACCTFROM>
+          <BROKERID>Vanguard
+          <ACCTID>VG-OFX-445566
+          <ACCTTYPE>INDIVIDUAL
+        </INVACCTFROM>
+        <INVTRANLIST>
+          <DTSTART>20260301
+          <DTEND>20260331
+          <BUYMF>
+            <INVBUY>
+              <INVTRAN>
+                <FITID>OFX-1001
+                <DTTRADE>20260305103000
+              </INVTRAN>
+              <SECID>
+                <UNIQUEID>US9229087286
+                <UNIQUEIDTYPE>ISIN
+              </SECID>
+              <UNITS>5.000
+              <UNITPRICE>123.45
+              <TOTAL>617.25
+              <SUBACCTSEC>CASH
+              <SUBACCTFUND>CASH
+            </INVBUY>
+            <BUYTYPE>BUY
+            <COMMISSION>0.00
+          </BUYMF>
+          <SELLMF>
+            <INVSELL>
+              <INVTRAN>
+                <FITID>OFX-1002
+                <DTTRADE>20260312120000
+              </INVTRAN>
+              <SECID>
+                <UNIQUEID>US9219378356
+                <UNIQUEIDTYPE>ISIN
+              </SECID>
+              <UNITS>2.000
+              <UNITPRICE>95.10
+              <TOTAL>190.20
+              <SUBACCTSEC>CASH
+              <SUBACCTFUND>CASH
+            </INVSELL>
+            <SELLTYPE>SELL
+            <COMMISSION>0.00
+          </SELLMF>
+          <INCOME>
+            <INVTRAN>
+              <FITID>OFX-1003
+              <DTTRADE>20260320170000
+            </INVTRAN>
+            <SECID>
+              <UNIQUEID>US9229087286
+              <UNIQUEIDTYPE>ISIN
+            </SECID>
+            <INCOMETYPE>DIV
+            <TOTAL>35.55
+          </INCOME>
+          <INCOME>
+            <INVTRAN>
+              <FITID>OFX-1004
+              <DTTRADE>20260329150000
+            </INVTRAN>
+            <INCOMETYPE>INTEREST
+            <TOTAL>1.22
+          </INCOME>
+          <INVEXPENSE>
+            <INVTRAN>
+              <FITID>OFX-1005
+              <DTTRADE>20260330160000
+            </INVTRAN>
+            <MEMO>Service fee
+            <TOTAL>4.00
+          </INVEXPENSE>
+        </INVTRANLIST>
+        <INVPOSLIST>
+          <POSMF>
+            <INVPOS>
+              <SECID>
+                <UNIQUEID>US9229087286
+                <UNIQUEIDTYPE>ISIN
+              </SECID>
+              <HELDINACCT>CASH
+              <POSTYPE>LONG
+              <UNITS>120.500
+              <UNITPRICE>125.00
+              <MKTVAL>15062.50
+              <DTPRICEASOF>20260331
+            </INVPOS>
+          </POSMF>
+          <POSMF>
+            <INVPOS>
+              <SECID>
+                <UNIQUEID>US9219378356
+                <UNIQUEIDTYPE>ISIN
+              </SECID>
+              <HELDINACCT>CASH
+              <POSTYPE>LONG
+              <UNITS>85.250
+              <UNITPRICE>104.91
+              <MKTVAL>8943.11
+              <DTPRICEASOF>20260331
+            </INVPOS>
+          </POSMF>
+        </INVPOSLIST>
+        <INVBAL>
+          <AVAILCASH>320.18
+        </INVBAL>
+      </INVSTMTRS>
+    </INVSTMTTRNRS>
+  </INVSTMTMSGSRSV1>
+  <SECLISTMSGSRSV1>
+    <SECLIST>
+      <MFINFO>
+        <SECINFO>
+          <SECID>
+            <UNIQUEID>US9229087286
+            <UNIQUEIDTYPE>ISIN
+          </SECID>
+          <SECNAME>Vanguard Total Stock Market Index Fund Admiral Shares
+          <TICKER>VTSAX
+        </SECINFO>
+      </MFINFO>
+      <MFINFO>
+        <SECINFO>
+          <SECID>
+            <UNIQUEID>US9219378356
+            <UNIQUEIDTYPE>ISIN
+          </SECID>
+          <SECNAME>Vanguard Total Bond Market Index Fund Admiral Shares
+          <TICKER>VBTLX
+        </SECINFO>
+      </MFINFO>
+    </SECLIST>
+  </SECLISTMSGSRSV1>
+</OFX>
