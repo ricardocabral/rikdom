@@ -1,33 +1,93 @@
 ---
-title: "Rikdom Quickview"
+title: "rikdom quickview"
 format:
   html:
     toc: false
-    theme: cosmo
+    theme: none
 ---
 
 ```{=html}
 <style>
-  :root { --bg:#f5f4ef; --panel:#fff; --ink:#172026; --muted:#5f6a72; --line:#dbe1e6; --accent:#1f7a8c; }
-  body { margin:0; font-family:ui-rounded,system-ui,-apple-system,Segoe UI,sans-serif; color:var(--ink); background:radial-gradient(circle at 20% -10%, #d9f0f5, var(--bg) 45%); }
-  .wrap { max-width:1100px; margin:0 auto; padding:24px; }
-  .head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-  .title { font-size:28px; margin:0 0 6px; }
-  .subtitle { color:var(--muted); margin:0 0 18px; }
-  .link { color:#fff; background:var(--accent); text-decoration:none; padding:8px 12px; border-radius:10px; font-size:14px; }
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --paper: #F4EFE6;
+    --linen: #E9E2D4;
+    --stone: #B8AE9E;
+    --graphite: #4A4239;
+    --ink: #1F1A14;
+    --border-soft: #D9D1C1;
+    --fjord: #2C4A6B;
+    --moss: #5F6B3A;
+    --rust: #8A3A1F;
+    --amber: #B98A2C;
+    --font-serif: "Fraunces", "Iowan Old Style", Georgia, serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+
+  html, body { margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:var(--font-serif); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+
+  .wrap { max-width:1040px; margin:0 auto; padding:40px 32px 64px; }
+
+  .head { display:flex; align-items:flex-end; gap:24px; border-bottom:1px solid var(--stone); padding-bottom:20px; margin-bottom:32px; flex-wrap:wrap; }
+  .brand { display:flex; align-items:baseline; gap:2px; }
+  .wordmark { font-family:var(--font-serif); font-size:28px; font-weight:400; letter-spacing:-0.02em; font-variation-settings:'opsz' 144,'SOFT' 50; color:var(--ink); }
+  .dot { width:6px; height:6px; background:var(--fjord); border-radius:50%; display:inline-block; margin-left:2px; translate:0 -2px; }
+  .subtitle { margin-top:6px; font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; color:var(--graphite); }
+  .head-actions { margin-left:auto; }
+  .link { display:inline-block; color:var(--paper); background:var(--ink); text-decoration:none; padding:10px 16px; border:1px solid var(--ink); border-radius:4px; font-family:var(--font-serif); font-size:15px; font-weight:500; line-height:1; transition: background 150ms cubic-bezier(0.2,0,0,1); }
+  .link:hover { background:#000; }
+  .link:focus-visible { outline:2px solid var(--fjord); outline-offset:2px; }
+
+  .eyebrow { font-family:var(--font-mono); font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--graphite); }
+
   .grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); }
   .half-grid { display:grid; gap:16px; grid-template-columns:1fr; margin-top:16px; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 6px 20px rgba(12,31,47,.05); }
-  .metric { font-size:32px; font-weight:650; margin:8px 0; }
-  .muted { color:var(--muted); }
-  svg { width:100%; height:auto; border-radius:8px; background:#f8fafb; }
-  .dist { display:grid; gap:14px; grid-template-columns:190px 1fr; align-items:start; }
-  .legend { display:grid; gap:6px; margin-top:4px; }
-  .legend-row { display:grid; grid-template-columns:12px 1fr auto; gap:8px; align-items:center; font-size:13px; }
-  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-  .value-col { text-align:right; color:#334047; font-variant-numeric:tabular-nums; }
-  .donut-center { font-size:11px; fill:#4f5960; text-anchor:middle; }
-  @media (max-width:680px) { .metric{font-size:24px;} .dist{grid-template-columns:1fr;} }
+  @media (min-width:880px) { .half-grid { grid-template-columns:1fr 1fr; } }
+
+  .panel { background:var(--linen); border:1px solid var(--stone); border-radius:4px; padding:28px 28px 24px; }
+
+  .metric { font-family:var(--font-serif); font-size:44px; font-weight:300; font-variation-settings:'opsz' 144,'SOFT' 50; letter-spacing:-0.02em; line-height:1.05; margin:10px 0 4px; color:var(--ink); font-variant-numeric: tabular-nums; }
+  .muted { color:var(--graphite); font-family:var(--font-mono); font-size:12px; }
+
+  svg { width:100%; height:auto; display:block; }
+
+  .dist { display:grid; gap:18px; grid-template-columns:180px 1fr; align-items:start; }
+  @media (max-width:680px) { .metric{font-size:32px;} .dist{grid-template-columns:1fr;} }
+
+  .legend { display:grid; gap:8px; margin-top:4px; font-family:var(--font-mono); font-size:12px; }
+  .legend-row { display:grid; grid-template-columns:10px 1fr auto; gap:10px; align-items:center; }
+  .swatch { width:10px; height:10px; display:inline-block; }
+  .legend-label { color:var(--ink); }
+  .legend-pct { color:var(--graphite); }
+  .value-col { text-align:right; color:var(--graphite); font-variant-numeric:tabular-nums; }
+
+  .donut-center { font-size:10px; fill:var(--graphite); text-anchor:middle; font-family:var(--font-mono); letter-spacing:0.04em; text-transform:uppercase; }
+  .donut-total { font-size:13px; fill:var(--ink); text-anchor:middle; font-family:var(--font-mono); font-weight:500; }
+
+  .chart-axis { stroke:var(--stone); }
+  .chart-grid { stroke:var(--border-soft); }
+  .chart-tick { fill:var(--graphite); font-family:var(--font-mono); font-size:11px; }
+  .chart-line { stroke:var(--fjord); stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+
+  .warn { color:var(--rust); }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14161A;
+      --linen: #1B1E23;
+      --stone: #2E3138;
+      --border-soft: #24272D;
+      --graphite: #B8B1A1;
+      --ink: #E8E3D8;
+      --fjord: #8AA9CE;
+      --moss: #9AAE6B;
+      --rust: #C9775A;
+      --amber: #D9B070;
+      color-scheme: dark;
+    }
+  }
 </style>
 
 <script src="report-data.js"></script>
@@ -35,27 +95,29 @@ format:
 <div class="wrap">
   <div class="head">
     <div>
-      <h1 class="title">Rikdom Quickview</h1>
-      <p class="subtitle" id="subtitle"></p>
+      <div class="brand"><span class="wordmark">rikdom</span><span class="dot"></span></div>
+      <div class="subtitle" id="subtitle"></div>
     </div>
-    <a class="link" href="portfolio-report.html">Open deep-dive report</a>
+    <div class="head-actions">
+      <a class="link" href="portfolio-report.html">Open deep-dive report</a>
+    </div>
   </div>
 
   <div class="grid">
     <section class="panel">
-      <div class="muted">Current Total</div>
-      <div class="metric" id="total">-</div>
+      <div class="eyebrow">Current total</div>
+      <div class="metric" id="total">—</div>
       <div class="muted">Based on latest snapshot</div>
     </section>
     <section class="panel">
-      <div class="muted">Progress Over Time</div>
+      <div class="eyebrow" style="margin-bottom:10px;">Progress over time</div>
       <svg id="line" viewBox="0 0 700 240" preserveAspectRatio="none"></svg>
     </section>
   </div>
 
   <div class="half-grid">
     <section class="panel">
-      <div class="muted" style="margin-bottom:10px;">Current Allocation by Asset Class</div>
+      <div class="eyebrow" style="margin-bottom:16px;">Current allocation by asset class</div>
       <div class="dist">
         <svg id="asset-donut" viewBox="0 0 180 180"></svg>
         <div class="legend" id="asset-legend"></div>
@@ -63,12 +125,12 @@ format:
     </section>
 
     <section class="panel">
-      <div class="muted" style="margin-bottom:10px;">Market Value by Currency (converted to <span id="base-ccy"></span>)</div>
+      <div class="eyebrow" style="margin-bottom:16px;">Market value by currency (converted to <span id="base-ccy"></span>)</div>
       <div class="dist">
         <svg id="currency-donut" viewBox="0 0 180 180"></svg>
         <div class="legend" id="currency-legend"></div>
       </div>
-      <div class="muted" id="currency-warning" style="margin-top:8px;"></div>
+      <div class="muted warn" id="currency-warning" style="margin-top:12px;"></div>
     </section>
   </div>
 </div>
@@ -78,7 +140,8 @@ format:
     const payload = window.RIKDOM_REPORT_DATA || {};
     const sections = payload.sections || {};
     const quick = sections.quickview || {};
-    const palette = ['#1f7a8c','#f18f01','#2f9e44','#7b2cbf','#d6336c','#1c7ed6','#ae3ec9','#5c940d'];
+    // rikdom palette — ink/graphite/stone ladder + fjord/moss/amber/rust accents
+    const palette = ['#1F1A14','#4A4239','#8A7A64','#B8AE9E','#2C4A6B','#5F6B3A','#B98A2C','#8A3A1F'];
 
     const CCY_RE = /^[A-Z]{3}$/;
     const safeCcy = (raw) => {
@@ -120,7 +183,7 @@ format:
     function renderLineChart(points) {
       const svg = document.getElementById('line');
       if (!points.length) {
-        svg.innerHTML = '<text x="30" y="40" fill="#5f6a72">No snapshots yet</text>';
+        svg.innerHTML = '<text x="30" y="40" class="chart-tick">No snapshots yet</text>';
         return;
       }
       const values = points.map(p => Number(p?.portfolio_value_base) || 0);
@@ -139,12 +202,12 @@ format:
       const xTickIndexes = [...new Set(Array.from({ length: xTickCount }).map((_, i) => Math.round((i / Math.max(xTickCount - 1, 1)) * (points.length - 1))))];
 
       svg.innerHTML = `
-        ${yGrid.map(t => `<line x1="${padLeft}" y1="${t.y.toFixed(1)}" x2="${W - padRight}" y2="${t.y.toFixed(1)}" stroke="#eef2f5"/>`).join('')}
-        <line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${H - padBottom}" stroke="#c8d3db"/>
-        <line x1="${padLeft}" y1="${H - padBottom}" x2="${W - padRight}" y2="${H - padBottom}" stroke="#c8d3db"/>
-        <path d="${escapeHtml(path)}" fill="none" stroke="#1f7a8c" stroke-width="3" stroke-linecap="round"/>
-        ${yGrid.map(t => `<text x="${padLeft - 8}" y="${(t.y + 4).toFixed(1)}" fill="#5f6a72" font-size="11" text-anchor="end">${escapeHtml(t.label)}</text>`).join('')}
-        ${xTickIndexes.map((idx) => `<text x="${xFor(idx).toFixed(1)}" y="${H - 12}" fill="#5f6a72" font-size="11" text-anchor="middle">${escapeHtml(formatYm(points[idx]?.timestamp, idx))}</text>`).join('')}
+        ${yGrid.map(t => `<line class="chart-grid" x1="${padLeft}" y1="${t.y.toFixed(1)}" x2="${W - padRight}" y2="${t.y.toFixed(1)}"/>`).join('')}
+        <line class="chart-axis" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${H - padBottom}"/>
+        <line class="chart-axis" x1="${padLeft}" y1="${H - padBottom}" x2="${W - padRight}" y2="${H - padBottom}"/>
+        <path class="chart-line" d="${escapeHtml(path)}"/>
+        ${yGrid.map(t => `<text class="chart-tick" x="${padLeft - 8}" y="${(t.y + 4).toFixed(1)}" text-anchor="end">${escapeHtml(t.label)}</text>`).join('')}
+        ${xTickIndexes.map((idx) => `<text class="chart-tick" x="${xFor(idx).toFixed(1)}" y="${H - 12}" text-anchor="middle">${escapeHtml(formatYm(points[idx]?.timestamp, idx))}</text>`).join('')}
       `;
     }
 
@@ -155,7 +218,7 @@ format:
         legend.innerHTML = '<div class="muted">No data</div>';
         return;
       }
-      const cx=90, cy=90, r=62, strokeW=22, circumference=2*Math.PI*r; let offset=0;
+      const cx=90, cy=90, r=62, strokeW=18, circumference=2*Math.PI*r; let offset=0;
       const slices = entries.map((entry, index) => {
         const ratio = entry.value / total; const dash = Math.max(ratio * circumference, 0); const color = palette[index % palette.length];
         const piece = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="-${offset}" transform="rotate(-90 ${cx} ${cy})"></circle>`;
@@ -163,15 +226,15 @@ format:
         return { piece, color, ...entry };
       });
       svg.innerHTML = `
-        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#eef2f5" stroke-width="${strokeW}"></circle>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#D9D1C1" stroke-width="${strokeW}"></circle>
         ${slices.map(s => s.piece).join('')}
-        <text x="${cx}" y="${cy - 6}" class="donut-center">${escapeHtml(centerLabel)}</text>
-        <text x="${cx}" y="${cy + 12}" class="donut-center">${escapeHtml(fmtCompact(total, baseCurrency))}</text>
+        <text x="${cx}" y="${cy - 4}" class="donut-center">${escapeHtml(centerLabel)}</text>
+        <text x="${cx}" y="${cy + 14}" class="donut-total">${escapeHtml(fmtCompact(total, baseCurrency))}</text>
       `;
       legend.innerHTML = slices.map(slice => `
         <div class="legend-row">
-          <span class="dot" style="background:${escapeHtml(slice.color)}"></span>
-          <span>${escapeHtml(slice.label)} <span class="muted">(${escapeHtml(pct(slice.value, total))})</span></span>
+          <span class="swatch" style="background:${escapeHtml(slice.color)}"></span>
+          <span class="legend-label">${escapeHtml(slice.label)} <span class="legend-pct">(${escapeHtml(pct(slice.value, total))})</span></span>
           <span class="value-col">${escapeHtml(formatValue(slice))}</span>
         </div>
       `).join('');

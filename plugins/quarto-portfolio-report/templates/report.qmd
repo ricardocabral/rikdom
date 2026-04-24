@@ -1,10 +1,10 @@
 ---
-title: "Rikdom Portfolio Report"
+title: "rikdom portfolio report"
 page-layout: full
 format:
   html:
     toc: false
-    theme: cosmo
+    theme: none
     grid:
       body-width: 1600px
       sidebar-width: 0px
@@ -14,26 +14,40 @@ format:
 
 ```{=html}
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
   :root {
-    --rk-bg: #f3f5f9;
-    --rk-surface: #ffffff;
-    --rk-surface-2: #f8fafc;
-    --rk-border: #d8e0ea;
-    --rk-text: #111827;
-    --rk-muted: #5b6678;
-    --rk-positive: #157f3b;
-    --rk-negative: #b42318;
-    --rk-primary: #2b67f6;
-    --rk-primary-soft: #dfe9ff;
-    --rk-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+    --rk-paper: #F4EFE6;
+    --rk-linen: #E9E2D4;
+    --rk-stone: #B8AE9E;
+    --rk-border-soft: #D9D1C1;
+    --rk-graphite: #4A4239;
+    --rk-ink: #1F1A14;
+    --rk-fjord: #2C4A6B;
+    --rk-moss: #5F6B3A;
+    --rk-rust: #8A3A1F;
+    --rk-amber: #B98A2C;
+
+    --rk-bg: var(--rk-paper);
+    --rk-surface: var(--rk-linen);
+    --rk-text: var(--rk-ink);
+    --rk-muted: var(--rk-graphite);
+    --rk-border: var(--rk-stone);
+    --rk-positive: var(--rk-moss);
+    --rk-negative: var(--rk-rust);
+    --rk-primary: var(--rk-fjord);
+
+    --rk-font-serif: "Fraunces", "Iowan Old Style", Georgia, serif;
+    --rk-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
   }
 
   body {
-    background:
-      radial-gradient(circle at 0% -10%, #eef3ff 0%, #f3f5f9 50%),
-      radial-gradient(circle at 100% 0%, #ecfdf3 0%, rgba(236, 253, 243, 0) 40%),
-      var(--rk-bg);
+    background: var(--rk-bg);
     color: var(--rk-text);
+    font-family: var(--rk-font-serif);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   #quarto-content,
@@ -45,309 +59,336 @@ format:
     width: 100% !important;
   }
 
-  .page-columns {
-    display: block !important;
-    grid-template-columns: none !important;
-  }
+  .page-columns { display: block !important; grid-template-columns: none !important; }
 
   body main.content {
     margin: 0 !important;
-    padding: 0 16px !important;
+    padding: 0 24px !important;
     grid-column: screen-start / screen-end !important;
   }
 
   .rk-app {
     width: 100%;
-    max-width: 1800px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 12px 8px 40px;
+    padding: 32px 8px 64px;
     box-sizing: border-box;
   }
 
   .rk-topbar {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-    margin: 6px 4px 16px;
+    align-items: flex-end;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rk-stone);
+    margin-bottom: 28px;
   }
 
+  .rk-brand { display:flex; align-items:baseline; gap:2px; }
+  .rk-wordmark {
+    font-family: var(--rk-font-serif);
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    font-variation-settings: 'opsz' 144, 'SOFT' 50;
+    color: var(--rk-ink);
+  }
+  .rk-dot { width:6px; height:6px; background:var(--rk-fjord); border-radius:50%; display:inline-block; margin-left:2px; translate:0 -2px; }
+
   .rk-title {
-    font-size: 1.45rem;
-    font-weight: 800;
-    margin: 0;
+    font-family: var(--rk-font-serif);
+    font-size: 1.75rem;
+    font-weight: 400;
+    font-variation-settings: 'opsz' 48;
     letter-spacing: -0.01em;
+    line-height: 1.15;
+    margin: 8px 0 0;
   }
 
   .rk-subtitle {
     color: var(--rk-muted);
-    font-size: 0.92rem;
+    font-family: var(--rk-font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    margin-top: 6px;
   }
 
-  .rk-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
+  .rk-chip-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
   .rk-chip {
-    border: 1px solid var(--rk-border);
-    background: var(--rk-surface);
-    color: var(--rk-muted);
-    font-size: 0.78rem;
-    border-radius: 999px;
-    padding: 4px 10px;
+    border: 1px solid var(--rk-stone);
+    background: transparent;
+    color: var(--rk-graphite);
+    font-family: var(--rk-font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    border-radius: 2px;
+    padding: 5px 10px;
+    text-transform: uppercase;
   }
 
   .rk-grid-main {
     display: grid;
     grid-template-columns: 2fr 1fr;
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 16px;
+    margin-bottom: 16px;
   }
 
   .rk-card {
-    background: var(--rk-surface);
-    border: 1px solid var(--rk-border);
-    border-radius: 14px;
-    box-shadow: var(--rk-shadow);
+    background: var(--rk-linen);
+    border: 1px solid var(--rk-stone);
+    border-radius: 4px;
     overflow: hidden;
   }
 
-  .rk-card-body {
-    padding: 16px;
-  }
+  .rk-card-body { padding: 24px; }
 
   .rk-label {
-    color: var(--rk-muted);
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
+    color: var(--rk-graphite);
+    font-family: var(--rk-font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   .rk-hero-value {
-    margin-top: 4px;
-    font-size: clamp(1.8rem, 3.8vw, 2.65rem);
-    font-weight: 800;
-    letter-spacing: -0.015em;
-    line-height: 1.1;
+    margin-top: 10px;
+    font-family: var(--rk-font-serif);
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 300;
+    font-variation-settings: 'opsz' 144, 'SOFT' 50;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: var(--rk-ink);
+    font-variant-numeric: tabular-nums;
   }
 
   .rk-signed {
-    margin-top: 6px;
-    font-weight: 700;
-    font-size: 1rem;
+    margin-top: 10px;
+    font-family: var(--rk-font-mono);
+    font-weight: 500;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
   }
 
-  .rk-positive {
-    color: var(--rk-positive);
-  }
-
-  .rk-negative {
-    color: var(--rk-negative);
-  }
+  .rk-positive { color: var(--rk-moss); }
+  .rk-negative { color: var(--rk-rust); }
 
   .rk-chart-shell {
-    margin-top: 14px;
-    background: linear-gradient(180deg, #f7f9fe 0%, #ffffff 90%);
-    border: 1px solid var(--rk-border);
-    border-radius: 12px;
-    padding: 10px;
+    margin-top: 18px;
+    background: var(--rk-paper);
+    border: 1px solid var(--rk-border-soft);
+    border-radius: 4px;
+    padding: 14px;
   }
 
   .rk-chart-meta {
-    margin-top: 8px;
-    color: var(--rk-muted);
-    font-size: 0.82rem;
+    margin-top: 10px;
+    color: var(--rk-graphite);
+    font-family: var(--rk-font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 16px;
+    gap: 6px 20px;
   }
+  .rk-chart-meta strong { color: var(--rk-ink); font-weight: 500; }
 
-  .rk-kpi-grid {
-    display: grid;
-    gap: 10px;
-    grid-template-columns: 1fr;
-  }
+  .rk-kpi-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
 
   .rk-kpi {
-    border: 1px solid var(--rk-border);
-    background: linear-gradient(180deg, #ffffff 0%, var(--rk-surface-2) 100%);
-    border-radius: 12px;
-    padding: 12px;
+    border: 1px solid var(--rk-stone);
+    background: var(--rk-linen);
+    border-radius: 4px;
+    padding: 18px;
   }
 
   .rk-kpi .value {
-    margin-top: 6px;
-    font-size: 1.2rem;
-    font-weight: 750;
+    margin-top: 8px;
+    font-family: var(--rk-font-serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+    font-variation-settings: 'opsz' 48;
     line-height: 1.1;
     letter-spacing: -0.01em;
+    color: var(--rk-ink);
+    font-variant-numeric: tabular-nums;
   }
 
   .rk-period-strip {
-    margin-top: 10px;
+    margin-top: 18px;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    gap: 0;
+    border: 1px solid var(--rk-border-soft);
+    border-radius: 4px;
+    overflow: hidden;
   }
 
   .rk-period {
-    border: 1px solid var(--rk-border);
-    border-radius: 10px;
-    padding: 9px;
-    background: #fff;
+    padding: 14px 16px;
+    background: var(--rk-paper);
+    border-right: 1px solid var(--rk-border-soft);
   }
+  .rk-period:last-child { border-right: 0; }
 
   .rk-period .name {
-    font-size: 0.76rem;
-    color: var(--rk-muted);
+    font-family: var(--rk-font-mono);
+    font-size: 0.68rem;
+    color: var(--rk-graphite);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.08em;
   }
 
   .rk-period .value {
-    margin-top: 4px;
-    font-size: 0.98rem;
-    font-weight: 700;
+    margin-top: 6px;
+    font-family: var(--rk-font-serif);
+    font-size: 1rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--rk-ink);
   }
 
   .rk-grid-mid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 16px;
+    margin-bottom: 16px;
   }
 
-  .rk-alloc {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .rk-alloc { display: flex; flex-direction: column; gap: 14px; }
+  .rk-alloc-title {
+    margin: 4px 0 0;
+    font-family: var(--rk-font-serif);
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--rk-ink);
   }
 
-  .rk-donut-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
+  .rk-donut-row { display: flex; align-items: center; gap: 16px; }
 
   .rk-donut {
-    width: 106px;
-    height: 106px;
+    width: 104px;
+    height: 104px;
     border-radius: 50%;
-    background: var(--rk-donut-gradient, #dbeafe);
+    background: var(--rk-donut-gradient, var(--rk-border-soft));
     position: relative;
     flex: 0 0 auto;
   }
-
   .rk-donut::after {
     content: "";
     position: absolute;
-    inset: 17px;
+    inset: 16px;
     border-radius: 50%;
-    background: #fff;
-    border: 1px solid var(--rk-border);
+    background: var(--rk-linen);
+    border: 1px solid var(--rk-border-soft);
   }
 
-  .rk-list {
-    display: grid;
-    gap: 8px;
-    width: 100%;
-  }
+  .rk-list { display: grid; gap: 8px; width: 100%; font-family: var(--rk-font-mono); }
 
   .rk-list-row {
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
-    gap: 7px;
-    font-size: 0.86rem;
+    gap: 10px;
+    font-size: 0.8rem;
   }
 
-  .rk-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-  }
+  .rk-dot { width: 10px; height: 10px; border-radius: 0; }
 
   .rk-list-row .name {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #1f2937;
+    color: var(--rk-ink);
   }
 
-  .rk-list-row .value {
-    color: var(--rk-muted);
-    font-size: 0.82rem;
-  }
+  .rk-list-row .value { color: var(--rk-graphite); font-variant-numeric: tabular-nums; }
 
   .rk-holdings table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.88rem;
+    font-family: var(--rk-font-serif);
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .rk-holdings th,
   .rk-holdings td {
-    padding: 10px 8px;
-    border-bottom: 1px solid #ebeff5;
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--rk-border-soft);
     text-align: left;
     vertical-align: middle;
   }
 
-  .rk-holdings th {
-    color: var(--rk-muted);
+  .rk-holdings thead th {
+    color: var(--rk-graphite);
+    font-family: var(--rk-font-mono);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
-    font-size: 0.75rem;
-    font-weight: 700;
-    background: #fbfcff;
+    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+    font-weight: 500;
+    background: transparent;
+    border-bottom: 1px solid var(--rk-stone);
   }
 
   .rk-bar-track {
-    height: 8px;
-    border-radius: 999px;
-    background: #edf1f7;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--rk-border-soft);
     overflow: hidden;
   }
 
   .rk-bar-fill {
     height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, #2b67f6 0%, #4f8cff 100%);
+    border-radius: 2px;
+    background: var(--rk-fjord);
   }
 
   .rk-empty {
-    font-size: 0.9rem;
-    color: var(--rk-muted);
+    font-family: var(--rk-font-mono);
+    font-size: 0.82rem;
+    color: var(--rk-graphite);
     margin: 0;
   }
 
   .rk-footnote {
-    margin-top: 10px;
-    color: var(--rk-muted);
-    font-size: 0.8rem;
+    margin-top: 14px;
+    color: var(--rk-graphite);
+    font-family: var(--rk-font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
   }
 
   @media (max-width: 980px) {
-    .rk-grid-mid {
-      grid-template-columns: 1fr;
-    }
-
-    .rk-period-strip {
-      grid-template-columns: 1fr;
-    }
-
-    .rk-donut-row {
-      align-items: flex-start;
-    }
+    .rk-grid-mid { grid-template-columns: 1fr; }
+    .rk-period-strip { grid-template-columns: 1fr; }
+    .rk-period { border-right: 0; border-bottom: 1px solid var(--rk-border-soft); }
+    .rk-period:last-child { border-bottom: 0; }
+    .rk-donut-row { align-items: flex-start; }
   }
 
   @media (max-width: 760px) {
-    .rk-grid-main {
-      grid-template-columns: 1fr;
+    .rk-grid-main { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --rk-paper: #14161A;
+      --rk-linen: #1B1E23;
+      --rk-stone: #2E3138;
+      --rk-border-soft: #24272D;
+      --rk-graphite: #B8B1A1;
+      --rk-ink: #E8E3D8;
+      --rk-fjord: #8AA9CE;
+      --rk-moss: #9AAE6B;
+      --rk-rust: #C9775A;
+      --rk-amber: #D9B070;
+      color-scheme: dark;
     }
   }
 </style>
@@ -558,15 +599,16 @@ format:
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
 
+    // rikdom palette — ink/graphite/stone ladder + fjord/moss/amber/rust accents
     const palette = [
-      "#2b67f6",
-      "#19a974",
-      "#f59e0b",
-      "#ef4444",
-      "#8b5cf6",
-      "#06b6d4",
-      "#6366f1",
-      "#14b8a6"
+      "#1F1A14",
+      "#4A4239",
+      "#8A7A64",
+      "#B8AE9E",
+      "#2C4A6B",
+      "#5F6B3A",
+      "#B98A2C",
+      "#8A3A1F"
     ];
 
     const renderTrendChart = () => {
@@ -595,18 +637,11 @@ format:
 
       return `
         <svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Portfolio evolution chart">
-          <defs>
-            <linearGradient id="rk-area" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#4f8cff" stop-opacity="0.34" />
-              <stop offset="100%" stop-color="#4f8cff" stop-opacity="0.03" />
-            </linearGradient>
-          </defs>
-          <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
-          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#d9e1ec" />
-          <path d="${area}" fill="url(#rk-area)"></path>
-          <path d="${line}" fill="none" stroke="#2b67f6" stroke-width="3"></path>
-          <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4.5" fill="#2b67f6"></circle>
-          <circle cx="${first.x.toFixed(1)}" cy="${first.y.toFixed(1)}" r="3" fill="#93c5fd"></circle>
+          <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
+          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#B8AE9E" />
+          <path d="${line}" fill="none" stroke="#2C4A6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" fill="#2C4A6B"></circle>
+          <circle cx="${first.x.toFixed(1)}" cy="${first.y.toFixed(1)}" r="2.5" fill="#B8AE9E"></circle>
         </svg>
       `;
     };
@@ -623,7 +658,7 @@ format:
             <div class="rk-card-body rk-alloc">
               <div>
                 <div class="rk-label">Breakdown</div>
-                <h3 style="margin:4px 0 0;font-size:1.05rem;">${escapeHtml(title)}</h3>
+                <h3 class="rk-alloc-title">${escapeHtml(title)}</h3>
               </div>
               <p class="rk-empty">No data available.</p>
             </div>
@@ -658,7 +693,7 @@ format:
           <div class="rk-card-body rk-alloc">
             <div>
               <div class="rk-label">Breakdown</div>
-              <h3 style="margin:4px 0 0;font-size:1.05rem;">${escapeHtml(title)}</h3>
+              <h3 class="rk-alloc-title">${escapeHtml(title)}</h3>
             </div>
             <div class="rk-donut-row">
               <div class="rk-donut" style="--rk-donut-gradient: conic-gradient(${segments.join(",")});"></div>
@@ -720,8 +755,9 @@ format:
     app.innerHTML = `
       <header class="rk-topbar">
         <div>
+          <div class="rk-brand"><span class="rk-wordmark">rikdom</span><span class="rk-dot"></span></div>
           <h1 class="rk-title">${escapeHtml(portfolioName)}</h1>
-          <div class="rk-subtitle">Static portfolio dashboard inspired by Ghostfolio's overview and analysis layout.</div>
+          <div class="rk-subtitle">Static portfolio report · base ${escapeHtml(baseCurrency)}</div>
         </div>
         <div class="rk-chip-row">
           <span class="rk-chip">Base ${escapeHtml(baseCurrency)}</span>
@@ -733,57 +769,57 @@ format:
       <section class="rk-grid-main">
         <article class="rk-card">
           <div class="rk-card-body">
-            <div class="rk-label">Total Amount</div>
+            <div class="rk-label">Total amount</div>
             <div class="rk-hero-value">${formatMoney(latestValue, baseCurrency)}</div>
             <div class="rk-signed ${signClass(maxChange)}">
-              ${maxChange === null ? "-" : `${formatSignedMoney(maxChange, baseCurrency)} (${formatSignedPct(maxChangePct)})`}
-              <span style="color:var(--rk-muted);font-weight:500;"> since first snapshot</span>
+              ${maxChange === null ? "—" : `${formatSignedMoney(maxChange, baseCurrency)} (${formatSignedPct(maxChangePct)})`}
+              <span style="color:var(--rk-graphite);font-weight:400;"> since first snapshot</span>
             </div>
 
             <div class="rk-period-strip">
               <div class="rk-period">
-                <div class="name">Latest Interval</div>
+                <div class="name">Latest interval</div>
                 <div class="value ${signClass(intervalChange)}">
-                  ${intervalChange === null ? "-" : `${formatSignedMoney(intervalChange, baseCurrency)} (${formatSignedPct(intervalChangePct)})`}
+                  ${intervalChange === null ? "—" : `${formatSignedMoney(intervalChange, baseCurrency)} (${formatSignedPct(intervalChangePct)})`}
                 </div>
               </div>
               <div class="rk-period">
-                <div class="name">Period Min/Max</div>
+                <div class="name">Period min / max</div>
                 <div class="value">${formatMoney(minValue, baseCurrency)} / ${formatMoney(maxValue, baseCurrency)}</div>
               </div>
               <div class="rk-period">
-                <div class="name">Largest Currency Share</div>
+                <div class="name">Largest currency share</div>
                 <div class="value">${formatPct(maxCurrencyShare, 1)}</div>
               </div>
             </div>
 
             <div class="rk-chart-shell">${renderTrendChart()}</div>
             <div class="rk-chart-meta">
-              <span>Coverage: <strong>${escapeHtml(dateLabel(timelineFirst))}</strong> to <strong>${escapeHtml(dateLabel(timelineLast))}</strong></span>
-              <span>Snapshots: <strong>${timeline.length}</strong></span>
-              <span>Updated: <strong>${escapeHtml(dateTimeLabel(timelineLast))}</strong></span>
+              <span>Coverage <strong>${escapeHtml(dateLabel(timelineFirst))}</strong> to <strong>${escapeHtml(dateLabel(timelineLast))}</strong></span>
+              <span>Snapshots <strong>${timeline.length}</strong></span>
+              <span>Updated <strong>${escapeHtml(dateTimeLabel(timelineLast))}</strong></span>
             </div>
           </div>
         </article>
 
         <aside class="rk-kpi-grid">
           <article class="rk-kpi">
-            <div class="rk-label">Top Holding Concentration</div>
+            <div class="rk-label">Top holding concentration</div>
             <div class="value">${formatPct(largestHoldingShare, 1)}</div>
             <div class="rk-footnote">Largest holding relative to latest total value.</div>
           </article>
           <article class="rk-kpi">
-            <div class="rk-label">Currencies Tracked</div>
+            <div class="rk-label">Currencies tracked</div>
             <div class="value">${Object.keys(currencySplit || {}).length}</div>
             <div class="rk-footnote">From current holdings market values.</div>
           </article>
           <article class="rk-kpi">
-            <div class="rk-label">Asset Buckets</div>
+            <div class="rk-label">Asset buckets</div>
             <div class="value">${Object.keys(assetTypeBreakdown || {}).length}</div>
             <div class="rk-footnote">Debt classes are grouped into debt_instrument.</div>
           </article>
           <article class="rk-kpi">
-            <div class="rk-label">Top Holdings Listed</div>
+            <div class="rk-label">Top holdings listed</div>
             <div class="value">${topHoldings.length}</div>
             <div class="rk-footnote">Limited to report payload top list.</div>
           </article>
@@ -791,15 +827,15 @@ format:
       </section>
 
       <section class="rk-grid-mid">
-        ${renderAllocation("Currency Split", currencySplit, baseCurrency)}
-        ${renderAllocation("Asset Type Breakdown", assetTypeBreakdown, baseCurrency)}
+        ${renderAllocation("Currency split", currencySplit, baseCurrency)}
+        ${renderAllocation("Asset type breakdown", assetTypeBreakdown, baseCurrency)}
         ${renderAllocation("Geography", geography, baseCurrency)}
       </section>
 
       <section class="rk-card">
         <div class="rk-card-body">
           <div class="rk-label">Holdings</div>
-          <h2 style="margin:4px 0 12px;font-size:1.15rem;">Top Holdings</h2>
+          <h2 class="rk-alloc-title" style="margin:4px 0 14px;">Top holdings</h2>
           ${renderHoldingsTable()}
           <p class="rk-footnote">
             Holdings use the amounts provided in the current payload. When holdings contain multiple currencies,
