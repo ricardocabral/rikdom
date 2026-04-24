@@ -455,6 +455,65 @@ class QuartoPluginTests(unittest.TestCase):
             self.assertNotIn("UNKNOWN", converted_base)
             self.assertIn("UNKNOWN", missing_rates)
 
+    def test_quarto_report_does_not_crash_on_invalid_base_currency(self) -> None:
+        """Malformed `settings.base_currency` must not crash rendering.
+
+        The dashboard JS validates currency codes against `^[A-Z]{3}$`
+        and falls back to a safe default; the Python side should also
+        produce a JSON payload without raising.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            portfolio_path = tmp / "portfolio.json"
+            snapshots_path = tmp / "snapshots.jsonl"
+            out_dir = tmp / "out"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            portfolio_path.write_text(
+                json.dumps(
+                    {
+                        "profile": {"display_name": "Bad Currency"},
+                        "settings": {"base_currency": "not-a-code"},
+                        "asset_type_catalog": [
+                            {"id": "stock", "asset_class": "stocks"}
+                        ],
+                        "holdings": [
+                            {
+                                "id": "h1",
+                                "asset_type_id": "stock",
+                                "market_value": {"amount": 100, "currency": "USD"},
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            snapshots_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-21T00:00:00Z",
+                        "totals": {"portfolio_value_base": 100},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            # Must not raise.
+            result = run_output_pipeline(
+                plugin_name="quarto-portfolio-report",
+                plugins_dir="plugins",
+                portfolio_path=str(portfolio_path),
+                snapshots_path=str(snapshots_path),
+                output_dir=str(out_dir),
+            )
+
+            json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
+            payload = json.loads(
+                Path(json_artifact["path"]).read_text(encoding="utf-8")
+            )
+            self.assertIn("sections", payload)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1280,6 +1280,37 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_viz.set_defaults(func=cmd_viz)
 
+    def _deprecated_viz_alias(alias: str):
+        def _run(args: argparse.Namespace) -> int:
+            print(
+                f"[deprecation] `rikdom {alias}` is deprecated; use `rikdom viz` instead.",
+                file=sys.stderr,
+            )
+            return cmd_viz(args)
+
+        return _run
+
+    def _register_viz_alias(name: str, help_text: str) -> None:
+        parser_alias = sub.add_parser(name, help=help_text)
+        parser_alias.add_argument("--portfolio", default=None)
+        parser_alias.add_argument("--snapshots", default=None)
+        parser_alias.add_argument("--fx-history", default=None)
+        parser_alias.add_argument("--out", default=None)
+        parser_alias.add_argument("--include-current", action="store_true")
+        # render-report historical flags (accepted for compatibility, unused)
+        parser_alias.add_argument("--plugin", default=None)
+        parser_alias.add_argument("--plugins-dir", default=None)
+        _add_workspace_options(
+            parser_alias,
+            with_out_root=True,
+            with_portfolio_name=True,
+            with_registry=True,
+        )
+        parser_alias.set_defaults(func=_deprecated_viz_alias(name))
+
+    _register_viz_alias("visualize", "Deprecated alias for `viz`")
+    _register_viz_alias("render-report", "Deprecated alias for `viz`")
+
     p_import = sub.add_parser(
         "import-statement", help="Import holdings using a community plugin"
     )

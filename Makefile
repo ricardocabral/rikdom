@@ -1,4 +1,5 @@
 .PHONY: help sync bootstrap validate validate-fixture aggregate snapshot viz \
+	visualize render-report \
 	plugins-list import-sample storage-sync migrate-dry-run \
 	test lint check
 
@@ -51,6 +52,15 @@ snapshot:
 
 viz:
 	uv run rikdom viz $(WORKSPACE_ARGS) --include-current
+
+# Deprecated aliases for `viz` (kept one transition release).
+visualize:
+	@echo "[deprecation] 'make visualize' is deprecated; use 'make viz' instead." 1>&2
+	@$(MAKE) viz
+
+render-report:
+	@echo "[deprecation] 'make render-report' is deprecated; use 'make viz' instead." 1>&2
+	@$(MAKE) viz
 
 plugins-list:
 	uv run rikdom plugins list --plugins-dir plugins
