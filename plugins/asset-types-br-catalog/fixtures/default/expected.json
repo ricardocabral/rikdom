@@ -1623,7 +1623,7 @@
         "value_type": "string"
       }
     ],
-    "label": "Ação"
+    "label": "A\u00e7\u00e3o"
   },
   {
     "asset_class": "funds",
@@ -1843,6 +1843,941 @@
         "value_type": "string"
       }
     ],
-    "label": "Previdência Privada"
+    "label": "Previd\u00eancia Privada"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "stocks",
+          "currency": "USD",
+          "factor": "broad_market",
+          "liquidity_tier": "t1",
+          "region": "US",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high",
+      "notes": "Unhedged exposure to S&P 500; BRL-quoted shares with USD-denominated underlying."
+    },
+    "id": "etf_ivvb11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "INTERNACIONAL"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF IVVB11 (S&P 500 via iShares BR)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "stocks",
+          "currency": "BRL",
+          "factor": "broad_market",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high"
+    },
+    "id": "etf_bova11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_VARIAVEL"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF BOVA11 (Ibovespa via iShares BR)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "stocks",
+          "currency": "BRL",
+          "factor": "size_small",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high"
+    },
+    "id": "etf_smal11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_VARIAVEL"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF SMAL11 (Small Caps BR via iShares)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "stocks",
+          "currency": "BRL",
+          "factor": "value",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high"
+    },
+    "id": "etf_divo11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_VARIAVEL"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF DIVO11 (Dividendos BR)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "debt",
+          "currency": "BRL",
+          "duration": "intermediate",
+          "factor": "sovereign_prefixed",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high",
+      "notes": "Tracked as stock at the broker, but economically Brazilian sovereign prefixed debt."
+    },
+    "id": "etf_fixa11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_FIXA"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF FIXA11 (Renda Fixa Prefixada IRF-M)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "debt",
+          "currency": "BRL",
+          "duration": "long",
+          "factor": "sovereign_inflation_linked",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high",
+      "notes": "Brazilian inflation-linked (NTN-B) sovereign debt."
+    },
+    "id": "etf_imab11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_FIXA"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF IMAB11 (Renda Fixa IMA-B infla\u00e7\u00e3o)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "debt",
+          "currency": "BRL",
+          "duration": "short",
+          "factor": "sovereign_floating",
+          "liquidity_tier": "t0",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high"
+    },
+    "id": "etf_b5p211",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_FIXA"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF B5P211 (Tesouro Selic curto)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "commodities",
+          "currency": "USD",
+          "liquidity_tier": "t1",
+          "region": "GLOBAL",
+          "sector": "precious_metals",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high",
+      "notes": "Physically-backed gold exposure; listed as stock at B3."
+    },
+    "id": "etf_gold11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "COMMODITIES"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF GOLD11 (Ouro)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "cryptocurrencies",
+          "currency": "USD",
+          "liquidity_tier": "t1",
+          "region": "GLOBAL",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high"
+    },
+    "id": "etf_hash11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CRIPTO"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF HASH11 (Cripto cesta)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "stocks",
+          "currency": "USD",
+          "factor": "broad_market",
+          "liquidity_tier": "t1",
+          "region": "US",
+          "weight_pct": 62
+        },
+        {
+          "asset_class": "stocks",
+          "currency": "USD",
+          "factor": "broad_market",
+          "liquidity_tier": "t1",
+          "region": "ex_US_DM",
+          "weight_pct": 27
+        },
+        {
+          "asset_class": "stocks",
+          "currency": "USD",
+          "factor": "broad_market",
+          "liquidity_tier": "t1",
+          "region": "EM",
+          "weight_pct": 11
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high",
+      "notes": "Approximate regional split based on MSCI ACWI weights; refresh periodically."
+    },
+    "id": "etf_acwi11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "INTERNACIONAL"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF ACWI11 (MSCI ACWI global)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "stocks",
+          "currency": "USD",
+          "factor": "broad_market",
+          "liquidity_tier": "t1",
+          "region": "EM_CN",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high"
+    },
+    "id": "etf_xina11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "INTERNACIONAL"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF XINA11 (China MSCI)"
+  },
+  {
+    "asset_class": "funds",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "reits",
+          "currency": "BRL",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "issuer_prospectus",
+      "confidence": "high",
+      "notes": "Tracks IFIX; economically real estate (FIIs) despite trading as an ETF."
+    },
+    "id": "etf_xfix11",
+    "instrument_attributes": [
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "RENDA_VARIAVEL"
+        ],
+        "id": "underlying_class",
+        "label": "Underlying Asset Class",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "benchmark_index",
+        "label": "Benchmark Index",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "ETF XFIX11 (IFIX - cesta de FIIs)"
   }
 ]

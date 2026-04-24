@@ -88,6 +88,332 @@ def _attrs_credit_letter_or_debenture() -> list[dict]:
     ]
 
 
+def _etf_attrs(*, underlying_class: str) -> list[dict]:
+    """Return ETF instrument attributes pre-filled with the known underlying_class enum."""
+    return [
+        _attr("b3_ticker", "B3 Ticker", "string", required=True, pattern=BRAZIL_B3_TICKER_REGEX),
+        _attr("isin", "ISIN", "string", required=False, pattern=BRAZIL_ISIN_REGEX),
+        _attr("fund_cnpj", "Fund CNPJ", "string", required=False, pattern=BRAZIL_CNPJ_REGEX),
+        _attr(
+            "underlying_class",
+            "Underlying Asset Class",
+            "string",
+            required=True,
+            enum=[underlying_class],
+        ),
+        _attr("benchmark_index", "Benchmark Index", "string", required=False),
+        _attr(
+            "tax_profile.ir_pf_treatment",
+            "Tax Profile: IR PF Treatment",
+            "string",
+            required=True,
+            enum=_IR_PF_TREATMENT_ENUM,
+        ),
+    ]
+
+
+def _known_br_etfs() -> list[dict]:
+    """Specialised B3 ETF asset types with pre-filled economic_exposure.
+
+    Brokers and exchanges classify every listed ETF as 'stocks' for trading
+    purposes, which distorts economic risk analysis for bond, REIT, or
+    commodity ETFs. These entries declare the look-through exposure so
+    agents can analyse the portfolio against the user's IPS dimensions
+    (asset_class, region, currency, factor, duration) without being fooled
+    by the wrapper. Holdings may override via holding.economic_exposure.
+    Source: public issuer factsheets and prospectuses as of 2026-04.
+    """
+    return [
+        {
+            "id": "etf_ivvb11",
+            "label": "ETF IVVB11 (S&P 500 via iShares BR)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="INTERNACIONAL"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "notes": "Unhedged exposure to S&P 500; BRL-quoted shares with USD-denominated underlying.",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "stocks",
+                        "region": "US",
+                        "currency": "USD",
+                        "factor": "broad_market",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_bova11",
+            "label": "ETF BOVA11 (Ibovespa via iShares BR)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="RENDA_VARIAVEL"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "stocks",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "factor": "broad_market",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_smal11",
+            "label": "ETF SMAL11 (Small Caps BR via iShares)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="RENDA_VARIAVEL"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "stocks",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "factor": "size_small",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_divo11",
+            "label": "ETF DIVO11 (Dividendos BR)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="RENDA_VARIAVEL"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "stocks",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "factor": "value",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_fixa11",
+            "label": "ETF FIXA11 (Renda Fixa Prefixada IRF-M)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="RENDA_FIXA"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "notes": "Tracked as stock at the broker, but economically Brazilian sovereign prefixed debt.",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "debt",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "duration": "intermediate",
+                        "factor": "sovereign_prefixed",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_imab11",
+            "label": "ETF IMAB11 (Renda Fixa IMA-B inflação)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="RENDA_FIXA"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "notes": "Brazilian inflation-linked (NTN-B) sovereign debt.",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "debt",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "duration": "long",
+                        "factor": "sovereign_inflation_linked",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_b5p211",
+            "label": "ETF B5P211 (Tesouro Selic curto)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="RENDA_FIXA"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "debt",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "duration": "short",
+                        "factor": "sovereign_floating",
+                        "liquidity_tier": "t0",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_gold11",
+            "label": "ETF GOLD11 (Ouro)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="COMMODITIES"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "notes": "Physically-backed gold exposure; listed as stock at B3.",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "commodities",
+                        "region": "GLOBAL",
+                        "currency": "USD",
+                        "sector": "precious_metals",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_hash11",
+            "label": "ETF HASH11 (Cripto cesta)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="CRIPTO"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "cryptocurrencies",
+                        "region": "GLOBAL",
+                        "currency": "USD",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_acwi11",
+            "label": "ETF ACWI11 (MSCI ACWI global)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="INTERNACIONAL"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "notes": "Approximate regional split based on MSCI ACWI weights; refresh periodically.",
+                "breakdown": [
+                    {
+                        "weight_pct": 62,
+                        "asset_class": "stocks",
+                        "region": "US",
+                        "currency": "USD",
+                        "factor": "broad_market",
+                        "liquidity_tier": "t1",
+                    },
+                    {
+                        "weight_pct": 27,
+                        "asset_class": "stocks",
+                        "region": "ex_US_DM",
+                        "currency": "USD",
+                        "factor": "broad_market",
+                        "liquidity_tier": "t1",
+                    },
+                    {
+                        "weight_pct": 11,
+                        "asset_class": "stocks",
+                        "region": "EM",
+                        "currency": "USD",
+                        "factor": "broad_market",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_xina11",
+            "label": "ETF XINA11 (China MSCI)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="INTERNACIONAL"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "stocks",
+                        "region": "EM_CN",
+                        "currency": "USD",
+                        "factor": "broad_market",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "etf_xfix11",
+            "label": "ETF XFIX11 (IFIX - cesta de FIIs)",
+            "asset_class": "funds",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _etf_attrs(underlying_class="RENDA_VARIAVEL"),
+            "economic_exposure": {
+                "classification_source": "issuer_prospectus",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "notes": "Tracks IFIX; economically real estate (FIIs) despite trading as an ETF.",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "reits",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+    ]
+
+
 def _attrs_securitized() -> list[dict]:
     return [
         _attr(
@@ -481,4 +807,5 @@ class Plugin:
                     ),
                 ],
             },
+            *_known_br_etfs(),
         ]

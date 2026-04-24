@@ -1,553 +1,843 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.org/rikdom/schema/portfolio.schema.json",
-  "title": "Rikdom Portfolio",
-  "description": "Portable long-term portfolio schema focused on readability, extensibility and deterministic imports.",
-  "type": "object",
-  "required": [
-    "schema_version",
-    "schema_uri",
-    "profile",
-    "settings",
-    "asset_type_catalog",
-    "holdings"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "schema_version": {
-      "type": "string",
-      "description": "Semantic version of this schema profile.",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
-    },
-    "schema_uri": {
-      "type": "string",
-      "description": "Canonical URI for this schema contract and compatibility policy."
-    },
-    "profile": {
-      "type": "object",
-      "required": ["portfolio_id", "owner_kind", "display_name"],
-      "additionalProperties": false,
-      "properties": {
-        "portfolio_id": {
-          "type": "string"
-        },
-        "owner_kind": {
-          "type": "string",
-          "enum": ["person", "company", "family_office", "trust", "other"]
-        },
-        "display_name": {
-          "type": "string"
-        },
-        "country": {
-          "type": "string",
-          "pattern": "^[A-Z]{2}$"
-        },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
-    "settings": {
-      "type": "object",
-      "required": ["base_currency"],
-      "additionalProperties": false,
-      "properties": {
-        "base_currency": {
-          "type": "string",
-          "pattern": "^[A-Z]{3}$"
-        },
-        "timezone": {
-          "type": "string"
-        },
-        "country_context": {
-          "type": "string",
-          "pattern": "^[A-Z]{2}$"
-        }
-      }
-    },
-    "asset_type_catalog": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/AssetTypeDefinition"
-      }
-    },
-    "holdings": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/Holding"
-      }
-    },
-    "activities": {
-      "type": "array",
-      "description": "Immutable import/events ledger. Derived projections should be computed from this stream.",
-      "items": {
-        "$ref": "#/$defs/Activity"
-      }
-    },
-    "operations": {
-      "type": "object",
-      "description": "Optional operational task registry and immutable occurrence ledger for recurring portfolio work.",
-      "additionalProperties": false,
-      "properties": {
-        "task_catalog": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/OperationalTask"
-          }
-        },
-        "task_events": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/OperationalTaskEvent"
-          }
-        }
-      }
-    },
-    "projections": {
-      "type": "object",
-      "description": "Optional derived projections (positions, performance, tax lots).",
-      "additionalProperties": true
-    },
-    "notes": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "extensions": {
-      "type": "object",
-      "description": "Namespace for custom long-term fields to avoid breaking core compatibility.",
-      "additionalProperties": true
-    }
-  },
-  "$defs": {
-    "Money": {
-      "type": "object",
-      "required": ["amount", "currency"],
-      "additionalProperties": false,
-      "properties": {
-        "amount": {
-          "type": "number"
-        },
-        "currency": {
-          "type": "string",
-          "pattern": "^[A-Z]{3}$"
-        },
-        "scale": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Optional decimal scale used by importer source."
-        },
-        "precision": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Optional significant precision marker from importer source."
-        }
-      }
-    },
-    "InstrumentAttributeDefinition": {
-      "type": "object",
-      "required": ["id", "label", "value_type"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z0-9_\\-]+$"
-        },
-        "label": {
-          "type": "string"
-        },
-        "value_type": {
-          "type": "string",
-          "enum": ["string", "integer", "number", "boolean"]
-        },
-        "required": {
-          "type": "boolean",
-          "default": false
-        },
-        "description": {
-          "type": "string"
-        },
-        "enum": {
-          "type": "array",
-          "items": {
-            "type": ["string", "integer", "number", "boolean"]
-          }
-        },
-        "unit": {
-          "type": "string"
-        }
-      }
-    },
-    "AssetTypeDefinition": {
-      "type": "object",
-      "required": ["id", "label", "asset_class"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z0-9_\\-]+$"
-        },
-        "label": {
-          "type": "string"
-        },
-        "asset_class": {
-          "type": "string",
-          "description": "Top-level aggregation class.",
-          "enum": [
-            "stocks",
-            "reits",
-            "funds",
-            "real_estate",
-            "cash_equivalents",
-            "digital_assets",
-            "cryptocurrencies",
-            "private_equity",
-            "debt",
-            "other"
-          ]
-        },
-        "availability": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "countries": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "pattern": "^[A-Z]{2}$"
-              }
-            },
-            "notes": {
-              "type": "string"
-            }
-          }
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "instrument_attributes": {
-          "type": "array",
-          "description": "Per-asset-type attribute schema for instrument-specific fields.",
-          "items": {
-            "$ref": "#/$defs/InstrumentAttributeDefinition"
-          }
-        }
-      }
-    },
-    "Holding": {
-      "type": "object",
-      "required": [
-        "id",
-        "asset_type_id",
-        "label",
-        "market_value"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "asset_type_id": {
-          "type": "string",
-          "pattern": "^[a-z0-9_\\-]+$"
-        },
-        "label": {
-          "type": "string"
-        },
-        "jurisdiction": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "country": {
-              "type": "string",
-              "pattern": "^[A-Z]{2}$"
-            }
-          }
-        },
-        "identifiers": {
-          "type": "object",
-          "additionalProperties": true,
-          "properties": {
-            "ticker": { "type": "string" },
-            "isin": { "type": "string" },
-            "provider_account_id": { "type": "string" },
-            "wallet": { "type": "string" }
-          }
-        },
-        "quantity": {
-          "type": "number"
-        },
-        "unit_cost": {
-          "$ref": "#/$defs/Money"
-        },
-        "market_value": {
-          "$ref": "#/$defs/Money"
-        },
-        "as_of": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "provenance": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "source_system": { "type": "string" },
-            "source_ref": { "type": "string" },
-            "import_run_id": { "type": "string" },
-            "idempotency_key": { "type": "string" },
-            "ingested_at": { "type": "string", "format": "date-time" },
-            "raw_payload_ref": { "type": "string" }
-          }
-        },
-        "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "instrument_attributes": {
-          "type": "object",
-          "description": "Instrument-specific values keyed by ids declared in asset_type_catalog[].instrument_attributes.",
-          "additionalProperties": {
-            "type": ["string", "integer", "number", "boolean"]
-          }
-        },
-        "extensions": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      }
-    },
-    "Activity": {
-      "type": "object",
-      "required": [
-        "id",
-        "event_type",
-        "status",
-        "effective_at"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": { "type": "string" },
-        "event_type": {
-          "type": "string",
-          "enum": [
-            "buy",
-            "sell",
-            "dividend",
-            "interest",
-            "fee",
-            "transfer_in",
-            "transfer_out",
-            "split",
-            "income",
-            "reimbursement",
-            "other"
-          ]
-        },
-        "subtype": { "type": "string" },
-        "status": {
-          "type": "string",
-          "enum": ["pending", "posted", "cancelled"]
-        },
-        "effective_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "source_system": { "type": "string" },
-        "source_ref": { "type": "string" },
-        "import_run_id": { "type": "string" },
-        "ingested_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "idempotency_key": { "type": "string" },
-        "asset_type_id": {
-          "type": "string",
-          "pattern": "^[a-z0-9_\\-]+$"
-        },
-        "instrument": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "quantity": {
-          "type": "number"
-        },
-        "money": {
-          "$ref": "#/$defs/Money"
-        },
-        "fees": {
-          "$ref": "#/$defs/Money"
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "extensions": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      }
-    },
-    "CadenceRule": {
-      "type": "object",
-      "required": ["frequency"],
-      "additionalProperties": false,
-      "properties": {
-        "frequency": {
-          "type": "string",
-          "enum": ["monthly", "quarterly", "yearly", "custom"]
-        },
-        "interval": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Repeat interval for fixed-frequency cadences. Example: every 2 months."
-        },
-        "by_month_day": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 31
-        },
-        "by_month": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 12
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        },
-        "due_timezone": {
-          "type": "string"
-        },
-        "rrule": {
-          "type": "string",
-          "description": "Optional RFC 5545 RRULE for custom schedules."
-        }
-      }
-    },
-    "OperationalTask": {
-      "type": "object",
-      "required": ["id", "label", "category", "status", "cadence"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z0-9_\\-]+$"
-        },
-        "label": {
-          "type": "string"
-        },
-        "category": {
-          "type": "string",
-          "enum": [
-            "rebalancing",
-            "tax",
-            "reporting",
-            "compliance",
-            "cash_management",
-            "risk_review",
-            "planning",
-            "other"
-          ]
-        },
-        "status": {
-          "type": "string",
-          "enum": ["active", "paused", "retired"]
-        },
-        "cadence": {
-          "$ref": "#/$defs/CadenceRule"
-        },
-        "first_due_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "next_due_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "last_completed_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "last_event_id": {
-          "type": "string"
-        },
-        "owner": {
-          "type": "string"
-        },
-        "notes": {
-          "type": "string"
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "extensions": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      }
-    },
-    "OperationalTaskEvent": {
-      "type": "object",
-      "required": ["id", "task_id", "event_type", "occurred_at"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "task_id": {
-          "type": "string",
-          "pattern": "^[a-z0-9_\\-]+$"
-        },
-        "event_type": {
-          "type": "string",
-          "enum": ["scheduled", "completed", "skipped", "cancelled", "reopened", "noted"]
-        },
-        "occurred_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "period_start": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "period_end": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "performed_by": {
-          "type": "string"
-        },
-        "summary": {
-          "type": "string"
-        },
-        "source_system": { "type": "string" },
-        "source_ref": { "type": "string" },
-        "import_run_id": { "type": "string" },
-        "idempotency_key": { "type": "string" },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "extensions": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      }
-    }
-  }
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://example.org/rikdom/schema/portfolio.schema.json",
+	"title": "Rikdom Portfolio",
+	"description": "Portable long-term portfolio schema focused on readability, extensibility and deterministic imports.",
+	"type": "object",
+	"required": [
+		"schema_version",
+		"schema_uri",
+		"profile",
+		"settings",
+		"asset_type_catalog",
+		"holdings"
+	],
+	"additionalProperties": false,
+	"properties": {
+		"schema_version": {
+			"type": "string",
+			"description": "Semantic version of this schema profile.",
+			"pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+		},
+		"schema_uri": {
+			"type": "string",
+			"description": "Canonical URI for this schema contract and compatibility policy."
+		},
+		"profile": {
+			"type": "object",
+			"required": ["portfolio_id", "owner_kind", "display_name"],
+			"additionalProperties": false,
+			"properties": {
+				"portfolio_id": {
+					"type": "string"
+				},
+				"owner_kind": {
+					"type": "string",
+					"enum": ["person", "company", "family_office", "trust", "other"]
+				},
+				"display_name": {
+					"type": "string"
+				},
+				"country": {
+					"type": "string",
+					"pattern": "^[A-Z]{2}$"
+				},
+				"created_at": {
+					"type": "string",
+					"format": "date-time"
+				}
+			}
+		},
+		"settings": {
+			"type": "object",
+			"required": ["base_currency"],
+			"additionalProperties": false,
+			"properties": {
+				"base_currency": {
+					"type": "string",
+					"pattern": "^[A-Z]{3}$"
+				},
+				"timezone": {
+					"type": "string"
+				},
+				"country_context": {
+					"type": "string",
+					"pattern": "^[A-Z]{2}$"
+				}
+			}
+		},
+		"asset_type_catalog": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/AssetTypeDefinition"
+			}
+		},
+		"holdings": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/Holding"
+			}
+		},
+		"activities": {
+			"type": "array",
+			"description": "Immutable import/events ledger. Derived projections should be computed from this stream.",
+			"items": {
+				"$ref": "#/$defs/Activity"
+			}
+		},
+		"operations": {
+			"type": "object",
+			"description": "Optional operational task registry and immutable occurrence ledger for recurring portfolio work.",
+			"additionalProperties": false,
+			"properties": {
+				"task_catalog": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/OperationalTask"
+					}
+				},
+				"task_events": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/OperationalTaskEvent"
+					}
+				}
+			}
+		},
+		"projections": {
+			"type": "object",
+			"description": "Optional derived projections (positions, performance, tax lots).",
+			"additionalProperties": true
+		},
+		"notes": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		},
+		"extensions": {
+			"type": "object",
+			"description": "Namespace for custom long-term fields to avoid breaking core compatibility.",
+			"additionalProperties": true
+		}
+	},
+	"$defs": {
+		"Money": {
+			"type": "object",
+			"required": ["amount", "currency"],
+			"additionalProperties": false,
+			"properties": {
+				"amount": {
+					"type": "number"
+				},
+				"currency": {
+					"type": "string",
+					"pattern": "^[A-Z]{3}$"
+				},
+				"scale": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Optional decimal scale used by importer source."
+				},
+				"precision": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Optional significant precision marker from importer source."
+				}
+			}
+		},
+		"DurationProfile": {
+			"type": "object",
+			"description": "Optional interest-rate sensitivity metrics for instruments where duration is meaningful.",
+			"additionalProperties": false,
+			"properties": {
+				"as_of": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"method": {
+					"type": "string",
+					"enum": [
+						"MACAULAY",
+						"MODIFIED",
+						"EFFECTIVE",
+						"KEY_RATE",
+						"PROVIDER_DEFINED"
+					]
+				},
+				"macaulay_years": {
+					"type": "number",
+					"minimum": 0
+				},
+				"modified_years": {
+					"type": "number",
+					"minimum": 0
+				},
+				"effective_years": {
+					"type": "number",
+					"minimum": 0
+				},
+				"dv01": {
+					"$ref": "#/$defs/Money"
+				},
+				"convexity": {
+					"type": "number"
+				},
+				"source": {
+					"type": "string"
+				},
+				"notes": {
+					"type": "string"
+				}
+			}
+		},
+		"CouponTerms": {
+			"type": "object",
+			"description": "Optional coupon/remuneration terms for debt-like instruments.",
+			"additionalProperties": false,
+			"properties": {
+				"coupon_type": {
+					"type": "string",
+					"enum": ["FIXED", "FLOATING", "ZERO_COUPON", "HYBRID", "OTHER"]
+				},
+				"payment_frequency": {
+					"type": "string",
+					"enum": [
+						"MONTHLY",
+						"QUARTERLY",
+						"SEMIANNUAL",
+						"ANNUAL",
+						"AT_MATURITY",
+						"IRREGULAR",
+						"NONE"
+					]
+				},
+				"fixed_rate_pct": {
+					"type": "number"
+				},
+				"indexer": {
+					"type": "string"
+				},
+				"floating_spread_pct": {
+					"type": "number"
+				},
+				"floating_spread_bps": {
+					"type": "integer"
+				},
+				"day_count_convention": {
+					"type": "string"
+				},
+				"accrual_start_date": {
+					"type": "string",
+					"format": "date"
+				},
+				"first_coupon_date": {
+					"type": "string",
+					"format": "date"
+				},
+				"next_coupon_date": {
+					"type": "string",
+					"format": "date"
+				},
+				"last_coupon_date": {
+					"type": "string",
+					"format": "date"
+				}
+			}
+		},
+		"CashFlowLeg": {
+			"type": "object",
+			"description": "Projected or contractual cash flow entry for instruments with predictable schedules.",
+			"required": ["date", "amount", "kind"],
+			"additionalProperties": false,
+			"properties": {
+				"date": {
+					"type": "string",
+					"format": "date"
+				},
+				"kind": {
+					"type": "string",
+					"enum": [
+						"INTEREST",
+						"PRINCIPAL",
+						"AMORTIZATION",
+						"FEE",
+						"TAX",
+						"OTHER"
+					]
+				},
+				"amount": {
+					"$ref": "#/$defs/Money"
+				},
+				"status": {
+					"type": "string",
+					"enum": ["PROJECTED", "CONFIRMED", "PAID", "CANCELLED"]
+				},
+				"rate_pct": {
+					"type": "number"
+				},
+				"notes": {
+					"type": "string"
+				}
+			}
+		},
+		"LiquidityTerms": {
+			"type": "object",
+			"description": "Optional lock-up and liquidity constraints for redemption/sale planning.",
+			"additionalProperties": false,
+			"properties": {
+				"liquidity_mode": {
+					"type": "string",
+					"enum": ["D_PLUS", "AT_MATURITY", "WINDOW", "NO_LIQUIDITY", "OTHER"]
+				},
+				"settlement_d_plus": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Settlement cycle in business days (D+n)."
+				},
+				"quotation_d_plus": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Quotation cycle in business days when different from settlement."
+				},
+				"minimum_holding_period_days": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"lockup_end_date": {
+					"type": "string",
+					"format": "date"
+				},
+				"notice_period_days": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"redemption_window_notes": {
+					"type": "string"
+				}
+			}
+		},
+		"FixedIncomeProfile": {
+			"type": "object",
+			"description": "Optional fixed-income analytical block. Populate only when it applies to the instrument.",
+			"additionalProperties": false,
+			"properties": {
+				"maturity_date": {
+					"type": "string",
+					"format": "date"
+				},
+				"duration": {
+					"$ref": "#/$defs/DurationProfile"
+				},
+				"coupon": {
+					"$ref": "#/$defs/CouponTerms"
+				},
+				"cash_flows": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/CashFlowLeg"
+					}
+				},
+				"liquidity": {
+					"$ref": "#/$defs/LiquidityTerms"
+				}
+			}
+		},
+		"EconomicExposure": {
+			"type": "object",
+			"description": "Economic (look-through) exposure of an asset type or holding. Lets agents classify wrappers like ETFs by their true exposure (e.g., a bond ETF filed as 'stocks' at the broker). When present, agents should prefer this over the broker-declared asset_class. Precedence: holding.economic_exposure > asset_type.economic_exposure > fallback to asset_type.asset_class at 100%.",
+			"required": ["breakdown"],
+			"additionalProperties": false,
+			"properties": {
+				"breakdown": {
+					"type": "array",
+					"description": "One or more exposure lines. Weights should sum to ~100 across lines; validators may allow small tolerance for residual cash not disclosed by the issuer.",
+					"minItems": 1,
+					"items": {
+						"$ref": "#/$defs/EconomicExposureLine"
+					}
+				},
+				"classification_source": {
+					"type": "string",
+					"enum": ["issuer_prospectus", "manual", "heuristic", "third_party_db", "llm_assisted"]
+				},
+				"as_of": {
+					"type": "string",
+					"format": "date"
+				},
+				"confidence": {
+					"type": "string",
+					"enum": ["high", "medium", "low"]
+				},
+				"notes": {
+					"type": "string"
+				}
+			}
+		},
+		"EconomicExposureLine": {
+			"type": "object",
+			"description": "A single look-through slice of exposure. Each line carries a weight and any subset of classification dimensions (asset_class, region, currency, sector, factor, duration, liquidity_tier).",
+			"required": ["weight_pct"],
+			"additionalProperties": false,
+			"properties": {
+				"weight_pct": {
+					"type": "number",
+					"minimum": 0,
+					"maximum": 100
+				},
+				"asset_class": {
+					"type": "string",
+					"enum": [
+						"stocks",
+						"reits",
+						"funds",
+						"real_estate",
+						"cash_equivalents",
+						"digital_assets",
+						"cryptocurrencies",
+						"private_equity",
+						"debt",
+						"commodities",
+						"other"
+					]
+				},
+				"region": {
+					"type": "string",
+					"description": "Free-form region bucket matching user's IPS dimensions (e.g., 'BR', 'US', 'EM_ex_BR', 'ex_US_DM', 'GLOBAL')."
+				},
+				"currency": {
+					"type": "string",
+					"pattern": "^[A-Z]{3}$"
+				},
+				"sector": {
+					"type": "string"
+				},
+				"factor": {
+					"type": "string",
+					"description": "e.g., 'growth', 'value', 'quality', 'momentum', 'size_small', 'size_large', 'broad_market'."
+				},
+				"duration": {
+					"type": "string",
+					"enum": ["cash", "short", "intermediate", "long", "ultra_long", "mixed", "n_a"]
+				},
+				"liquidity_tier": {
+					"type": "string",
+					"enum": ["t0", "t1", "t_plus", "illiquid"]
+				},
+				"notes": {
+					"type": "string"
+				}
+			}
+		},
+		"InstrumentAttributeDefinition": {
+			"type": "object",
+			"required": ["id", "label", "value_type"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$"
+				},
+				"label": {
+					"type": "string"
+				},
+				"value_type": {
+					"type": "string",
+					"enum": ["string", "integer", "number", "boolean"]
+				},
+				"required": {
+					"type": "boolean",
+					"default": false
+				},
+				"description": {
+					"type": "string"
+				},
+				"enum": {
+					"type": "array",
+					"items": {
+						"type": ["string", "integer", "number", "boolean"]
+					}
+				},
+				"unit": {
+					"type": "string"
+				}
+			}
+		},
+		"AssetTypeDefinition": {
+			"type": "object",
+			"required": ["id", "label", "asset_class"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$"
+				},
+				"label": {
+					"type": "string"
+				},
+				"asset_class": {
+					"type": "string",
+					"description": "Top-level aggregation class.",
+					"enum": [
+						"stocks",
+						"reits",
+						"funds",
+						"real_estate",
+						"cash_equivalents",
+						"digital_assets",
+						"cryptocurrencies",
+						"private_equity",
+						"debt",
+						"commodities",
+						"other"
+					]
+				},
+				"availability": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"countries": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"pattern": "^[A-Z]{2}$"
+							}
+						},
+						"notes": {
+							"type": "string"
+						}
+					}
+				},
+				"metadata": {
+					"type": "object",
+					"additionalProperties": true
+				},
+				"instrument_attributes": {
+					"type": "array",
+					"description": "Per-asset-type attribute schema for instrument-specific fields.",
+					"items": {
+						"$ref": "#/$defs/InstrumentAttributeDefinition"
+					}
+				},
+				"economic_exposure": {
+					"$ref": "#/$defs/EconomicExposure"
+				}
+			}
+		},
+		"Holding": {
+			"type": "object",
+			"required": ["id", "asset_type_id", "label", "market_value"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"asset_type_id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$"
+				},
+				"label": {
+					"type": "string"
+				},
+				"jurisdiction": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"country": {
+							"type": "string",
+							"pattern": "^[A-Z]{2}$"
+						}
+					}
+				},
+				"identifiers": {
+					"type": "object",
+					"additionalProperties": true,
+					"properties": {
+						"ticker": { "type": "string" },
+						"isin": { "type": "string" },
+						"provider_account_id": { "type": "string" },
+						"wallet": { "type": "string" }
+					}
+				},
+				"quantity": {
+					"type": "number"
+				},
+				"unit_cost": {
+					"$ref": "#/$defs/Money"
+				},
+				"market_value": {
+					"$ref": "#/$defs/Money"
+				},
+				"as_of": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"provenance": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"source_system": { "type": "string" },
+						"source_ref": { "type": "string" },
+						"import_run_id": { "type": "string" },
+						"idempotency_key": { "type": "string" },
+						"ingested_at": { "type": "string", "format": "date-time" },
+						"raw_payload_ref": { "type": "string" }
+					}
+				},
+				"tags": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"metadata": {
+					"type": "object",
+					"additionalProperties": true
+				},
+				"instrument_attributes": {
+					"type": "object",
+					"description": "Instrument-specific values keyed by ids declared in asset_type_catalog[].instrument_attributes.",
+					"additionalProperties": {
+						"type": ["string", "integer", "number", "boolean"]
+					}
+				},
+				"fixed_income_profile": {
+					"$ref": "#/$defs/FixedIncomeProfile"
+				},
+				"economic_exposure": {
+					"$ref": "#/$defs/EconomicExposure"
+				},
+				"extensions": {
+					"type": "object",
+					"additionalProperties": true
+				}
+			}
+		},
+		"Activity": {
+			"type": "object",
+			"required": ["id", "event_type", "status", "effective_at"],
+			"additionalProperties": false,
+			"properties": {
+				"id": { "type": "string" },
+				"event_type": {
+					"type": "string",
+					"enum": [
+						"buy",
+						"sell",
+						"dividend",
+						"interest",
+						"fee",
+						"transfer_in",
+						"transfer_out",
+						"split",
+						"income",
+						"reimbursement",
+						"other"
+					]
+				},
+				"subtype": { "type": "string" },
+				"status": {
+					"type": "string",
+					"enum": ["pending", "posted", "cancelled"]
+				},
+				"effective_at": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"created_at": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"source_system": { "type": "string" },
+				"source_ref": { "type": "string" },
+				"import_run_id": { "type": "string" },
+				"ingested_at": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"idempotency_key": { "type": "string" },
+				"asset_type_id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$"
+				},
+				"instrument": {
+					"type": "object",
+					"additionalProperties": true
+				},
+				"quantity": {
+					"type": "number"
+				},
+				"money": {
+					"$ref": "#/$defs/Money"
+				},
+				"fees": {
+					"$ref": "#/$defs/Money"
+				},
+				"metadata": {
+					"type": "object",
+					"additionalProperties": true
+				},
+				"extensions": {
+					"type": "object",
+					"additionalProperties": true
+				}
+			}
+		},
+		"CadenceRule": {
+			"type": "object",
+			"required": ["frequency"],
+			"additionalProperties": false,
+			"properties": {
+				"frequency": {
+					"type": "string",
+					"enum": ["monthly", "quarterly", "yearly", "custom"]
+				},
+				"interval": {
+					"type": "integer",
+					"minimum": 1,
+					"description": "Repeat interval for fixed-frequency cadences. Example: every 2 months."
+				},
+				"by_month_day": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 31
+				},
+				"by_month": {
+					"type": "array",
+					"items": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 12
+					},
+					"minItems": 1,
+					"uniqueItems": true
+				},
+				"due_timezone": {
+					"type": "string"
+				},
+				"rrule": {
+					"type": "string",
+					"description": "Optional RFC 5545 RRULE for custom schedules."
+				}
+			}
+		},
+		"OperationalTask": {
+			"type": "object",
+			"required": ["id", "label", "category", "status", "cadence"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$"
+				},
+				"label": {
+					"type": "string"
+				},
+				"category": {
+					"type": "string",
+					"enum": [
+						"rebalancing",
+						"tax",
+						"reporting",
+						"compliance",
+						"cash_management",
+						"risk_review",
+						"planning",
+						"other"
+					]
+				},
+				"status": {
+					"type": "string",
+					"enum": ["active", "paused", "retired"]
+				},
+				"cadence": {
+					"$ref": "#/$defs/CadenceRule"
+				},
+				"first_due_at": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"next_due_at": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"last_completed_at": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"last_event_id": {
+					"type": "string"
+				},
+				"owner": {
+					"type": "string"
+				},
+				"notes": {
+					"type": "string"
+				},
+				"metadata": {
+					"type": "object",
+					"additionalProperties": true
+				},
+				"extensions": {
+					"type": "object",
+					"additionalProperties": true
+				}
+			}
+		},
+		"OperationalTaskEvent": {
+			"type": "object",
+			"required": ["id", "task_id", "event_type", "occurred_at"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"task_id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$"
+				},
+				"event_type": {
+					"type": "string",
+					"enum": [
+						"scheduled",
+						"completed",
+						"skipped",
+						"cancelled",
+						"reopened",
+						"noted"
+					]
+				},
+				"occurred_at": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"period_start": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"period_end": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"performed_by": {
+					"type": "string"
+				},
+				"summary": {
+					"type": "string"
+				},
+				"source_system": { "type": "string" },
+				"source_ref": { "type": "string" },
+				"import_run_id": { "type": "string" },
+				"idempotency_key": { "type": "string" },
+				"metadata": {
+					"type": "object",
+					"additionalProperties": true
+				},
+				"extensions": {
+					"type": "object",
+					"additionalProperties": true
+				}
+			}
+		}
+	}
 }
