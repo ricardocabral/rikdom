@@ -1491,6 +1491,24 @@
         "BR"
       ]
     },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "debt",
+          "currency": "BRL",
+          "duration": "intermediate",
+          "factor": "securitised_agribusiness",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "sector": "agribusiness",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "heuristic",
+      "confidence": "medium",
+      "notes": "FIAGRO default biased to FIDC_LIKE (securitised agribusiness receivables). Holdings with TERRA/FIP_LIKE strategies SHOULD override with actual breakdown."
+    },
     "id": "fiagro_cota",
     "instrument_attributes": [
       {
@@ -1844,6 +1862,265 @@
       }
     ],
     "label": "Previd\u00eancia Privada"
+  },
+  {
+    "asset_class": "real_estate",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "reits",
+          "currency": "BRL",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "manual",
+      "confidence": "high"
+    },
+    "id": "fii_tijolo",
+    "instrument_attributes": [
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "TIJOLO"
+        ],
+        "id": "fii_type",
+        "label": "FII Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "segment",
+        "label": "Segment",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "admin_cnpj",
+        "label": "Administrator CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "FII Tijolo (im\u00f3veis f\u00edsicos)"
+  },
+  {
+    "asset_class": "real_estate",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "debt",
+          "currency": "BRL",
+          "duration": "intermediate",
+          "factor": "securitised_real_estate",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 100
+        }
+      ],
+      "classification_source": "manual",
+      "confidence": "high",
+      "notes": "Economically debt (securitised real estate receivables), even though wrapped as a real-estate fund at B3."
+    },
+    "id": "fii_papel",
+    "instrument_attributes": [
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "PAPEL"
+        ],
+        "id": "fii_type",
+        "label": "FII Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "segment",
+        "label": "Segment",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "admin_cnpj",
+        "label": "Administrator CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "FII Papel (CRI/CRA)"
+  },
+  {
+    "asset_class": "real_estate",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "economic_exposure": {
+      "as_of": "2026-04-01",
+      "breakdown": [
+        {
+          "asset_class": "reits",
+          "currency": "BRL",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 50
+        },
+        {
+          "asset_class": "debt",
+          "currency": "BRL",
+          "duration": "intermediate",
+          "factor": "securitised_real_estate",
+          "liquidity_tier": "t1",
+          "region": "BR",
+          "weight_pct": 50
+        }
+      ],
+      "classification_source": "heuristic",
+      "confidence": "low",
+      "notes": "Conservative 50/50 default; holdings SHOULD override with actual weights disclosed by the fund."
+    },
+    "id": "fii_hibrido",
+    "instrument_attributes": [
+      {
+        "id": "fund_cnpj",
+        "label": "Fund CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "b3_ticker",
+        "label": "B3 Ticker",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "isin",
+        "label": "ISIN",
+        "pattern": "^BR[A-Z0-9]{9}\\d$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "HIBRIDO"
+        ],
+        "id": "fii_type",
+        "label": "FII Type",
+        "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "segment",
+        "label": "Segment",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "admin_cnpj",
+        "label": "Administrator CNPJ",
+        "pattern": "^\\d{14}$",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "ISENTO",
+          "REGRESSIVO",
+          "PROGRESSIVO",
+          "ALIQUOTA_FIXA",
+          "OUTRO"
+        ],
+        "id": "tax_profile.ir_pf_treatment",
+        "label": "Tax Profile: IR PF Treatment",
+        "required": true,
+        "value_type": "string"
+      }
+    ],
+    "label": "FII H\u00edbrido (tijolo + papel)"
   },
   {
     "asset_class": "funds",

@@ -1,5 +1,5 @@
-.PHONY: help sync bootstrap validate validate-fixture aggregate snapshot visualize \
-	plugins-list import-sample render-report storage-sync migrate-dry-run \
+.PHONY: help sync bootstrap validate validate-fixture aggregate snapshot viz \
+	plugins-list import-sample storage-sync migrate-dry-run \
 	test lint check
 
 DATA_DIR ?= data
@@ -20,10 +20,9 @@ help:
 	@echo "  make validate-fixture - Validate test fixture portfolio"
 	@echo "  make aggregate        - Aggregate holdings by asset class"
 	@echo "  make snapshot         - Append a historical snapshot"
-	@echo "  make visualize        - Generate dashboard at out/dashboard.html"
+	@echo "  make viz              - Generate quickview + deep-dive via quarto plugin"
 	@echo "  make plugins-list     - List plugins in plugins/"
 	@echo "  make import-sample    - Import sample statement using csv-generic"
-	@echo "  make render-report    - Render report via quarto plugin"
 	@echo "  make storage-sync     - Run duckdb storage sync plugin"
 	@echo "  make migrate-dry-run  - Run schema migration in dry-run mode"
 	@echo "  make lint             - Run ruff lint checks"
@@ -50,17 +49,14 @@ aggregate:
 snapshot:
 	uv run rikdom snapshot $(WORKSPACE_ARGS)
 
-visualize:
-	uv run rikdom visualize $(WORKSPACE_ARGS) --include-current
+viz:
+	uv run rikdom viz $(WORKSPACE_ARGS) --include-current
 
 plugins-list:
 	uv run rikdom plugins list --plugins-dir plugins
 
 import-sample:
 	uv run rikdom import-statement $(WORKSPACE_ARGS) --plugin csv-generic --input data-sample/sample_statement.csv --write
-
-render-report:
-	uv run rikdom render-report $(WORKSPACE_ARGS) --plugin quarto-portfolio-report --plugins-dir plugins
 
 storage-sync:
 	uv run rikdom storage-sync $(WORKSPACE_ARGS) --plugin duckdb-storage --plugins-dir plugins

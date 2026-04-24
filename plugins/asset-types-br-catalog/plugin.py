@@ -414,6 +414,117 @@ def _known_br_etfs() -> list[dict]:
     ]
 
 
+def _fii_attrs(*, fii_type: str) -> list[dict]:
+    """Return FII instrument attributes with fii_type locked to a single enum value."""
+    return [
+        _attr("fund_cnpj", "Fund CNPJ", "string", required=True, pattern=BRAZIL_CNPJ_REGEX),
+        _attr("b3_ticker", "B3 Ticker", "string", required=True, pattern=BRAZIL_B3_TICKER_REGEX),
+        _attr("isin", "ISIN", "string", required=False, pattern=BRAZIL_ISIN_REGEX),
+        _attr("fii_type", "FII Type", "string", required=True, enum=[fii_type]),
+        _attr("segment", "Segment", "string", required=False),
+        _attr("admin_cnpj", "Administrator CNPJ", "string", required=False, pattern=BRAZIL_CNPJ_REGEX),
+        _attr(
+            "tax_profile.ir_pf_treatment",
+            "Tax Profile: IR PF Treatment",
+            "string",
+            required=True,
+            enum=_IR_PF_TREATMENT_ENUM,
+        ),
+    ]
+
+
+def _fii_variants() -> list[dict]:
+    """Specialised FII asset types with pre-filled economic_exposure.
+
+    The generic 'fii' type stays as a backward-compatible catch-all without
+    look-through exposure. These variants make the true economic nature
+    explicit so agents can analyse risk correctly:
+
+    - fii_tijolo: physical real estate -> asset_class=reits
+    - fii_papel: securitised debt (CRI/CRA) -> asset_class=debt
+    - fii_hibrido: mix of both -> split 50/50 as a conservative default;
+      a holding-level economic_exposure should override with actual weights.
+    """
+    return [
+        {
+            "id": "fii_tijolo",
+            "label": "FII Tijolo (imóveis físicos)",
+            "asset_class": "real_estate",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _fii_attrs(fii_type="TIJOLO"),
+            "economic_exposure": {
+                "classification_source": "manual",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "reits",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "fii_papel",
+            "label": "FII Papel (CRI/CRA)",
+            "asset_class": "real_estate",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _fii_attrs(fii_type="PAPEL"),
+            "economic_exposure": {
+                "classification_source": "manual",
+                "as_of": "2026-04-01",
+                "confidence": "high",
+                "notes": "Economically debt (securitised real estate receivables), even though wrapped as a real-estate fund at B3.",
+                "breakdown": [
+                    {
+                        "weight_pct": 100,
+                        "asset_class": "debt",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "duration": "intermediate",
+                        "factor": "securitised_real_estate",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+        {
+            "id": "fii_hibrido",
+            "label": "FII Híbrido (tijolo + papel)",
+            "asset_class": "real_estate",
+            "availability": {"countries": ["BR"]},
+            "instrument_attributes": _fii_attrs(fii_type="HIBRIDO"),
+            "economic_exposure": {
+                "classification_source": "heuristic",
+                "as_of": "2026-04-01",
+                "confidence": "low",
+                "notes": "Conservative 50/50 default; holdings SHOULD override with actual weights disclosed by the fund.",
+                "breakdown": [
+                    {
+                        "weight_pct": 50,
+                        "asset_class": "reits",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "liquidity_tier": "t1",
+                    },
+                    {
+                        "weight_pct": 50,
+                        "asset_class": "debt",
+                        "region": "BR",
+                        "currency": "BRL",
+                        "duration": "intermediate",
+                        "factor": "securitised_real_estate",
+                        "liquidity_tier": "t1",
+                    },
+                ],
+            },
+        },
+    ]
+
+
 def _attrs_securitized() -> list[dict]:
     return [
         _attr(
@@ -723,6 +834,24 @@ class Plugin:
                         enum=_IR_PF_TREATMENT_ENUM,
                     ),
                 ],
+                "economic_exposure": {
+                    "classification_source": "heuristic",
+                    "as_of": "2026-04-01",
+                    "confidence": "medium",
+                    "notes": "FIAGRO default biased to FIDC_LIKE (securitised agribusiness receivables). Holdings with TERRA/FIP_LIKE strategies SHOULD override with actual breakdown.",
+                    "breakdown": [
+                        {
+                            "weight_pct": 100,
+                            "asset_class": "debt",
+                            "region": "BR",
+                            "currency": "BRL",
+                            "duration": "intermediate",
+                            "sector": "agribusiness",
+                            "factor": "securitised_agribusiness",
+                            "liquidity_tier": "t1",
+                        },
+                    ],
+                },
             },
             {
                 "id": "acao",
@@ -807,5 +936,6 @@ class Plugin:
                     ),
                 ],
             },
+            *_fii_variants(),
             *_known_br_etfs(),
         ]

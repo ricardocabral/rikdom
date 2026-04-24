@@ -7,6 +7,7 @@ import shutil
 import sys
 import uuid
 from datetime import datetime, timezone
+from tempfile import TemporaryDirectory
 from importlib.resources import as_file, files as resource_files
 from pathlib import Path
 from typing import Any
@@ -47,7 +48,6 @@ from .plugins import (
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
 from .validate import CURRENT_SCHEMA_VERSION, validate_portfolio
-from .visualize import write_dashboard
 
 
 DEFAULT_DATA_DIR = "data"
@@ -322,93 +322,20 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
-def _currency_exposure_summary(
-    portfolio: dict[str, Any],
-    *,
-    base_currency: str,
-    fx_rates_to_base: dict[str, Any] | None,
-) -> dict[str, Any]:
-    native_totals: dict[str, float] = {}
-    holdings = portfolio.get("holdings")
-    if isinstance(holdings, list):
-        for holding in holdings:
-            if not isinstance(holding, dict):
-                continue
-            market_value = holding.get("market_value")
-            if not isinstance(market_value, dict):
-                continue
-            amount = market_value.get("amount")
-            currency = market_value.get("currency")
-            if not isinstance(amount, (int, float)):
-                continue
-            if not isinstance(currency, str) or not currency.strip():
-                continue
-            code = currency.strip().upper()
-            native_totals[code] = native_totals.get(code, 0.0) + float(amount)
-
-    rates = fx_rates_to_base if isinstance(fx_rates_to_base, dict) else {}
-    rows: list[dict[str, Any]] = []
-    missing_rates: list[str] = []
-    total_converted_base = 0.0
-
-    for currency, native_amount in native_totals.items():
-        if currency == base_currency:
-            fx_rate_to_base = 1.0
-            converted_base = native_amount
-        else:
-            rate = rates.get(currency)
-            if isinstance(rate, (int, float)) and float(rate) > 0:
-                fx_rate_to_base = float(rate)
-                converted_base = native_amount * fx_rate_to_base
-            else:
-                fx_rate_to_base = None
-                converted_base = None
-                missing_rates.append(currency)
-
-        if converted_base is not None:
-            total_converted_base += converted_base
-
-        rows.append(
-            {
-                "currency": currency,
-                "native_amount": round(native_amount, 2),
-                "converted_base": round(converted_base, 2)
-                if converted_base is not None
-                else None,
-                "fx_rate_to_base": round(fx_rate_to_base, 6)
-                if fx_rate_to_base is not None
-                else None,
-            }
-        )
-
-    rows.sort(
-        key=lambda row: (
-            row["converted_base"] is None,
-            -float(row["converted_base"] or 0.0),
-            row["currency"],
-        )
-    )
-    return {
-        "base_currency": base_currency,
-        "rows": rows,
-        "missing_rates": sorted(set(missing_rates)),
-        "total_converted_base": round(total_converted_base, 2),
-    }
-
-
-def cmd_visualize(args: argparse.Namespace) -> int:
-    portfolio = load_json(args.portfolio)
-    snapshots = load_jsonl(args.snapshots)
-
-    current_timestamp = _now_iso()
-    fx_lock, _fx_warnings = ensure_snapshot_fx_lock(
-        portfolio,
-        fx_history_path=args.fx_history,
-        snapshot_timestamp=current_timestamp,
-        auto_ingest=False,
-    )
+def cmd_viz(args: argparse.Namespace) -> int:
+    snapshots_path = args.snapshots
+    temp_dir: TemporaryDirectory[str] | None = None
 
     if args.include_current:
+        portfolio = load_json(args.portfolio)
+        snapshots = load_jsonl(args.snapshots)
+        current_timestamp = _now_iso()
+        fx_lock, _fx_warnings = ensure_snapshot_fx_lock(
+            portfolio,
+            fx_history_path=args.fx_history,
+            snapshot_timestamp=current_timestamp,
+            auto_ingest=False,
+        )
         aggregate = aggregate_portfolio(
             portfolio,
             fx_rates_to_base=fx_lock.get("rates_to_base"),
@@ -416,26 +343,51 @@ def cmd_visualize(args: argparse.Namespace) -> int:
         aggregate.fx_lock = fx_lock
         snapshots = snapshots + [snapshot_from_aggregate(aggregate)]
 
-    profile = portfolio.get("profile", {}).get("display_name", "Portfolio")
-    currency = portfolio.get("settings", {}).get("base_currency", "USD")
-    if not isinstance(currency, str) or not currency.strip():
-        currency = "USD"
-    currency = currency.strip().upper()
+        temp_dir = TemporaryDirectory()
+        temp_snapshots = Path(temp_dir.name) / "snapshots.with-current.jsonl"
+        temp_snapshots.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in snapshots),
+            encoding="utf-8",
+        )
+        snapshots_path = str(temp_snapshots)
 
-    currency_exposure = _currency_exposure_summary(
-        portfolio,
-        base_currency=currency,
-        fx_rates_to_base=fx_lock.get("rates_to_base"),
+    output_dir = str(Path(args.out).resolve().parent)
+    try:
+        payload = run_output_pipeline(
+            plugin_name="quarto-portfolio-report",
+            plugins_dir="plugins",
+            portfolio_path=args.portfolio,
+            snapshots_path=snapshots_path,
+            output_dir=output_dir,
+        )
+    except PluginEngineError as exc:
+        if temp_dir is not None:
+            temp_dir.cleanup()
+        print(f"Visualize failed: {exc}", file=sys.stderr)
+        return 1
+
+    if temp_dir is not None:
+        temp_dir.cleanup()
+
+    dashboard_artifact = next(
+        (a for a in payload.get("artifacts", []) if a.get("type") == "html_dashboard"),
+        None,
+    )
+    generated_dashboard = (
+        Path(dashboard_artifact["path"])
+        if dashboard_artifact and isinstance(dashboard_artifact.get("path"), str)
+        else Path(output_dir) / "dashboard.html"
     )
 
-    out_file = write_dashboard(
-        profile,
-        currency,
-        snapshots,
-        args.out,
-        currency_exposure=currency_exposure,
-    )
-    print(f"Dashboard written to {out_file}")
+    target_dashboard = Path(args.out).resolve()
+    target_dashboard.parent.mkdir(parents=True, exist_ok=True)
+    if generated_dashboard.resolve() != target_dashboard:
+        shutil.copy2(generated_dashboard, target_dashboard)
+
+    print(f"Dashboard written to {target_dashboard}")
+    deep_dive = Path(output_dir) / "portfolio-report.html"
+    if deep_dive.exists():
+        print(f"Deep-dive report written to {deep_dive}")
     return 0
 
 
@@ -1314,16 +1266,19 @@ def build_parser() -> argparse.ArgumentParser:
     _add_workspace_options(p_compact)
     p_compact.set_defaults(func=cmd_compact)
 
-    p_visualize = sub.add_parser("visualize", help="Generate static HTML dashboard")
-    p_visualize.add_argument("--portfolio", default=None)
-    p_visualize.add_argument("--snapshots", default=None)
-    p_visualize.add_argument("--fx-history", default=None)
-    p_visualize.add_argument("--out", default=None)
-    p_visualize.add_argument("--include-current", action="store_true")
-    _add_workspace_options(
-        p_visualize, with_out_root=True, with_portfolio_name=True, with_registry=True
+    p_viz = sub.add_parser(
+        "viz",
+        help="Generate plugin-driven quickview + deep-dive HTML reports",
     )
-    p_visualize.set_defaults(func=cmd_visualize)
+    p_viz.add_argument("--portfolio", default=None)
+    p_viz.add_argument("--snapshots", default=None)
+    p_viz.add_argument("--fx-history", default=None)
+    p_viz.add_argument("--out", default=None)
+    p_viz.add_argument("--include-current", action="store_true")
+    _add_workspace_options(
+        p_viz, with_out_root=True, with_portfolio_name=True, with_registry=True
+    )
+    p_viz.set_defaults(func=cmd_viz)
 
     p_import = sub.add_parser(
         "import-statement", help="Import holdings using a community plugin"
@@ -1391,17 +1346,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Human-readable plugin description",
     )
     p_plugin_init.set_defaults(func=cmd_plugin_init)
-
-    p_render = sub.add_parser("render-report", help="Render report using output plugin")
-    p_render.add_argument("--plugin", default="quarto-portfolio-report")
-    p_render.add_argument("--plugins-dir", default="plugins")
-    p_render.add_argument("--portfolio", default=None)
-    p_render.add_argument("--snapshots", default=None)
-    p_render.add_argument("--out-dir", default=None)
-    _add_workspace_options(
-        p_render, with_out_root=True, with_portfolio_name=True, with_registry=True
-    )
-    p_render.set_defaults(func=cmd_render_report)
 
     p_storage = sub.add_parser(
         "storage-sync", help="Sync canonical JSON into storage plugin"

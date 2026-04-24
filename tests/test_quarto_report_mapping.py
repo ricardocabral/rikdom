@@ -59,11 +59,15 @@ class QuartoPluginTests(unittest.TestCase):
             html_path = Path(html_artifact["path"])
             self.assertTrue(html_path.exists())
             self.assertIn("Rendered by Quarto", html_path.read_text(encoding="utf-8"))
-            self.assertEqual(mock_run.call_count, 1)
-            args, kwargs = mock_run.call_args
-            self.assertIn("render", args[0])
-            self.assertIn("--output-dir", args[0])
-            self.assertEqual(kwargs["timeout"], 120)
+            self.assertEqual(mock_run.call_count, 2)
+            first_args, first_kwargs = mock_run.call_args_list[0]
+            second_args, second_kwargs = mock_run.call_args_list[1]
+            self.assertIn("render", first_args[0])
+            self.assertIn("--output-dir", first_args[0])
+            self.assertIn("render", second_args[0])
+            self.assertIn("--output-dir", second_args[0])
+            self.assertEqual(first_kwargs["timeout"], 120)
+            self.assertEqual(second_kwargs["timeout"], 120)
 
     def test_quarto_plugin_falls_back_when_quarto_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -135,7 +139,9 @@ class QuartoPluginTests(unittest.TestCase):
             html_text = Path(html_artifact["path"]).read_text(encoding="utf-8")
             self.assertIn("Fallback", html_text)
 
-    def test_quarto_asset_type_breakdown_rolls_debt_class_into_debt_instrument(self) -> None:
+    def test_quarto_asset_type_breakdown_rolls_debt_class_into_debt_instrument(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp = Path(tmp_dir)
             portfolio_path = tmp / "portfolio.json"
@@ -196,7 +202,9 @@ class QuartoPluginTests(unittest.TestCase):
             )
 
             json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
-            payload = json.loads(Path(json_artifact["path"]).read_text(encoding="utf-8"))
+            payload = json.loads(
+                Path(json_artifact["path"]).read_text(encoding="utf-8")
+            )
             breakdown = payload["sections"]["asset_type_breakdown"]
 
             self.assertEqual(breakdown.get("debt_instrument"), 29200.0)
@@ -268,7 +276,9 @@ class QuartoPluginTests(unittest.TestCase):
             )
 
             json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
-            payload = json.loads(Path(json_artifact["path"]).read_text(encoding="utf-8"))
+            payload = json.loads(
+                Path(json_artifact["path"]).read_text(encoding="utf-8")
+            )
             sections = payload["sections"]
 
             self.assertEqual(sections["currency_split"].get("USD"), 300.0)
@@ -291,7 +301,9 @@ class QuartoPluginTests(unittest.TestCase):
                     {
                         "profile": {"display_name": "Malformed Amounts"},
                         "settings": {"base_currency": "USD"},
-                        "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+                        "asset_type_catalog": [
+                            {"id": "stock", "asset_class": "stocks"}
+                        ],
                         "holdings": [
                             {
                                 "id": "h-good",
@@ -330,7 +342,9 @@ class QuartoPluginTests(unittest.TestCase):
             )
 
             json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
-            payload = json.loads(Path(json_artifact["path"]).read_text(encoding="utf-8"))
+            payload = json.loads(
+                Path(json_artifact["path"]).read_text(encoding="utf-8")
+            )
             top_holdings = payload["sections"]["risk"]["top_holdings"]
 
             self.assertEqual(top_holdings[0]["id"], "h-good")
@@ -338,8 +352,9 @@ class QuartoPluginTests(unittest.TestCase):
             self.assertEqual(top_holdings[1]["id"], "h-bad")
             self.assertEqual(top_holdings[1]["amount"], 0.0)
 
-
-    def test_quarto_currency_split_buckets_malformed_currencies_as_unknown(self) -> None:
+    def test_quarto_currency_split_buckets_malformed_currencies_as_unknown(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp = Path(tmp_dir)
             portfolio_path = tmp / "portfolio.json"
@@ -352,7 +367,9 @@ class QuartoPluginTests(unittest.TestCase):
                     {
                         "profile": {"display_name": "Malformed Currency"},
                         "settings": {"base_currency": "USD"},
-                        "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+                        "asset_type_catalog": [
+                            {"id": "stock", "asset_class": "stocks"}
+                        ],
                         "holdings": [
                             {
                                 "id": "h-usd",
@@ -399,7 +416,9 @@ class QuartoPluginTests(unittest.TestCase):
             )
 
             json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
-            payload = json.loads(Path(json_artifact["path"]).read_text(encoding="utf-8"))
+            payload = json.loads(
+                Path(json_artifact["path"]).read_text(encoding="utf-8")
+            )
             currency_split = payload["sections"]["currency_split"]
 
             self.assertEqual(currency_split.get("USD"), 100.0)
