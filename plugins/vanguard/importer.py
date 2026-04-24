@@ -7,7 +7,7 @@ import html
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from xml.etree.ElementTree import Element, ParseError
@@ -96,6 +96,11 @@ def _normalize_vanguard_date(value: str) -> str | None:
     return normalize_datetime(raw)
 
 
+_OFX_TZ_BRACKET_RE = re.compile(
+    r"\[\s*(?P<offset>[+-]?\d+(?:\.\d+)?)(?::[^\]]*)?\s*\]\s*$"
+)
+
+
 def _normalize_ofx_datetime(value: str) -> str | None:
     raw = value.strip()
     if not raw:
@@ -105,14 +110,30 @@ def _normalize_ofx_datetime(value: str) -> str | None:
     if normalized:
         return normalized
 
-    compact = re.sub(r"\[.*\]$", "", raw)
-    compact = compact.split(".", 1)[0]
-    compact = compact.strip()
+    offset_minutes = 0
+    bracket_match = _OFX_TZ_BRACKET_RE.search(raw)
+    if bracket_match:
+        try:
+            offset_hours = float(bracket_match.group("offset"))
+            offset_minutes = int(round(offset_hours * 60))
+        except ValueError:
+            offset_minutes = 0
+        compact = raw[: bracket_match.start()]
+    else:
+        compact = raw
 
+    compact = compact.split(".", 1)[0].strip()
+
+    tz = timezone(timedelta(minutes=offset_minutes))
     for fmt in ("%Y%m%d%H%M%S", "%Y%m%d"):
         try:
-            dt = datetime.strptime(compact, fmt)
-            return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+            dt = datetime.strptime(compact, fmt).replace(tzinfo=tz)
+            return (
+                dt.astimezone(timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
         except ValueError:
             continue
 
@@ -159,6 +180,20 @@ def _asset_type_for_security(security_type: str, symbol: str) -> str:
     if any(token in lower_type for token in ("stock", "equity")):
         return "stock"
     return "other"
+
+
+def _parse_optional_decimal(
+    row: dict[str, str], field: str, *, context: str
+) -> float | None:
+    raw = row.get(field, "").strip()
+    if not raw:
+        return None
+    value = parse_decimal(raw)
+    if value is None:
+        raise ValueError(
+            f"Vanguard {context} row has invalid {field} '{raw}'"
+        )
+    return value
 
 
 def _parse_position(row: dict[str, str]) -> dict[str, Any]:
@@ -236,9 +271,10 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
 
     currency = normalize_currency(row.get("currency")) or _DEFAULT_CURRENCY
     symbol = row.get("symbol", "").upper()
-    quantity = parse_decimal(row.get("quantity"))
-    fees = parse_decimal(row.get("fees"))
+    quantity = _parse_optional_decimal(row, "quantity", context="transaction")
+    fees = _parse_optional_decimal(row, "fees", context="transaction")
 
+    description = row.get("description", "")
     reference_id = row.get("reference_id", "").strip()
     fingerprint = {
         "account_number": account_number,
@@ -247,6 +283,8 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
         "symbol": symbol,
         "amount": amount,
         "quantity": quantity,
+        "fees": fees,
+        "description": description,
         "reference_id": reference_id,
     }
     digest = _stable_digest(fingerprint)
@@ -262,7 +300,7 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
         "source_ref": f"vanguard:{account_number}#txn:{tx_ref}",
         "metadata": {
             "activity_type": action,
-            "description": row.get("description", ""),
+            "description": description,
         },
     }
 
@@ -322,6 +360,59 @@ def _close_ofx_sgml_leaf_tags(raw: str) -> str:
     return "\n".join(out)
 
 
+_OFX_CHARSET_CODECS: dict[str, str] = {
+    "1252": "cp1252",
+    "WINDOWS-1252": "cp1252",
+    "CP1252": "cp1252",
+    "8859-1": "latin-1",
+    "ISO-8859-1": "latin-1",
+    "LATIN-1": "latin-1",
+    "LATIN1": "latin-1",
+    "UTF-8": "utf-8",
+    "UTF8": "utf-8",
+    "USASCII": "ascii",
+    "US-ASCII": "ascii",
+    "NONE": "ascii",
+}
+
+
+def _decode_ofx_bytes(data: bytes) -> str:
+    body_start = data.find(b"<")
+    header_bytes = data[:body_start] if body_start >= 0 else data[:2048]
+    header_text = header_bytes.decode("ascii", errors="replace")
+
+    encoding = ""
+    charset = ""
+    for line in header_text.splitlines():
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip().upper()
+        value = value.strip().upper()
+        if key == "ENCODING":
+            encoding = value
+        elif key == "CHARSET":
+            charset = value
+
+    candidates: list[str] = []
+    for token in (encoding, charset):
+        codec = _OFX_CHARSET_CODECS.get(token)
+        if codec and codec not in candidates:
+            candidates.append(codec)
+    # Fallbacks: UTF-8 first (common in modern exports), then cp1252 / latin-1
+    # (Windows-era Vanguard statements), so non-ASCII bytes never raise.
+    for fallback in ("utf-8", "cp1252", "latin-1"):
+        if fallback not in candidates:
+            candidates.append(fallback)
+
+    for codec in candidates:
+        try:
+            return data.decode(codec)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("latin-1", errors="replace")
+
+
 def _load_ofx_root(path: Path) -> Element:
     size = path.stat().st_size
     if size > _MAX_OFX_BYTES:
@@ -329,7 +420,7 @@ def _load_ofx_root(path: Path) -> Element:
             f"Vanguard OFX input exceeds {_MAX_OFX_BYTES} bytes (size={size})"
         )
 
-    raw = path.read_text(encoding="utf-8")
+    raw = _decode_ofx_bytes(path.read_bytes())
     if not raw.strip():
         raise ValueError("Vanguard OFX input is empty")
 

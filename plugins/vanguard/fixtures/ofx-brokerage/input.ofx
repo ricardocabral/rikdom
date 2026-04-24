@@ -78,7 +78,7 @@ NEWFILEUID:NONE
           <INCOME>
             <INVTRAN>
               <FITID>OFX-1003
-              <DTTRADE>20260320170000
+              <DTTRADE>20260320120000[-5:EST]
             </INVTRAN>
             <SECID>
               <UNIQUEID>US9229087286
