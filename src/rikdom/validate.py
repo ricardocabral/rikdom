@@ -144,6 +144,42 @@ def _collect_instrument_attribute_defs(
 
 
 
+ECONOMIC_EXPOSURE_SUM_MIN = 99.5
+ECONOMIC_EXPOSURE_SUM_MAX = 100.5
+
+
+def _validate_economic_exposure(value: Any, path: str, errors: list[str]) -> None:
+    if value is None:
+        return
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object when provided")
+        return
+    breakdown = value.get("breakdown")
+    if not isinstance(breakdown, list) or not breakdown:
+        errors.append(f"{path}.breakdown must be a non-empty array")
+        return
+    total = 0.0
+    for idx, line in enumerate(breakdown):
+        if not isinstance(line, dict):
+            errors.append(f"{path}.breakdown[{idx}] must be an object")
+            continue
+        weight = line.get("weight_pct")
+        if not isinstance(weight, (int, float)) or isinstance(weight, bool):
+            errors.append(f"{path}.breakdown[{idx}].weight_pct must be numeric")
+            continue
+        if weight < 0 or weight > 100:
+            errors.append(
+                f"{path}.breakdown[{idx}].weight_pct ({weight}) must be between 0 and 100"
+            )
+            continue
+        total += float(weight)
+    if not (ECONOMIC_EXPOSURE_SUM_MIN <= total <= ECONOMIC_EXPOSURE_SUM_MAX):
+        errors.append(
+            f"{path}.breakdown weight_pct must sum to ~100 "
+            f"(got {total}, tolerance {ECONOMIC_EXPOSURE_SUM_MIN}..{ECONOMIC_EXPOSURE_SUM_MAX})"
+        )
+
+
 def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
@@ -192,6 +228,12 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                 errors.append(f"asset_type_catalog[{i}].asset_class is required")
             if type_id:
                 catalog_attr_defs[type_id] = _collect_instrument_attribute_defs(asset_type, i, errors)
+            if "economic_exposure" in asset_type:
+                _validate_economic_exposure(
+                    asset_type.get("economic_exposure"),
+                    f"asset_type_catalog[{i}].economic_exposure",
+                    errors,
+                )
 
     holdings = portfolio.get("holdings")
     if not isinstance(holdings, list):
@@ -249,6 +291,13 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"holdings[{i}].instrument_attributes.{attr_key} must be one of {enum_values}"
                     )
+
+            if "economic_exposure" in holding:
+                _validate_economic_exposure(
+                    holding.get("economic_exposure"),
+                    f"holdings[{i}].economic_exposure",
+                    errors,
+                )
 
             market_value = holding.get("market_value")
             if not isinstance(market_value, dict):

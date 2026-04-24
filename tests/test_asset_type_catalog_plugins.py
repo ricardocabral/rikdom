@@ -228,5 +228,29 @@ class AssetTypeCatalogDiscoveryResilienceTests(unittest.TestCase):
         )
 
 
+class BrEtfCatalogTests(unittest.TestCase):
+    def test_etf_ticker_pattern_accepts_digit_prefix(self) -> None:
+        catalog = build_asset_type_catalog("plugins")
+        by_id = {item["id"]: item for item in catalog}
+        attrs = {a["id"]: a for a in by_id["etf_b5p211"]["instrument_attributes"]}
+        pattern = attrs["b3_ticker"].get("pattern")
+        self.assertIsNotNone(pattern, "expected b3_ticker to declare a pattern")
+        self.assertRegex("B5P211", pattern)
+        self.assertRegex("BOVA11", pattern)
+
+    def test_etf_entries_declare_economic_exposure_summing_to_100(self) -> None:
+        catalog = build_asset_type_catalog("plugins")
+        etf_entries = [item for item in catalog if item["id"].startswith("etf_")]
+        self.assertTrue(etf_entries, "expected specialised ETF entries in catalog")
+        for entry in etf_entries:
+            exposure = entry.get("economic_exposure")
+            self.assertIsNotNone(
+                exposure, msg=f"{entry['id']} should declare economic_exposure"
+            )
+            total = sum(line["weight_pct"] for line in exposure["breakdown"])
+            self.assertGreaterEqual(total, 99.5, msg=f"{entry['id']} sum={total}")
+            self.assertLessEqual(total, 100.5, msg=f"{entry['id']} sum={total}")
+
+
 if __name__ == "__main__":
     unittest.main()

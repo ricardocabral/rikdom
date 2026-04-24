@@ -167,5 +167,87 @@ class ValidateTests(unittest.TestCase):
         )
 
 
+class EconomicExposureValidationTests(unittest.TestCase):
+    def _portfolio_with_holding_exposure(self, breakdown: list[dict]) -> dict:
+        portfolio = load_json("tests/fixtures/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["holdings"][0]["economic_exposure"] = {
+            "classification_source": "manual",
+            "breakdown": breakdown,
+        }
+        return candidate
+
+    def test_valid_multi_line_breakdown_summing_to_100_is_accepted(self) -> None:
+        candidate = self._portfolio_with_holding_exposure([
+            {"weight_pct": 62, "asset_class": "stocks"},
+            {"weight_pct": 27, "asset_class": "stocks"},
+            {"weight_pct": 11, "asset_class": "stocks"},
+        ])
+        errors = validate_portfolio(candidate)
+        self.assertFalse(
+            any("economic_exposure" in e for e in errors),
+            msg=f"Did not expect exposure errors, got: {errors}",
+        )
+
+    def test_overweight_breakdown_is_rejected(self) -> None:
+        candidate = self._portfolio_with_holding_exposure([
+            {"weight_pct": 60, "asset_class": "stocks"},
+            {"weight_pct": 60, "asset_class": "debt"},
+        ])
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("must sum to ~100" in e for e in errors),
+            msg=f"Expected weight-sum error, got: {errors}",
+        )
+
+    def test_underweight_breakdown_is_rejected(self) -> None:
+        candidate = self._portfolio_with_holding_exposure([
+            {"weight_pct": 20, "asset_class": "stocks"},
+        ])
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("must sum to ~100" in e for e in errors),
+            msg=f"Expected weight-sum error, got: {errors}",
+        )
+
+    def test_tolerance_band_accepts_small_rounding_residual(self) -> None:
+        candidate = self._portfolio_with_holding_exposure([
+            {"weight_pct": 33.3, "asset_class": "stocks"},
+            {"weight_pct": 33.3, "asset_class": "debt"},
+            {"weight_pct": 33.3, "asset_class": "cash_equivalents"},
+        ])
+        errors = validate_portfolio(candidate)
+        self.assertFalse(
+            any("economic_exposure" in e for e in errors),
+            msg=f"Did not expect exposure errors within tolerance, got: {errors}",
+        )
+
+    def test_empty_breakdown_is_rejected(self) -> None:
+        candidate = self._portfolio_with_holding_exposure([])
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("breakdown must be a non-empty array" in e for e in errors),
+            msg=f"Expected empty-breakdown error, got: {errors}",
+        )
+
+    def test_asset_type_catalog_exposure_is_also_validated(self) -> None:
+        portfolio = load_json("tests/fixtures/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["asset_type_catalog"][0]["economic_exposure"] = {
+            "breakdown": [
+                {"weight_pct": 10, "asset_class": "stocks"},
+            ],
+        }
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any(
+                "asset_type_catalog[0].economic_exposure.breakdown" in e
+                and "must sum to ~100" in e
+                for e in errors
+            ),
+            msg=f"Expected catalog exposure error, got: {errors}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
