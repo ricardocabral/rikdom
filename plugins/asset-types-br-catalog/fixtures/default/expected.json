@@ -1655,7 +1655,7 @@
       {
         "id": "b3_ticker",
         "label": "B3 Ticker",
-        "pattern": "^[A-Z0-9]{4}\\d{2}[A-Z]?$",
+        "pattern": "^[A-Z]{4}\\d{2}[A-Z]?$",
         "required": true,
         "value_type": "string"
       },
