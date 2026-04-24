@@ -10,13 +10,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-try:
-    from .known_tickers import enrich_holding as _enrich_from_ticker
-except ImportError:
-    import sys as _sys
+def _load_known_tickers_enricher():
+    import importlib.util as _iu
     from pathlib import Path as _Path
-    _sys.path.insert(0, str(_Path(__file__).parent))
-    from known_tickers import enrich_holding as _enrich_from_ticker  # type: ignore[no-redef]
+    _path = _Path(__file__).with_name("known_tickers.py")
+    _spec = _iu.spec_from_file_location("btg_wm_conta_internacional_known_tickers", _path)
+    assert _spec and _spec.loader
+    _mod = _iu.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)
+    return _mod.enrich_holding
+
+
+_enrich_from_ticker = _load_known_tickers_enricher()
 
 PROVIDER = "btg_wm_conta_internacional"
 

@@ -1,9 +1,15 @@
 ---
 title: "Rikdom Portfolio Report"
+page-layout: full
 format:
   html:
     toc: false
     theme: cosmo
+    grid:
+      body-width: 1600px
+      sidebar-width: 0px
+      margin-width: 0px
+      gutter-width: 0rem
 ---
 
 ```{=html}
@@ -32,18 +38,28 @@ format:
 
   #quarto-content,
   #quarto-document-content,
-  body.fullcontent main.content {
+  body.fullcontent main.content,
+  body main.content,
+  .page-columns {
     max-width: 100% !important;
+    width: 100% !important;
   }
 
-  body.fullcontent main.content {
+  .page-columns {
+    display: block !important;
+    grid-template-columns: none !important;
+  }
+
+  body main.content {
     margin: 0 !important;
-    padding: 0 12px !important;
+    padding: 0 16px !important;
+    grid-column: screen-start / screen-end !important;
   }
 
   .rk-app {
     width: 100%;
-    margin: 0;
+    max-width: 1800px;
+    margin: 0 auto;
     padding: 12px 8px 40px;
     box-sizing: border-box;
   }

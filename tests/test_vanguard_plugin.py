@@ -66,8 +66,17 @@ class VanguardPluginTests(unittest.TestCase):
             "2026-03-31T17:00:00Z",
         )
         self.assertEqual(
+            _normalize_ofx_datetime("20260331120000[-0500:EST]"),
+            "2026-03-31T17:00:00Z",
+        )
+        self.assertEqual(
             _normalize_ofx_datetime("20260101000000[+2:CEST]"),
             "2025-12-31T22:00:00Z",
+        )
+        # Out-of-range offsets are treated as unsupported and fall back to UTC.
+        self.assertEqual(
+            _normalize_ofx_datetime("20260331120000[+99:TZ]"),
+            "2026-03-31T12:00:00Z",
         )
         # No bracket -> treated as UTC (unchanged behavior)
         self.assertEqual(
@@ -79,8 +88,7 @@ class VanguardPluginTests(unittest.TestCase):
         from plugins.vanguard.importer import _decode_ofx_bytes
 
         header = (
-            "OFXHEADER:100\r\nDATA:OFXSGML\r\nENCODING:USASCII\r\n"
-            "CHARSET:1252\r\n\r\n"
+            "OFXHEADER:100\r\nDATA:OFXSGML\r\nENCODING:USASCII\r\nCHARSET:1252\r\n\r\n"
         ).encode("ascii")
         # 0xA9 is "©" in cp1252 but invalid as standalone UTF-8.
         body = b"<OFX><NAME>Acme \xa9 Fund</NAME></OFX>"

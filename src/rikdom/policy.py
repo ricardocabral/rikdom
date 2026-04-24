@@ -8,22 +8,21 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from pathlib import Path
+from importlib.resources import files
 from typing import Any
 
 from jsonschema import Draft202012Validator
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schema" / "policy.schema.json"
-
 
 @lru_cache(maxsize=1)
 def _schema_validator() -> Draft202012Validator:
-    schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+    resource = files("rikdom._resources").joinpath("policy.schema.json")
+    schema = json.loads(resource.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
 
 
-def validate_policy(policy: dict[str, Any]) -> list[str]:
+def validate_policy(policy: Any) -> list[str]:
     """Return a list of human-readable validation errors; empty means valid."""
     errors: list[str] = []
     validator = _schema_validator()
@@ -34,7 +33,9 @@ def validate_policy(policy: dict[str, Any]) -> list[str]:
     return errors
 
 
-def _semantic_checks(policy: dict[str, Any]) -> list[str]:
+def _semantic_checks(policy: Any) -> list[str]:
+    if not isinstance(policy, dict):
+        return []
     errors: list[str] = []
     strat = policy.get("strategic_allocation")
     if isinstance(strat, dict):

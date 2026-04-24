@@ -101,6 +101,37 @@ _OFX_TZ_BRACKET_RE = re.compile(
 )
 
 
+def _parse_ofx_offset_minutes(raw_offset: str) -> int | None:
+    token = raw_offset.strip()
+    if not token:
+        return None
+
+    # Support compact ±HHMM offsets in addition to ±H / ±H.H formats.
+    if re.fullmatch(r"[+-]?\d{3,4}", token):
+        sign = -1 if token.startswith("-") else 1
+        digits = token.lstrip("+-")
+        if len(digits) == 3:
+            hours = int(digits[0])
+            minutes = int(digits[1:])
+        else:
+            hours = int(digits[:2])
+            minutes = int(digits[2:])
+        if minutes >= 60:
+            return None
+        total_minutes = sign * (hours * 60 + minutes)
+    else:
+        try:
+            offset_hours = float(token)
+        except ValueError:
+            return None
+        total_minutes = int(round(offset_hours * 60))
+
+    # datetime.timezone only supports offsets in the range ±23:59.
+    if -((23 * 60) + 59) <= total_minutes <= ((23 * 60) + 59):
+        return total_minutes
+    return None
+
+
 def _normalize_ofx_datetime(value: str) -> str | None:
     raw = value.strip()
     if not raw:
@@ -113,18 +144,21 @@ def _normalize_ofx_datetime(value: str) -> str | None:
     offset_minutes = 0
     bracket_match = _OFX_TZ_BRACKET_RE.search(raw)
     if bracket_match:
-        try:
-            offset_hours = float(bracket_match.group("offset"))
-            offset_minutes = int(round(offset_hours * 60))
-        except ValueError:
-            offset_minutes = 0
+        parsed_offset = _parse_ofx_offset_minutes(bracket_match.group("offset"))
+        if parsed_offset is not None:
+            offset_minutes = parsed_offset
         compact = raw[: bracket_match.start()]
     else:
         compact = raw
 
     compact = compact.split(".", 1)[0].strip()
 
-    tz = timezone(timedelta(minutes=offset_minutes))
+    tz = timezone.utc
+    if offset_minutes:
+        try:
+            tz = timezone(timedelta(minutes=offset_minutes))
+        except ValueError:
+            tz = timezone.utc
     for fmt in ("%Y%m%d%H%M%S", "%Y%m%d"):
         try:
             dt = datetime.strptime(compact, fmt).replace(tzinfo=tz)
@@ -190,9 +224,7 @@ def _parse_optional_decimal(
         return None
     value = parse_decimal(raw)
     if value is None:
-        raise ValueError(
-            f"Vanguard {context} row has invalid {field} '{raw}'"
-        )
+        raise ValueError(f"Vanguard {context} row has invalid {field} '{raw}'")
     return value
 
 
