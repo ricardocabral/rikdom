@@ -92,6 +92,11 @@ TEMPLATE = """<!doctype html>
       <div class=\"muted\" style=\"margin-bottom:10px;\">Current Allocation by Asset Class</div>
       <div class=\"bars\" id=\"bars\"></div>
     </section>
+
+    <section class=\"panel\" style=\"margin-top: 16px;\">
+      <div class=\"muted\" style=\"margin-bottom:10px;\">Market Value by Currency (native)</div>
+      <div class=\"bars\" id=\"currency-bars\"></div>
+    </section>
   </div>
 
   <script>
@@ -167,8 +172,30 @@ TEMPLATE = """<!doctype html>
       }).join('');
     }
 
+    function renderCurrencyBars(exposureByCurrency) {
+      const bars = document.getElementById('currency-bars');
+      const entries = Object.entries(exposureByCurrency || {}).sort((a, b) => b[1] - a[1]);
+      if (!entries.length) {
+        bars.innerHTML = '<div class="muted">No data</div>';
+        return;
+      }
+
+      const total = entries.reduce((acc, [, value]) => acc + value, 0);
+      bars.innerHTML = entries.map(([ccy, value]) => {
+        const ratio = total > 0 ? (value / total) * 100 : 0;
+        return `
+          <div class="bar-row">
+            <div>${ccy}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${ratio.toFixed(1)}%"></div></div>
+            <div>${fmt(value, ccy)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
     renderLineChart(snapshots);
     renderBars(latest);
+    renderCurrencyBars(payload.currency_exposure || {});
   </script>
 </body>
 </html>
@@ -180,11 +207,14 @@ def write_dashboard(
     base_currency: str,
     snapshots: list[dict[str, Any]],
     out_path: str | Path,
+    *,
+    currency_exposure: dict[str, float] | None = None,
 ) -> Path:
     payload = {
         "profile": profile_name,
         "base_currency": base_currency,
         "snapshots": snapshots,
+        "currency_exposure": currency_exposure or {},
     }
 
     html = TEMPLATE.replace("__PAYLOAD__", json.dumps(payload, ensure_ascii=False))

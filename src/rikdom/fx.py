@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from .storage import append_jsonl, load_jsonl
 
@@ -14,13 +14,20 @@ FxFetcher = Callable[..., dict[str, float]]
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(tz=timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _snapshot_as_of_date(snapshot_timestamp: str) -> str:
     text = str(snapshot_timestamp or "").strip()
     if not text:
-        raise ValueError("snapshot_timestamp is required and must be a non-empty ISO-8601 string")
+        raise ValueError(
+            "snapshot_timestamp is required and must be a non-empty ISO-8601 string"
+        )
     try:
         dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError as exc:
@@ -36,7 +43,9 @@ def _normalize_currency(raw: Any) -> str:
     return str(raw or "").strip().upper()
 
 
-def _required_quote_currencies(portfolio: dict[str, Any], *, base_currency: str) -> list[str]:
+def _required_quote_currencies(
+    portfolio: dict[str, Any], *, base_currency: str
+) -> list[str]:
     holdings = portfolio.get("holdings")
     if not isinstance(holdings, list):
         return []
@@ -100,8 +109,16 @@ def fetch_daily_fx_rates_from_frankfurter(
     for quote_currency in quote_currencies:
         params = urlencode({"from": quote_currency, "to": base_currency})
         url = f"https://api.frankfurter.app/{as_of_date}?{params}"
+        request = Request(
+            url,
+            headers={
+                # Frankfurter can reject the default urllib user-agent with 403.
+                "User-Agent": "rikdom/1.0 (+https://github.com/ricardocabral/rikdom)",
+                "Accept": "application/json",
+            },
+        )
         # Bandit B310 false positive: endpoint host/scheme are fixed and query params are encoded.
-        with urlopen(url, timeout=10) as response:  # nosec B310
+        with urlopen(request, timeout=10) as response:  # nosec B310
             payload = json.loads(response.read().decode("utf-8"))
         value = payload.get("rates", {}).get(base_currency)
         if isinstance(value, (int, float)) and value > 0:
@@ -123,7 +140,9 @@ def ensure_snapshot_fx_lock(
 
     base_currency = _normalize_currency(settings.get("base_currency")) or "USD"
     as_of_date = _snapshot_as_of_date(snapshot_timestamp)
-    quote_currencies = _required_quote_currencies(portfolio, base_currency=base_currency)
+    quote_currencies = _required_quote_currencies(
+        portfolio, base_currency=base_currency
+    )
 
     rows = load_jsonl(fx_history_path)
     rates_to_base, rate_dates = _best_history_rates(
@@ -135,7 +154,9 @@ def ensure_snapshot_fx_lock(
     sources = {currency: "history" for currency in rates_to_base}
     warnings: list[str] = []
 
-    missing = [currency for currency in quote_currencies if currency not in rates_to_base]
+    missing = [
+        currency for currency in quote_currencies if currency not in rates_to_base
+    ]
     if missing and auto_ingest:
         fetch_fn = fetcher or fetch_daily_fx_rates_from_frankfurter
         for currency in missing:
@@ -169,13 +190,27 @@ def ensure_snapshot_fx_lock(
 
     for currency in quote_currencies:
         if currency not in rates_to_base:
-            warnings.append(f"Missing FX rate {currency}->{base_currency} as of {as_of_date}")
+            warnings.append(
+                f"Missing FX rate {currency}->{base_currency} as of {as_of_date}"
+            )
 
     fx_lock = {
         "base_currency": base_currency,
         "snapshot_timestamp": snapshot_timestamp,
-        "rates_to_base": {currency: rates_to_base[currency] for currency in quote_currencies if currency in rates_to_base},
-        "rate_dates": {currency: rate_dates[currency] for currency in quote_currencies if currency in rate_dates},
-        "sources": {currency: sources[currency] for currency in quote_currencies if currency in sources},
+        "rates_to_base": {
+            currency: rates_to_base[currency]
+            for currency in quote_currencies
+            if currency in rates_to_base
+        },
+        "rate_dates": {
+            currency: rate_dates[currency]
+            for currency in quote_currencies
+            if currency in rate_dates
+        },
+        "sources": {
+            currency: sources[currency]
+            for currency in quote_currencies
+            if currency in sources
+        },
     }
     return fx_lock, warnings

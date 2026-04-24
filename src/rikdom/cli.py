@@ -84,7 +84,12 @@ def _validate_portfolio_name(name: str) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(tz=timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _default_workspace_paths(data_dir: str, out_root: str) -> dict[str, str]:
@@ -102,7 +107,9 @@ def _default_workspace_paths(data_dir: str, out_root: str) -> dict[str, str]:
     }
 
 
-def _portfolio_workspace_paths(portfolio_name: str, data_dir: str, out_root: str) -> dict[str, str]:
+def _portfolio_workspace_paths(
+    portfolio_name: str, data_dir: str, out_root: str
+) -> dict[str, str]:
     _validate_portfolio_name(portfolio_name)
     scoped_data = Path(data_dir) / "portfolios" / portfolio_name
     scoped_out = Path(out_root) / portfolio_name
@@ -138,7 +145,9 @@ def _registry_entries(registry_payload: dict[str, Any]) -> dict[str, dict[str, A
 def _load_portfolio_registry(registry_path: str) -> dict[str, Any]:
     payload = load_json(registry_path)
     if not isinstance(payload, dict):
-        raise ValueError(f"Invalid registry format in {registry_path}: expected JSON object")
+        raise ValueError(
+            f"Invalid registry format in {registry_path}: expected JSON object"
+        )
     return payload
 
 
@@ -171,7 +180,9 @@ def _resolve_workspace_args(args: argparse.Namespace) -> None:
     if isinstance(selected_name, str) and selected_name:
         registry_path = getattr(args, "registry", defaults["registry"])
         entry = _workspace_entry_for(registry_path, selected_name)
-        selected_defaults = _portfolio_workspace_paths(selected_name, data_dir, out_root)
+        selected_defaults = _portfolio_workspace_paths(
+            selected_name, data_dir, out_root
+        )
         for key in ("portfolio", "snapshots", "fx_history", "import_log"):
             candidate = entry.get(key)
             if isinstance(candidate, str) and candidate.strip():
@@ -209,19 +220,28 @@ def _bootstrap_default_workspace(args: argparse.Namespace) -> None:
     defaults = _default_workspace_paths(data_dir, out_root)
     selected_name = getattr(args, "portfolio_name", None)
     if isinstance(selected_name, str) and selected_name:
-        defaults = {**defaults, **_portfolio_workspace_paths(selected_name, data_dir, out_root)}
+        defaults = {
+            **defaults,
+            **_portfolio_workspace_paths(selected_name, data_dir, out_root),
+        }
 
     portfolio_path = getattr(args, "portfolio", None)
     if isinstance(portfolio_path, str):
-        _bootstrap_default_file(portfolio_path, defaults["portfolio"], SAMPLE_PORTFOLIO_PATH)
+        _bootstrap_default_file(
+            portfolio_path, defaults["portfolio"], SAMPLE_PORTFOLIO_PATH
+        )
 
     snapshots_path = getattr(args, "snapshots", None)
     if isinstance(snapshots_path, str):
-        _bootstrap_default_file(snapshots_path, defaults["snapshots"], SAMPLE_SNAPSHOTS_PATH)
+        _bootstrap_default_file(
+            snapshots_path, defaults["snapshots"], SAMPLE_SNAPSHOTS_PATH
+        )
 
     fx_history_path = getattr(args, "fx_history", None)
     if isinstance(fx_history_path, str):
-        _bootstrap_default_file(fx_history_path, defaults["fx_history"], SAMPLE_FX_HISTORY_PATH)
+        _bootstrap_default_file(
+            fx_history_path, defaults["fx_history"], SAMPLE_FX_HISTORY_PATH
+        )
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -235,7 +255,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
     print("Portfolio structure is valid")
     return 0
-
 
 
 def cmd_aggregate(args: argparse.Namespace) -> int:
@@ -265,7 +284,6 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
         print("Data quality check failed in strict mode", file=sys.stderr)
         return 1
     return 0
-
 
 
 def cmd_snapshot(args: argparse.Namespace) -> int:
@@ -304,6 +322,29 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
+def _native_currency_exposure(portfolio: dict[str, Any]) -> dict[str, float]:
+    exposure: dict[str, float] = {}
+    holdings = portfolio.get("holdings")
+    if not isinstance(holdings, list):
+        return exposure
+
+    for holding in holdings:
+        if not isinstance(holding, dict):
+            continue
+        market_value = holding.get("market_value")
+        if not isinstance(market_value, dict):
+            continue
+        amount = market_value.get("amount")
+        currency = market_value.get("currency")
+        if not isinstance(amount, (int, float)):
+            continue
+        if not isinstance(currency, str) or not currency.strip():
+            continue
+        code = currency.strip().upper()
+        exposure[code] = round(exposure.get(code, 0.0) + float(amount), 2)
+
+    return dict(sorted(exposure.items(), key=lambda item: item[0]))
+
 
 def cmd_visualize(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
@@ -328,17 +369,30 @@ def cmd_visualize(args: argparse.Namespace) -> int:
     profile = portfolio.get("profile", {}).get("display_name", "Portfolio")
     currency = portfolio.get("settings", {}).get("base_currency", "USD")
 
-    out_file = write_dashboard(profile, currency, snapshots, args.out)
+    currency_exposure = _native_currency_exposure(portfolio)
+
+    out_file = write_dashboard(
+        profile,
+        currency,
+        snapshots,
+        args.out,
+        currency_exposure=currency_exposure,
+    )
     print(f"Dashboard written to {out_file}")
     return 0
 
 
-
 def _counts_dict(counts: MergeCounts) -> dict[str, int]:
-    return {"inserted": counts.inserted, "updated": counts.updated, "skipped": counts.skipped}
+    return {
+        "inserted": counts.inserted,
+        "updated": counts.updated,
+        "skipped": counts.skipped,
+    }
 
 
-def _sync_asset_type_catalog_from_plugins(portfolio: dict[str, Any], plugins_dir: str) -> dict[str, int]:
+def _sync_asset_type_catalog_from_plugins(
+    portfolio: dict[str, Any], plugins_dir: str
+) -> dict[str, int]:
     existing = portfolio.get("asset_type_catalog")
     if not isinstance(existing, list):
         existing = []
@@ -591,7 +645,10 @@ def cmd_plugin_init(args: argparse.Namespace) -> int:
         )
         return 1
     if "/" in name or "\\" in name or ".." in name:
-        print(f"Invalid plugin name '{name}': path separators are not allowed", file=sys.stderr)
+        print(
+            f"Invalid plugin name '{name}': path separators are not allowed",
+            file=sys.stderr,
+        )
         return 1
 
     dest_root = Path(args.dest)
@@ -683,7 +740,11 @@ def cmd_storage_sync(args: argparse.Namespace) -> int:
 
 
 def cmd_workspace_init(args: argparse.Namespace) -> int:
-    names = _parse_csv_names(args.portfolios) if args.portfolios else list(DEFAULT_WORKSPACE_PORTFOLIOS)
+    names = (
+        _parse_csv_names(args.portfolios)
+        if args.portfolios
+        else list(DEFAULT_WORKSPACE_PORTFOLIOS)
+    )
     if not names:
         print("No portfolio names provided", file=sys.stderr)
         return 2
@@ -729,9 +790,15 @@ def cmd_workspace_init(args: argparse.Namespace) -> int:
     seeded: list[str] = []
     if args.seed_sample:
         for entry in entries:
-            seeded_portfolio = _copy_if_missing(entry["portfolio"], SAMPLE_PORTFOLIO_PATH)
-            seeded_snapshots = _copy_if_missing(entry["snapshots"], SAMPLE_SNAPSHOTS_PATH)
-            seeded_fx_history = _copy_if_missing(entry["fx_history"], SAMPLE_FX_HISTORY_PATH)
+            seeded_portfolio = _copy_if_missing(
+                entry["portfolio"], SAMPLE_PORTFOLIO_PATH
+            )
+            seeded_snapshots = _copy_if_missing(
+                entry["snapshots"], SAMPLE_SNAPSHOTS_PATH
+            )
+            seeded_fx_history = _copy_if_missing(
+                entry["fx_history"], SAMPLE_FX_HISTORY_PATH
+            )
             if seeded_portfolio or seeded_snapshots or seeded_fx_history:
                 seeded.append(entry["name"])
 
@@ -788,7 +855,9 @@ def cmd_workspace_list(args: argparse.Namespace) -> int:
     return 0
 
 
-def _merge_by_asset_class(target: dict[str, float], increment: dict[str, float]) -> None:
+def _merge_by_asset_class(
+    target: dict[str, float], increment: dict[str, float]
+) -> None:
     for asset_class, amount in increment.items():
         target[asset_class] = round(target.get(asset_class, 0.0) + float(amount), 2)
 
@@ -796,7 +865,9 @@ def _merge_by_asset_class(target: dict[str, float], increment: dict[str, float])
 def cmd_workspace_rollup(args: argparse.Namespace) -> int:
     payload = _load_portfolio_registry(args.registry)
     entries = _registry_entries(payload)
-    requested = _parse_csv_names(args.portfolios) if args.portfolios else sorted(entries.keys())
+    requested = (
+        _parse_csv_names(args.portfolios) if args.portfolios else sorted(entries.keys())
+    )
     if not requested:
         print("No portfolios available in registry", file=sys.stderr)
         return 1
@@ -852,10 +923,16 @@ def cmd_workspace_rollup(args: argparse.Namespace) -> int:
         currency_bucket["portfolio_value_base"] = round(
             currency_bucket["portfolio_value_base"] + aggregate.total_value_base, 2
         )
-        _merge_by_asset_class(currency_bucket["by_asset_class"], aggregate.by_asset_class)
+        _merge_by_asset_class(
+            currency_bucket["by_asset_class"], aggregate.by_asset_class
+        )
 
     if not per_portfolio:
-        print(json.dumps({"status": "empty", "warnings": warnings}, indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"status": "empty", "warnings": warnings}, indent=2, ensure_ascii=False
+            )
+        )
         return 1
 
     response: dict[str, Any] = {
@@ -870,11 +947,12 @@ def cmd_workspace_rollup(args: argparse.Namespace) -> int:
         response["totals"] = totals_by_currency[base_currency]
     else:
         response["totals_by_currency"] = totals_by_currency
-        response["warning"] = "Multiple base currencies found; totals are grouped by currency."
+        response["warning"] = (
+            "Multiple base currencies found; totals are grouped by currency."
+        )
 
     print(json.dumps(response, indent=2, ensure_ascii=False))
     return 0
-
 
 
 def _backup_path(portfolio_path: Path) -> Path:
@@ -1042,7 +1120,9 @@ def cmd_compact(args: argparse.Namespace) -> int:
                 "requested": True,
                 "threshold_bytes": rotate_bytes,
                 "current_bytes": current_bytes,
-                "would_rotate": bool(journal_path.exists() and current_bytes >= rotate_bytes),
+                "would_rotate": bool(
+                    journal_path.exists() and current_bytes >= rotate_bytes
+                ),
             }
         payload["rows_before"] = len(rows)
         payload["rows_after"] = len(kept)
@@ -1125,7 +1205,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_aggregate.set_defaults(func=cmd_aggregate)
 
-    p_snapshot = sub.add_parser("snapshot", help="Append one snapshot into JSONL history")
+    p_snapshot = sub.add_parser(
+        "snapshot", help="Append one snapshot into JSONL history"
+    )
     p_snapshot.add_argument("--portfolio", default=None)
     p_snapshot.add_argument("--snapshots", default=None)
     p_snapshot.add_argument("--fx-history", default=None)
@@ -1151,13 +1233,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_snapshot.set_defaults(func=cmd_snapshot)
 
-    p_compact = sub.add_parser("compact", help="Compact and/or rotate a snapshots journal")
+    p_compact = sub.add_parser(
+        "compact", help="Compact and/or rotate a snapshots journal"
+    )
     p_compact.add_argument("--snapshots", default=None)
     p_compact.add_argument("--daily-days", type=int, default=DEFAULT_POLICY.daily_days)
-    p_compact.add_argument("--weekly-days", type=int, default=DEFAULT_POLICY.weekly_days)
+    p_compact.add_argument(
+        "--weekly-days", type=int, default=DEFAULT_POLICY.weekly_days
+    )
     p_compact.add_argument("--dry-run", action="store_true")
     p_compact.add_argument("--no-backup", action="store_true")
-    p_compact.add_argument("--rotate", action="store_true", help="Rotate the journal aside before compacting")
+    p_compact.add_argument(
+        "--rotate",
+        action="store_true",
+        help="Rotate the journal aside before compacting",
+    )
     p_compact.add_argument(
         "--rotate-bytes",
         type=int,
@@ -1178,7 +1268,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_visualize.set_defaults(func=cmd_visualize)
 
-    p_import = sub.add_parser("import-statement", help="Import holdings using a community plugin")
+    p_import = sub.add_parser(
+        "import-statement", help="Import holdings using a community plugin"
+    )
     p_import.add_argument("--portfolio", default=None)
     p_import.add_argument("--plugin", required=True)
     p_import.add_argument("--input", required=True)
@@ -1190,8 +1282,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run preflight + merge diff without writing portfolio/import log",
     )
     p_import.add_argument("--import-log", default=None)
-    p_import.add_argument("--import-run-id", default=None, help="Override generated run id (mainly for tests).")
-    p_import.add_argument("--ingested-at", default=None, help="Override ingested_at timestamp (ISO-8601).")
+    p_import.add_argument(
+        "--import-run-id",
+        default=None,
+        help="Override generated run id (mainly for tests).",
+    )
+    p_import.add_argument(
+        "--ingested-at", default=None, help="Override ingested_at timestamp (ISO-8601)."
+    )
     _add_workspace_options(
         p_import, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
@@ -1200,7 +1298,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_imports = sub.add_parser("imports", help="Inspect import run history")
     _add_workspace_options(p_imports)
     p_imports_sub = p_imports.add_subparsers(dest="imports_command", required=True)
-    p_imports_list = p_imports_sub.add_parser("list", help="List import run log entries")
+    p_imports_list = p_imports_sub.add_parser(
+        "list", help="List import run log entries"
+    )
     p_imports_list.add_argument("--import-log", default=None)
     p_imports_list.add_argument("--source-system", default=None)
     p_imports_list.add_argument("--import-run-id", default=None)
@@ -1246,7 +1346,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_render.set_defaults(func=cmd_render_report)
 
-    p_storage = sub.add_parser("storage-sync", help="Sync canonical JSON into storage plugin")
+    p_storage = sub.add_parser(
+        "storage-sync", help="Sync canonical JSON into storage plugin"
+    )
     p_storage.add_argument("--plugin", default="duckdb-storage")
     p_storage.add_argument("--plugins-dir", default="plugins")
     p_storage.add_argument("--portfolio", default=None)
@@ -1257,7 +1359,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_storage.set_defaults(func=cmd_storage_sync)
 
-    p_migrate = sub.add_parser("migrate", help="Upgrade portfolio schema to a newer version")
+    p_migrate = sub.add_parser(
+        "migrate", help="Upgrade portfolio schema to a newer version"
+    )
     p_migrate.add_argument("--portfolio", default=None)
     p_migrate.add_argument(
         "--to",
@@ -1278,11 +1382,17 @@ def build_parser() -> argparse.ArgumentParser:
     _add_workspace_options(p_migrate, with_portfolio_name=True, with_registry=True)
     p_migrate.set_defaults(func=cmd_migrate)
 
-    p_workspace = sub.add_parser("workspace", help="Manage multi-portfolio workspace registry")
+    p_workspace = sub.add_parser(
+        "workspace", help="Manage multi-portfolio workspace registry"
+    )
     _add_workspace_options(p_workspace, with_out_root=True, with_registry=True)
-    p_workspace_sub = p_workspace.add_subparsers(dest="workspace_command", required=True)
+    p_workspace_sub = p_workspace.add_subparsers(
+        dest="workspace_command", required=True
+    )
 
-    p_workspace_init = p_workspace_sub.add_parser("init", help="Initialize portfolio registry")
+    p_workspace_init = p_workspace_sub.add_parser(
+        "init", help="Initialize portfolio registry"
+    )
     _add_workspace_options(p_workspace_init, with_out_root=True, with_registry=True)
     p_workspace_init.add_argument(
         "--portfolios",
@@ -1294,7 +1404,9 @@ def build_parser() -> argparse.ArgumentParser:
         default="main",
         help="Default portfolio name in registry",
     )
-    p_workspace_init.add_argument("--force", action="store_true", help="Overwrite existing registry")
+    p_workspace_init.add_argument(
+        "--force", action="store_true", help="Overwrite existing registry"
+    )
     p_workspace_init.add_argument(
         "--seed-sample",
         dest="seed_sample",
@@ -1309,7 +1421,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_workspace_init.set_defaults(func=cmd_workspace_init, seed_sample=True)
 
-    p_workspace_list = p_workspace_sub.add_parser("list", help="List registered portfolios")
+    p_workspace_list = p_workspace_sub.add_parser(
+        "list", help="List registered portfolios"
+    )
     _add_workspace_options(p_workspace_list, with_out_root=True, with_registry=True)
     p_workspace_list.set_defaults(func=cmd_workspace_list)
 
@@ -1325,7 +1439,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_workspace_rollup.set_defaults(func=cmd_workspace_rollup)
 
     return parser
-
 
 
 def main(argv: list[str] | None = None) -> int:
