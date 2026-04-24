@@ -322,12 +322,10 @@ class Plugin:
 CLI call:
 
 ```bash
-uv run rikdom render-report \
-  --plugin quarto-portfolio-report \
-  --plugins-dir plugins \
+uv run rikdom viz \
   --portfolio data-sample/portfolio.json \
   --snapshots data-sample/snapshots.jsonl \
-  --out-dir out/reports
+  --out out/reports/dashboard.html
 ```
 
 ### 4) State/Storage plugin (DuckDB-style)
@@ -428,7 +426,7 @@ uv run rikdom plugins list --plugins-dir plugins
 6. Validate behavior through pipeline/CLI entrypoints (use tracked fixtures, not local `data/*` defaults):
 
 ```bash
-uv run rikdom render-report --plugin quarto-portfolio-report --plugins-dir plugins --portfolio data-sample/portfolio.json --snapshots data-sample/snapshots.jsonl --out-dir out/reports
+uv run rikdom viz --portfolio data-sample/portfolio.json --snapshots data-sample/snapshots.jsonl --out out/reports/dashboard.html
 uv run rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins --portfolio data-sample/portfolio.json --snapshots data-sample/snapshots.jsonl --db-path out/rikdom.duckdb
 ```
 

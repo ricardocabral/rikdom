@@ -2,28 +2,30 @@
 
 ## Scope
 
-A minimal static HTML dashboard generated from local data.
+Visualization is plugin-driven through `quarto-portfolio-report`.
+
+It generates two linked HTML artifacts:
+
+- `dashboard.html` (quickview)
+- `portfolio-report.html` (deep-dive)
 
 ## Input
 
-- Portfolio profile and base currency from local `data/portfolio.json` (auto-seeded from `data-sample/portfolio.json` when missing and defaults are used)
-- Time series from local `data/snapshots.jsonl` (auto-seeded from `data-sample/snapshots.jsonl` when missing and defaults are used)
+- Portfolio profile and base currency from local `data/portfolio.json`
+- Time series from local `data/snapshots.jsonl`
+- Optional current-state synthetic snapshot via `--include-current`
 
 ## Output
 
-- `out/dashboard.html`
-  - Total portfolio value
-  - Line chart of progress over time
-  - Current allocation by asset class
+Using `rikdom viz`:
 
-## Design Constraints
+- `out/dashboard.html` (quickview)
+- `out/portfolio-report.html` (deep dive)
 
-- Zero frontend framework dependencies.
-- Works offline.
-- Easy to inspect and modify.
+Both pages link to each other.
 
 ## Generate
 
 ```bash
-rikdom visualize --out out/dashboard.html --include-current
+rikdom viz --out out/dashboard.html --include-current
 ```

@@ -139,7 +139,7 @@ make snapshot
 ### 7. Generate dashboard
 
 ```bash
-make visualize
+make viz
 ```
 
 ### 8. Multi-portfolio workspace (optional)
@@ -160,7 +160,7 @@ Run commands against a specific portfolio:
 
 ```bash
 uv run rikdom aggregate --data-dir data --portfolio-name retirement
-uv run rikdom render-report --data-dir data --out-root out --portfolio-name retirement
+uv run rikdom viz --data-dir data --out-root out --portfolio-name retirement
 ```
 
 Cross-portfolio rollup:
@@ -223,7 +223,7 @@ Plugin quick commands:
 ```bash
 make plugins-list
 make import-sample
-make render-report
+make viz
 make storage-sync
 ```
 

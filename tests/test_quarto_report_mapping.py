@@ -391,6 +391,11 @@ class QuartoPluginTests(unittest.TestCase):
                                 "asset_type_id": "stock",
                                 "market_value": {"amount": 10, "currency": ""},
                             },
+                            {
+                                "id": "h-non-ascii",
+                                "asset_type_id": "stock",
+                                "market_value": {"amount": 7, "currency": "ÅØÆ"},
+                            },
                         ],
                     }
                 ),
@@ -422,9 +427,25 @@ class QuartoPluginTests(unittest.TestCase):
             currency_split = payload["sections"]["currency_split"]
 
             self.assertEqual(currency_split.get("USD"), 100.0)
-            self.assertEqual(currency_split.get("UNKNOWN"), 85.0)
+            self.assertEqual(currency_split.get("UNKNOWN"), 92.0)
             self.assertNotIn("USDD", currency_split)
             self.assertNotIn("US1", currency_split)
+            self.assertNotIn("ÅØÆ", currency_split)
+
+            quickview_currency = payload["sections"]["quickview"]["currency"]
+            native = quickview_currency["native"]
+            converted_base = quickview_currency["converted_base"]
+            missing_rates = quickview_currency["missing_rates"]
+
+            self.assertEqual(native.get("USD"), 100.0)
+            self.assertEqual(native.get("UNKNOWN"), 92.0)
+            self.assertNotIn("USDD", native)
+            self.assertNotIn("US1", native)
+            self.assertNotIn("", native)
+            self.assertNotIn("ÅØÆ", native)
+            self.assertEqual(converted_base.get("USD"), 100.0)
+            self.assertNotIn("UNKNOWN", converted_base)
+            self.assertIn("UNKNOWN", missing_rates)
 
 
 if __name__ == "__main__":

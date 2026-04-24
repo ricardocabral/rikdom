@@ -129,7 +129,7 @@ simple copy:
 cp data/snapshots.jsonl.bak data/snapshots.jsonl
 ```
 
-After restoring, run `rikdom aggregate` and `rikdom visualize` to confirm
+After restoring, run `rikdom aggregate` and `rikdom viz` to confirm
 the recovered state is usable.
 
 ## What Rikdom will not do

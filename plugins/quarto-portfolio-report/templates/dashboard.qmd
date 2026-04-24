@@ -16,7 +16,7 @@ format:
   .subtitle { color:var(--muted); margin:0 0 18px; }
   .link { color:#fff; background:var(--accent); text-decoration:none; padding:8px 12px; border-radius:10px; font-size:14px; }
   .grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); }
-  .half-grid { display:grid; gap:16px; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:16px; }
+  .half-grid { display:grid; gap:16px; grid-template-columns:1fr; margin-top:16px; }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 6px 20px rgba(12,31,47,.05); }
   .metric { font-size:32px; font-weight:650; margin:8px 0; }
   .muted { color:var(--muted); }
@@ -27,7 +27,6 @@ format:
   .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
   .value-col { text-align:right; color:#334047; font-variant-numeric:tabular-nums; }
   .donut-center { font-size:11px; fill:#4f5960; text-anchor:middle; }
-  @media (max-width:900px) { .half-grid{grid-template-columns:1fr;} }
   @media (max-width:680px) { .metric{font-size:24px;} .dist{grid-template-columns:1fr;} }
 </style>
 

@@ -40,6 +40,7 @@ class PhaseName:
 BRAZIL_CNPJ_REGEX = r"^\d{14}$"
 BRAZIL_ISIN_REGEX = r"^BR[A-Z0-9]{9}\d$"
 BRAZIL_B3_TICKER_REGEX = r"^[A-Z]{4}\d{2}[A-Z]?$"
+BRAZIL_B3_ETF_TICKER_REGEX = r"^[A-Z0-9]{4}\d{2}[A-Z]?$"
 BRAZIL_INDEXER_ENUM = ["CDI_DI_OVER", "IPCA", "SELIC", "PREFIXADO"]
 
 

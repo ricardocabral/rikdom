@@ -21,7 +21,9 @@ QUICKVIEW_FILENAME = "dashboard.html"
 
 def _normalize_currency_code(value: Any, *, fallback: str = "UNKNOWN") -> str:
     code = str(value or "").strip().upper()
-    return code if len(code) == 3 and code.isalpha() else fallback
+    if len(code) == 3 and code.isascii() and code.isalpha():
+        return code
+    return fallback
 
 
 def _safe_float(value: Any) -> float | None:

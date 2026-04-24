@@ -18,16 +18,14 @@ If Quarto is missing, the plugin still runs but generates a fallback HTML artifa
 Quick target from repo root:
 
 ```bash
-make render-report
+make viz
 ```
 
 Full command:
 
 ```bash
-uv run rikdom render-report \
-  --plugin quarto-portfolio-report \
-  --plugins-dir plugins \
+uv run rikdom viz \
   --portfolio data-sample/portfolio.json \
   --snapshots data-sample/snapshots.jsonl \
-  --out-dir out/reports
+  --out out/reports/dashboard.html
 ```
