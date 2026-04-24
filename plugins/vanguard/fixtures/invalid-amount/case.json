@@ -1,0 +1,4 @@
+{
+	"hook": "source_input",
+	"input": "input.csv"
+}

@@ -1,0 +1,10 @@
+record_type,account_number,account_name,account_type,statement_date,currency,security_type,symbol,isin,description,quantity,market_value,cash_balance,date,activity_type,amount,fees,reference_id
+account,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,,,,,,,,,,,,,
+position,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,ETF,VTI,US9229087690,Vanguard Total Stock Market ETF,40,10400,,,,,,,
+position,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,ETF,VXUS,US9220428588,Vanguard Total International Stock ETF,25,1500,,,,,,,
+cash,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,,,,,,,850.75,,,,,,
+transaction,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,ETF,VTI,US9229087690,Vanguard Total Stock Market ETF,3,,,03/05/2026,Buy,780.00,0.00,VG-TXN-1001
+transaction,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,ETF,VXUS,US9220428588,Vanguard Total International Stock ETF,2,,,03/12/2026,Sell,118.20,0.00,VG-TXN-1002
+transaction,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,ETF,VTI,US9229087690,Vanguard Total Stock Market ETF,,,,03/20/2026,Cash Dividend,48.12,0.00,VG-TXN-1003
+transaction,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,,,,Settlement Fund,,,,03/29/2026,Interest,1.37,0.00,VG-TXN-1004
+transaction,VG-00112233,Vanguard Brokerage,Taxable Brokerage,2026-03-31,USD,,,,Account Maintenance,,,,03/30/2026,Advisory Fee,4.00,0.00,VG-TXN-1005

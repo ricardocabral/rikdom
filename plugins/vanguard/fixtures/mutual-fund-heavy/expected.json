@@ -1,0 +1,171 @@
+{
+  "provider": "vanguard",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.csv",
+    "accounts": [
+      {
+        "account_number": "VG-99887766",
+        "currency": "USD",
+        "account_name": "Vanguard Roth IRA",
+        "account_type": "Roth IRA"
+      }
+    ]
+  },
+  "holdings": [
+    {
+      "id": "vanguard:vg-99887766:pos:vtsax",
+      "asset_type_id": "fund",
+      "label": "Vanguard Total Stock Market Index Fund Admiral Shares",
+      "quantity": 120.5,
+      "market_value": {
+        "amount": 15062.5,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VTSAX",
+        "provider_account_id": "VG-99887766",
+        "isin": "US9229087286"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Mutual Fund"
+      }
+    },
+    {
+      "id": "vanguard:vg-99887766:pos:vbtlx",
+      "asset_type_id": "fund",
+      "label": "Vanguard Total Bond Market Index Fund Admiral Shares",
+      "quantity": 85.25,
+      "market_value": {
+        "amount": 8943.11,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VBTLX",
+        "provider_account_id": "VG-99887766",
+        "isin": "US9219378356"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Mutual Fund"
+      }
+    },
+    {
+      "id": "vanguard:vg-99887766:cash:usd",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash balance (USD)",
+      "market_value": {
+        "amount": 320.18,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "provider_account_id": "VG-99887766",
+        "ticker": "CASH"
+      },
+      "jurisdiction": {
+        "country": "US"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "vanguard-txn-vg-99887766-VG-TXN-2001",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-02-04T00:00:00Z",
+      "money": {
+        "amount": -520.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-99887766:7a9dd974d47a7152",
+      "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2001",
+      "metadata": {
+        "activity_type": "Buy",
+        "description": "Vanguard Total Stock Market Index Fund Admiral Shares"
+      },
+      "instrument": {
+        "ticker": "VTSAX",
+        "country": "US"
+      },
+      "quantity": 4.223
+    },
+    {
+      "id": "vanguard-txn-vg-99887766-VG-TXN-2002",
+      "event_type": "sell",
+      "status": "posted",
+      "effective_at": "2026-02-11T00:00:00Z",
+      "money": {
+        "amount": 220.15,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-99887766:302ed89fca5a0d58",
+      "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2002",
+      "metadata": {
+        "activity_type": "Sell",
+        "description": "Vanguard Total Bond Market Index Fund Admiral Shares"
+      },
+      "instrument": {
+        "ticker": "VBTLX",
+        "country": "US"
+      },
+      "quantity": 2.1
+    },
+    {
+      "id": "vanguard-txn-vg-99887766-VG-TXN-2003",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-02-17T00:00:00Z",
+      "money": {
+        "amount": 33.44,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-99887766:680811ddae4642ed",
+      "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2003",
+      "metadata": {
+        "activity_type": "Dividend",
+        "description": "Vanguard Total Bond Market Index Fund Admiral Shares"
+      },
+      "instrument": {
+        "ticker": "VBTLX",
+        "country": "US"
+      }
+    },
+    {
+      "id": "vanguard-txn-vg-99887766-VG-TXN-2004",
+      "event_type": "transfer_in",
+      "status": "posted",
+      "effective_at": "2026-02-24T00:00:00Z",
+      "money": {
+        "amount": 500.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-99887766:3dfaa0fd4483667a",
+      "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2004",
+      "metadata": {
+        "activity_type": "Transfer In",
+        "description": "Settlement Fund"
+      }
+    },
+    {
+      "id": "vanguard-txn-vg-99887766-VG-TXN-2005",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-02-25T00:00:00Z",
+      "money": {
+        "amount": -3.5,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-99887766:f9362929b9c06ea7",
+      "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2005",
+      "metadata": {
+        "activity_type": "Fee",
+        "description": "Account Service"
+      }
+    }
+  ]
+}

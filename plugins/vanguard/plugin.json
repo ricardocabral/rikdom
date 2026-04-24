@@ -1,0 +1,9 @@
+{
+	"name": "vanguard",
+	"version": "0.1.0",
+	"api_version": "1.0",
+	"plugin_types": ["source/input"],
+	"module": "plugin",
+	"class_name": "Plugin",
+	"description": "Import Vanguard CSV statement exports into canonical Rikdom statement JSON"
+}

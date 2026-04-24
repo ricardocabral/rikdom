@@ -1,0 +1,171 @@
+{
+  "provider": "vanguard",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.csv",
+    "accounts": [
+      {
+        "account_number": "VG-00112233",
+        "currency": "USD",
+        "account_name": "Vanguard Brokerage",
+        "account_type": "Taxable Brokerage"
+      }
+    ]
+  },
+  "holdings": [
+    {
+      "id": "vanguard:vg-00112233:pos:vti",
+      "asset_type_id": "fund",
+      "label": "Vanguard Total Stock Market ETF",
+      "quantity": 40.0,
+      "market_value": {
+        "amount": 10400.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VTI",
+        "provider_account_id": "VG-00112233",
+        "isin": "US9229087690"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "ETF"
+      }
+    },
+    {
+      "id": "vanguard:vg-00112233:pos:vxus",
+      "asset_type_id": "fund",
+      "label": "Vanguard Total International Stock ETF",
+      "quantity": 25.0,
+      "market_value": {
+        "amount": 1500.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VXUS",
+        "provider_account_id": "VG-00112233",
+        "isin": "US9220428588"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "ETF"
+      }
+    },
+    {
+      "id": "vanguard:vg-00112233:cash:usd",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash balance (USD)",
+      "market_value": {
+        "amount": 850.75,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "provider_account_id": "VG-00112233",
+        "ticker": "CASH"
+      },
+      "jurisdiction": {
+        "country": "US"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "vanguard-txn-vg-00112233-VG-TXN-1001",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-03-05T00:00:00Z",
+      "money": {
+        "amount": -780.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-00112233:a67b9696e3979c85",
+      "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1001",
+      "metadata": {
+        "activity_type": "Buy",
+        "description": "Vanguard Total Stock Market ETF"
+      },
+      "instrument": {
+        "ticker": "VTI",
+        "country": "US"
+      },
+      "quantity": 3.0
+    },
+    {
+      "id": "vanguard-txn-vg-00112233-VG-TXN-1002",
+      "event_type": "sell",
+      "status": "posted",
+      "effective_at": "2026-03-12T00:00:00Z",
+      "money": {
+        "amount": 118.2,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-00112233:60637b3c534e7491",
+      "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1002",
+      "metadata": {
+        "activity_type": "Sell",
+        "description": "Vanguard Total International Stock ETF"
+      },
+      "instrument": {
+        "ticker": "VXUS",
+        "country": "US"
+      },
+      "quantity": 2.0
+    },
+    {
+      "id": "vanguard-txn-vg-00112233-VG-TXN-1003",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-03-20T00:00:00Z",
+      "money": {
+        "amount": 48.12,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-00112233:67e8a9d374e39c90",
+      "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1003",
+      "metadata": {
+        "activity_type": "Cash Dividend",
+        "description": "Vanguard Total Stock Market ETF"
+      },
+      "instrument": {
+        "ticker": "VTI",
+        "country": "US"
+      }
+    },
+    {
+      "id": "vanguard-txn-vg-00112233-VG-TXN-1004",
+      "event_type": "interest",
+      "status": "posted",
+      "effective_at": "2026-03-29T00:00:00Z",
+      "money": {
+        "amount": 1.37,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-00112233:ec288aa8e57765dd",
+      "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1004",
+      "metadata": {
+        "activity_type": "Interest",
+        "description": "Settlement Fund"
+      }
+    },
+    {
+      "id": "vanguard-txn-vg-00112233-VG-TXN-1005",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-03-30T00:00:00Z",
+      "money": {
+        "amount": -4.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "vanguard:vg-00112233:be5c95ade0c189f3",
+      "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1005",
+      "metadata": {
+        "activity_type": "Advisory Fee",
+        "description": "Account Maintenance"
+      }
+    }
+  ]
+}

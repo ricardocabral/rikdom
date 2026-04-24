@@ -1,0 +1,10 @@
+record_type,account_number,account_name,account_type,statement_date,currency,security_type,symbol,isin,description,quantity,market_value,cash_balance,date,activity_type,amount,fees,reference_id
+account,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,,,,,,,,,,,,,
+position,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,Mutual Fund,VTSAX,US9229087286,Vanguard Total Stock Market Index Fund Admiral Shares,120.500,15062.50,,,,,,,
+position,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,Mutual Fund,VBTLX,US9219378356,Vanguard Total Bond Market Index Fund Admiral Shares,85.250,8943.11,,,,,,,
+cash,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,,,,,,,320.18,,,,,,
+transaction,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,Mutual Fund,VTSAX,US9229087286,Vanguard Total Stock Market Index Fund Admiral Shares,4.223,,,02/04/2026,Buy,520.00,0.00,VG-TXN-2001
+transaction,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,Mutual Fund,VBTLX,US9219378356,Vanguard Total Bond Market Index Fund Admiral Shares,2.100,,,02/11/2026,Sell,220.15,0.00,VG-TXN-2002
+transaction,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,Mutual Fund,VBTLX,US9219378356,Vanguard Total Bond Market Index Fund Admiral Shares,,,,02/17/2026,Dividend,33.44,0.00,VG-TXN-2003
+transaction,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,,,,Settlement Fund,,,,02/24/2026,Transfer In,500.00,0.00,VG-TXN-2004
+transaction,VG-99887766,Vanguard Roth IRA,Roth IRA,2026-02-28,USD,,,,Account Service,,,,02/25/2026,Fee,3.50,0.00,VG-TXN-2005
