@@ -309,10 +309,67 @@
                 "items": { "$ref": "#/$defs/AllocationTarget" }
               },
               "notes": { "type": "string" }
+            },
+            "oneOf": [
+              {
+                "required": ["age"],
+                "not": { "required": ["as_of_date"] }
+              },
+              {
+                "required": ["as_of_date"],
+                "not": { "required": ["age"] }
+              }
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["mode"],
+            "properties": { "mode": { "const": "age_based" } }
+          },
+          "then": {
+            "properties": {
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "required": ["age"],
+                  "not": { "required": ["as_of_date"] }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["mode"],
+            "properties": { "mode": { "const": "date_based" } }
+          },
+          "then": {
+            "properties": {
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "required": ["as_of_date"],
+                  "not": { "required": ["age"] }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["mode"],
+            "properties": { "mode": { "const": "static" } }
+          },
+          "then": {
+            "properties": {
+              "nodes": { "type": "array", "maxItems": 0 }
             }
           }
         }
-      }
+      ]
     },
     "rebalancing_policy": {
       "type": "object",
@@ -553,6 +610,7 @@
     },
     "AllocationTarget": {
       "type": "object",
+      "description": "Target weight for one bucket within a dimension. Cross-field band invariants (min_pct <= weight_pct <= max_pct) cannot be expressed in JSON Schema 2020-12 and are enforced by the semantic validator in src/rikdom/policy.py.",
       "required": ["dimension", "bucket", "weight_pct"],
       "additionalProperties": false,
       "properties": {
