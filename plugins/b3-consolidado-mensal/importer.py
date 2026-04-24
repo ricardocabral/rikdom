@@ -12,6 +12,14 @@ from typing import Any
 
 from defusedxml import ElementTree as DefusedET
 
+try:
+    from .known_tickers import enrich_holding as _enrich_from_ticker
+except ImportError:
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).parent))
+    from known_tickers import enrich_holding as _enrich_from_ticker  # type: ignore[no-redef]
+
 MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 DOC_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
@@ -449,6 +457,7 @@ def _to_holding(spec: SheetSpec, row: dict[str, str]) -> dict[str, Any] | None:
         metadata["reference_price"] = ref_price
 
     holding["metadata"] = metadata
+    _enrich_from_ticker(holding)
     return holding
 
 

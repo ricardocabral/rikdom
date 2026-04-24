@@ -406,7 +406,9 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
         self.assertEqual(amzo34["asset_type_id"], "stock")
 
         ivvb11 = _holding_by_ticker(holdings, "IVVB11")
-        self.assertEqual(ivvb11["asset_type_id"], "fund")
+        self.assertEqual(ivvb11["asset_type_id"], "etf_ivvb11")
+        self.assertEqual(ivvb11["instrument_attributes"]["b3_ticker"], "IVVB11")
+        self.assertEqual(ivvb11["instrument_attributes"]["underlying_class"], "INTERNACIONAL")
 
         xpml11 = _holding_by_ticker(holdings, "XPML11")
         self.assertEqual(xpml11["asset_type_id"], "reit")

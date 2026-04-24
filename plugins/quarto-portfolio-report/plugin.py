@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -171,6 +172,77 @@ def _build_quickview_currency_split(
         },
         "missing_rates": sorted(missing_rates),
     }
+
+
+def _to_base_amount_with_rates(
+    holding: dict[str, Any],
+    *,
+    amount: float,
+    currency: str,
+    base_currency: str,
+    fx_rates_to_base: dict[str, float],
+) -> float | None:
+    if currency == base_currency:
+        return amount
+    fx_rate = fx_rates_to_base.get(currency)
+    if isinstance(fx_rate, (int, float)) and float(fx_rate) > 0:
+        return amount * float(fx_rate)
+    return _to_base_amount(holding, amount, currency, base_currency)
+
+
+def _extract_asset_class_targets(portfolio: dict[str, Any]) -> dict[str, float]:
+    candidates: list[Any] = [
+        portfolio.get("target_allocation_by_asset_class"),
+        portfolio.get("settings", {}).get("target_allocation_by_asset_class")
+        if isinstance(portfolio.get("settings"), dict)
+        else None,
+        portfolio.get("metadata", {}).get("target_allocation_by_asset_class")
+        if isinstance(portfolio.get("metadata"), dict)
+        else None,
+    ]
+    raw: dict[str, float] = {}
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        for key, value in candidate.items():
+            parsed = _safe_float(value)
+            if parsed is None or parsed < 0:
+                continue
+            raw[str(key)] = parsed
+        if raw:
+            break
+
+    if not raw:
+        return {}
+
+    total = sum(raw.values())
+    if total > 1.5:
+        normalized = {k: v / 100.0 for k, v in raw.items()}
+    else:
+        normalized = raw
+
+    norm_total = sum(normalized.values())
+    if norm_total <= 0:
+        return {}
+
+    return {k: round(v / norm_total, 6) for k, v in normalized.items() if v > 0}
+
+
+def _maturity_bucket(maturity_date: str | None, *, reference_date: datetime) -> str:
+    if not maturity_date:
+        return "unknown"
+    try:
+        maturity = datetime.fromisoformat(maturity_date.strip()).date()
+    except ValueError:
+        return "unknown"
+    years = (maturity - reference_date.date()).days / 365.25
+    if years <= 1:
+        return "<=1y"
+    if years <= 3:
+        return "1-3y"
+    if years <= 5:
+        return "3-5y"
+    return ">5y"
 
 
 def _build_report_payload(

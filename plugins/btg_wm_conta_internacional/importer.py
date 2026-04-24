@@ -10,6 +10,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    from .known_tickers import enrich_holding as _enrich_from_ticker
+except ImportError:
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).parent))
+    from known_tickers import enrich_holding as _enrich_from_ticker  # type: ignore[no-redef]
+
 PROVIDER = "btg_wm_conta_internacional"
 
 
@@ -175,32 +183,32 @@ def _parse_holdings(text: str, account_number: str) -> list[dict[str, Any]]:
         gd = match.groupdict()
         symbol = gd["symbol"].upper()
         section = current_bucket or "Unknown"
-        holdings.append(
-            {
-                "id": f"btgwm:{_slug(account_number)}:{_slug(symbol)}",
-                "asset_type_id": _asset_type_for_bucket(section),
-                "label": _collapse_spaces(gd["description"]),
-                "quantity": _parse_signed_number(gd["quantity"]),
-                "market_value": {
-                    "amount": _parse_signed_number(gd["market_value"]),
-                    "currency": "USD",
-                },
-                "identifiers": {
-                    "ticker": symbol,
-                    "provider_account_id": account_number,
-                },
-                "jurisdiction": {"country": "US"},
-                "metadata": {
-                    "provider": "btg-wm-conta-internacional",
-                    "holding_bucket": section,
-                    "unit_cost": _parse_signed_number(gd["unit_cost"]),
-                    "total_cost": _parse_signed_number(gd["total_cost"]),
-                    "market_price": _parse_signed_number(gd["market_price"]),
-                    "gain_loss": _parse_signed_number(gd["gain_loss"]),
-                    "account_type": gd["account_type"],
-                },
-            }
-        )
+        holding: dict[str, Any] = {
+            "id": f"btgwm:{_slug(account_number)}:{_slug(symbol)}",
+            "asset_type_id": _asset_type_for_bucket(section),
+            "label": _collapse_spaces(gd["description"]),
+            "quantity": _parse_signed_number(gd["quantity"]),
+            "market_value": {
+                "amount": _parse_signed_number(gd["market_value"]),
+                "currency": "USD",
+            },
+            "identifiers": {
+                "ticker": symbol,
+                "provider_account_id": account_number,
+            },
+            "jurisdiction": {"country": "US"},
+            "metadata": {
+                "provider": "btg-wm-conta-internacional",
+                "holding_bucket": section,
+                "unit_cost": _parse_signed_number(gd["unit_cost"]),
+                "total_cost": _parse_signed_number(gd["total_cost"]),
+                "market_price": _parse_signed_number(gd["market_price"]),
+                "gain_loss": _parse_signed_number(gd["gain_loss"]),
+                "account_type": gd["account_type"],
+            },
+        }
+        _enrich_from_ticker(holding)
+        holdings.append(holding)
 
     return holdings
 

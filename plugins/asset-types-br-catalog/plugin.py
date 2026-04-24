@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rikdom.plugin_engine.contracts import (
+    BRAZIL_B3_ETF_TICKER_REGEX,
     BRAZIL_B3_TICKER_REGEX,
     BRAZIL_CNPJ_REGEX,
     BRAZIL_INDEXER_ENUM,
@@ -89,9 +90,13 @@ def _attrs_credit_letter_or_debenture() -> list[dict]:
 
 
 def _etf_attrs(*, underlying_class: str) -> list[dict]:
-    """Return ETF instrument attributes pre-filled with the known underlying_class enum."""
+    """Return ETF instrument attributes pre-filled with the known underlying_class enum.
+
+    ETF tickers on B3 can include digits in the 4-char prefix (e.g. B5P211),
+    so they use a looser pattern than regular equity tickers.
+    """
     return [
-        _attr("b3_ticker", "B3 Ticker", "string", required=True, pattern=BRAZIL_B3_TICKER_REGEX),
+        _attr("b3_ticker", "B3 Ticker", "string", required=True, pattern=BRAZIL_B3_ETF_TICKER_REGEX),
         _attr("isin", "ISIN", "string", required=False, pattern=BRAZIL_ISIN_REGEX),
         _attr("fund_cnpj", "Fund CNPJ", "string", required=False, pattern=BRAZIL_CNPJ_REGEX),
         _attr(
