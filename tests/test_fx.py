@@ -4,7 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from rikdom.fx import ensure_snapshot_fx_lock
+from unittest.mock import patch
+
+from rikdom.fx import ensure_snapshot_fx_lock, fetch_daily_fx_rates_from_frankfurter
 from rikdom.storage import append_jsonl, load_jsonl
 
 
@@ -111,6 +113,33 @@ class FxTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["quote_currency"], "USD")
             self.assertEqual(rows[0]["rate_to_base"], 5.5)
+
+
+    def test_fetch_daily_fx_rates_from_frankfurter_sets_request_headers(self) -> None:
+        import io
+        import json as _json
+
+        captured_requests: list = []
+
+        def _fake_urlopen(request, timeout=10):  # noqa: ARG001
+            captured_requests.append(request)
+            body = _json.dumps({"rates": {"BRL": 5.25}}).encode("utf-8")
+            return io.BytesIO(body)
+
+        with patch("rikdom.fx.urlopen", side_effect=_fake_urlopen):
+            rates = fetch_daily_fx_rates_from_frankfurter(
+                base_currency="BRL",
+                quote_currencies=["USD"],
+                as_of_date="2026-04-21",
+            )
+
+        self.assertEqual(rates, {"USD": 5.25})
+        self.assertEqual(len(captured_requests), 1)
+        request = captured_requests[0]
+        self.assertIn("frankfurter.app/2026-04-21", request.full_url)
+        headers = {k.lower(): v for k, v in request.header_items()}
+        self.assertIn("rikdom", headers["user-agent"])
+        self.assertEqual(headers["accept"], "application/json")
 
 
 if __name__ == "__main__":

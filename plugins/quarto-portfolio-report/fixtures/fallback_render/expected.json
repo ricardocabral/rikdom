@@ -2,6 +2,7 @@
   "plugin": "quarto-portfolio-report",
   "artifacts": [
     {"type": "html"},
+    {"type": "html_dashboard"},
     {"type": "json"},
     {"type": "js"}
   ],

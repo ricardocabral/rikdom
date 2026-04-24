@@ -339,5 +339,74 @@ class QuartoPluginTests(unittest.TestCase):
             self.assertEqual(top_holdings[1]["amount"], 0.0)
 
 
+    def test_quarto_currency_split_buckets_malformed_currencies_as_unknown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            portfolio_path = tmp / "portfolio.json"
+            snapshots_path = tmp / "snapshots.jsonl"
+            out_dir = tmp / "out"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            portfolio_path.write_text(
+                json.dumps(
+                    {
+                        "profile": {"display_name": "Malformed Currency"},
+                        "settings": {"base_currency": "USD"},
+                        "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+                        "holdings": [
+                            {
+                                "id": "h-usd",
+                                "asset_type_id": "stock",
+                                "market_value": {"amount": 100, "currency": "USD"},
+                            },
+                            {
+                                "id": "h-bad-length",
+                                "asset_type_id": "stock",
+                                "market_value": {"amount": 50, "currency": "USDD"},
+                            },
+                            {
+                                "id": "h-bad-digits",
+                                "asset_type_id": "stock",
+                                "market_value": {"amount": 25, "currency": "US1"},
+                            },
+                            {
+                                "id": "h-empty",
+                                "asset_type_id": "stock",
+                                "market_value": {"amount": 10, "currency": ""},
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            snapshots_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-21T00:00:00Z",
+                        "totals": {"portfolio_value_base": 185},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = run_output_pipeline(
+                plugin_name="quarto-portfolio-report",
+                plugins_dir="plugins",
+                portfolio_path=str(portfolio_path),
+                snapshots_path=str(snapshots_path),
+                output_dir=str(out_dir),
+            )
+
+            json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
+            payload = json.loads(Path(json_artifact["path"]).read_text(encoding="utf-8"))
+            currency_split = payload["sections"]["currency_split"]
+
+            self.assertEqual(currency_split.get("USD"), 100.0)
+            self.assertEqual(currency_split.get("UNKNOWN"), 85.0)
+            self.assertNotIn("USDD", currency_split)
+            self.assertNotIn("US1", currency_split)
+
+
 if __name__ == "__main__":
     unittest.main()
