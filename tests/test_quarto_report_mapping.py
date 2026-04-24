@@ -68,6 +68,14 @@ class QuartoPluginTests(unittest.TestCase):
             self.assertIn("--output-dir", second_args[0])
             self.assertEqual(first_kwargs["timeout"], 120)
             self.assertEqual(second_kwargs["timeout"], 120)
+            rendered_templates = {
+                Path(arg).name
+                for call_args, _ in mock_run.call_args_list
+                for arg in call_args[0]
+                if isinstance(arg, str) and arg.endswith(".qmd")
+            }
+            self.assertIn("report.qmd", rendered_templates)
+            self.assertIn("dashboard.qmd", rendered_templates)
 
     def test_quarto_plugin_falls_back_when_quarto_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
