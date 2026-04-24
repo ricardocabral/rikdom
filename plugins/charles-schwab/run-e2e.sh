@@ -74,13 +74,15 @@ import json
 import sys
 
 p = json.load(open(sys.argv[1]))
+dry_run_diff = p.get('dry_run_diff')
+dry_run_summary = dry_run_diff.get('summary') if isinstance(dry_run_diff, dict) else None
 summary = {
   'holdings': p['holdings'],
   'activities': p['activities'],
   'preflight_ok': p['preflight']['ok'],
   'issues_total': p['preflight']['summary']['issues_total'],
   'blocking_issues': p['preflight']['summary']['blocking_issues'],
-  'dry_run_diff': p.get('dry_run_diff', {}).get('summary', {}),
+  'dry_run_diff': dry_run_summary,
 }
 print(json.dumps(summary, indent=2))
 
@@ -107,7 +109,9 @@ if counter_value(summary['activities'], 'inserted') != 0 or counter_value(summar
   errors.append(f"expected run 2 activities inserted/updated to be 0, got {summary['activities']}")
 if summary['blocking_issues'] != 0:
   errors.append(f"expected run 2 blocking_issues=0, got {summary['blocking_issues']}")
-if has_mutations(summary['dry_run_diff']):
+if not isinstance(summary['dry_run_diff'], dict):
+  errors.append("expected run 2 dry_run_diff.summary to exist and be an object")
+elif has_mutations(summary['dry_run_diff']):
   errors.append(f"expected run 2 dry_run_diff summary to have no create/update mutations, got {summary['dry_run_diff']!r}")
 
 if errors:
