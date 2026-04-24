@@ -42,6 +42,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "rikdom._resources" = [
   "plugin.manifest.schema.json",
+  "policy.schema.json",
   "template-plugin/**/*",
   "template-plugin/**/.*",
 ]
