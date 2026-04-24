@@ -11,4 +11,4 @@ venv/
 out/
 data/
 .DS_Store
-.pi-lens/cache/*
+.pi-lens/
