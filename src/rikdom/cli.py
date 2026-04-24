@@ -322,54 +322,111 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
-def _native_currency_exposure(portfolio: dict[str, Any]) -> dict[str, float]:
-    exposure: dict[str, float] = {}
+def _currency_exposure_summary(
+    portfolio: dict[str, Any],
+    *,
+    base_currency: str,
+    fx_rates_to_base: dict[str, Any] | None,
+) -> dict[str, Any]:
+    native_totals: dict[str, float] = {}
     holdings = portfolio.get("holdings")
-    if not isinstance(holdings, list):
-        return exposure
+    if isinstance(holdings, list):
+        for holding in holdings:
+            if not isinstance(holding, dict):
+                continue
+            market_value = holding.get("market_value")
+            if not isinstance(market_value, dict):
+                continue
+            amount = market_value.get("amount")
+            currency = market_value.get("currency")
+            if not isinstance(amount, (int, float)):
+                continue
+            if not isinstance(currency, str) or not currency.strip():
+                continue
+            code = currency.strip().upper()
+            native_totals[code] = native_totals.get(code, 0.0) + float(amount)
 
-    for holding in holdings:
-        if not isinstance(holding, dict):
-            continue
-        market_value = holding.get("market_value")
-        if not isinstance(market_value, dict):
-            continue
-        amount = market_value.get("amount")
-        currency = market_value.get("currency")
-        if not isinstance(amount, (int, float)):
-            continue
-        if not isinstance(currency, str) or not currency.strip():
-            continue
-        code = currency.strip().upper()
-        exposure[code] = round(exposure.get(code, 0.0) + float(amount), 2)
+    rates = fx_rates_to_base if isinstance(fx_rates_to_base, dict) else {}
+    rows: list[dict[str, Any]] = []
+    missing_rates: list[str] = []
+    total_converted_base = 0.0
 
-    return dict(sorted(exposure.items(), key=lambda item: item[0]))
+    for currency, native_amount in native_totals.items():
+        if currency == base_currency:
+            fx_rate_to_base = 1.0
+            converted_base = native_amount
+        else:
+            rate = rates.get(currency)
+            if isinstance(rate, (int, float)) and float(rate) > 0:
+                fx_rate_to_base = float(rate)
+                converted_base = native_amount * fx_rate_to_base
+            else:
+                fx_rate_to_base = None
+                converted_base = None
+                missing_rates.append(currency)
+
+        if converted_base is not None:
+            total_converted_base += converted_base
+
+        rows.append(
+            {
+                "currency": currency,
+                "native_amount": round(native_amount, 2),
+                "converted_base": round(converted_base, 2)
+                if converted_base is not None
+                else None,
+                "fx_rate_to_base": round(fx_rate_to_base, 6)
+                if fx_rate_to_base is not None
+                else None,
+            }
+        )
+
+    rows.sort(
+        key=lambda row: (
+            row["converted_base"] is None,
+            -float(row["converted_base"] or 0.0),
+            row["currency"],
+        )
+    )
+    return {
+        "base_currency": base_currency,
+        "rows": rows,
+        "missing_rates": sorted(set(missing_rates)),
+        "total_converted_base": round(total_converted_base, 2),
+    }
 
 
 def cmd_visualize(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
     snapshots = load_jsonl(args.snapshots)
 
+    current_timestamp = _now_iso()
+    fx_lock, _fx_warnings = ensure_snapshot_fx_lock(
+        portfolio,
+        fx_history_path=args.fx_history,
+        snapshot_timestamp=current_timestamp,
+        auto_ingest=False,
+    )
+
     if args.include_current:
-        current_timestamp = _now_iso()
-        fx_lock, fx_warnings = ensure_snapshot_fx_lock(
-            portfolio,
-            fx_history_path=args.fx_history,
-            snapshot_timestamp=current_timestamp,
-            auto_ingest=False,
-        )
         aggregate = aggregate_portfolio(
             portfolio,
             fx_rates_to_base=fx_lock.get("rates_to_base"),
         )
-        aggregate.warnings.extend(fx_warnings)
         aggregate.fx_lock = fx_lock
         snapshots = snapshots + [snapshot_from_aggregate(aggregate)]
 
     profile = portfolio.get("profile", {}).get("display_name", "Portfolio")
     currency = portfolio.get("settings", {}).get("base_currency", "USD")
+    if not isinstance(currency, str) or not currency.strip():
+        currency = "USD"
+    currency = currency.strip().upper()
 
-    currency_exposure = _native_currency_exposure(portfolio)
+    currency_exposure = _currency_exposure_summary(
+        portfolio,
+        base_currency=currency,
+        fx_rates_to_base=fx_lock.get("rates_to_base"),
+    )
 
     out_file = write_dashboard(
         profile,

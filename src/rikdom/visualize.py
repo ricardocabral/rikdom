@@ -28,7 +28,7 @@ TEMPLATE = """<!doctype html>
       background: radial-gradient(circle at 20% -10%, #d9f0f5, var(--bg) 45%);
     }
     .wrap {
-      max-width: 1000px;
+      max-width: 1100px;
       margin: 0 auto;
       padding: 24px;
     }
@@ -43,7 +43,13 @@ TEMPLATE = """<!doctype html>
     .grid {
       display: grid;
       gap: 16px;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+    .half-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 16px;
     }
     .panel {
       background: var(--panel);
@@ -59,14 +65,51 @@ TEMPLATE = """<!doctype html>
       letter-spacing: 0.2px;
     }
     .muted { color: var(--muted); }
-    .bars { display: grid; gap: 8px; }
-    .bar-row { display: grid; grid-template-columns: 130px 1fr auto; align-items: center; gap: 8px; font-size: 14px; }
-    .bar-track { height: 9px; background: #edf2f5; border-radius: 999px; overflow: hidden; }
-    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
     svg { width: 100%; height: auto; border-radius: 8px; background: #f8fafb; }
+    .dist {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 190px 1fr;
+      align-items: start;
+    }
+    .donut-wrap {
+      display: grid;
+      place-items: center;
+    }
+    .donut-center {
+      font-size: 11px;
+      fill: #4f5960;
+      text-anchor: middle;
+    }
+    .legend {
+      display: grid;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .legend-row {
+      display: grid;
+      grid-template-columns: 12px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .value-col {
+      text-align: right;
+      color: #334047;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 900px) {
+      .half-grid { grid-template-columns: 1fr; }
+    }
     @media (max-width: 680px) {
       .metric { font-size: 24px; }
-      .bar-row { grid-template-columns: 92px 1fr auto; font-size: 12px; }
+      .dist { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -88,19 +131,29 @@ TEMPLATE = """<!doctype html>
       </section>
     </div>
 
-    <section class=\"panel\" style=\"margin-top: 16px;\">
-      <div class=\"muted\" style=\"margin-bottom:10px;\">Current Allocation by Asset Class</div>
-      <div class=\"bars\" id=\"bars\"></div>
-    </section>
+    <div class=\"half-grid\">
+      <section class=\"panel\">
+        <div class=\"muted\" style=\"margin-bottom:10px;\">Current Allocation by Asset Class</div>
+        <div class=\"dist\">
+          <div class=\"donut-wrap\"><svg id=\"asset-donut\" viewBox=\"0 0 180 180\"></svg></div>
+          <div class=\"legend\" id=\"asset-legend\"></div>
+        </div>
+      </section>
 
-    <section class=\"panel\" style=\"margin-top: 16px;\">
-      <div class=\"muted\" style=\"margin-bottom:10px;\">Market Value by Currency (native)</div>
-      <div class=\"bars\" id=\"currency-bars\"></div>
-    </section>
+      <section class=\"panel\">
+        <div class=\"muted\" style=\"margin-bottom:10px;\">Market Value by Currency (converted to <span id=\"base-ccy\"></span>)</div>
+        <div class=\"dist\">
+          <div class=\"donut-wrap\"><svg id=\"currency-donut\" viewBox=\"0 0 180 180\"></svg></div>
+          <div class=\"legend\" id=\"currency-legend\"></div>
+        </div>
+        <div class=\"muted\" id=\"currency-warning\" style=\"margin-top:8px;\"></div>
+      </section>
+    </div>
   </div>
 
   <script>
     const payload = __PAYLOAD__;
+    const palette = ['#1f7a8c', '#f18f01', '#2f9e44', '#7b2cbf', '#d6336c', '#1c7ed6', '#ae3ec9', '#5c940d'];
 
     const fmt = (value, ccy) => new Intl.NumberFormat(undefined, {
       style: 'currency',
@@ -108,10 +161,13 @@ TEMPLATE = """<!doctype html>
       maximumFractionDigits: 2
     }).format(value);
 
+    const pct = (value, total) => total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '0.0%';
+
     const snapshots = payload.snapshots || [];
     const latest = snapshots[snapshots.length - 1];
 
     document.getElementById('subtitle').textContent = `${payload.profile} · base ${payload.base_currency}`;
+    document.getElementById('base-ccy').textContent = payload.base_currency;
     if (latest) {
       document.getElementById('total').textContent = fmt(latest.totals.portfolio_value_base, payload.base_currency);
     }
@@ -149,53 +205,99 @@ TEMPLATE = """<!doctype html>
       `;
     }
 
-    function renderBars(latestSnapshot) {
-      const bars = document.getElementById('bars');
-      if (!latestSnapshot) {
-        bars.innerHTML = '<div class="muted">No data</div>';
+    function renderDistribution({ svgId, legendId, entries, total, formatValue, centerLabel }) {
+      const svg = document.getElementById(svgId);
+      const legend = document.getElementById(legendId);
+      if (!entries.length || total <= 0) {
+        svg.innerHTML = '<text x="90" y="95" class="donut-center">No data</text>';
+        legend.innerHTML = '<div class="muted">No data</div>';
         return;
       }
 
-      const byClass = latestSnapshot.totals.by_asset_class || {};
-      const total = Object.values(byClass).reduce((a, b) => a + b, 0);
-      const entries = Object.entries(byClass).sort((a, b) => b[1] - a[1]);
+      const cx = 90;
+      const cy = 90;
+      const r = 62;
+      const strokeW = 22;
+      const circumference = 2 * Math.PI * r;
+      let offset = 0;
 
-      bars.innerHTML = entries.map(([label, value]) => {
-        const ratio = total > 0 ? (value / total) * 100 : 0;
-        return `
-          <div class="bar-row">
-            <div>${label}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${ratio.toFixed(1)}%"></div></div>
-            <div>${ratio.toFixed(1)}%</div>
-          </div>
-        `;
-      }).join('');
+      const slices = entries.map((entry, index) => {
+        const ratio = entry.value / total;
+        const dash = Math.max(ratio * circumference, 0);
+        const color = palette[index % palette.length];
+        const piece = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="butt" stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="-${offset}" transform="rotate(-90 ${cx} ${cy})"></circle>`;
+        offset += dash;
+        return { piece, color, ...entry };
+      });
+
+      svg.innerHTML = `
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#eef2f5" stroke-width="${strokeW}"></circle>
+        ${slices.map(s => s.piece).join('')}
+        <text x="${cx}" y="${cy - 6}" class="donut-center">${centerLabel}</text>
+        <text x="${cx}" y="${cy + 12}" class="donut-center">${fmt(total, payload.base_currency)}</text>
+      `;
+
+      legend.innerHTML = slices.map(slice => `
+        <div class="legend-row">
+          <span class="dot" style="background:${slice.color}"></span>
+          <span>${slice.label} <span class="muted">(${pct(slice.value, total)})</span></span>
+          <span class="value-col">${formatValue(slice)}</span>
+        </div>
+      `).join('');
     }
 
-    function renderCurrencyBars(exposureByCurrency) {
-      const bars = document.getElementById('currency-bars');
-      const entries = Object.entries(exposureByCurrency || {}).sort((a, b) => b[1] - a[1]);
-      if (!entries.length) {
-        bars.innerHTML = '<div class="muted">No data</div>';
-        return;
-      }
+    function renderAssetClass(latestSnapshot) {
+      const byClass = latestSnapshot?.totals?.by_asset_class || {};
+      const entries = Object.entries(byClass)
+        .map(([label, value]) => ({ label, value: Number(value) || 0 }))
+        .filter(row => row.value > 0)
+        .sort((a, b) => b.value - a.value);
+      const total = entries.reduce((acc, row) => acc + row.value, 0);
 
-      const total = entries.reduce((acc, [, value]) => acc + value, 0);
-      bars.innerHTML = entries.map(([ccy, value]) => {
-        const ratio = total > 0 ? (value / total) * 100 : 0;
-        return `
-          <div class="bar-row">
-            <div>${ccy}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${ratio.toFixed(1)}%"></div></div>
-            <div>${fmt(value, ccy)}</div>
-          </div>
-        `;
-      }).join('');
+      renderDistribution({
+        svgId: 'asset-donut',
+        legendId: 'asset-legend',
+        entries,
+        total,
+        centerLabel: 'Asset class',
+        formatValue: (row) => fmt(row.value, payload.base_currency)
+      });
+    }
+
+    function renderCurrencyConverted(currencyExposure) {
+      const rows = Array.isArray(currencyExposure?.rows) ? currencyExposure.rows : [];
+      const entries = rows
+        .filter(row => typeof row.converted_base === 'number' && row.converted_base > 0)
+        .map(row => ({
+          label: row.currency,
+          value: row.converted_base,
+          native_amount: row.native_amount
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      const total = entries.reduce((acc, row) => acc + row.value, 0);
+
+      renderDistribution({
+        svgId: 'currency-donut',
+        legendId: 'currency-legend',
+        entries,
+        total,
+        centerLabel: 'Currency FX',
+        formatValue: (row) => `${fmt(row.value, payload.base_currency)} · ${fmt(row.native_amount, row.label)}`
+      });
+
+      const missing = Array.isArray(currencyExposure?.missing_rates) ? currencyExposure.missing_rates : [];
+      const warning = document.getElementById('currency-warning');
+      if (missing.length) {
+        warning.textContent = `Missing FX rates for: ${missing.join(', ')}`;
+      } else {
+        warning.textContent = '';
+      }
     }
 
     renderLineChart(snapshots);
-    renderBars(latest);
-    renderCurrencyBars(payload.currency_exposure || {});
+    renderAssetClass(latest);
+    renderCurrencyConverted(payload.currency_exposure || {});
   </script>
 </body>
 </html>
@@ -208,7 +310,7 @@ def write_dashboard(
     snapshots: list[dict[str, Any]],
     out_path: str | Path,
     *,
-    currency_exposure: dict[str, float] | None = None,
+    currency_exposure: dict[str, Any] | None = None,
 ) -> Path:
     payload = {
         "profile": profile_name,
