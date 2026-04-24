@@ -39,3 +39,15 @@ uv run rikdom import-statement \
   --input plugins/charles-schwab/fixtures/taxable-mixed/input.csv \
   --portfolio tests/fixtures/portfolio.json
 ```
+
+## E2E Runner (isolated portfolio workspace)
+
+Run from repo root:
+
+```bash
+plugins/charles-schwab/run-e2e.sh
+```
+
+- Uses a temporary portfolio directory under `/tmp` (does not touch `data/`)
+- Imports twice to verify idempotency
+- Set `KEEP_E2E_DIR=1` to keep generated artifacts for inspection
