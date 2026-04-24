@@ -161,6 +161,27 @@ TEMPLATE = """<!doctype html>
       maximumFractionDigits: 2
     }).format(value);
 
+    const fmtCompact = (value, ccy) => {
+      const abs = Math.abs(value);
+      let scaled = value;
+      let suffix = '';
+      if (abs >= 1_000_000_000) {
+        scaled = value / 1_000_000_000;
+        suffix = 'B';
+      } else if (abs >= 1_000_000) {
+        scaled = value / 1_000_000;
+        suffix = 'M';
+      } else if (abs >= 1_000) {
+        scaled = value / 1_000;
+        suffix = 'K';
+      }
+      const decimals = Math.abs(scaled) >= 100 ? 0 : 1;
+      return `${new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: decimals,
+        minimumFractionDigits: 0,
+      }).format(scaled)}${suffix} ${ccy}`;
+    };
+
     const pct = (value, total) => total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '0.0%';
 
     const snapshots = payload.snapshots || [];
@@ -179,29 +200,57 @@ TEMPLATE = """<!doctype html>
         return;
       }
 
-      const values = points.map(p => p.totals.portfolio_value_base);
+      const values = points.map(p => Number(p?.totals?.portfolio_value_base) || 0);
       const min = Math.min(...values);
       const max = Math.max(...values);
       const range = Math.max(max - min, 1);
 
       const W = 700;
       const H = 240;
-      const padX = 24;
-      const padY = 24;
-      const innerW = W - padX * 2;
-      const innerH = H - padY * 2;
+      const padLeft = 84;
+      const padRight = 16;
+      const padTop = 20;
+      const padBottom = 40;
+      const innerW = W - padLeft - padRight;
+      const innerH = H - padTop - padBottom;
+
+      const xFor = (i) => padLeft + (i / Math.max(points.length - 1, 1)) * innerW;
+      const yFor = (v) => padTop + (1 - ((v - min) / range)) * innerH;
+      const formatYm = (ts, idx) => (typeof ts === 'string' && ts.length >= 7 ? ts.slice(0, 7) : `#${idx + 1}`);
 
       const path = points.map((p, i) => {
-        const x = padX + (i / Math.max(points.length - 1, 1)) * innerW;
-        const y = padY + (1 - ((p.totals.portfolio_value_base - min) / range)) * innerH;
+        const x = xFor(i);
+        const y = yFor(Number(p?.totals?.portfolio_value_base) || 0);
         return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
       }).join(' ');
 
+      const yTicks = 4;
+      const yGrid = Array.from({ length: yTicks + 1 }).map((_, i) => {
+        const ratio = i / yTicks;
+        const v = max - ratio * (max - min);
+        const y = yFor(v);
+        return {
+          y,
+          label: fmtCompact(v, payload.base_currency),
+        };
+      });
+
+      const xTickCount = Math.min(6, Math.max(points.length, 2));
+      const xTickIndexes = [...new Set(Array.from({ length: xTickCount }).map((_, i) =>
+        Math.round((i / Math.max(xTickCount - 1, 1)) * (points.length - 1))
+      ))];
+
       svg.innerHTML = `
-        <line x1="${padX}" y1="${H - padY}" x2="${W-padX}" y2="${H-padY}" stroke="#c8d3db"/>
+        ${yGrid.map(t => `<line x1="${padLeft}" y1="${t.y.toFixed(1)}" x2="${W - padRight}" y2="${t.y.toFixed(1)}" stroke="#eef2f5"/>`).join('')}
+        <line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${H - padBottom}" stroke="#c8d3db"/>
+        <line x1="${padLeft}" y1="${H - padBottom}" x2="${W - padRight}" y2="${H - padBottom}" stroke="#c8d3db"/>
         <path d="${path}" fill="none" stroke="#1f7a8c" stroke-width="3" stroke-linecap="round"/>
-        <text x="${padX}" y="18" fill="#5f6a72" font-size="12">${fmt(max, payload.base_currency)}</text>
-        <text x="${padX}" y="${H - 8}" fill="#5f6a72" font-size="12">${fmt(min, payload.base_currency)}</text>
+        ${yGrid.map(t => `<text x="${padLeft - 8}" y="${(t.y + 4).toFixed(1)}" fill="#5f6a72" font-size="11" text-anchor="end">${t.label}</text>`).join('')}
+        ${xTickIndexes.map((idx) => {
+          const x = xFor(idx);
+          const label = formatYm(points[idx]?.timestamp, idx);
+          return `<text x="${x.toFixed(1)}" y="${H - 12}" fill="#5f6a72" font-size="11" text-anchor="middle">${label}</text>`;
+        }).join('')}
       `;
     }
 
@@ -234,7 +283,7 @@ TEMPLATE = """<!doctype html>
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#eef2f5" stroke-width="${strokeW}"></circle>
         ${slices.map(s => s.piece).join('')}
         <text x="${cx}" y="${cy - 6}" class="donut-center">${centerLabel}</text>
-        <text x="${cx}" y="${cy + 12}" class="donut-center">${fmt(total, payload.base_currency)}</text>
+        <text x="${cx}" y="${cy + 12}" class="donut-center">${fmtCompact(total, payload.base_currency)}</text>
       `;
 
       legend.innerHTML = slices.map(slice => `
@@ -260,7 +309,7 @@ TEMPLATE = """<!doctype html>
         entries,
         total,
         centerLabel: 'Asset class',
-        formatValue: (row) => fmt(row.value, payload.base_currency)
+        formatValue: (row) => fmtCompact(row.value, payload.base_currency)
       });
     }
 
@@ -283,7 +332,7 @@ TEMPLATE = """<!doctype html>
         entries,
         total,
         centerLabel: 'Currency FX',
-        formatValue: (row) => `${fmt(row.value, payload.base_currency)} · ${fmt(row.native_amount, row.label)}`
+        formatValue: (row) => `${fmtCompact(row.value, payload.base_currency)} · ${fmtCompact(row.native_amount, row.label)}`
       });
 
       const missing = Array.isArray(currencyExposure?.missing_rates) ? currencyExposure.missing_rates : [];
