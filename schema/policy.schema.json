@@ -1,0 +1,607 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/rikdom/schema/policy.schema.json",
+  "title": "Rikdom Investment Policy Statement",
+  "description": "Portable Investment Policy Statement (IPS) defining target allocation, glide path, rebalancing rules, retirement assumptions, constraints, and guardrails. Consumed by human or LLM agents during rebalancing, health checks, and strategy reviews. Never executes trades; it is advisory/prescriptive configuration.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "schema_uri",
+    "identity",
+    "investor_profile",
+    "strategic_allocation",
+    "rebalancing_policy",
+    "review_policy"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "schema_uri": {
+      "type": "string"
+    },
+    "identity": {
+      "type": "object",
+      "required": ["portfolio_id", "owner_kind", "policy_base_currency"],
+      "additionalProperties": false,
+      "properties": {
+        "portfolio_id": { "type": "string" },
+        "policy_id": { "type": "string" },
+        "owner_kind": {
+          "type": "string",
+          "enum": ["person", "company", "family_office", "trust", "other"]
+        },
+        "residence_country": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "tax_jurisdictions": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z]{2}$" },
+          "description": "Countries whose tax rules apply (e.g., US citizen living in BR => [\"US\",\"BR\"])."
+        },
+        "policy_base_currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      }
+    },
+    "investor_profile": {
+      "type": "object",
+      "required": ["risk_tolerance"],
+      "additionalProperties": false,
+      "properties": {
+        "birth_date": { "type": "string", "format": "date" },
+        "retirement_target_age": { "type": "integer", "minimum": 18, "maximum": 100 },
+        "retirement_target_date": { "type": "string", "format": "date" },
+        "investment_horizon_years": { "type": "integer", "minimum": 0 },
+        "risk_tolerance": {
+          "type": "string",
+          "enum": [
+            "conservative",
+            "moderate_conservative",
+            "moderate",
+            "moderate_aggressive",
+            "aggressive"
+          ]
+        },
+        "risk_capacity": {
+          "type": "string",
+          "description": "Financial capacity to absorb loss, independent of emotional tolerance.",
+          "enum": [
+            "low",
+            "medium_low",
+            "medium",
+            "medium_high",
+            "high"
+          ]
+        },
+        "liquidity_needs_months": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Months of expenses required to remain liquid (emergency fund floor)."
+        },
+        "income_stability": {
+          "type": "string",
+          "enum": ["very_stable", "stable", "variable", "unstable"]
+        },
+        "dependents": { "type": "integer", "minimum": 0 },
+        "tax_lot_method": {
+          "type": "string",
+          "enum": ["fifo", "lifo", "hifo", "average_cost", "specific_id"]
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "accounts": {
+      "type": "array",
+      "description": "Catalog of accounts referenced by holdings. Lets agents reason about tax-aware placement.",
+      "items": {
+        "type": "object",
+        "required": ["account_id", "label", "tax_account_type", "jurisdiction"],
+        "additionalProperties": false,
+        "properties": {
+          "account_id": { "type": "string", "pattern": "^[a-z0-9_\\-]+$" },
+          "label": { "type": "string" },
+          "provider": { "type": "string" },
+          "provider_account_id": { "type": "string" },
+          "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" },
+          "tax_account_type": {
+            "type": "string",
+            "enum": [
+              "taxable_brokerage",
+              "ira_traditional",
+              "ira_roth",
+              "401k",
+              "403b",
+              "hsa",
+              "529",
+              "uk_isa",
+              "uk_sipp",
+              "br_pgbl",
+              "br_vgbl",
+              "br_previdencia_fechada",
+              "br_corretora_tributada",
+              "br_corretora_offshore",
+              "trust",
+              "crypto_self_custody",
+              "crypto_exchange",
+              "bank_savings",
+              "other"
+            ]
+          },
+          "tax_deferred": { "type": "boolean" },
+          "tax_free_withdrawals": { "type": "boolean" },
+          "early_withdrawal_penalty": { "type": "boolean" },
+          "contribution_limit_annual": { "$ref": "#/$defs/Money" },
+          "rmd_required": { "type": "boolean" },
+          "rmd_start_age": { "type": "integer" },
+          "preferred_holdings": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Hints for tax-aware placement (e.g., [\"bonds\",\"reits\"] in tax-deferred)."
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "objectives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "priority"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_\\-]+$" },
+          "label": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "retirement",
+              "emergency_fund",
+              "education",
+              "home_purchase",
+              "legacy",
+              "sabbatical",
+              "healthcare",
+              "custom"
+            ]
+          },
+          "priority": { "type": "string", "enum": ["must_have", "important", "nice_to_have"] },
+          "target_amount": { "$ref": "#/$defs/Money" },
+          "target_date": { "type": "string", "format": "date" },
+          "funding_account_ids": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z0-9_\\-]+$" }
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "retirement_assumptions": {
+      "type": "object",
+      "description": "Premises used by agents to size the retirement target and test sustainability.",
+      "additionalProperties": false,
+      "properties": {
+        "desired_annual_spending": { "$ref": "#/$defs/Money" },
+        "spending_basis": {
+          "type": "string",
+          "enum": ["today", "at_retirement"],
+          "description": "Whether amounts are in today's purchasing power (real) or nominal at retirement date."
+        },
+        "inflation_assumption_pct": { "type": "number" },
+        "inflation_index_ref": { "type": "string" },
+        "target_real_return_pct": {
+          "type": "number",
+          "description": "Annual real (after-inflation, after-cost) portfolio return assumption."
+        },
+        "expected_nominal_return_pct": { "type": "number" },
+        "withdrawal_rule": {
+          "type": "object",
+          "required": ["method"],
+          "additionalProperties": false,
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "fixed_pct_swr",
+                "fixed_real_amount",
+                "vpw",
+                "guyton_klinger",
+                "rmd",
+                "bucket",
+                "custom"
+              ]
+            },
+            "initial_rate_pct": { "type": "number", "minimum": 0, "maximum": 20 },
+            "adjustment": {
+              "type": "string",
+              "enum": ["annual_inflation", "portfolio_performance", "none"]
+            },
+            "floor": { "$ref": "#/$defs/Money" },
+            "ceiling": { "$ref": "#/$defs/Money" },
+            "guardrails_ref": { "type": "string" },
+            "notes": { "type": "string" }
+          }
+        },
+        "longevity_planning_age": { "type": "integer", "minimum": 50, "maximum": 120 },
+        "social_security_or_pension": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source", "expected_monthly", "start_age"],
+            "additionalProperties": false,
+            "properties": {
+              "source": { "type": "string" },
+              "expected_monthly": { "$ref": "#/$defs/Money" },
+              "start_age": { "type": "integer" },
+              "inflation_adjusted": { "type": "boolean" },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "stress_scenarios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "equity_drawdown_pct": { "type": "number" },
+              "bond_drawdown_pct": { "type": "number" },
+              "inflation_shock_pct": { "type": "number" },
+              "fx_shock_pct": { "type": "number" },
+              "duration_months": { "type": "integer" },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "strategic_allocation": {
+      "type": "object",
+      "required": ["dimensions", "targets"],
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "asset_class",
+              "asset_type_id",
+              "region",
+              "currency",
+              "sector",
+              "factor",
+              "duration",
+              "liquidity_tier"
+            ]
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AllocationTarget" }
+        },
+        "rounding_tolerance_pct": { "type": "number", "minimum": 0, "maximum": 5, "default": 0.5 },
+        "enforce_sum_to_100": { "type": "boolean", "default": true }
+      }
+    },
+    "glide_path": {
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["static", "age_based", "date_based"] },
+        "interpolation": { "type": "string", "enum": ["linear", "stepwise"], "default": "linear" },
+        "review_trigger_age_deltas": { "type": "integer", "minimum": 1 },
+        "nodes": {
+          "type": "array",
+          "description": "Waypoints overriding strategic_allocation.targets at each age or date.",
+          "items": {
+            "type": "object",
+            "required": ["overrides"],
+            "additionalProperties": false,
+            "properties": {
+              "age": { "type": "integer", "minimum": 0, "maximum": 120 },
+              "as_of_date": { "type": "string", "format": "date" },
+              "overrides": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/AllocationTarget" }
+              },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "rebalancing_policy": {
+      "type": "object",
+      "required": ["method"],
+      "additionalProperties": false,
+      "properties": {
+        "method": { "type": "string", "enum": ["calendar", "threshold", "hybrid"] },
+        "calendar_cadence": { "$ref": "#/$defs/CadenceRule" },
+        "drift_trigger_pct_absolute": {
+          "type": "number",
+          "description": "Trigger when any bucket deviates this many percentage points from target."
+        },
+        "drift_trigger_pct_relative": {
+          "type": "number",
+          "description": "Trigger when any bucket deviates this fraction of its target weight (e.g., 0.25 = 25%)."
+        },
+        "contribution_first": {
+          "type": "boolean",
+          "description": "Prefer directing new contributions to underweight buckets before selling."
+        },
+        "tax_awareness": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "prefer_tax_advantaged_accounts": { "type": "boolean" },
+            "harvest_losses": { "type": "boolean" },
+            "min_holding_days_before_sell": { "type": "integer", "minimum": 0 },
+            "wash_sale_window_days": { "type": "integer", "minimum": 0 },
+            "avoid_short_term_gains": { "type": "boolean" }
+          }
+        },
+        "no_sell_windows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["start", "end"],
+            "additionalProperties": false,
+            "properties": {
+              "start": { "type": "string" },
+              "end": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "min_trade_size": { "$ref": "#/$defs/Money" }
+      }
+    },
+    "cashflow_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contributions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["amount", "cadence"],
+            "additionalProperties": false,
+            "properties": {
+              "amount": { "$ref": "#/$defs/Money" },
+              "cadence": { "$ref": "#/$defs/CadenceRule" },
+              "account_id": { "type": "string", "pattern": "^[a-z0-9_\\-]+$" },
+              "routing_rule": {
+                "type": "string",
+                "enum": ["most_underweight", "fixed_split", "manual"]
+              },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "withdrawals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["amount", "cadence"],
+            "additionalProperties": false,
+            "properties": {
+              "amount": { "$ref": "#/$defs/Money" },
+              "cadence": { "$ref": "#/$defs/CadenceRule" },
+              "source_priority": {
+                "type": "array",
+                "items": { "type": "string", "pattern": "^[a-z0-9_\\-]+$" },
+                "description": "Ordered account_ids to draw from first."
+              }
+            }
+          }
+        }
+      }
+    },
+    "constraints_and_exclusions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "excluded_tickers": { "type": "array", "items": { "type": "string" } },
+        "excluded_sectors": { "type": "array", "items": { "type": "string" } },
+        "excluded_countries": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z]{2}$" }
+        },
+        "esg_screens": { "type": "array", "items": { "type": "string" } },
+        "required_holdings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["bucket", "min_pct"],
+            "additionalProperties": false,
+            "properties": {
+              "bucket": { "type": "string" },
+              "min_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "max_single_issuer_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max_single_position_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max_illiquid_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "currency_exposure": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "targets_by_currency": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["currency", "target_pct"],
+                "additionalProperties": false,
+                "properties": {
+                  "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+                  "target_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+                  "min_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+                  "max_pct": { "type": "number", "minimum": 0, "maximum": 100 }
+                }
+              }
+            },
+            "hedge_policy": {
+              "type": "string",
+              "enum": ["none", "passive", "active"]
+            },
+            "hedge_threshold_pct": { "type": "number" }
+          }
+        }
+      }
+    },
+    "guardrails": {
+      "type": "object",
+      "description": "Circuit-breaker rules. Agents MUST surface and request explicit confirmation before crossing these.",
+      "additionalProperties": false,
+      "properties": {
+        "emergency_fund_floor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amount": { "$ref": "#/$defs/Money" },
+            "months_of_expenses": { "type": "number", "minimum": 0 }
+          }
+        },
+        "max_drawdown_action": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "threshold_pct": { "type": "number" },
+            "action": {
+              "type": "string",
+              "enum": ["pause_rebalance", "buy_only", "notify_only", "revert_to_conservative"]
+            }
+          }
+        },
+        "require_human_confirmation_above": { "$ref": "#/$defs/Money" },
+        "max_daily_trading_volume_pct_aum": { "type": "number", "minimum": 0, "maximum": 100 },
+        "concentration_alert_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "forbidden_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "short_selling",
+              "margin",
+              "options_writing_uncovered",
+              "options_buying",
+              "leverage",
+              "crypto_lending",
+              "private_credit",
+              "illiquid_lockups_gt_1y"
+            ]
+          }
+        },
+        "behavioral_rules": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Free-form rules an agent must honor, e.g. 'never sell during declared bear market', 'cooling-off period 72h for trades above 50k'."
+        }
+      }
+    },
+    "review_policy": {
+      "type": "object",
+      "required": ["cadence"],
+      "additionalProperties": false,
+      "properties": {
+        "cadence": { "$ref": "#/$defs/CadenceRule" },
+        "last_reviewed_at": { "type": "string", "format": "date-time" },
+        "reviewed_by": { "type": "string" },
+        "next_review_due_at": { "type": "string", "format": "date-time" },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Free-form event triggers, e.g. 'birthday', 'job_change', 'drawdown_gt_20pct', 'marriage', 'inheritance'."
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "version": { "type": "string" },
+        "llm_assisted": { "type": "boolean" },
+        "llm_model": { "type": "string" },
+        "interview_transcript_ref": { "type": "string" }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "Money": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "additionalProperties": false,
+      "properties": {
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      }
+    },
+    "AllocationTarget": {
+      "type": "object",
+      "required": ["dimension", "bucket", "weight_pct"],
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "enum": [
+            "asset_class",
+            "asset_type_id",
+            "region",
+            "currency",
+            "sector",
+            "factor",
+            "duration",
+            "liquidity_tier"
+          ]
+        },
+        "bucket": {
+          "type": "string",
+          "description": "Value within the dimension, e.g. 'stocks', 'US', 'BRL', 'short_duration'."
+        },
+        "weight_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "min_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "rebalance_priority": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "How aggressively agents should correct drift in this bucket."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "CadenceRule": {
+      "type": "object",
+      "required": ["frequency"],
+      "additionalProperties": false,
+      "properties": {
+        "frequency": {
+          "type": "string",
+          "enum": ["monthly", "quarterly", "yearly", "semiannual", "custom"]
+        },
+        "interval": { "type": "integer", "minimum": 1 },
+        "by_month_day": { "type": "integer", "minimum": 1, "maximum": 31 },
+        "by_month": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 12 }
+        },
+        "due_timezone": { "type": "string" },
+        "rrule": { "type": "string" }
+      }
+    }
+  }
+}

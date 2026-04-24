@@ -1,0 +1,210 @@
+{
+  "schema_version": "0.1.0",
+  "schema_uri": "https://example.org/rikdom/schema/policy.schema.json",
+  "identity": {
+    "portfolio_id": "sample-portfolio",
+    "policy_id": "sample-policy-v1",
+    "owner_kind": "person",
+    "residence_country": "BR",
+    "tax_jurisdictions": ["BR"],
+    "policy_base_currency": "BRL"
+  },
+  "investor_profile": {
+    "birth_date": "1985-06-15",
+    "retirement_target_age": 60,
+    "investment_horizon_years": 25,
+    "risk_tolerance": "moderate_aggressive",
+    "risk_capacity": "medium_high",
+    "liquidity_needs_months": 6,
+    "income_stability": "stable",
+    "dependents": 2,
+    "tax_lot_method": "average_cost"
+  },
+  "accounts": [
+    {
+      "account_id": "br-taxable-main",
+      "label": "Corretora BR tributada",
+      "provider": "XP",
+      "jurisdiction": "BR",
+      "tax_account_type": "br_corretora_tributada",
+      "tax_deferred": false,
+      "preferred_holdings": ["stocks_br", "reits_br"]
+    },
+    {
+      "account_id": "br-pgbl",
+      "label": "Previdência PGBL",
+      "jurisdiction": "BR",
+      "tax_account_type": "br_pgbl",
+      "tax_deferred": true,
+      "early_withdrawal_penalty": true,
+      "preferred_holdings": ["bonds", "fixed_income_br"]
+    },
+    {
+      "account_id": "us-offshore",
+      "label": "Corretora offshore",
+      "jurisdiction": "US",
+      "tax_account_type": "br_corretora_offshore",
+      "tax_deferred": false,
+      "preferred_holdings": ["stocks_us", "bonds_us"]
+    }
+  ],
+  "objectives": [
+    {
+      "id": "retirement",
+      "label": "Aposentadoria aos 60",
+      "kind": "retirement",
+      "priority": "must_have",
+      "target_date": "2045-06-15",
+      "funding_account_ids": ["br-taxable-main", "br-pgbl", "us-offshore"]
+    },
+    {
+      "id": "emergency",
+      "label": "Reserva de emergência 6 meses",
+      "kind": "emergency_fund",
+      "priority": "must_have",
+      "target_amount": { "amount": 72000, "currency": "BRL" }
+    }
+  ],
+  "retirement_assumptions": {
+    "desired_annual_spending": { "amount": 180000, "currency": "BRL" },
+    "spending_basis": "today",
+    "inflation_assumption_pct": 4.0,
+    "inflation_index_ref": "IPCA",
+    "target_real_return_pct": 4.5,
+    "expected_nominal_return_pct": 8.7,
+    "withdrawal_rule": {
+      "method": "guyton_klinger",
+      "initial_rate_pct": 4.0,
+      "adjustment": "portfolio_performance",
+      "floor": { "amount": 120000, "currency": "BRL" },
+      "ceiling": { "amount": 240000, "currency": "BRL" }
+    },
+    "longevity_planning_age": 95,
+    "social_security_or_pension": [
+      {
+        "source": "INSS",
+        "expected_monthly": { "amount": 5000, "currency": "BRL" },
+        "start_age": 65,
+        "inflation_adjusted": true
+      }
+    ],
+    "stress_scenarios": [
+      {
+        "name": "2008-like drawdown",
+        "equity_drawdown_pct": 50,
+        "bond_drawdown_pct": 5,
+        "duration_months": 18
+      },
+      {
+        "name": "BR inflation shock",
+        "inflation_shock_pct": 12,
+        "duration_months": 24
+      }
+    ]
+  },
+  "strategic_allocation": {
+    "dimensions": ["asset_class", "region", "currency"],
+    "targets": [
+      { "dimension": "asset_class", "bucket": "stocks", "weight_pct": 65, "min_pct": 55, "max_pct": 75, "rebalance_priority": "high" },
+      { "dimension": "asset_class", "bucket": "debt", "weight_pct": 25, "min_pct": 20, "max_pct": 35, "rebalance_priority": "high" },
+      { "dimension": "asset_class", "bucket": "reits", "weight_pct": 5, "min_pct": 0, "max_pct": 10, "rebalance_priority": "medium" },
+      { "dimension": "asset_class", "bucket": "cash_equivalents", "weight_pct": 5, "min_pct": 3, "max_pct": 15, "rebalance_priority": "low" },
+      { "dimension": "region", "bucket": "BR", "weight_pct": 45, "min_pct": 35, "max_pct": 55, "rebalance_priority": "medium" },
+      { "dimension": "region", "bucket": "US", "weight_pct": 40, "min_pct": 30, "max_pct": 50, "rebalance_priority": "medium" },
+      { "dimension": "region", "bucket": "ex_US_DM", "weight_pct": 10, "min_pct": 5, "max_pct": 20, "rebalance_priority": "low" },
+      { "dimension": "region", "bucket": "EM_ex_BR", "weight_pct": 5, "min_pct": 0, "max_pct": 10, "rebalance_priority": "low" },
+      { "dimension": "currency", "bucket": "BRL", "weight_pct": 50, "min_pct": 40, "max_pct": 65 },
+      { "dimension": "currency", "bucket": "USD", "weight_pct": 45, "min_pct": 30, "max_pct": 55 },
+      { "dimension": "currency", "bucket": "EUR", "weight_pct": 5, "min_pct": 0, "max_pct": 10 }
+    ],
+    "rounding_tolerance_pct": 0.5,
+    "enforce_sum_to_100": true
+  },
+  "glide_path": {
+    "mode": "age_based",
+    "interpolation": "linear",
+    "review_trigger_age_deltas": 5,
+    "nodes": [
+      {
+        "age": 40,
+        "overrides": [
+          { "dimension": "asset_class", "bucket": "stocks", "weight_pct": 65 },
+          { "dimension": "asset_class", "bucket": "debt", "weight_pct": 25 }
+        ]
+      },
+      {
+        "age": 55,
+        "overrides": [
+          { "dimension": "asset_class", "bucket": "stocks", "weight_pct": 50 },
+          { "dimension": "asset_class", "bucket": "debt", "weight_pct": 40 }
+        ]
+      },
+      {
+        "age": 65,
+        "overrides": [
+          { "dimension": "asset_class", "bucket": "stocks", "weight_pct": 35 },
+          { "dimension": "asset_class", "bucket": "debt", "weight_pct": 55 }
+        ]
+      }
+    ]
+  },
+  "rebalancing_policy": {
+    "method": "hybrid",
+    "calendar_cadence": { "frequency": "semiannual" },
+    "drift_trigger_pct_absolute": 5,
+    "drift_trigger_pct_relative": 0.2,
+    "contribution_first": true,
+    "tax_awareness": {
+      "prefer_tax_advantaged_accounts": true,
+      "harvest_losses": true,
+      "min_holding_days_before_sell": 30,
+      "avoid_short_term_gains": true
+    },
+    "min_trade_size": { "amount": 500, "currency": "BRL" }
+  },
+  "cashflow_policy": {
+    "contributions": [
+      {
+        "amount": { "amount": 5000, "currency": "BRL" },
+        "cadence": { "frequency": "monthly", "by_month_day": 5 },
+        "account_id": "br-taxable-main",
+        "routing_rule": "most_underweight"
+      }
+    ]
+  },
+  "constraints_and_exclusions": {
+    "excluded_sectors": ["tobacco", "weapons"],
+    "max_single_issuer_pct": 10,
+    "max_single_position_pct": 15,
+    "max_illiquid_pct": 15,
+    "currency_exposure": {
+      "hedge_policy": "none"
+    }
+  },
+  "guardrails": {
+    "emergency_fund_floor": {
+      "amount": { "amount": 72000, "currency": "BRL" },
+      "months_of_expenses": 6
+    },
+    "max_drawdown_action": {
+      "threshold_pct": 25,
+      "action": "buy_only"
+    },
+    "require_human_confirmation_above": { "amount": 50000, "currency": "BRL" },
+    "concentration_alert_pct": 10,
+    "forbidden_actions": ["short_selling", "margin", "options_writing_uncovered", "leverage"],
+    "behavioral_rules": [
+      "Jamais liquidar posições durante drawdown > 20% sem confirmação humana",
+      "Aguardar 72h entre proposta e execução de trade acima de BRL 50k"
+    ]
+  },
+  "review_policy": {
+    "cadence": { "frequency": "semiannual" },
+    "triggers": ["birthday", "job_change", "drawdown_gt_20pct", "inheritance", "marriage_or_divorce"]
+  },
+  "provenance": {
+    "created_at": "2026-04-24T00:00:00Z",
+    "version": "1",
+    "llm_assisted": true
+  }
+}
