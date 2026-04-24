@@ -18,6 +18,22 @@ if [[ ! -f "$INPUT_CSV" ]]; then
 fi
 
 E2E_DIR="$(mktemp -d /tmp/rikdom-e2e-schwab-XXXXXX)"
+cleanup() {
+  local exit_code=$?
+  if [[ "$KEEP_WORKDIR" == "1" ]]; then
+    echo "E2E artifacts kept at: $E2E_DIR"
+  else
+    rm -rf "$E2E_DIR"
+    if [[ $exit_code -eq 0 ]]; then
+      echo "E2E artifacts removed (set KEEP_E2E_DIR=1 to keep them)."
+    else
+      echo "E2E failed; E2E artifacts removed (set KEEP_E2E_DIR=1 to keep them)." >&2
+    fi
+  fi
+  return "$exit_code"
+}
+trap cleanup EXIT
+
 cp "$ROOT_DIR/tests/e2e-data/charles-schwab/portfolio.json" "$E2E_DIR/portfolio.json"
 cp "$ROOT_DIR/tests/e2e-data/charles-schwab/import_log.jsonl" "$E2E_DIR/import_log.jsonl"
 
@@ -54,16 +70,51 @@ PYTHONPATH="$ROOT_DIR/src" uv run rikdom import-statement \
   --write > "$E2E_DIR/run2.json"
 
 python - <<'PY' "$E2E_DIR/run2.json"
-import json,sys
-p=json.load(open(sys.argv[1]))
-print(json.dumps({
+import json
+import sys
+
+p = json.load(open(sys.argv[1]))
+summary = {
   'holdings': p['holdings'],
   'activities': p['activities'],
   'preflight_ok': p['preflight']['ok'],
   'issues_total': p['preflight']['summary']['issues_total'],
   'blocking_issues': p['preflight']['summary']['blocking_issues'],
-  'dry_run_diff': p['dry_run_diff']['summary'],
-}, indent=2))
+  'dry_run_diff': p.get('dry_run_diff', {}).get('summary', {}),
+}
+print(json.dumps(summary, indent=2))
+
+
+def counter_value(counter, key):
+  return counter.get(key, 0) if isinstance(counter, dict) else None
+
+
+def has_mutations(diff_summary):
+  if not isinstance(diff_summary, dict):
+    return bool(diff_summary)
+  for section in diff_summary.values():
+    if isinstance(section, dict):
+      for key, value in section.items():
+        if key in ("create", "update", "inserted", "updated") and value != 0:
+          return True
+  return False
+
+
+errors = []
+if counter_value(summary['holdings'], 'inserted') != 0 or counter_value(summary['holdings'], 'updated') != 0:
+  errors.append(f"expected run 2 holdings inserted/updated to be 0, got {summary['holdings']}")
+if counter_value(summary['activities'], 'inserted') != 0 or counter_value(summary['activities'], 'updated') != 0:
+  errors.append(f"expected run 2 activities inserted/updated to be 0, got {summary['activities']}")
+if summary['blocking_issues'] != 0:
+  errors.append(f"expected run 2 blocking_issues=0, got {summary['blocking_issues']}")
+if has_mutations(summary['dry_run_diff']):
+  errors.append(f"expected run 2 dry_run_diff summary to have no create/update mutations, got {summary['dry_run_diff']!r}")
+
+if errors:
+  print("Idempotency check failed:", file=sys.stderr)
+  for err in errors:
+    print(f"- {err}", file=sys.stderr)
+  sys.exit(1)
 PY
 
 echo "== Validate resulting portfolio =="
@@ -82,9 +133,3 @@ print(json.dumps({
 }, indent=2))
 PY
 
-if [[ "$KEEP_WORKDIR" == "1" ]]; then
-  echo "E2E artifacts kept at: $E2E_DIR"
-else
-  rm -rf "$E2E_DIR"
-  echo "E2E artifacts removed (set KEEP_E2E_DIR=1 to keep them)."
-fi
