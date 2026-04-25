@@ -397,7 +397,13 @@ def _period_deltas_for_ticker(
 ) -> tuple[float, float]:
     """Sum quantity and cash deltas already captured by parsed period
     activities for ``ticker``. Used to back the opening balance into
-    ending == opening + Σ(period deltas)."""
+    ending == opening + Σ(period deltas).
+
+    Raises ``ValueError`` if a parsed activity for ``ticker`` carries a
+    nonzero quantity or money impact under an unsupported ``event_type``;
+    silently dropping such deltas would skew the synthesized opening
+    balance.
+    """
     qty_delta = 0.0
     cash_delta = 0.0
     for a in activities:
@@ -406,8 +412,22 @@ def _period_deltas_for_ticker(
         evt = a.get("event_type", "")
         qty = float(a.get("quantity") or 0.0)
         money = float((a.get("money") or {}).get("amount") or 0.0)
-        qty_delta += qty * _QTY_SIGNS.get(evt, 0.0)
-        cash_delta += money * _CASH_SIGNS.get(evt, 0.0)
+        qty_sign = _QTY_SIGNS.get(evt)
+        cash_sign = _CASH_SIGNS.get(evt)
+        if qty_sign is None and qty:
+            raise ValueError(
+                f"BTG WM activity {a.get('id')!r} for {ticker} has quantity "
+                f"{qty} under unsupported event_type {evt!r}; cannot "
+                "back-calculate opening balance"
+            )
+        if cash_sign is None and money:
+            raise ValueError(
+                f"BTG WM activity {a.get('id')!r} for {ticker} has money "
+                f"amount {money} under unsupported event_type {evt!r}; "
+                "cannot back-calculate opening balance"
+            )
+        qty_delta += qty * (qty_sign or 0.0)
+        cash_delta += money * (cash_sign or 0.0)
     return qty_delta, cash_delta
 
 
@@ -417,6 +437,7 @@ def _synthesize_opening_balances(
     *,
     account_number: str,
     period_start: str | None,
+    period_end: str | None = None,
 ) -> list[dict[str, Any]]:
     """Emit one synthetic ``transfer_in`` per parsed holding so the activity
     ledger reconciles against the snapshot. BTG WM monthly statements list
@@ -435,8 +456,10 @@ def _synthesize_opening_balances(
 
     if period_start:
         effective_at = f"{period_start}T00:00:00Z"
+    elif period_end:
+        effective_at = f"{period_end}T00:00:00Z"
     else:
-        effective_at = _now_iso()
+        effective_at = "1970-01-01T00:00:00Z"
 
     opens: list[dict[str, Any]] = []
     for h in holdings:
@@ -471,7 +494,7 @@ def _synthesize_opening_balances(
                 "subtype": "opening_balance",
                 "status": "posted",
                 "effective_at": effective_at,
-                "money": {"amount": opening_amount, "currency": currency},
+                "money": {"amount": round(opening_amount, 2), "currency": currency},
                 "quantity": opening_qty,
                 "instrument": {"ticker": ticker, "country": "US"},
                 "asset_type_id": h.get("asset_type_id", "stock"),
@@ -531,6 +554,7 @@ def parse_statement(path: Path) -> dict[str, Any]:
         activities,
         account_number=account_number,
         period_start=period_start,
+        period_end=period_end,
     )
     activities = opening_balances + activities
 
