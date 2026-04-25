@@ -198,6 +198,95 @@
       "Aguardar 72h entre proposta e execução de trade acima de BRL 50k"
     ]
   },
+  "capital_market_assumptions": {
+    "as_of": "2026-01-01",
+    "source": "manual_blend_2026",
+    "currency_basis": "BRL",
+    "horizon_years": 30,
+    "buckets": [
+      {
+        "dimension": "asset_class",
+        "bucket": "stocks",
+        "expected_real_return_pct": 5.0,
+        "expected_nominal_return_pct": 9.0,
+        "volatility_pct": 18.0,
+        "max_drawdown_pct": 50.0
+      },
+      {
+        "dimension": "asset_class",
+        "bucket": "debt",
+        "expected_real_return_pct": 2.5,
+        "expected_nominal_return_pct": 6.5,
+        "volatility_pct": 6.0,
+        "yield_pct": 5.5
+      },
+      {
+        "dimension": "asset_class",
+        "bucket": "reits",
+        "expected_real_return_pct": 4.0,
+        "expected_nominal_return_pct": 8.0,
+        "volatility_pct": 16.0,
+        "yield_pct": 6.0
+      },
+      {
+        "dimension": "asset_class",
+        "bucket": "cash_equivalents",
+        "expected_real_return_pct": 0.5,
+        "expected_nominal_return_pct": 4.5,
+        "volatility_pct": 1.0,
+        "yield_pct": 4.5
+      }
+    ],
+    "correlations": [
+      {
+        "a": {"dimension": "asset_class", "bucket": "stocks"},
+        "b": {"dimension": "asset_class", "bucket": "debt"},
+        "rho": 0.1
+      },
+      {
+        "a": {"dimension": "asset_class", "bucket": "stocks"},
+        "b": {"dimension": "asset_class", "bucket": "reits"},
+        "rho": 0.6
+      }
+    ]
+  },
+  "spending_plan": {
+    "currency": "BRL",
+    "basis": "today",
+    "default_inflation_pct": 4.0,
+    "essentials": {
+      "annual_amount": {"amount": 96000, "currency": "BRL"}
+    },
+    "discretionary": {
+      "annual_amount": {"amount": 60000, "currency": "BRL"}
+    },
+    "healthcare": {
+      "annual_amount": {"amount": 24000, "currency": "BRL"},
+      "inflation_pct": 7.0,
+      "coverage_gap_years": 5
+    },
+    "lumpy_items": [
+      {
+        "label": "Filhos: faculdade",
+        "amount": {"amount": 120000, "currency": "BRL"},
+        "due_age": 60,
+        "category": "education"
+      },
+      {
+        "label": "Troca de carro",
+        "amount": {"amount": 90000, "currency": "BRL"},
+        "due_age": 60,
+        "recurrence": "every_n_years",
+        "every_n_years": 8,
+        "category": "vehicle"
+      }
+    ],
+    "phases": [
+      {"label": "go-go", "start_age": 60, "end_age": 74, "multiplier_pct": 110},
+      {"label": "slow-go", "start_age": 75, "end_age": 84, "multiplier_pct": 95},
+      {"label": "no-go", "start_age": 85, "end_age": 120, "multiplier_pct": 75}
+    ]
+  },
   "review_policy": {
     "cadence": { "frequency": "semiannual" },
     "triggers": ["birthday", "job_change", "drawdown_gt_20pct", "inheritance", "marriage_or_divorce"]

@@ -8,7 +8,7 @@ You write only `data/policy.json`. Do not touch `data/portfolio.json`, do not pr
 
 ## Inputs
 
-1. Read `schema/policy.schema.json` — authoritative contract. Every field must validate.
+1. Read `src/rikdom/_resources/policy.schema.json` — authoritative contract. Every field must validate.
 2. Read `data-sample/policy.json` for a realistic example (BR-resident profile) to mirror when suggesting defaults.
 3. If `data/portfolio.json` exists, read it for defaults (base currency, country, accounts inferable from `holdings[].identifiers.provider_account_id`, AUM for sizing guardrails).
 4. If `data/policy.json` already exists, treat as update: reuse answers, reconfirm only stale ones.
@@ -35,7 +35,23 @@ Order — cover all sections but allow "use defaults for this section":
 ## Writing the file
 
 - Write `data/policy.json` incrementally after each section.
-- Validate against `schema/policy.schema.json` after each write. If validation fails, fix and re-ask only failing fields.
+- Validate after each write with the project validator:
+
+```bash
+uv run python - <<'PY'
+import json
+from pathlib import Path
+from rikdom.policy import validate_policy
+path = Path('data/policy.json')
+errors = validate_policy(json.loads(path.read_text()))
+if errors:
+    print('\n'.join(errors))
+    raise SystemExit(1)
+print('policy.json valid')
+PY
+```
+
+If validation fails, fix and re-ask only failing fields.
 - Set `provenance.llm_assisted: true`, `provenance.llm_model`, `provenance.created_at`/`updated_at` in UTC.
 - Never invent unconfirmed numbers; omit optional fields rather than guess.
 

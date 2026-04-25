@@ -13,7 +13,7 @@ Produces `data/policy.json` conforming to `schema/policy.schema.json`. This file
 
 ## Inputs to gather before interviewing
 
-1. Read `schema/policy.schema.json` — the authoritative contract. Every field you collect must round-trip through it.
+1. Read `src/rikdom/_resources/policy.schema.json` — the authoritative contract. Every field you collect must round-trip through it.
 2. Read `data-sample/policy.json` for a realistic example to mirror when suggesting defaults.
 3. If `data/portfolio.json` exists, read it to infer defaults (base currency, country, existing accounts via `holdings[].identifiers.provider_account_id`, rough AUM for sizing guardrails like `min_trade_size` and `require_human_confirmation_above`). If `data/policy.json` already exists, read it and treat this as an **update** — reuse existing answers as defaults, only ask what the user flags as stale.
 4. If a previous run left notes in `data/.policy-interview.md`, resume from there.
@@ -40,7 +40,23 @@ Order (hard — do not skip sections, but let the user say "use defaults for thi
 ## Writing the file
 
 - Write `data/policy.json` **incrementally** after each section so a crash doesn't lose progress.
-- After every write, validate against `schema/policy.schema.json` using `uv run rikdom validate --portfolio <path>` style if a policy validator exists; otherwise use a Python one-liner with `jsonschema`. If validation fails, fix and re-ask only the failing fields.
+- After every write, validate with the project policy validator:
+
+```bash
+uv run python - <<'PY'
+import json
+from pathlib import Path
+from rikdom.policy import validate_policy
+path = Path('data/policy.json')
+errors = validate_policy(json.loads(path.read_text()))
+if errors:
+    print('\n'.join(errors))
+    raise SystemExit(1)
+print('policy.json valid')
+PY
+```
+
+If the user's data directory is not `data`, substitute the correct path. If validation fails, fix and re-ask only the failing fields.
 - Set `provenance.llm_assisted: true`, `provenance.llm_model` to the model you are running as, `provenance.created_at` / `updated_at` in UTC.
 - Never invent numbers the user did not confirm — if unsure, ask. Omit optional fields rather than guess.
 

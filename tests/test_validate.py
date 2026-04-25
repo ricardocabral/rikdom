@@ -280,5 +280,164 @@ class EconomicExposureValidationTests(unittest.TestCase):
         )
 
 
+class LiabilitiesValidationTests(unittest.TestCase):
+    def _base(self) -> dict:
+        return copy.deepcopy(load_json("tests/fixtures/portfolio.json"))
+
+    def test_minimal_liability_is_accepted(self) -> None:
+        candidate = self._base()
+        candidate["liabilities"] = [
+            {
+                "id": "lia-mortgage-1",
+                "kind": "mortgage",
+                "balance": {"amount": 500000, "currency": "BRL"},
+            }
+        ]
+        self.assertEqual(validate_portfolio(candidate), [])
+
+    def test_unknown_kind_is_rejected(self) -> None:
+        candidate = self._base()
+        candidate["liabilities"] = [
+            {
+                "id": "lia-1",
+                "kind": "bogus_kind",
+                "balance": {"amount": 1000, "currency": "BRL"},
+            }
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(any("liabilities[0].kind 'bogus_kind'" in e for e in errors), errors)
+
+    def test_duplicate_id_is_rejected(self) -> None:
+        candidate = self._base()
+        candidate["liabilities"] = [
+            {
+                "id": "dup",
+                "kind": "credit_card",
+                "balance": {"amount": 100, "currency": "BRL"},
+            },
+            {
+                "id": "dup",
+                "kind": "credit_line",
+                "balance": {"amount": 200, "currency": "BRL"},
+            },
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(any("Duplicate liability id 'dup'" in e for e in errors), errors)
+
+    def test_secured_by_holding_must_exist(self) -> None:
+        candidate = self._base()
+        candidate["liabilities"] = [
+            {
+                "id": "lia-1",
+                "kind": "mortgage",
+                "balance": {"amount": 1, "currency": "BRL"},
+                "secured_by_holding_id": "no-such-holding",
+            }
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any(
+                "liabilities[0].secured_by_holding_id 'no-such-holding' not in holdings" in e
+                for e in errors
+            ),
+            errors,
+        )
+
+    def test_balance_must_be_money_object(self) -> None:
+        candidate = self._base()
+        candidate["liabilities"] = [
+            {"id": "lia-1", "kind": "mortgage", "balance": 1000}
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(any("liabilities[0].balance" in e for e in errors), errors)
+
+
+class TaxLotValidationTests(unittest.TestCase):
+    def _base_with_known_holding_id(self) -> tuple[dict, str]:
+        candidate = copy.deepcopy(load_json("tests/fixtures/portfolio.json"))
+        holding_id = candidate["holdings"][0]["id"]
+        return candidate, holding_id
+
+    def test_minimal_tax_lot_is_accepted(self) -> None:
+        candidate, hid = self._base_with_known_holding_id()
+        candidate["tax_lots"] = [
+            {
+                "id": "lot-1",
+                "holding_id": hid,
+                "acquired_at": "2024-01-15T00:00:00Z",
+                "quantity": 100,
+                "cost_basis": {"amount": 5000, "currency": "BRL"},
+                "acquisition_kind": "buy",
+            }
+        ]
+        self.assertEqual(validate_portfolio(candidate), [])
+
+    def test_holding_reference_must_exist(self) -> None:
+        candidate, _ = self._base_with_known_holding_id()
+        candidate["tax_lots"] = [
+            {
+                "id": "lot-1",
+                "holding_id": "missing",
+                "acquired_at": "2024-01-15T00:00:00Z",
+                "quantity": 10,
+                "cost_basis": {"amount": 100, "currency": "BRL"},
+            }
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any("tax_lots[0].holding_id 'missing' not in holdings" in e for e in errors),
+            errors,
+        )
+
+    def test_unknown_acquisition_kind_is_rejected(self) -> None:
+        candidate, hid = self._base_with_known_holding_id()
+        candidate["tax_lots"] = [
+            {
+                "id": "lot-1",
+                "holding_id": hid,
+                "acquired_at": "2024-01-15T00:00:00Z",
+                "quantity": 1,
+                "cost_basis": {"amount": 1, "currency": "BRL"},
+                "acquisition_kind": "magic",
+            }
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(any("tax_lots[0].acquisition_kind 'magic'" in e for e in errors), errors)
+
+    def test_disposal_activity_requires_disposed_at(self) -> None:
+        candidate, hid = self._base_with_known_holding_id()
+        candidate["tax_lots"] = [
+            {
+                "id": "lot-1",
+                "holding_id": hid,
+                "acquired_at": "2024-01-15T00:00:00Z",
+                "quantity": 1,
+                "cost_basis": {"amount": 1, "currency": "BRL"},
+                "disposal_activity_id": "act-disp",
+            }
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any(
+                "tax_lots[0].disposal_activity_id set without disposed_at" in e
+                for e in errors
+            ),
+            errors,
+        )
+
+
+class HoldingAccountIdTests(unittest.TestCase):
+    def test_account_id_is_optional_and_validated(self) -> None:
+        portfolio = copy.deepcopy(load_json("tests/fixtures/portfolio.json"))
+        portfolio["holdings"][0]["account_id"] = "br-taxable-main"
+        self.assertEqual(validate_portfolio(portfolio), [])
+
+    def test_invalid_account_id_pattern_is_reported(self) -> None:
+        portfolio = copy.deepcopy(load_json("tests/fixtures/portfolio.json"))
+        portfolio["holdings"][0]["account_id"] = "Has Spaces!"
+        errors = validate_portfolio(portfolio)
+        self.assertTrue(any("holdings[0].account_id" in e for e in errors), errors)
+
+
 if __name__ == "__main__":
     unittest.main()

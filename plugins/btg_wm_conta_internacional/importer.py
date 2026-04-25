@@ -309,6 +309,7 @@ def _parse_activity_table(
     account_number: str,
     source_block: str,
     start_index: int,
+    statement_ref: str = "",
 ) -> tuple[list[dict[str, Any]], int]:
     activities: list[dict[str, Any]] = []
     idx = start_index
@@ -326,7 +327,22 @@ def _parse_activity_table(
         settle_at = _parse_mmddyyyy_to_iso(row["settle_date"])
 
         source_ref = f"btgwm:{account_number}#{source_block}:{idx}"
-        digest_source = source_ref
+        digest_source = "|".join(
+            [
+                account_number,
+                source_block,
+                str(idx),
+                statement_ref,
+                effective_at or "",
+                settle_at or "",
+                row["activity_type"],
+                description,
+                row["currency"],
+                info["quantity"],
+                info["price"],
+                info["amount"],
+            ]
+        )
         digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:14]
 
         activity: dict[str, Any] = {
@@ -512,7 +528,9 @@ def _synthesize_opening_balances(
     return opens
 
 
-def _parse_activities(text: str, account_number: str) -> list[dict[str, Any]]:
+def _parse_activities(
+    text: str, account_number: str, *, statement_ref: str = ""
+) -> list[dict[str, Any]]:
     activity_segment = _section(text, "ACTIVITY", ("SWEEP ACTIVITY",))
     sweep_segment = _section(
         text, "SWEEP ACTIVITY", ("CURRENT MONTH AGGREGATE INTEREST ACCRUED",)
@@ -525,6 +543,7 @@ def _parse_activities(text: str, account_number: str) -> list[dict[str, Any]]:
         account_number=account_number,
         source_block="activity",
         start_index=next_index,
+        statement_ref=statement_ref,
     )
     activities.extend(parsed)
 
@@ -533,6 +552,7 @@ def _parse_activities(text: str, account_number: str) -> list[dict[str, Any]]:
         account_number=account_number,
         source_block="sweep_activity",
         start_index=next_index,
+        statement_ref=statement_ref,
     )
     activities.extend(parsed)
     return activities
@@ -548,7 +568,8 @@ def parse_statement(path: Path) -> dict[str, Any]:
     ending_account_value = _extract_ending_account_value(text)
 
     holdings = _parse_holdings(text, account_number)
-    activities = _parse_activities(text, account_number)
+    statement_ref = hashlib.sha1(text.encode("utf-8")).hexdigest()[:14]
+    activities = _parse_activities(text, account_number, statement_ref=statement_ref)
     opening_balances = _synthesize_opening_balances(
         holdings,
         activities,

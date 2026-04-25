@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .aggregate import aggregate_portfolio
+from .backfill import backfill_cashflows, backfill_exposure
 from .fx import ensure_snapshot_fx_lock
 from .journal import (
     DEFAULT_POLICY,
@@ -286,13 +287,21 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
         fx_rates_to_base=fx_lock.get("rates_to_base"),
     )
     result.warnings.extend(fx_warnings)
-    output = {
+    output: dict[str, Any] = {
         "base_currency": result.base_currency,
         "portfolio_value_base": result.total_value_base,
         "by_asset_class": result.by_asset_class,
         "warnings": result.warnings,
         "errors": result.errors,
     }
+    for key, value in (
+        ("by_region", result.by_region),
+        ("by_currency", result.by_currency),
+        ("by_duration", result.by_duration),
+        ("by_liquidity_tier", result.by_liquidity_tier),
+    ):
+        if value:
+            output[key] = value
     print(json.dumps(output, indent=2, ensure_ascii=False))
     if result.errors:
         print("Data quality check failed in strict mode", file=sys.stderr)
@@ -1110,6 +1119,96 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_backfill(
+    args: argparse.Namespace,
+    operation,
+    label: str,
+    *,
+    operation_kwargs: dict | None = None,
+) -> int:
+    portfolio_path = Path(args.portfolio)
+    try:
+        portfolio = load_json(portfolio_path)
+    except FileNotFoundError:
+        print(f"Portfolio not found: {portfolio_path}", file=sys.stderr)
+        return 1
+
+    pre_errors = validate_portfolio(portfolio)
+    if pre_errors:
+        print(
+            f"Refusing to backfill {label}: portfolio failed validation",
+            file=sys.stderr,
+        )
+        for err in pre_errors:
+            print(f"- {err}", file=sys.stderr)
+        return 1
+
+    new_portfolio, report = operation(portfolio, **(operation_kwargs or {}))
+
+    post_errors = validate_portfolio(new_portfolio)
+    if post_errors:
+        print(
+            f"Backfill {label} produced an invalid portfolio:", file=sys.stderr
+        )
+        for err in post_errors:
+            print(f"- {err}", file=sys.stderr)
+        return 1
+
+    payload: dict[str, Any] = {
+        "operation": label,
+        "from": str(portfolio_path),
+        "touched": report.touched,
+        "skipped": report.skipped,
+        "warnings": report.warnings,
+        "counts": {
+            "touched": len(report.touched),
+            "skipped": len(report.skipped),
+            "warnings": len(report.warnings),
+        },
+        "dry_run": bool(args.dry_run),
+    }
+
+    if args.dry_run or not report.touched:
+        payload["status"] = "planned" if args.dry_run else "noop"
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    output_path = Path(args.output) if args.output else portfolio_path
+    in_place = _is_same_path(output_path, portfolio_path)
+    backup_written: str | None = None
+    if in_place and not args.no_backup:
+        backup = _backup_path(portfolio_path)
+        shutil.copy2(portfolio_path, backup)
+        backup_written = str(backup)
+
+    save_json(output_path, new_portfolio)
+
+    payload["status"] = "written"
+    payload["output"] = str(output_path)
+    if backup_written:
+        payload["backup"] = backup_written
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_backfill_exposure(args: argparse.Namespace) -> int:
+    return _run_backfill(
+        args,
+        backfill_exposure,
+        "exposure",
+        operation_kwargs={"include_catalog": bool(args.include_catalog)},
+    )
+
+
+def cmd_backfill_cashflows(args: argparse.Namespace) -> int:
+    return _run_backfill(
+        args,
+        backfill_cashflows,
+        "cashflows",
+        operation_kwargs={"force": bool(args.force)},
+    )
+
+
 def cmd_compact(args: argparse.Namespace) -> int:
     policy = CompactionPolicy(
         daily_days=args.daily_days,
@@ -1443,6 +1542,50 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_workspace_options(p_migrate, with_portfolio_name=True, with_registry=True)
     p_migrate.set_defaults(func=cmd_migrate)
+
+    p_backfill = sub.add_parser(
+        "backfill", help="Synthesize fallback exposure or cash-flow data with explicit provenance"
+    )
+    p_backfill_sub = p_backfill.add_subparsers(dest="backfill_command", required=True)
+
+    def _add_common_backfill_args(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--portfolio", default=None)
+        p.add_argument("--dry-run", action="store_true")
+        p.add_argument(
+            "--no-backup",
+            action="store_true",
+            help="Skip writing a .bak-<timestamp> sibling before overwriting",
+        )
+        p.add_argument(
+            "--output",
+            default=None,
+            help="Write back-filled file here instead of overwriting --portfolio",
+        )
+        _add_workspace_options(p, with_portfolio_name=True, with_registry=True)
+
+    p_backfill_exposure = p_backfill_sub.add_parser(
+        "exposure",
+        help="Insert single-line economic_exposure stubs for holdings missing one (heuristic, low confidence).",
+    )
+    _add_common_backfill_args(p_backfill_exposure)
+    p_backfill_exposure.add_argument(
+        "--include-catalog",
+        action="store_true",
+        help="Also synthesize stubs on holdings whose asset_type already carries a catalog economic_exposure (default: skip).",
+    )
+    p_backfill_exposure.set_defaults(func=cmd_backfill_exposure)
+
+    p_backfill_cashflows = p_backfill_sub.add_parser(
+        "cashflows",
+        help="Synthesize PROJECTED interest legs and terminal principal for FIXED-rate debt holdings missing cash_flows.",
+    )
+    _add_common_backfill_args(p_backfill_cashflows)
+    p_backfill_cashflows.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing fixed_income_profile.cash_flows (default: skip non-empty).",
+    )
+    p_backfill_cashflows.set_defaults(func=cmd_backfill_cashflows)
 
     p_workspace = sub.add_parser(
         "workspace", help="Manage multi-portfolio workspace registry"

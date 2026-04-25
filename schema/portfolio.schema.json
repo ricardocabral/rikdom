@@ -85,6 +85,20 @@
 				"$ref": "#/$defs/Activity"
 			}
 		},
+		"liabilities": {
+			"type": "array",
+			"description": "Optional ledger of debts/obligations against the household balance sheet (mortgages, loans, margin, credit lines). Liabilities are not netted against holdings automatically; agents should compute net worth = sum(holdings.market_value) - sum(liabilities.balance) when both are present.",
+			"items": {
+				"$ref": "#/$defs/Liability"
+			}
+		},
+		"tax_lots": {
+			"type": "array",
+			"description": "Optional append-only ledger of cost-basis lots referenced by holding_id. Top-level (not nested in Holding) so lot history survives quantity changes and can be derived from activities. Disposed lots are retained with disposed_at and disposal_activity_id to preserve audit trail.",
+			"items": {
+				"$ref": "#/$defs/TaxLot"
+			}
+		},
 		"operations": {
 			"type": "object",
 			"description": "Optional operational task registry and immutable occurrence ledger for recurring portfolio work.",
@@ -539,6 +553,11 @@
 				"label": {
 					"type": "string"
 				},
+				"account_id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$",
+					"description": "Optional soft reference to policy.accounts[].account_id. Cross-file referential integrity is enforced by the semantic validator, not JSON Schema."
+				},
 				"jurisdiction": {
 					"type": "object",
 					"additionalProperties": false,
@@ -773,6 +792,245 @@
 				},
 				"notes": {
 					"type": "string"
+				},
+				"metadata": {
+					"type": "object",
+					"additionalProperties": true
+				},
+				"extensions": {
+					"type": "object",
+					"additionalProperties": true
+				}
+			}
+		},
+		"Liability": {
+			"type": "object",
+			"required": ["id", "kind", "balance"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"kind": {
+					"type": "string",
+					"enum": [
+						"mortgage",
+						"secured_loan",
+						"unsecured_loan",
+						"student_loan",
+						"margin",
+						"credit_line",
+						"credit_card",
+						"tax",
+						"other"
+					]
+				},
+				"label": {
+					"type": "string"
+				},
+				"lender": {
+					"type": "string"
+				},
+				"jurisdiction": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"country": {
+							"type": "string",
+							"pattern": "^[A-Z]{2}$"
+						}
+					}
+				},
+				"account_id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$",
+					"description": "Optional soft reference to policy.accounts[].account_id."
+				},
+				"secured_by_holding_id": {
+					"type": "string",
+					"description": "When the debt is secured by a specific holding (e.g., mortgage on a property holding), reference its holdings[].id."
+				},
+				"principal_original": {
+					"$ref": "#/$defs/Money"
+				},
+				"balance": {
+					"$ref": "#/$defs/Money"
+				},
+				"as_of": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"interest": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"rate_type": {
+							"type": "string",
+							"enum": ["FIXED", "FLOATING", "HYBRID", "ZERO", "OTHER"]
+						},
+						"fixed_rate_pct": {
+							"type": "number"
+						},
+						"indexer": {
+							"type": "string"
+						},
+						"floating_spread_pct": {
+							"type": "number"
+						},
+						"day_count_convention": {
+							"type": "string"
+						}
+					}
+				},
+				"payment": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"amount": {
+							"$ref": "#/$defs/Money"
+						},
+						"cadence": {
+							"$ref": "#/$defs/CadenceRule"
+						},
+						"next_due_at": {
+							"type": "string",
+							"format": "date-time"
+						},
+						"amortization": {
+							"type": "string",
+							"enum": [
+								"FRENCH",
+								"SAC",
+								"INTEREST_ONLY",
+								"BULLET",
+								"CUSTOM",
+								"OTHER"
+							]
+						}
+					}
+				},
+				"origination_date": {
+					"type": "string",
+					"format": "date"
+				},
+				"maturity_date": {
+					"type": "string",
+					"format": "date"
+				},
+				"status": {
+					"type": "string",
+					"enum": ["active", "paid_off", "in_default", "renegotiated", "cancelled"]
+				},
+				"cash_flows": {
+					"type": "array",
+					"description": "Projected or contractual debt-service cash flows. Same shape as fixed-income CashFlowLeg.",
+					"items": {
+						"$ref": "#/$defs/CashFlowLeg"
+					}
+				},
+				"provenance": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"source_system": { "type": "string" },
+						"source_ref": { "type": "string" },
+						"import_run_id": { "type": "string" },
+						"idempotency_key": { "type": "string" },
+						"ingested_at": { "type": "string", "format": "date-time" },
+						"raw_payload_ref": { "type": "string" }
+					}
+				},
+				"tags": {
+					"type": "array",
+					"items": { "type": "string" }
+				},
+				"metadata": {
+					"type": "object",
+					"additionalProperties": true
+				},
+				"extensions": {
+					"type": "object",
+					"additionalProperties": true
+				}
+			}
+		},
+		"TaxLot": {
+			"type": "object",
+			"required": ["id", "holding_id", "acquired_at", "quantity", "cost_basis"],
+			"additionalProperties": false,
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"holding_id": {
+					"type": "string",
+					"description": "Reference to holdings[].id."
+				},
+				"account_id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$",
+					"description": "Optional soft reference to policy.accounts[].account_id; useful when a holding spans multiple accounts."
+				},
+				"acquired_at": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"acquisition_kind": {
+					"type": "string",
+					"enum": [
+						"buy",
+						"transfer_in",
+						"dividend_reinvest",
+						"split",
+						"grant_vest",
+						"gift",
+						"inheritance",
+						"other"
+					]
+				},
+				"quantity": {
+					"type": "number"
+				},
+				"cost_basis": {
+					"$ref": "#/$defs/Money",
+					"description": "Total cost basis for this lot (price * quantity + fees attributed to the lot), in the lot's transaction currency."
+				},
+				"unit_cost": {
+					"$ref": "#/$defs/Money",
+					"description": "Optional per-unit cost; when both cost_basis and unit_cost are present they should be consistent with quantity."
+				},
+				"acquisition_activity_id": {
+					"type": "string",
+					"description": "Reference to activities[].id that created the lot."
+				},
+				"disposed_at": {
+					"type": "string",
+					"format": "date-time",
+					"description": "Set when the lot has been fully disposed; partial disposals are modeled as a new lot with reduced quantity plus a sibling lot for the disposed portion."
+				},
+				"disposal_activity_id": {
+					"type": "string"
+				},
+				"realized_gain": {
+					"$ref": "#/$defs/Money",
+					"description": "Optional realized gain/loss snapshot computed at disposal time, in the lot's transaction currency."
+				},
+				"holding_period": {
+					"type": "string",
+					"enum": ["short_term", "long_term", "exempt", "unknown"],
+					"description": "Tax-treatment classification at acquisition or disposal time. Jurisdiction-specific; agents should not infer."
+				},
+				"provenance": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"source_system": { "type": "string" },
+						"source_ref": { "type": "string" },
+						"import_run_id": { "type": "string" },
+						"idempotency_key": { "type": "string" },
+						"ingested_at": { "type": "string", "format": "date-time" },
+						"raw_payload_ref": { "type": "string" }
+					}
 				},
 				"metadata": {
 					"type": "object",

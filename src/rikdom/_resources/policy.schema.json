@@ -580,6 +580,78 @@
         }
       }
     },
+    "capital_market_assumptions": {
+      "type": "object",
+      "description": "Per-bucket return/volatility/yield assumptions plus optional pairwise correlations. Used by agents for SWR analysis, Monte Carlo, and stress testing. When absent, agents may fall back to retirement_assumptions.target_real_return_pct as a portfolio-wide point estimate.",
+      "additionalProperties": false,
+      "required": ["buckets"],
+      "properties": {
+        "as_of": { "type": "string", "format": "date" },
+        "source": {
+          "type": "string",
+          "description": "Free-form provenance label, e.g., 'BlackRock CMA 2026', 'manual', 'historical_15y'."
+        },
+        "currency_basis": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Currency the assumptions are stated in. Should typically match identity.policy_base_currency."
+        },
+        "horizon_years": { "type": "integer", "minimum": 1 },
+        "buckets": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/CapitalMarketAssumptionBucket" }
+        },
+        "correlations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CapitalMarketCorrelation" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "spending_plan": {
+      "type": "object",
+      "description": "Structured spending model that decomposes desired_annual_spending into essentials, discretionary, healthcare, lumpy items, and lifecycle phases. When present, agents should prefer this over the single retirement_assumptions.desired_annual_spending scalar.",
+      "additionalProperties": false,
+      "properties": {
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "basis": {
+          "type": "string",
+          "enum": ["today", "at_retirement"]
+        },
+        "default_inflation_pct": {
+          "type": "number",
+          "description": "Inflation applied to lines that don't override it."
+        },
+        "essentials": { "$ref": "#/$defs/SpendingLine" },
+        "discretionary": { "$ref": "#/$defs/SpendingLine" },
+        "healthcare": {
+          "allOf": [
+            { "$ref": "#/$defs/SpendingLine" },
+            {
+              "type": "object",
+              "properties": {
+                "coverage_gap_years": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Years between early retirement and the start of public coverage (e.g., INSS/Medicare). Out-of-pocket expectation should be loaded onto these years."
+                }
+              }
+            }
+          ]
+        },
+        "lumpy_items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LumpySpendingItem" }
+        },
+        "phases": {
+          "type": "array",
+          "description": "Lifecycle multipliers applied to the base annual_amount sum. Common pattern: go-go (1.1x ages 60-75), slow-go (0.9x 75-85), no-go (0.7x 85+). Phases should not overlap; the agent applies the matching phase per simulation year.",
+          "items": { "$ref": "#/$defs/SpendingPhase" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
     "provenance": {
       "type": "object",
       "additionalProperties": false,
@@ -638,6 +710,144 @@
           "type": "string",
           "enum": ["high", "medium", "low"],
           "description": "How aggressively agents should correct drift in this bucket."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "DimensionBucketRef": {
+      "type": "object",
+      "description": "Pointer to a strategic_allocation bucket. Used by capital_market_assumptions and correlations.",
+      "required": ["dimension", "bucket"],
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "enum": [
+            "asset_class",
+            "asset_type_id",
+            "region",
+            "currency",
+            "sector",
+            "factor",
+            "duration",
+            "liquidity_tier"
+          ]
+        },
+        "bucket": { "type": "string" }
+      }
+    },
+    "CapitalMarketAssumptionBucket": {
+      "type": "object",
+      "required": ["dimension", "bucket"],
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "enum": [
+            "asset_class",
+            "asset_type_id",
+            "region",
+            "currency",
+            "sector",
+            "factor",
+            "duration",
+            "liquidity_tier"
+          ]
+        },
+        "bucket": { "type": "string" },
+        "expected_real_return_pct": { "type": "number" },
+        "expected_nominal_return_pct": { "type": "number" },
+        "volatility_pct": { "type": "number", "minimum": 0 },
+        "yield_pct": {
+          "type": "number",
+          "description": "Expected income yield (coupon, dividend) net of withholdings. Drives 'organic' lifetime income separate from total return."
+        },
+        "max_drawdown_pct": {
+          "type": "number",
+          "description": "Historical or modeled peak-to-trough drawdown; used in stress tests."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "CapitalMarketCorrelation": {
+      "type": "object",
+      "required": ["a", "b", "rho"],
+      "additionalProperties": false,
+      "properties": {
+        "a": { "$ref": "#/$defs/DimensionBucketRef" },
+        "b": { "$ref": "#/$defs/DimensionBucketRef" },
+        "rho": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        }
+      }
+    },
+    "SpendingLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annual_amount": { "$ref": "#/$defs/Money" },
+        "inflation_pct": {
+          "type": "number",
+          "description": "Per-category inflation; if omitted, spending_plan.default_inflation_pct applies. Healthcare and education typically run 1-3 pct above headline CPI."
+        },
+        "inflation_index_ref": { "type": "string" },
+        "coverage_gap_years": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Allowed only on the healthcare line; declared here so the SpendingLine $def stays a clean superset."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "LumpySpendingItem": {
+      "type": "object",
+      "required": ["label", "amount"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string" },
+        "amount": { "$ref": "#/$defs/Money" },
+        "due_date": { "type": "string", "format": "date" },
+        "due_age": { "type": "integer", "minimum": 0, "maximum": 120 },
+        "recurrence": {
+          "type": "string",
+          "enum": ["once", "every_n_years", "monthly", "yearly"],
+          "default": "once"
+        },
+        "every_n_years": { "type": "integer", "minimum": 1 },
+        "first_year": { "type": "integer" },
+        "last_year": { "type": "integer" },
+        "inflation_pct": { "type": "number" },
+        "category": {
+          "type": "string",
+          "enum": [
+            "education",
+            "home",
+            "vehicle",
+            "travel",
+            "healthcare",
+            "wedding",
+            "tax",
+            "gift",
+            "other"
+          ]
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "SpendingPhase": {
+      "type": "object",
+      "required": ["label", "start_age", "multiplier_pct"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string" },
+        "start_age": { "type": "integer", "minimum": 0, "maximum": 120 },
+        "end_age": { "type": "integer", "minimum": 0, "maximum": 120 },
+        "multiplier_pct": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Percent of base spending (essentials + discretionary + healthcare) applied during this phase. 100 = no change; 110 = go-go uplift; 70 = no-go reduction."
         },
         "notes": { "type": "string" }
       }

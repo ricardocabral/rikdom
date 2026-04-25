@@ -108,6 +108,38 @@ Trade Date Settle Date Currency Type Description Quantity Price Amount
         )
         self.assertEqual(len({activity["id"] for activity in activities}), 2)
 
+    def test_activity_ids_include_content_and_statement_context(self) -> None:
+        segment_a = """
+ACTIVITY
+Trade Date Settle Date Currency Type Description Quantity Price Amount
+03/15/2026 03/15/2026 USD DIV ACWI - ISHARES MSCI ACWI ETF 1.00 0.50 0.50
+"""
+        segment_b = """
+ACTIVITY
+Trade Date Settle Date Currency Type Description Quantity Price Amount
+03/15/2026 03/15/2026 USD DIV BND - VANGUARD TOTAL BOND MARKET ETF 1.00 0.50 0.50
+"""
+
+        activities_a, next_index_a = importer._parse_activity_table(
+            segment_a,
+            account_number="ACCT-1",
+            source_block="activity",
+            start_index=1,
+            statement_ref="statement-a",
+        )
+        activities_b, next_index_b = importer._parse_activity_table(
+            segment_b,
+            account_number="ACCT-1",
+            source_block="activity",
+            start_index=1,
+            statement_ref="statement-b",
+        )
+
+        self.assertEqual(next_index_a, 2)
+        self.assertEqual(next_index_b, 2)
+        self.assertEqual(activities_a[0]["source_ref"], activities_b[0]["source_ref"])
+        self.assertNotEqual(activities_a[0]["id"], activities_b[0]["id"])
+
     def test_parse_statement_rejects_total_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:
             statement_path = Path(tmp) / "statement.txt"

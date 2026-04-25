@@ -18,8 +18,34 @@ VALID_INSTRUMENT_VALUE_TYPES = {"string", "integer", "number", "boolean"}
 
 
 CANONICAL_SCHEMA_URI = "https://example.org/rikdom/schema/portfolio.schema.json"
-CURRENT_SCHEMA_VERSION = (1, 2, 0)
+CURRENT_SCHEMA_VERSION = (1, 3, 0)
 MIN_COMPATIBLE_SCHEMA_VERSION = (1, 0, 0)
+
+
+LIABILITY_KINDS = {
+    "mortgage",
+    "secured_loan",
+    "unsecured_loan",
+    "student_loan",
+    "margin",
+    "credit_line",
+    "credit_card",
+    "tax",
+    "other",
+}
+
+TAX_LOT_ACQUISITION_KINDS = {
+    "buy",
+    "transfer_in",
+    "dividend_reinvest",
+    "split",
+    "grant_vest",
+    "gift",
+    "inheritance",
+    "other",
+}
+
+_ACCOUNT_ID_RE = re.compile(r"^[a-z0-9_\-]+$")
 
 _SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
@@ -178,6 +204,142 @@ def _validate_economic_exposure(value: Any, path: str, errors: list[str]) -> Non
         )
 
 
+def _validate_money(value: Any, path: str, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object {{amount, currency}}")
+        return
+    amount = value.get("amount")
+    currency = value.get("currency")
+    if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+        errors.append(f"{path}.amount must be numeric")
+    if not isinstance(currency, str) or len(currency) != 3 or currency != currency.upper():
+        errors.append(f"{path}.currency must be ISO-4217 (3 uppercase letters)")
+
+
+def _validate_account_id(value: Any, path: str, errors: list[str]) -> None:
+    if not isinstance(value, str) or not _ACCOUNT_ID_RE.match(value):
+        errors.append(f"{path} must match pattern '^[a-z0-9_\\-]+$'")
+
+
+def _validate_liabilities(
+    liabilities: Any,
+    holding_ids: set[str],
+    errors: list[str],
+) -> None:
+    if liabilities is None:
+        return
+    if not isinstance(liabilities, list):
+        errors.append("'liabilities' must be an array when provided")
+        return
+    seen: set[str] = set()
+    for i, liability in enumerate(liabilities):
+        prefix = f"liabilities[{i}]"
+        if not isinstance(liability, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        lid = str(liability.get("id", "")).strip()
+        if not lid:
+            errors.append(f"{prefix}.id is required")
+        elif lid in seen:
+            errors.append(f"Duplicate liability id '{lid}'")
+        else:
+            seen.add(lid)
+
+        kind = liability.get("kind")
+        if kind is None:
+            errors.append(f"{prefix}.kind is required")
+        elif kind not in LIABILITY_KINDS:
+            errors.append(
+                f"{prefix}.kind '{kind}' must be one of: {', '.join(sorted(LIABILITY_KINDS))}"
+            )
+
+        if "balance" not in liability:
+            errors.append(f"{prefix}.balance is required")
+        else:
+            _validate_money(liability.get("balance"), f"{prefix}.balance", errors)
+
+        if "principal_original" in liability:
+            _validate_money(
+                liability.get("principal_original"),
+                f"{prefix}.principal_original",
+                errors,
+            )
+
+        if "account_id" in liability:
+            _validate_account_id(liability.get("account_id"), f"{prefix}.account_id", errors)
+
+        secured_by = liability.get("secured_by_holding_id")
+        if isinstance(secured_by, str) and secured_by and holding_ids and secured_by not in holding_ids:
+            errors.append(
+                f"{prefix}.secured_by_holding_id '{secured_by}' not in holdings"
+            )
+
+
+def _validate_tax_lots(
+    tax_lots: Any,
+    holding_ids: set[str],
+    errors: list[str],
+) -> None:
+    if tax_lots is None:
+        return
+    if not isinstance(tax_lots, list):
+        errors.append("'tax_lots' must be an array when provided")
+        return
+    seen: set[str] = set()
+    for i, lot in enumerate(tax_lots):
+        prefix = f"tax_lots[{i}]"
+        if not isinstance(lot, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+
+        lot_id = str(lot.get("id", "")).strip()
+        if not lot_id:
+            errors.append(f"{prefix}.id is required")
+        elif lot_id in seen:
+            errors.append(f"Duplicate tax_lot id '{lot_id}'")
+        else:
+            seen.add(lot_id)
+
+        holding_id = str(lot.get("holding_id", "")).strip()
+        if not holding_id:
+            errors.append(f"{prefix}.holding_id is required")
+        elif holding_ids and holding_id not in holding_ids:
+            errors.append(f"{prefix}.holding_id '{holding_id}' not in holdings")
+
+        if not lot.get("acquired_at"):
+            errors.append(f"{prefix}.acquired_at is required")
+
+        quantity = lot.get("quantity")
+        if not isinstance(quantity, (int, float)) or isinstance(quantity, bool):
+            errors.append(f"{prefix}.quantity is required and must be numeric")
+
+        if "cost_basis" not in lot:
+            errors.append(f"{prefix}.cost_basis is required")
+        else:
+            _validate_money(lot.get("cost_basis"), f"{prefix}.cost_basis", errors)
+
+        if "unit_cost" in lot:
+            _validate_money(lot.get("unit_cost"), f"{prefix}.unit_cost", errors)
+
+        kind = lot.get("acquisition_kind")
+        if kind is not None and kind not in TAX_LOT_ACQUISITION_KINDS:
+            errors.append(
+                f"{prefix}.acquisition_kind '{kind}' must be one of: "
+                f"{', '.join(sorted(TAX_LOT_ACQUISITION_KINDS))}"
+            )
+
+        if "account_id" in lot:
+            _validate_account_id(lot.get("account_id"), f"{prefix}.account_id", errors)
+
+        # disposal consistency
+        disposed_at = lot.get("disposed_at")
+        disposal_activity_id = lot.get("disposal_activity_id")
+        if disposal_activity_id and not disposed_at:
+            errors.append(
+                f"{prefix}.disposal_activity_id set without disposed_at"
+            )
+
+
 def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
@@ -234,10 +396,10 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                 )
 
     holdings = portfolio.get("holdings")
+    holding_ids: set[str] = set()
     if not isinstance(holdings, list):
         errors.append("'holdings' must be an array")
     else:
-        holding_ids: set[str] = set()
         for i, holding in enumerate(holdings):
             if not isinstance(holding, dict):
                 errors.append(f"holdings[{i}] must be an object")
@@ -256,6 +418,11 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
             elif catalog_ids and asset_type_id not in catalog_ids:
                 errors.append(
                     f"holdings[{i}].asset_type_id '{asset_type_id}' not in asset_type_catalog"
+                )
+
+            if "account_id" in holding:
+                _validate_account_id(
+                    holding.get("account_id"), f"holdings[{i}].account_id", errors
                 )
 
             instrument_attrs = holding.get("instrument_attributes")
@@ -388,5 +555,8 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                         errors.append(
                             f"operations.task_catalog[{i}].last_event_id '{last_event_id}' not in operations.task_events"
                         )
+
+    _validate_liabilities(portfolio.get("liabilities"), holding_ids, errors)
+    _validate_tax_lots(portfolio.get("tax_lots"), holding_ids, errors)
 
     return errors

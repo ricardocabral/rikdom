@@ -23,6 +23,7 @@
       "type": "object",
       "required": ["portfolio_value_base", "by_asset_class"],
       "additionalProperties": false,
+      "description": "Look-through breakdowns (by_region/by_currency/by_duration/by_liquidity_tier) follow economic_exposure precedence: holding.economic_exposure > asset_type.economic_exposure. Holdings without exposure data fall into the '__unclassified__' bucket so coverage gaps remain visible. As a pragmatic fallback, by_currency uses holdings[].market_value.currency when no exposure is declared.",
       "properties": {
         "portfolio_value_base": {
           "type": "number"
@@ -32,6 +33,22 @@
           "additionalProperties": {
             "type": "number"
           }
+        },
+        "by_region": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "by_currency": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "by_duration": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "by_liquidity_tier": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
         }
       }
     },

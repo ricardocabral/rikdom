@@ -153,5 +153,148 @@ class PolicyRegressionTests(unittest.TestCase):
         self.assertEqual(errors, [])
 
 
+class CapitalMarketAssumptionsTests(unittest.TestCase):
+    def _with_cma(self, **kwargs) -> dict:
+        policy = _load_sample()
+        policy["capital_market_assumptions"] = {
+            "as_of": "2026-01-01",
+            "source": "manual",
+            "currency_basis": "BRL",
+            "horizon_years": 30,
+            "buckets": [
+                {
+                    "dimension": "asset_class",
+                    "bucket": "stocks",
+                    "expected_real_return_pct": 5.0,
+                    "volatility_pct": 18.0,
+                },
+                {
+                    "dimension": "asset_class",
+                    "bucket": "debt",
+                    "expected_real_return_pct": 2.5,
+                    "volatility_pct": 6.0,
+                    "yield_pct": 5.5,
+                },
+            ],
+            "correlations": [
+                {
+                    "a": {"dimension": "asset_class", "bucket": "stocks"},
+                    "b": {"dimension": "asset_class", "bucket": "debt"},
+                    "rho": 0.1,
+                }
+            ],
+        }
+        for key, value in kwargs.items():
+            policy["capital_market_assumptions"][key] = value
+        return policy
+
+    def test_minimal_cma_is_accepted(self) -> None:
+        policy = self._with_cma()
+        self.assertEqual(validate_policy(policy), [])
+
+    def test_duplicate_bucket_is_rejected(self) -> None:
+        policy = self._with_cma()
+        policy["capital_market_assumptions"]["buckets"].append(
+            {
+                "dimension": "asset_class",
+                "bucket": "stocks",
+                "expected_real_return_pct": 4.0,
+            }
+        )
+        errors = validate_policy(policy)
+        self.assertTrue(any("duplicate" in e.lower() for e in errors), errors)
+
+    def test_correlation_referencing_unknown_bucket_is_rejected(self) -> None:
+        policy = self._with_cma()
+        policy["capital_market_assumptions"]["correlations"].append(
+            {
+                "a": {"dimension": "asset_class", "bucket": "stocks"},
+                "b": {"dimension": "asset_class", "bucket": "missing"},
+                "rho": 0.0,
+            }
+        )
+        errors = validate_policy(policy)
+        self.assertTrue(any("not declared in buckets" in e for e in errors), errors)
+
+    def test_self_correlation_is_rejected(self) -> None:
+        policy = self._with_cma()
+        policy["capital_market_assumptions"]["correlations"].append(
+            {
+                "a": {"dimension": "asset_class", "bucket": "stocks"},
+                "b": {"dimension": "asset_class", "bucket": "stocks"},
+                "rho": 1.0,
+            }
+        )
+        errors = validate_policy(policy)
+        self.assertTrue(any("same bucket" in e for e in errors), errors)
+
+    def test_rho_out_of_range_is_rejected(self) -> None:
+        policy = self._with_cma()
+        policy["capital_market_assumptions"]["correlations"][0]["rho"] = 2.0
+        errors = validate_policy(policy)
+        self.assertTrue(
+            any("correlations" in e and ("rho" in e or "2.0" in e or "maximum" in e) for e in errors),
+            errors,
+        )
+
+
+class SpendingPlanTests(unittest.TestCase):
+    def _with_plan(self, **kwargs) -> dict:
+        policy = _load_sample()
+        policy["spending_plan"] = {
+            "currency": "BRL",
+            "basis": "today",
+            "default_inflation_pct": 4.0,
+            "essentials": {"annual_amount": {"amount": 96000, "currency": "BRL"}},
+            "discretionary": {
+                "annual_amount": {"amount": 60000, "currency": "BRL"},
+                "inflation_pct": 4.0,
+            },
+            "healthcare": {
+                "annual_amount": {"amount": 24000, "currency": "BRL"},
+                "inflation_pct": 7.0,
+                "coverage_gap_years": 5,
+            },
+            "lumpy_items": [
+                {
+                    "label": "Renovate kitchen",
+                    "amount": {"amount": 80000, "currency": "BRL"},
+                    "due_age": 62,
+                    "category": "home",
+                }
+            ],
+            "phases": [
+                {"label": "go-go", "start_age": 60, "end_age": 74, "multiplier_pct": 110},
+                {"label": "slow-go", "start_age": 75, "end_age": 84, "multiplier_pct": 95},
+                {"label": "no-go", "start_age": 85, "end_age": 120, "multiplier_pct": 75},
+            ],
+        }
+        for key, value in kwargs.items():
+            policy["spending_plan"][key] = value
+        return policy
+
+    def test_minimal_spending_plan_is_accepted(self) -> None:
+        policy = self._with_plan()
+        self.assertEqual(validate_policy(policy), [])
+
+    def test_overlapping_phases_is_rejected(self) -> None:
+        policy = self._with_plan()
+        policy["spending_plan"]["phases"][1]["start_age"] = 70
+        errors = validate_policy(policy)
+        self.assertTrue(any("overlaps" in e for e in errors), errors)
+
+    def test_inverted_end_age_is_rejected(self) -> None:
+        policy = self._with_plan()
+        policy["spending_plan"]["phases"][0]["end_age"] = 50
+        errors = validate_policy(policy)
+        self.assertTrue(any("end_age" in e for e in errors), errors)
+
+    def test_lumpy_item_requires_amount(self) -> None:
+        policy = self._with_plan()
+        del policy["spending_plan"]["lumpy_items"][0]["amount"]
+        errors = validate_policy(policy)
+        self.assertTrue(any("amount" in e for e in errors), errors)
+
+
 if __name__ == "__main__":
     unittest.main()

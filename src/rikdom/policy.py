@@ -57,6 +57,89 @@ def _semantic_checks(policy: Any) -> list[str]:
                         f"glide_path.nodes[{n_idx}].overrides[{o_idx}]", target
                     )
                 )
+
+    cma = policy.get("capital_market_assumptions")
+    if isinstance(cma, dict):
+        errors.extend(_check_capital_market_assumptions(cma))
+
+    plan = policy.get("spending_plan")
+    if isinstance(plan, dict):
+        errors.extend(_check_spending_plan(plan))
+    return errors
+
+
+def _check_capital_market_assumptions(cma: dict) -> list[str]:
+    errors: list[str] = []
+    seen_pairs: set[tuple[str, str]] = set()
+    buckets = cma.get("buckets") or []
+    if isinstance(buckets, list):
+        for idx, bucket in enumerate(buckets):
+            if not isinstance(bucket, dict):
+                continue
+            dim = str(bucket.get("dimension", ""))
+            buc = str(bucket.get("bucket", ""))
+            key = (dim, buc)
+            if key in seen_pairs:
+                errors.append(
+                    f"capital_market_assumptions.buckets[{idx}]: duplicate "
+                    f"(dimension={dim}, bucket={buc})"
+                )
+            else:
+                seen_pairs.add(key)
+
+    correlations = cma.get("correlations") or []
+    if isinstance(correlations, list):
+        for idx, corr in enumerate(correlations):
+            if not isinstance(corr, dict):
+                continue
+            a = corr.get("a") or {}
+            b = corr.get("b") or {}
+            for side, label in ((a, "a"), (b, "b")):
+                if not isinstance(side, dict):
+                    continue
+                key = (str(side.get("dimension", "")), str(side.get("bucket", "")))
+                if seen_pairs and key not in seen_pairs:
+                    errors.append(
+                        f"capital_market_assumptions.correlations[{idx}].{label} "
+                        f"(dimension={key[0]}, bucket={key[1]}) not declared in buckets"
+                    )
+            if a == b:
+                errors.append(
+                    f"capital_market_assumptions.correlations[{idx}]: a and b refer to the same bucket"
+                )
+    return errors
+
+
+def _check_spending_plan(plan: dict) -> list[str]:
+    errors: list[str] = []
+    phases = plan.get("phases") or []
+    if not isinstance(phases, list):
+        return errors
+
+    intervals: list[tuple[int, int, int]] = []  # (start, end, idx)
+    for idx, phase in enumerate(phases):
+        if not isinstance(phase, dict):
+            continue
+        start = phase.get("start_age")
+        end = phase.get("end_age")
+        if not isinstance(start, int):
+            continue
+        end_val = end if isinstance(end, int) else 999
+        if isinstance(end, int) and end < start:
+            errors.append(
+                f"spending_plan.phases[{idx}]: end_age ({end}) must be >= start_age ({start})"
+            )
+        intervals.append((start, end_val, idx))
+
+    intervals.sort()
+    for i in range(1, len(intervals)):
+        prev_start, prev_end, prev_idx = intervals[i - 1]
+        cur_start, cur_end, cur_idx = intervals[i]
+        if cur_start <= prev_end:
+            errors.append(
+                f"spending_plan.phases[{prev_idx}] (start_age {prev_start}) overlaps "
+                f"with phases[{cur_idx}] (start_age {cur_start})"
+            )
     return errors
 
 

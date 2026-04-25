@@ -12,6 +12,14 @@ class AggregateResult:
     warnings: list[str]
     errors: list[str] = field(default_factory=list)
     fx_lock: dict[str, Any] | None = None
+    by_region: dict[str, float] = field(default_factory=dict)
+    by_currency: dict[str, float] = field(default_factory=dict)
+    by_duration: dict[str, float] = field(default_factory=dict)
+    by_liquidity_tier: dict[str, float] = field(default_factory=dict)
+
+
+UNCLASSIFIED = "__unclassified__"
+_LOOKTHROUGH_DIMENSIONS = ("region", "currency", "duration", "liquidity_tier")
 
 
 _IDENTIFIER_FIELDS = ("isin", "ticker", "wallet", "provider_account_id", "id")
@@ -44,6 +52,94 @@ def _is_numeric(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _catalog_exposure_index(
+    asset_type_catalog: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for item in asset_type_catalog:
+        type_id = str(item.get("id", "")).strip()
+        exposure = item.get("economic_exposure")
+        if type_id and isinstance(exposure, dict):
+            index[type_id] = exposure
+    return index
+
+
+def _resolve_holding_exposure(
+    holding: dict[str, Any],
+    asset_type_id: str,
+    catalog_exposures: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    holding_exposure = holding.get("economic_exposure")
+    if isinstance(holding_exposure, dict):
+        return holding_exposure
+    catalog_exposure = catalog_exposures.get(asset_type_id)
+    if isinstance(catalog_exposure, dict):
+        return catalog_exposure
+    return None
+
+
+def _holding_market_value_currency(holding: dict[str, Any]) -> str | None:
+    mv = holding.get("market_value")
+    if not isinstance(mv, dict):
+        return None
+    cur = mv.get("currency")
+    if isinstance(cur, str) and len(cur.strip()) == 3:
+        return cur.strip().upper()
+    return None
+
+
+def _lookthrough_bucket(dim: str, line: dict[str, Any], holding: dict[str, Any]) -> str:
+    value = line.get(dim)
+    if isinstance(value, str) and value.strip():
+        return value.strip().upper() if dim == "currency" else value.strip()
+    if dim == "currency":
+        return _holding_market_value_currency(holding) or UNCLASSIFIED
+    return UNCLASSIFIED
+
+
+def _distribute_lookthrough(
+    breakdowns: dict[str, dict[str, float]],
+    exposure: dict[str, Any] | None,
+    holding: dict[str, Any],
+    amount_base: float,
+) -> None:
+    """Apportion amount_base across by_region/by_currency/by_duration/by_liquidity_tier buckets.
+
+    Precedence: holding.economic_exposure -> asset_type.economic_exposure ->
+    (currency only) holding.market_value.currency. Anything else lands in __unclassified__.
+    """
+
+    if exposure is None or not isinstance(exposure.get("breakdown"), list):
+        for dim in _LOOKTHROUGH_DIMENSIONS:
+            bucket = (
+                _holding_market_value_currency(holding) if dim == "currency" else None
+            )
+            bucket = bucket or UNCLASSIFIED
+            breakdowns[dim][bucket] = breakdowns[dim].get(bucket, 0.0) + amount_base
+        return
+
+    breakdown = exposure["breakdown"]
+    total_weight = 0.0
+    for line in breakdown:
+        if isinstance(line, dict):
+            weight = line.get("weight_pct")
+            if isinstance(weight, (int, float)) and not isinstance(weight, bool):
+                total_weight += float(weight)
+    if total_weight <= 0:
+        return
+
+    for dim in _LOOKTHROUGH_DIMENSIONS:
+        for line in breakdown:
+            if not isinstance(line, dict):
+                continue
+            weight = line.get("weight_pct")
+            if not isinstance(weight, (int, float)) or isinstance(weight, bool):
+                continue
+            bucket = _lookthrough_bucket(dim, line, holding)
+            share = amount_base * (float(weight) / total_weight)
+            breakdowns[dim][bucket] = breakdowns[dim].get(bucket, 0.0) + share
+
+
 def _asset_class_index(asset_type_catalog: list[dict[str, Any]]) -> dict[str, str]:
     index: dict[str, str] = {}
     for item in asset_type_catalog:
@@ -54,7 +150,9 @@ def _asset_class_index(asset_type_catalog: list[dict[str, Any]]) -> dict[str, st
     return index
 
 
-def _normalize_fx_rates_to_base(fx_rates_to_base: dict[str, Any] | None) -> dict[str, float]:
+def _normalize_fx_rates_to_base(
+    fx_rates_to_base: dict[str, Any] | None,
+) -> dict[str, float]:
     if not isinstance(fx_rates_to_base, dict):
         return {}
 
@@ -88,7 +186,9 @@ def _resolve_to_base_amount(
     if fx_rate is not None and fx_rate > 0:
         return amount * fx_rate
 
-    metadata_fx = metadata.get("fx_rate_to_base") if isinstance(metadata, dict) else None
+    metadata_fx = (
+        metadata.get("fx_rate_to_base") if isinstance(metadata, dict) else None
+    )
     if _is_numeric(metadata_fx) and float(metadata_fx) > 0:
         warnings.append(
             f"{context} used compatibility fallback metadata.fx_rate_to_base"
@@ -261,7 +361,9 @@ def _append_quantity_consistency_warnings(
     *,
     tolerance: float,
 ) -> None:
-    deltas, key_index, activity_identifier_fields = _build_quantity_ledger_index(activities)
+    deltas, key_index, activity_identifier_fields = _build_quantity_ledger_index(
+        activities
+    )
     if not key_index:
         return
 
@@ -297,16 +399,17 @@ def _append_quantity_consistency_warnings(
                 matching_indices = {
                     idx
                     for idx in indices_for_field
-                    if not (activity_identifier_fields[idx] & _HIGH_CONFIDENCE_IDENTIFIER_FIELDS_SET)
+                    if not (
+                        activity_identifier_fields[idx]
+                        & _HIGH_CONFIDENCE_IDENTIFIER_FIELDS_SET
+                    )
                 }
                 if matching_indices:
                     break
         if not matching_indices:
             continue
 
-        ledger_qty = sum(
-            deltas[i] for i in matching_indices if deltas[i] is not None
-        )
+        ledger_qty = sum(deltas[i] for i in matching_indices if deltas[i] is not None)
         holding_qty = float(quantity)
         drift = holding_qty - ledger_qty
         if abs(drift) <= tolerance:
@@ -505,7 +608,9 @@ def aggregate_portfolio(
     cash_drift_tolerance_base: float = 0.01,
 ) -> AggregateResult:
     settings = portfolio.get("settings", {})
-    raw_base_currency = settings.get("base_currency") if isinstance(settings, dict) else None
+    raw_base_currency = (
+        settings.get("base_currency") if isinstance(settings, dict) else None
+    )
     if isinstance(raw_base_currency, str) and raw_base_currency.strip():
         base_currency = raw_base_currency.strip().upper()
     else:
@@ -515,9 +620,15 @@ def aggregate_portfolio(
     holdings = portfolio.get("holdings", [])
     activities = portfolio.get("activities", [])
     class_index = _asset_class_index(catalog if isinstance(catalog, list) else [])
+    catalog_exposures = _catalog_exposure_index(
+        catalog if isinstance(catalog, list) else []
+    )
     normalized_fx_rates = _normalize_fx_rates_to_base(fx_rates_to_base)
 
     by_asset_class: dict[str, float] = {}
+    breakdowns: dict[str, dict[str, float]] = {
+        dim: {} for dim in _LOOKTHROUGH_DIMENSIONS
+    }
     warnings: list[str] = []
     errors: list[str] = []
 
@@ -543,8 +654,19 @@ def aggregate_portfolio(
         asset_class = class_index.get(asset_type_id, "other")
         by_asset_class[asset_class] = by_asset_class.get(asset_class, 0.0) + amount_base
 
-    normalized_holdings = [h for h in holdings if isinstance(h, dict)] if isinstance(holdings, list) else []
-    normalized_activities = [a for a in activities if isinstance(a, dict)] if isinstance(activities, list) else []
+        exposure = _resolve_holding_exposure(holding, asset_type_id, catalog_exposures)
+        _distribute_lookthrough(breakdowns, exposure, holding, amount_base)
+
+    normalized_holdings = (
+        [h for h in holdings if isinstance(h, dict)]
+        if isinstance(holdings, list)
+        else []
+    )
+    normalized_activities = (
+        [a for a in activities if isinstance(a, dict)]
+        if isinstance(activities, list)
+        else []
+    )
 
     _append_quantity_consistency_warnings(
         normalized_holdings,
@@ -571,4 +693,10 @@ def aggregate_portfolio(
         by_asset_class={k: round(v, 2) for k, v in sorted(by_asset_class.items())},
         warnings=warnings,
         errors=errors,
+        by_region={k: round(v, 2) for k, v in sorted(breakdowns["region"].items())},
+        by_currency={k: round(v, 2) for k, v in sorted(breakdowns["currency"].items())},
+        by_duration={k: round(v, 2) for k, v in sorted(breakdowns["duration"].items())},
+        by_liquidity_tier={
+            k: round(v, 2) for k, v in sorted(breakdowns["liquidity_tier"].items())
+        },
     )
