@@ -9,7 +9,11 @@ import csv
 from datetime import datetime, timezone
 from pathlib import Path
 
-from rikdom.plugin_engine.hookspecs import hookimpl
+try:
+    from rikdom.plugin_engine.hookspecs import hookimpl
+except ModuleNotFoundError:  # Generated plugin can run standalone before installing rikdom.
+    def hookimpl(func):
+        return func
 
 
 def _now_iso() -> str:

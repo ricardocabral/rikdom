@@ -1,5 +1,6 @@
 {
   "provider": "vanguard",
+  "generated_at": "2026-02-28T00:00:00Z",
   "base_currency": "USD",
   "metadata": {
     "source_file": "input.csv",
@@ -82,7 +83,7 @@
         "amount": -520.0,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-99887766:7a9dd974d47a7152",
+      "idempotency_key": "vanguard:vg-99887766:13a2c31324bf7b2d",
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2001",
       "metadata": {
         "activity_type": "Buy",
@@ -103,7 +104,7 @@
         "amount": 220.15,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-99887766:302ed89fca5a0d58",
+      "idempotency_key": "vanguard:vg-99887766:8885258052316677",
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2002",
       "metadata": {
         "activity_type": "Sell",
@@ -124,7 +125,7 @@
         "amount": 33.44,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-99887766:680811ddae4642ed",
+      "idempotency_key": "vanguard:vg-99887766:aeed99785289e620",
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2003",
       "metadata": {
         "activity_type": "Dividend",
@@ -144,7 +145,7 @@
         "amount": 500.0,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-99887766:3dfaa0fd4483667a",
+      "idempotency_key": "vanguard:vg-99887766:a1b9c38ef7e7ffc5",
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2004",
       "metadata": {
         "activity_type": "Transfer In",
@@ -160,7 +161,7 @@
         "amount": -3.5,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-99887766:f9362929b9c06ea7",
+      "idempotency_key": "vanguard:vg-99887766:80d04eca3dfec939",
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2005",
       "metadata": {
         "activity_type": "Fee",

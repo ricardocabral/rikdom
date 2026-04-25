@@ -1,5 +1,6 @@
 {
   "provider": "vanguard",
+  "generated_at": "2026-03-31T00:00:00Z",
   "base_currency": "USD",
   "metadata": {
     "source_file": "input.csv",
@@ -82,7 +83,7 @@
         "amount": -780.0,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-00112233:a67b9696e3979c85",
+      "idempotency_key": "vanguard:vg-00112233:9f00168d79419803",
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1001",
       "metadata": {
         "activity_type": "Buy",
@@ -103,7 +104,7 @@
         "amount": 118.2,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-00112233:60637b3c534e7491",
+      "idempotency_key": "vanguard:vg-00112233:39127b28718af31b",
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1002",
       "metadata": {
         "activity_type": "Sell",
@@ -124,7 +125,7 @@
         "amount": 48.12,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-00112233:67e8a9d374e39c90",
+      "idempotency_key": "vanguard:vg-00112233:fe5baf5310279d34",
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1003",
       "metadata": {
         "activity_type": "Cash Dividend",
@@ -144,7 +145,7 @@
         "amount": 1.37,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-00112233:ec288aa8e57765dd",
+      "idempotency_key": "vanguard:vg-00112233:1ad6d3d4f275fa40",
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1004",
       "metadata": {
         "activity_type": "Interest",
@@ -160,7 +161,7 @@
         "amount": -4.0,
         "currency": "USD"
       },
-      "idempotency_key": "vanguard:vg-00112233:be5c95ade0c189f3",
+      "idempotency_key": "vanguard:vg-00112233:818e48780807e028",
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1005",
       "metadata": {
         "activity_type": "Advisory Fee",

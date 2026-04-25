@@ -1,12 +1,24 @@
 {
   "plugin": "quarto-portfolio-report",
   "artifacts": [
-    {"type": "html"},
-    {"type": "html_dashboard"},
-    {"type": "json"},
-    {"type": "js"}
+    {
+      "type": "html",
+      "path": "/var/folders/b9/5_dpkjcx5_v6xlg6pjr37k2h0000gn/T/rikdom-contract-refresh-6_jr59cq/out/portfolio-report.html"
+    },
+    {
+      "type": "html_dashboard",
+      "path": "/var/folders/b9/5_dpkjcx5_v6xlg6pjr37k2h0000gn/T/rikdom-contract-refresh-6_jr59cq/out/dashboard.html"
+    },
+    {
+      "type": "json",
+      "path": "/var/folders/b9/5_dpkjcx5_v6xlg6pjr37k2h0000gn/T/rikdom-contract-refresh-6_jr59cq/out/quarto-input.json"
+    },
+    {
+      "type": "js",
+      "path": "/var/folders/b9/5_dpkjcx5_v6xlg6pjr37k2h0000gn/T/rikdom-contract-refresh-6_jr59cq/out/report-data.js"
+    }
   ],
   "warnings": [
-    "Quarto binary 'quarto' not found in PATH. Generated fallback HTML artifact."
+    "Quarto binary 'quarto' not found in PATH. Generated fallback HTML artifacts."
   ]
 }
