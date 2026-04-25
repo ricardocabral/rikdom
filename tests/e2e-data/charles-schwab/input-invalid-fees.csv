@@ -1,0 +1,3 @@
+record_type,account_number,account_name,statement_date,currency,security_type,symbol,description,quantity,market_value,cash_balance,date,action,amount,fees,reference_id
+account,ABCD-1234,Individual Brokerage,2026-03-31,USD,,,,,,,,,,,
+transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,Equity,MSFT,Buy shares,2,,,03/04/2026,Buy,-760.00,not-a-fee,TXN-BAD-FEES

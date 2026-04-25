@@ -8,3 +8,7 @@ transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,Equity,MSFT,Sell share
 transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,Equity,VTI,Cash dividend,,,,03/20/2026,Cash Dividend,32.50,,TXN-1003
 transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,,,Interest payment,,,,03/28/2026,Bank Interest,1.12,,TXN-1004
 transaction,ABCD-1234,Individual Brokerage,2026-03-31,USD,,,Monthly account fee,,,,03/30/2026,Service Fee,-5.00,,TXN-1005
+account,EURO-4321,International Brokerage,2026-03-31,EUR,,,,,,,,,,,
+position,EURO-4321,International Brokerage,2026-03-31,EUR,Equity,SAP,SAP SE ADR,10,1400.00,,,,,,
+cash,EURO-4321,International Brokerage,2026-03-31,EUR,,,,,,100.00,,,,,
+transaction,EURO-4321,International Brokerage,2026-03-31,EUR,Equity,SAP,Buy shares,2,,,03/05/2026,Buy,-280.00,2.00,TXN-EUR-1001

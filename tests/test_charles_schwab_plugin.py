@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
 import unittest
+from pathlib import Path
 
+from rikdom.aggregate import aggregate_portfolio
 from rikdom.plugin_engine.pipeline import run_import_pipeline
 from rikdom.plugins import merge_activities, merge_holdings
+from rikdom.storage import load_json
 
 
 class CharlesSchwabPluginTests(unittest.TestCase):
@@ -72,6 +76,74 @@ class CharlesSchwabPluginTests(unittest.TestCase):
                 plugin_name="charles-schwab",
                 plugins_dir="plugins",
                 input_path="plugins/charles-schwab/fixtures/invalid-amount/input.csv",
+            )
+
+    def test_e2e_workspace_exercises_multi_currency_import_and_aggregation(
+        self,
+    ) -> None:
+        workspace = Path("tests/e2e-data/charles-schwab")
+        payload = run_import_pipeline(
+            plugin_name="charles-schwab",
+            plugins_dir="plugins",
+            input_path=str(workspace / "input-taxable-mixed.csv"),
+        )
+
+        self.assertEqual(payload["base_currency"], "USD")
+        eur_holding = next(
+            holding
+            for holding in payload["holdings"]
+            if holding["id"] == "schwab:euro-4321:pos:sap"
+        )
+        self.assertEqual(
+            eur_holding["market_value"], {"amount": 1400.0, "currency": "EUR"}
+        )
+        eur_cash = next(
+            holding
+            for holding in payload["holdings"]
+            if holding["id"] == "schwab:euro-4321:cash:eur"
+        )
+        self.assertEqual(eur_cash["market_value"], {"amount": 100.0, "currency": "EUR"})
+        eur_buy = next(
+            activity
+            for activity in payload["activities"]
+            if activity["id"] == "schwab-txn-euro-4321-TXN-EUR-1001"
+        )
+        self.assertEqual(eur_buy["money"], {"amount": -280.0, "currency": "EUR"})
+        self.assertEqual(eur_buy["fees"], {"amount": 2.0, "currency": "EUR"})
+
+        portfolio = load_json(workspace / "portfolio.json")
+        portfolio["holdings"] = payload["holdings"]
+        portfolio["activities"] = payload["activities"]
+        with (workspace / "fx_rates.jsonl").open(encoding="utf-8") as f:
+            fx_rates = {
+                row["quote_currency"]: row["rate_to_base"]
+                for row in (json.loads(line) for line in f if line.strip())
+                if row["base_currency"] == "USD"
+            }
+
+        aggregate = aggregate_portfolio(
+            portfolio, strict=True, fx_rates_to_base=fx_rates
+        )
+        self.assertEqual(aggregate.base_currency, "USD")
+        self.assertEqual(aggregate.errors, [])
+        self.assertEqual(aggregate.total_value_base, 13770.44)
+
+    def test_e2e_workspace_rejects_malformed_transaction_fees(self) -> None:
+        with self.assertRaisesRegex(ValueError, "invalid fees"):
+            run_import_pipeline(
+                plugin_name="charles-schwab",
+                plugins_dir="plugins",
+                input_path="tests/e2e-data/charles-schwab/input-invalid-fees.csv",
+            )
+
+    def test_e2e_workspace_rejects_buy_without_quantity(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "missing required quantity for buy/sell"
+        ):
+            run_import_pipeline(
+                plugin_name="charles-schwab",
+                plugins_dir="plugins",
+                input_path="tests/e2e-data/charles-schwab/input-invalid-buy-quantity.csv",
             )
 
 

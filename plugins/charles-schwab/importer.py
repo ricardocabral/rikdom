@@ -214,8 +214,20 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
 
     currency = normalize_currency(row.get("currency")) or _DEFAULT_CURRENCY
     symbol = row.get("symbol", "").upper()
-    quantity = parse_decimal(row.get("quantity"))
-    fees = parse_decimal(row.get("fees"))
+
+    raw_quantity = row.get("quantity", "").strip()
+    quantity = parse_decimal(raw_quantity)
+    if raw_quantity and quantity is None:
+        raise ValueError("Charles Schwab transaction row has invalid quantity")
+    if event_type in {"buy", "sell"} and (quantity is None or quantity == 0):
+        raise ValueError(
+            "Charles Schwab transaction row missing required quantity for buy/sell"
+        )
+
+    raw_fees = row.get("fees", "").strip()
+    fees = parse_decimal(raw_fees)
+    if raw_fees and fees is None:
+        raise ValueError("Charles Schwab transaction row has invalid fees")
 
     reference_id = row.get("reference_id", "").strip()
     fingerprint = {
