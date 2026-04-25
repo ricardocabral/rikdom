@@ -261,6 +261,8 @@ def _build_report_payload(
     asset_type_classes = _asset_type_to_class(asset_type_catalog)
     base_currency = str(settings.get("base_currency", "USD")).upper().strip() or "USD"
 
+    fx_rates_to_base = _latest_fx_rates_to_base(snapshots, base_currency=base_currency)
+
     by_currency: dict[str, float] = {}
     by_asset_type: dict[str, float] = {}
     geo: dict[str, float] = {}
@@ -277,7 +279,13 @@ def _build_report_payload(
         asset_type_id = str(holding.get("asset_type_id", "")).strip()
         asset_class = asset_type_classes.get(asset_type_id, "")
         bucket = _asset_type_bucket(asset_type_id, asset_class)
-        amount_base = _to_base_amount(holding, amount, currency, base_currency)
+        amount_base = _to_base_amount_with_rates(
+            holding,
+            amount=amount,
+            currency=currency,
+            base_currency=base_currency,
+            fx_rates_to_base=fx_rates_to_base,
+        )
         if amount_base is None:
             continue
         by_asset_type[bucket] = by_asset_type.get(bucket, 0.0) + amount_base
@@ -341,7 +349,6 @@ def _build_report_payload(
                 if parsed is not None and parsed > 0:
                     latest_by_asset_class[str(key)] = parsed
 
-    fx_rates_to_base = _latest_fx_rates_to_base(snapshots, base_currency=base_currency)
     quickview_currency = _build_quickview_currency_split(
         normalized_holdings,
         base_currency=base_currency,

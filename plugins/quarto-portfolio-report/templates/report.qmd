@@ -35,6 +35,19 @@ format:
     --rk-negative: var(--rk-rust);
     --rk-primary: var(--rk-fjord);
 
+    /* Chart palette — distinct hues with good contrast on the active background.
+       Light theme defaults; dark overrides live in the prefers-color-scheme block. */
+    --rk-chart-1: #2C4A6B;
+    --rk-chart-2: #8A3A1F;
+    --rk-chart-3: #5F6B3A;
+    --rk-chart-4: #B98A2C;
+    --rk-chart-5: #6B4A8A;
+    --rk-chart-6: #1F6B6B;
+    --rk-chart-7: #4A4239;
+    --rk-chart-8: #8A7A64;
+    --rk-chart-axis: #B8AE9E;
+    --rk-chart-line: var(--rk-chart-1);
+
     --rk-font-serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
     --rk-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     color-scheme: light;
@@ -386,6 +399,19 @@ format:
       --rk-moss: #9AAE6B;
       --rk-rust: #C9775A;
       --rk-amber: #D9B070;
+
+      /* Lighter, more saturated chart hues so slices stay visible against the
+         near-black surface; avoids near-black/near-white that would vanish. */
+      --rk-chart-1: #8AA9CE;
+      --rk-chart-2: #C9775A;
+      --rk-chart-3: #9AAE6B;
+      --rk-chart-4: #D9B070;
+      --rk-chart-5: #B79BD9;
+      --rk-chart-6: #6FBDBD;
+      --rk-chart-7: #D8CDB6;
+      --rk-chart-8: #8A7A64;
+      --rk-chart-axis: #2E3138;
+      --rk-chart-line: var(--rk-chart-1);
       color-scheme: dark;
     }
   }
@@ -597,17 +623,24 @@ format:
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
 
-    // rikdom palette — ink/graphite/stone ladder + fjord/moss/amber/rust accents
+    // Chart palette is sourced from CSS variables so it tracks the active
+    // theme (light/dark) — keeps slices and legends readable on either bg.
+    const cssVar = (name, fallback) => {
+      const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return value || fallback;
+    };
     const palette = [
-      "#1F1A14",
-      "#4A4239",
-      "#8A7A64",
-      "#B8AE9E",
-      "#2C4A6B",
-      "#5F6B3A",
-      "#B98A2C",
-      "#8A3A1F"
+      cssVar("--rk-chart-1", "#2C4A6B"),
+      cssVar("--rk-chart-2", "#8A3A1F"),
+      cssVar("--rk-chart-3", "#5F6B3A"),
+      cssVar("--rk-chart-4", "#B98A2C"),
+      cssVar("--rk-chart-5", "#6B4A8A"),
+      cssVar("--rk-chart-6", "#1F6B6B"),
+      cssVar("--rk-chart-7", "#4A4239"),
+      cssVar("--rk-chart-8", "#8A7A64")
     ];
+    const chartAxisColor = cssVar("--rk-chart-axis", "#B8AE9E");
+    const chartLineColor = cssVar("--rk-chart-line", palette[0]);
 
     const renderTrendChart = () => {
       if (!timeline.length) {
@@ -636,10 +669,10 @@ format:
       return `
         <svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Portfolio evolution chart">
           <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
-          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#B8AE9E" />
-          <path d="${line}" fill="none" stroke="#2C4A6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-          <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" fill="#2C4A6B"></circle>
-          <circle cx="${first.x.toFixed(1)}" cy="${first.y.toFixed(1)}" r="2.5" fill="#B8AE9E"></circle>
+          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="${chartAxisColor}" />
+          <path d="${line}" fill="none" stroke="${chartLineColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" fill="${chartLineColor}"></circle>
+          <circle cx="${first.x.toFixed(1)}" cy="${first.y.toFixed(1)}" r="2.5" fill="${chartAxisColor}"></circle>
         </svg>
       `;
     };
@@ -719,7 +752,6 @@ format:
         return `
           <tr>
             <td title="${escapeHtml(label)}">${escapeHtml(label)}</td>
-            <td>${escapeHtml(item.id || "n/a")}</td>
             <td>${formatMoney(amount, holdingCurrency)}</td>
             <td>${formatPct(exposure, 1)}</td>
             <td style="min-width:160px;">
@@ -735,7 +767,6 @@ format:
             <thead>
               <tr>
                 <th>Holding</th>
-                <th>ID</th>
                 <th>Amount</th>
                 <th>Share (Top List)</th>
                 <th>Relative Size</th>

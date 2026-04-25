@@ -19,6 +19,14 @@ format:
     --moss: #5F6B3A;
     --rust: #8A3A1F;
     --amber: #B98A2C;
+    --chart-1: #2C4A6B;
+    --chart-2: #8A3A1F;
+    --chart-3: #5F6B3A;
+    --chart-4: #B98A2C;
+    --chart-5: #6B4A8A;
+    --chart-6: #1F6B6B;
+    --chart-7: #4A4239;
+    --chart-8: #8A7A64;
     --font-serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
     --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     color-scheme: light;
@@ -83,6 +91,14 @@ format:
       --moss: #9AAE6B;
       --rust: #C9775A;
       --amber: #D9B070;
+      --chart-1: #8AA9CE;
+      --chart-2: #C9775A;
+      --chart-3: #9AAE6B;
+      --chart-4: #D9B070;
+      --chart-5: #B79BD9;
+      --chart-6: #6FBDBD;
+      --chart-7: #D8CDB6;
+      --chart-8: #8A7A64;
       color-scheme: dark;
     }
   }
@@ -138,8 +154,21 @@ format:
     const payload = window.RIKDOM_REPORT_DATA || {};
     const sections = payload.sections || {};
     const quick = sections.quickview || {};
-    // rikdom palette — ink/graphite/stone ladder + fjord/moss/amber/rust accents
-    const palette = ['#1F1A14','#4A4239','#8A7A64','#B8AE9E','#2C4A6B','#5F6B3A','#B98A2C','#8A3A1F'];
+    // Chart palette pulled from CSS vars so it adapts to light/dark themes.
+    const cssVar = (name, fallback) => {
+      const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return value || fallback;
+    };
+    const palette = [
+      cssVar('--chart-1', '#2C4A6B'),
+      cssVar('--chart-2', '#8A3A1F'),
+      cssVar('--chart-3', '#5F6B3A'),
+      cssVar('--chart-4', '#B98A2C'),
+      cssVar('--chart-5', '#6B4A8A'),
+      cssVar('--chart-6', '#1F6B6B'),
+      cssVar('--chart-7', '#4A4239'),
+      cssVar('--chart-8', '#8A7A64')
+    ];
 
     const CCY_RE = /^[A-Z]{3}$/;
     const safeCcy = (raw) => {
