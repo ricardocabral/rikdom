@@ -884,7 +884,7 @@ class Plugin:
                 "asset_class": "funds",
                 "availability": {"countries": ["BR"]},
                 "instrument_attributes": [
-                    _attr("b3_ticker", "B3 Ticker", "string", required=True, pattern=BRAZIL_B3_TICKER_REGEX),
+                    _attr("b3_ticker", "B3 Ticker", "string", required=True, pattern=BRAZIL_B3_ETF_TICKER_REGEX),
                     _attr("isin", "ISIN", "string", required=False, pattern=BRAZIL_ISIN_REGEX),
                     _attr("fund_cnpj", "Fund CNPJ", "string", required=False, pattern=BRAZIL_CNPJ_REGEX),
                     _attr("underlying_class", "Underlying Asset Class", "string", required=True, enum=_ETF_UNDERLYING_CLASS_ENUM),

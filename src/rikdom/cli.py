@@ -1286,6 +1286,9 @@ def build_parser() -> argparse.ArgumentParser:
                 f"[deprecation] `rikdom {alias}` is deprecated; use `rikdom viz` instead.",
                 file=sys.stderr,
             )
+            out_dir = getattr(args, "out_dir", None)
+            if out_dir and not getattr(args, "out", None):
+                args.out = str(Path(out_dir) / "dashboard.html")
             return cmd_viz(args)
 
         return _run
@@ -1297,9 +1300,10 @@ def build_parser() -> argparse.ArgumentParser:
         parser_alias.add_argument("--fx-history", default=None)
         parser_alias.add_argument("--out", default=None)
         parser_alias.add_argument("--include-current", action="store_true")
-        # render-report historical flags (accepted for compatibility, unused)
+        # render-report historical flags (accepted for compatibility)
         parser_alias.add_argument("--plugin", default=None)
         parser_alias.add_argument("--plugins-dir", default=None)
+        parser_alias.add_argument("--out-dir", default=None)
         _add_workspace_options(
             parser_alias,
             with_out_root=True,

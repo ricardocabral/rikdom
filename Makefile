@@ -60,7 +60,7 @@ visualize:
 
 render-report:
 	@echo "[deprecation] 'make render-report' is deprecated; use 'make viz' instead." 1>&2
-	@$(MAKE) viz
+	uv run rikdom viz $(WORKSPACE_ARGS)
 
 plugins-list:
 	uv run rikdom plugins list --plugins-dir plugins

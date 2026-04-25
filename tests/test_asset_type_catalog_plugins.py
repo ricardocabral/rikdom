@@ -232,11 +232,14 @@ class BrEtfCatalogTests(unittest.TestCase):
     def test_etf_ticker_pattern_accepts_digit_prefix(self) -> None:
         catalog = build_asset_type_catalog("plugins")
         by_id = {item["id"]: item for item in catalog}
-        attrs = {a["id"]: a for a in by_id["etf_b5p211"]["instrument_attributes"]}
-        pattern = attrs["b3_ticker"].get("pattern")
-        self.assertIsNotNone(pattern, "expected b3_ticker to declare a pattern")
-        self.assertRegex("B5P211", pattern)
-        self.assertRegex("BOVA11", pattern)
+        for entry_id in ("etf", "etf_b5p211"):
+            attrs = {a["id"]: a for a in by_id[entry_id]["instrument_attributes"]}
+            pattern = attrs["b3_ticker"].get("pattern")
+            self.assertIsNotNone(
+                pattern, f"expected b3_ticker pattern on {entry_id}"
+            )
+            self.assertRegex("B5P211", pattern)
+            self.assertRegex("BOVA11", pattern)
 
     def test_etf_entries_declare_economic_exposure_summing_to_100(self) -> None:
         catalog = build_asset_type_catalog("plugins")

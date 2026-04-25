@@ -1,14 +1,38 @@
+# Python bytecode and caches
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.hypothesis/
+
+# Python packaging/build artifacts
 *.egg-info/
 build/
 dist/
+
+# Virtual environments
 .venv/
 venv/
+
+# Local/generated project outputs
 out/
 data/
-.DS_Store
+
+# Local agent/tooling state
+.claude/worktrees/
+.codex/
 .pi-lens/
+
+# OS/editor noise
+.DS_Store
+.vscode/
+.idea/
+
+# Coverage/test outputs
+.coverage
+.coverage.*
+htmlcov/
