@@ -352,10 +352,12 @@ def cmd_viz(args: argparse.Namespace) -> int:
         snapshots_path = str(temp_snapshots)
 
     output_dir = str(Path(args.out).resolve().parent)
+    plugin_name = getattr(args, "plugin", None) or "quarto-portfolio-report"
+    plugins_dir = getattr(args, "plugins_dir", None) or "plugins"
     try:
         payload = run_output_pipeline(
-            plugin_name="quarto-portfolio-report",
-            plugins_dir="plugins",
+            plugin_name=plugin_name,
+            plugins_dir=plugins_dir,
             portfolio_path=args.portfolio,
             snapshots_path=snapshots_path,
             output_dir=output_dir,
