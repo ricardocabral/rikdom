@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -26,16 +27,20 @@ class DashboardJsSafetyTests(unittest.TestCase):
         return i
 
     @classmethod
-    def _skip_js_expression(cls, source: str, start: int) -> int:
+    def _extract_js_expression(
+        cls, source: str, start: int
+    ) -> tuple[str, list[str], int]:
         depth = 1
         i = start
+        nested_interpolations: list[str] = []
         while i < len(source) and depth > 0:
             ch = source[i]
             if ch in ("'", '"'):
                 i = cls._skip_js_string(source, i, ch)
                 continue
             if ch == "`":
-                _, i = cls._extract_template_interpolations(source, i)
+                nested, i = cls._extract_template_interpolations(source, i)
+                nested_interpolations.extend(nested)
                 continue
             if ch == "{":
                 depth += 1
@@ -49,7 +54,7 @@ class DashboardJsSafetyTests(unittest.TestCase):
                 i += 2
                 continue
             i += 1
-        return i
+        return source[start : i - 1].strip(), nested_interpolations, i
 
     @classmethod
     def _extract_template_interpolations(
@@ -67,12 +72,105 @@ class DashboardJsSafetyTests(unittest.TestCase):
                 return expressions, i + 1
             if ch == "$" and i + 1 < len(source) and source[i + 1] == "{":
                 expr_start = i + 2
-                expr_end = cls._skip_js_expression(source, expr_start)
-                expressions.append(source[expr_start : expr_end - 1].strip())
+                expression, nested, expr_end = cls._extract_js_expression(
+                    source, expr_start
+                )
+                if nested:
+                    expressions.extend(nested)
+                else:
+                    expressions.append(expression)
                 i = expr_end
                 continue
             i += 1
         return expressions, i
+
+    @classmethod
+    def _extract_assignment_interpolations(
+        cls, source: str, start: int
+    ) -> tuple[list[str], int]:
+        expressions: list[str] = []
+        i = start
+        while i < len(source):
+            ch = source[i]
+            if ch in ("'", '"'):
+                i = cls._skip_js_string(source, i, ch)
+                continue
+            if ch == "`":
+                nested, i = cls._extract_template_interpolations(source, i)
+                expressions.extend(nested)
+                continue
+            if ch == ";":
+                return expressions, i + 1
+            i += 1
+        return expressions, i
+
+    @classmethod
+    def _is_wrapped_by_escape_html(cls, expression: str) -> bool:
+        if not expression.startswith("escapeHtml("):
+            return False
+
+        depth = 0
+        i = len("escapeHtml")
+        while i < len(expression):
+            ch = expression[i]
+            if ch in ("'", '"'):
+                i = cls._skip_js_string(expression, i, ch)
+                continue
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    return expression[i + 1 :].strip() == ""
+            i += 1
+        return False
+
+    @classmethod
+    def _is_allowlisted_innerhtml_expression(cls, expression: str) -> bool:
+        numeric_identifiers = {
+            "padLeft",
+            "padRight",
+            "padTop",
+            "padBottom",
+            "W",
+            "H",
+            "cx",
+            "cy",
+            "r",
+            "strokeW",
+            "offset",
+            "dash",
+            "circumference",
+        }
+        arithmetic_terms = "|".join(sorted(numeric_identifiers))
+        numeric_patterns = (
+            rf"^(?:{arithmetic_terms})$",
+            rf"^(?:{arithmetic_terms})\s*[-+]\s*(?:\d+|{arithmetic_terms})$",
+            rf"^\((?:t\.y|{arithmetic_terms})\s*[-+]\s*\d+\)\.toFixed\(\d+\)$",
+            r"^(?:t\.y|xFor\([^`]*\)|yFor\([^`]*\))\.toFixed\(\d+\)$",
+        )
+        explicitly_safe_html_fragments = ("slices.map(s => s.piece).join('')",)
+        return expression in explicitly_safe_html_fragments or any(
+            re.fullmatch(pattern, expression) for pattern in numeric_patterns
+        )
+
+    @classmethod
+    def _escape_html_body(cls) -> str:
+        match = re.search(
+            r"const\s+escapeHtml\s*=\s*\([^)]*\)\s*=>\s*",
+            cls.source,
+            flags=re.DOTALL,
+        )
+        if match is None:
+            raise AssertionError("const escapeHtml arrow function was not found")
+
+        start = match.end()
+        body_lines: list[str] = []
+        for line in cls.source[start:].splitlines():
+            body_lines.append(line)
+            if line.rstrip().endswith(";"):
+                return "\n".join(body_lines).rstrip()[:-1]
+        raise AssertionError("const escapeHtml declaration is missing a terminator")
 
     @classmethod
     def _all_innerhtml_interpolations(cls) -> list[str]:
@@ -94,15 +192,11 @@ class DashboardJsSafetyTests(unittest.TestCase):
             while cursor < len(source) and source[cursor].isspace():
                 cursor += 1
 
-            if cursor < len(source) and source[cursor] == "`":
-                template_expressions, next_index = cls._extract_template_interpolations(
-                    source, cursor
-                )
-                expressions.extend(template_expressions)
-                i = next_index
-                continue
-
-            i = cursor + 1
+            assignment_expressions, next_index = cls._extract_assignment_interpolations(
+                source, cursor
+            )
+            expressions.extend(assignment_expressions)
+            i = next_index
 
         return expressions
 
@@ -131,30 +225,10 @@ class DashboardJsSafetyTests(unittest.TestCase):
             "No innerHTML template interpolations found; expected at least one safety contract target.",
         )
 
-        allowlist = (
-            "padLeft",
-            "padRight",
-            "padTop",
-            "padBottom",
-            "W",
-            "H",
-            "cx",
-            "cy",
-            "r",
-            "strokeW",
-            "offset",
-            "dash",
-            "circumference",
-            "xFor(",
-            "yFor(",
-            "toFixed(",
-            "s.piece",
-        )
-
         for expression in interpolations:
-            if "escapeHtml(" in expression:
+            if self._is_wrapped_by_escape_html(expression):
                 continue
-            if any(token in expression for token in allowlist):
+            if self._is_allowlisted_innerhtml_expression(expression):
                 continue
             self.fail(
                 f"Unescaped innerHTML interpolation found: ${{{expression}}}. "
@@ -174,7 +248,7 @@ class DashboardJsSafetyTests(unittest.TestCase):
             self.assertIn(required, self.source, f"Missing escape for {required!r}")
 
     def test_escape_html_covers_all_xss_vectors(self) -> None:
-        self.assertIn("const escapeHtml", self.source)
+        escape_html_body = self._escape_html_body()
         for replacement in (
             ".replace(/&/g, '&amp;')",
             ".replace(/</g, '&lt;')",
@@ -184,7 +258,7 @@ class DashboardJsSafetyTests(unittest.TestCase):
         ):
             self.assertIn(
                 replacement,
-                self.source,
+                escape_html_body,
                 f"escapeHtml missing replacement step: {replacement}",
             )
 
