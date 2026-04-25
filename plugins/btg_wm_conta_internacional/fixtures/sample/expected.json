@@ -556,7 +556,7 @@
       "status": "posted",
       "effective_at": "2026-04-01T00:00:00Z",
       "money": {
-        "amount": 1242.6399999999999,
+        "amount": 1242.64,
         "currency": "USD"
       },
       "quantity": 1242.6399999999999,
@@ -576,7 +576,7 @@
       }
     },
     {
-      "id": "btgwm-act-a1822657e61a37",
+      "id": "btgwm-act-8db8af5d448a51",
       "event_type": "dividend",
       "status": "posted",
       "effective_at": "2026-04-03T00:00:00Z",
@@ -601,7 +601,7 @@
       "asset_type_id": "debt_instrument"
     },
     {
-      "id": "btgwm-act-c42dd72586d9f3",
+      "id": "btgwm-act-9bf7dda452cf50",
       "event_type": "fee",
       "status": "posted",
       "effective_at": "2026-04-03T00:00:00Z",
@@ -627,7 +627,7 @@
       "subtype": "withholding_tax"
     },
     {
-      "id": "btgwm-act-ccc2fe3a128f66",
+      "id": "btgwm-act-69f7a8c5eb5044",
       "event_type": "dividend",
       "status": "posted",
       "effective_at": "2026-04-08T00:00:00Z",
@@ -652,7 +652,7 @@
       "asset_type_id": "cash_equivalent"
     },
     {
-      "id": "btgwm-act-5710cf6646a3ad",
+      "id": "btgwm-act-f70424469a5917",
       "event_type": "fee",
       "status": "posted",
       "effective_at": "2026-04-08T00:00:00Z",
@@ -678,7 +678,7 @@
       "subtype": "withholding_tax"
     },
     {
-      "id": "btgwm-act-0196c6b2f12c6e",
+      "id": "btgwm-act-82ce988550c091",
       "event_type": "dividend",
       "status": "posted",
       "effective_at": "2026-04-23T00:00:00Z",
@@ -703,7 +703,7 @@
       "asset_type_id": "stock"
     },
     {
-      "id": "btgwm-act-b3adf8625b4488",
+      "id": "btgwm-act-95ab63320ea108",
       "event_type": "fee",
       "status": "posted",
       "effective_at": "2026-04-23T00:00:00Z",
@@ -729,7 +729,7 @@
       "subtype": "withholding_tax"
     },
     {
-      "id": "btgwm-act-2c27a5d2255b85",
+      "id": "btgwm-act-14bf968246acb3",
       "event_type": "dividend",
       "status": "posted",
       "effective_at": "2026-04-29T00:00:00Z",
@@ -754,7 +754,7 @@
       "asset_type_id": "stock"
     },
     {
-      "id": "btgwm-act-2578a7bd3e18c3",
+      "id": "btgwm-act-5f86dd293cb779",
       "event_type": "fee",
       "status": "posted",
       "effective_at": "2026-04-29T00:00:00Z",
@@ -780,7 +780,7 @@
       "subtype": "withholding_tax"
     },
     {
-      "id": "btgwm-act-d39a08275f26c0",
+      "id": "btgwm-act-3f7cff45a6284e",
       "event_type": "buy",
       "status": "posted",
       "effective_at": "2026-04-03T00:00:00Z",
@@ -805,7 +805,7 @@
       "asset_type_id": "cash_equivalent"
     },
     {
-      "id": "btgwm-act-e508166f06966d",
+      "id": "btgwm-act-4efbe9e0c1df78",
       "event_type": "buy",
       "status": "posted",
       "effective_at": "2026-04-08T00:00:00Z",
@@ -830,7 +830,7 @@
       "asset_type_id": "cash_equivalent"
     },
     {
-      "id": "btgwm-act-90c9c60cf137cd",
+      "id": "btgwm-act-05c66a72ba1743",
       "event_type": "buy",
       "status": "posted",
       "effective_at": "2026-04-23T00:00:00Z",
@@ -855,7 +855,7 @@
       "asset_type_id": "cash_equivalent"
     },
     {
-      "id": "btgwm-act-e49fa83a03ebee",
+      "id": "btgwm-act-be9bc86c365cf7",
       "event_type": "buy",
       "status": "posted",
       "effective_at": "2026-04-29T00:00:00Z",

@@ -23,31 +23,42 @@ class BtgWmContaInternacionalPluginTests(unittest.TestCase):
         self.assertEqual(len(payload["holdings"]), 8)
         # 12 real activities + 8 synthesized opening balances (one per holding)
         self.assertEqual(len(payload["activities"]), 20)
-        opens = [a for a in payload["activities"] if a["event_type"] == "transfer_in"
-                 and a.get("subtype") == "opening_balance"]
+        opens = [
+            a
+            for a in payload["activities"]
+            if a["event_type"] == "transfer_in"
+            and a.get("subtype") == "opening_balance"
+        ]
         self.assertEqual(len(opens), 8)
         for op in opens:
             self.assertTrue(op["metadata"].get("synthesized"))
 
-        total_assets = sum(float(h["market_value"]["amount"]) for h in payload["holdings"])
-        self.assertAlmostEqual(total_assets, payload["metadata"]["ending_account_value"], places=2)
+        total_assets = sum(
+            float(h["market_value"]["amount"]) for h in payload["holdings"]
+        )
+        self.assertAlmostEqual(
+            total_assets, payload["metadata"]["ending_account_value"], places=2
+        )
 
-        cash_holding = next(h for h in payload["holdings"] if h["identifiers"]["ticker"] == "DWBDS")
+        cash_holding = next(
+            h for h in payload["holdings"] if h["identifiers"]["ticker"] == "DWBDS"
+        )
         self.assertEqual(cash_holding["asset_type_id"], "cash_equivalent")
 
         withholding = next(
             a
             for a in payload["activities"]
-            if a["metadata"]["activity_type"] == "DIVNRA" and a["instrument"]["ticker"] == "BND"
+            if a["metadata"]["activity_type"] == "DIVNRA"
+            and a["instrument"]["ticker"] == "BND"
         )
         self.assertEqual(withholding["event_type"], "fee")
         self.assertEqual(withholding["subtype"], "withholding_tax")
         self.assertEqual(withholding["money"]["amount"], -153.73)
 
     def test_parse_statement_pdf_uses_pdftotext_stdout(self) -> None:
-        sample_txt = Path("plugins/btg_wm_conta_internacional/fixtures/sample/input.txt").read_text(
-            encoding="utf-8"
-        )
+        sample_txt = Path(
+            "plugins/btg_wm_conta_internacional/fixtures/sample/input.txt"
+        ).read_text(encoding="utf-8")
 
         with TemporaryDirectory() as tmp:
             pdf_path = Path(tmp) / "statement.pdf"
@@ -56,7 +67,9 @@ class BtgWmContaInternacionalPluginTests(unittest.TestCase):
             completed = mock.Mock()
             completed.stdout = sample_txt
 
-            with mock.patch.object(importer.subprocess, "run", return_value=completed) as run_mock:
+            with mock.patch.object(
+                importer.subprocess, "run", return_value=completed
+            ) as run_mock:
                 payload = importer.parse_statement(pdf_path)
 
             self.assertEqual(payload["provider"], "btg_wm_conta_internacional")
@@ -72,12 +85,35 @@ class BtgWmContaInternacionalPluginTests(unittest.TestCase):
                 text=True,
             )
 
+    def test_duplicate_activity_rows_get_unique_ids(self) -> None:
+        segment = """
+ACTIVITY
+Trade Date Settle Date Currency Type Description Quantity Price Amount
+03/15/2026 03/15/2026 USD DIV ACWI - ISHARES MSCI ACWI ETF 1.00 0.50 0.50
+03/15/2026 03/15/2026 USD DIV ACWI - ISHARES MSCI ACWI ETF 1.00 0.50 0.50
+"""
+
+        activities, next_index = importer._parse_activity_table(
+            segment,
+            account_number="ACCT-1",
+            source_block="activity",
+            start_index=1,
+        )
+
+        self.assertEqual(len(activities), 2)
+        self.assertEqual(next_index, 3)
+        self.assertEqual(
+            [activity["source_ref"] for activity in activities],
+            ["btgwm:ACCT-1#activity:1", "btgwm:ACCT-1#activity:2"],
+        )
+        self.assertEqual(len({activity["id"] for activity in activities}), 2)
+
     def test_parse_statement_rejects_total_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:
             statement_path = Path(tmp) / "statement.txt"
-            source = Path("plugins/btg_wm_conta_internacional/fixtures/sample/input.txt").read_text(
-                encoding="utf-8"
-            )
+            source = Path(
+                "plugins/btg_wm_conta_internacional/fixtures/sample/input.txt"
+            ).read_text(encoding="utf-8")
             altered = re.sub(
                 r"(Ending Account Value\s+\$)1,845,914\.90",
                 r"\g<1>1,845,900.00",

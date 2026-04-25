@@ -325,16 +325,8 @@ def _parse_activity_table(
         effective_at = _parse_mmddyyyy_to_iso(row["trade_date"])
         settle_at = _parse_mmddyyyy_to_iso(row["settle_date"])
 
-        digest_source = "|".join(
-            [
-                account_number,
-                source_block,
-                row["trade_date"],
-                row["activity_type"],
-                description,
-                info["amount"],
-            ]
-        )
+        source_ref = f"btgwm:{account_number}#{source_block}:{idx}"
+        digest_source = source_ref
         digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:14]
 
         activity: dict[str, Any] = {
@@ -348,7 +340,7 @@ def _parse_activity_table(
             },
             "quantity": _parse_signed_number(info["quantity"]),
             "instrument": {"ticker": symbol, "country": "US"},
-            "source_ref": f"btgwm:{account_number}#{source_block}:{idx}",
+            "source_ref": source_ref,
             "metadata": {
                 "provider": "btg-wm-conta-internacional",
                 "activity_type": row["activity_type"],
