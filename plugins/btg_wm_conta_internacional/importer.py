@@ -393,16 +393,23 @@ _CASH_SIGNS: dict[str, float] = {
 
 
 def _period_deltas_for_ticker(
-    activities: list[dict[str, Any]], ticker: str
+    activities: list[dict[str, Any]],
+    ticker: str,
+    *,
+    enforce_cash_sign: bool,
 ) -> tuple[float, float]:
     """Sum quantity and cash deltas already captured by parsed period
     activities for ``ticker``. Used to back the opening balance into
     ending == opening + Σ(period deltas).
 
-    Raises ``ValueError`` if a parsed activity for ``ticker`` carries a
-    nonzero quantity or money impact under an unsupported ``event_type``;
-    silently dropping such deltas would skew the synthesized opening
-    balance.
+    ``enforce_cash_sign`` toggles whether unsupported ``event_type`` with
+    nonzero money should raise. The cash delta is only consumed when
+    synthesizing openings for ``cash_equivalent`` holdings; for
+    tradable instruments we don't use the cash delta at all, so an
+    unmapped cash-only event (e.g. an exotic fee variant) shouldn't
+    fail the entire import.
+
+    Raises ``ValueError`` when a relevant unsupported delta is detected.
     """
     qty_delta = 0.0
     cash_delta = 0.0
@@ -420,7 +427,7 @@ def _period_deltas_for_ticker(
                 f"{qty} under unsupported event_type {evt!r}; cannot "
                 "back-calculate opening balance"
             )
-        if cash_sign is None and money:
+        if enforce_cash_sign and cash_sign is None and money:
             raise ValueError(
                 f"BTG WM activity {a.get('id')!r} for {ticker} has money "
                 f"amount {money} under unsupported event_type {evt!r}; "
@@ -469,16 +476,17 @@ def _synthesize_opening_balances(
         ending_amount = float(market_value.get("amount") or 0.0)
         currency = market_value.get("currency") or "USD"
 
-        period_qty_delta, period_cash_delta = _period_deltas_for_ticker(
-            activities, ticker
-        )
-        opening_qty = ending_qty - period_qty_delta
         # For positions whose unit price is ~$1 (cash sweep / money market),
         # opening cash mirrors opening quantity. For tradable instruments
         # mark-to-market is post-period; we still emit ending market_value
         # so the ledger has a representative basis, but only money for
-        # cash_equivalent holdings affects the cash drift check.
+        # cash_equivalent holdings affects the cash drift check — and only
+        # for those holdings do we need full cash-sign coverage.
         is_cash_like = h.get("asset_type_id") == "cash_equivalent"
+        period_qty_delta, period_cash_delta = _period_deltas_for_ticker(
+            activities, ticker, enforce_cash_sign=is_cash_like
+        )
+        opening_qty = ending_qty - period_qty_delta
         opening_amount = (
             ending_amount - period_cash_delta if is_cash_like else ending_amount
         )

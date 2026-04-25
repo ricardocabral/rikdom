@@ -90,5 +90,178 @@ class BtgWmContaInternacionalPluginTests(unittest.TestCase):
                 importer.parse_statement(statement_path)
 
 
+class OpeningBalanceSynthesisTests(unittest.TestCase):
+    """Targeted coverage for branches added in 948ba3a."""
+
+    @staticmethod
+    def _holding(
+        *,
+        ticker: str,
+        asset_type_id: str,
+        quantity: float,
+        amount: float,
+        currency: str = "USD",
+    ) -> dict:
+        return {
+            "id": f"btgwm:acct:{ticker.lower()}",
+            "asset_type_id": asset_type_id,
+            "label": ticker,
+            "quantity": quantity,
+            "market_value": {"amount": amount, "currency": currency},
+            "identifiers": {"ticker": ticker, "provider_account_id": "ACCT-1"},
+            "jurisdiction": {"country": "US"},
+            "metadata": {"provider": "btg-wm-conta-internacional"},
+        }
+
+    def test_unsupported_event_with_nonzero_quantity_raises(self) -> None:
+        """An unmapped event_type carrying nonzero qty must raise — silently
+        dropping it would leave the synthesized opening balance off by qty."""
+        holdings = [
+            self._holding(
+                ticker="ACWI", asset_type_id="stock", quantity=10.0, amount=1000.0
+            )
+        ]
+        activities = [
+            {
+                "id": "act-bad",
+                "event_type": "merger",  # not in _QTY_SIGNS
+                "instrument": {"ticker": "ACWI"},
+                "quantity": 2.0,
+                "money": {"amount": 0.0, "currency": "USD"},
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "unsupported event_type 'merger'"):
+            importer._synthesize_opening_balances(
+                holdings,
+                activities,
+                account_number="ACCT-1",
+                period_start="2026-03-01",
+            )
+
+    def test_unsupported_cash_event_does_not_raise_for_non_cash_holding(self) -> None:
+        """The cash-sign guard must be conditional: tradable instruments
+        don't consume the cash delta, so an unmapped cash-only event
+        (e.g. exotic fee variant) for a stock holding must not fail."""
+        holdings = [
+            self._holding(
+                ticker="VOO", asset_type_id="stock", quantity=5.0, amount=500.0
+            )
+        ]
+        activities = [
+            {
+                "id": "act-cash-only",
+                "event_type": "wire_charge",  # not in _CASH_SIGNS
+                "instrument": {"ticker": "VOO"},
+                "quantity": 0.0,
+                "money": {"amount": -1.5, "currency": "USD"},
+            }
+        ]
+        opens = importer._synthesize_opening_balances(
+            holdings,
+            activities,
+            account_number="ACCT-1",
+            period_start="2026-03-01",
+        )
+        self.assertEqual(len(opens), 1)
+        # No cash adjustment was applied to a non-cash holding.
+        self.assertEqual(opens[0]["money"]["amount"], 500.0)
+        self.assertEqual(opens[0]["quantity"], 5.0)
+
+    def test_unsupported_cash_event_raises_for_cash_holding(self) -> None:
+        """For a cash_equivalent holding the cash delta IS used, so an
+        unmapped event with money must still raise."""
+        holdings = [
+            self._holding(
+                ticker="DWBDS",
+                asset_type_id="cash_equivalent",
+                quantity=100.0,
+                amount=100.0,
+            )
+        ]
+        activities = [
+            {
+                "id": "act-cash-only",
+                "event_type": "wire_charge",
+                "instrument": {"ticker": "DWBDS"},
+                "quantity": 0.0,
+                "money": {"amount": -1.5, "currency": "USD"},
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "unsupported event_type 'wire_charge'"):
+            importer._synthesize_opening_balances(
+                holdings,
+                activities,
+                account_number="ACCT-1",
+                period_start="2026-03-01",
+            )
+
+    def test_effective_at_falls_back_to_period_end_then_epoch(self) -> None:
+        """Without period_start the synthetic effective_at must use
+        period_end; without either it must be a deterministic epoch
+        timestamp (never wall-clock now())."""
+        holdings = [
+            self._holding(
+                ticker="ACWI", asset_type_id="stock", quantity=1.0, amount=100.0
+            )
+        ]
+
+        opens_with_end = importer._synthesize_opening_balances(
+            holdings,
+            [],
+            account_number="ACCT-1",
+            period_start=None,
+            period_end="2026-03-31",
+        )
+        self.assertEqual(opens_with_end[0]["effective_at"], "2026-03-31T00:00:00Z")
+
+        opens_no_dates = importer._synthesize_opening_balances(
+            holdings,
+            [],
+            account_number="ACCT-1",
+            period_start=None,
+            period_end=None,
+        )
+        self.assertEqual(opens_no_dates[0]["effective_at"], "1970-01-01T00:00:00Z")
+
+    def test_synthetic_opening_amount_is_rounded_to_cents(self) -> None:
+        """Opening money must be rounded to 2 decimals so cash drift
+        comparisons aren't polluted by float noise."""
+        holdings = [
+            self._holding(
+                ticker="DWBDS",
+                asset_type_id="cash_equivalent",
+                quantity=2742.28,
+                amount=2742.28,
+            )
+        ]
+        # Cash delta of 2016.5400000000003 (float noise) -> opening
+        # would be 725.7399999999998 without rounding.
+        activities = [
+            {
+                "id": "act-1",
+                "event_type": "transfer_in",
+                "instrument": {"ticker": "DWBDS"},
+                "quantity": 1000.5400000000003,
+                "money": {"amount": 1000.5400000000003, "currency": "USD"},
+            },
+            {
+                "id": "act-2",
+                "event_type": "transfer_in",
+                "instrument": {"ticker": "DWBDS"},
+                "quantity": 1016.0,
+                "money": {"amount": 1016.0, "currency": "USD"},
+            },
+        ]
+        opens = importer._synthesize_opening_balances(
+            holdings,
+            activities,
+            account_number="ACCT-1",
+            period_start="2026-03-01",
+        )
+        self.assertEqual(opens[0]["money"]["amount"], 725.74)
+        # Quantity intentionally not rounded; only the persisted ledger
+        # money amount is rounded to cents.
+
+
 if __name__ == "__main__":
     unittest.main()
