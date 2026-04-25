@@ -7,7 +7,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-from rikdom.cli import build_parser
+from rikdom.cli import build_parser, main
 
 
 class CliVizAliasTests(unittest.TestCase):
@@ -86,6 +86,66 @@ class CliVizAliasTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         mock_viz.assert_called_once_with(args)
         self.assertEqual(args.out, str(Path("legacy-out") / "dashboard.html"))
+
+    def test_deprecated_aliases_map_explicit_out_dir_after_workspace_defaults(
+        self,
+    ) -> None:
+        for alias in ("render-report", "visualize"):
+            with self.subTest(alias=alias), tempfile.TemporaryDirectory() as tmp:
+                tmp_path = Path(tmp)
+                legacy_out = tmp_path / "legacy-out"
+
+                with (
+                    patch("rikdom.cli.cmd_viz", return_value=0) as mock_viz,
+                    redirect_stderr(io.StringIO()),
+                    redirect_stdout(io.StringIO()),
+                ):
+                    rc = main(
+                        [
+                            alias,
+                            "--data-dir",
+                            str(tmp_path / "data"),
+                            "--out-root",
+                            str(tmp_path / "out"),
+                            "--out-dir",
+                            str(legacy_out),
+                        ]
+                    )
+
+                self.assertEqual(rc, 0)
+                mock_viz.assert_called_once()
+                called_args = mock_viz.call_args.args[0]
+                self.assertEqual(called_args.out, str(legacy_out / "dashboard.html"))
+
+    def test_deprecated_alias_explicit_out_takes_precedence_over_out_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            explicit_out = tmp_path / "custom.html"
+            legacy_out = tmp_path / "legacy-out"
+
+            with (
+                patch("rikdom.cli.cmd_viz", return_value=0) as mock_viz,
+                redirect_stderr(io.StringIO()),
+                redirect_stdout(io.StringIO()),
+            ):
+                rc = main(
+                    [
+                        "render-report",
+                        "--data-dir",
+                        str(tmp_path / "data"),
+                        "--out-root",
+                        str(tmp_path / "out"),
+                        "--out-dir",
+                        str(legacy_out),
+                        "--out",
+                        str(explicit_out),
+                    ]
+                )
+
+            self.assertEqual(rc, 0)
+            mock_viz.assert_called_once()
+            called_args = mock_viz.call_args.args[0]
+            self.assertEqual(called_args.out, str(explicit_out))
 
     def test_render_report_alias_forwards_legacy_plugin_options(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

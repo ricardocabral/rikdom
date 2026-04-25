@@ -124,6 +124,20 @@ def _portfolio_workspace_paths(
     }
 
 
+class _StoreExplicitAction(argparse.Action):
+    """Store an argparse value and record that the user provided it."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
+        setattr(namespace, self.dest, values)
+        setattr(namespace, f"_{self.dest}_explicit", True)
+
+
 def _parse_csv_names(raw: str) -> list[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
@@ -1289,7 +1303,11 @@ def build_parser() -> argparse.ArgumentParser:
                 file=sys.stderr,
             )
             out_dir = getattr(args, "out_dir", None)
-            if out_dir and not getattr(args, "out", None):
+            if (
+                out_dir
+                and getattr(args, "_out_dir_explicit", False)
+                and not getattr(args, "_out_explicit", False)
+            ):
                 args.out = str(Path(out_dir) / "dashboard.html")
             return cmd_viz(args)
 
@@ -1300,19 +1318,25 @@ def build_parser() -> argparse.ArgumentParser:
         parser_alias.add_argument("--portfolio", default=None)
         parser_alias.add_argument("--snapshots", default=None)
         parser_alias.add_argument("--fx-history", default=None)
-        parser_alias.add_argument("--out", default=None)
+        parser_alias.add_argument("--out", default=None, action=_StoreExplicitAction)
         parser_alias.add_argument("--include-current", action="store_true")
         # render-report historical flags (accepted for compatibility)
         parser_alias.add_argument("--plugin", default=None)
         parser_alias.add_argument("--plugins-dir", default=None)
-        parser_alias.add_argument("--out-dir", default=None)
+        parser_alias.add_argument(
+            "--out-dir", default=None, action=_StoreExplicitAction
+        )
         _add_workspace_options(
             parser_alias,
             with_out_root=True,
             with_portfolio_name=True,
             with_registry=True,
         )
-        parser_alias.set_defaults(func=_deprecated_viz_alias(name))
+        parser_alias.set_defaults(
+            func=_deprecated_viz_alias(name),
+            _out_explicit=False,
+            _out_dir_explicit=False,
+        )
 
     _register_viz_alias("visualize", "Deprecated alias for `viz`")
     _register_viz_alias("render-report", "Deprecated alias for `viz`")
