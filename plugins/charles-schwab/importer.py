@@ -125,6 +125,18 @@ def _normalize_amount_sign(event_type: str, amount: float) -> float:
     return amount
 
 
+def _derive_base_currency(detected_currencies: list[str]) -> str:
+    """Choose a statement base currency from currencies present in the CSV."""
+    unique = list(dict.fromkeys(detected_currencies))
+    if not unique:
+        return _DEFAULT_CURRENCY
+    if len(unique) == 1:
+        return unique[0]
+    if _DEFAULT_CURRENCY in unique:
+        return _DEFAULT_CURRENCY
+    return unique[0]
+
+
 def _asset_type_for_security(security_type: str, symbol: str) -> str:
     lower_type = security_type.lower()
     if symbol.upper() in {"CASH", "SWVXX"}:
@@ -283,6 +295,7 @@ def parse_statement(path: Path) -> dict[str, Any]:
     activities: list[dict[str, Any]] = []
     accounts: dict[str, dict[str, Any]] = {}
     generated_candidates: list[str] = []
+    detected_currencies: list[str] = []
 
     seen_holding_ids: set[str] = set()
     seen_activity_ids: set[str] = set()
@@ -291,7 +304,10 @@ def parse_statement(path: Path) -> dict[str, Any]:
         record_type = row.get("record_type", "").strip().lower()
         account_number = row.get("account_number", "").strip()
         account_name = row.get("account_name", "").strip()
-        currency = normalize_currency(row.get("currency")) or _DEFAULT_CURRENCY
+        row_currency = normalize_currency(row.get("currency"))
+        if row_currency:
+            detected_currencies.append(row_currency)
+        currency = row_currency or _DEFAULT_CURRENCY
 
         if account_number:
             info = accounts.setdefault(
@@ -346,7 +362,7 @@ def parse_statement(path: Path) -> dict[str, Any]:
     return {
         "provider": PROVIDER,
         "generated_at": generated_at,
-        "base_currency": "USD",
+        "base_currency": _derive_base_currency(detected_currencies),
         "metadata": metadata,
         **({"holdings": holdings} if holdings else {}),
         **({"activities": activities} if activities else {}),

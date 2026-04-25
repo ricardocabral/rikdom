@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -77,6 +78,27 @@ class CharlesSchwabPluginTests(unittest.TestCase):
                 plugins_dir="plugins",
                 input_path="plugins/charles-schwab/fixtures/invalid-amount/input.csv",
             )
+
+    def test_plugin_derives_base_currency_from_single_currency_statement(self) -> None:
+        csv_content = "\n".join(
+            [
+                "record_type,account_number,account_name,statement_date,currency,security_type,symbol,description,quantity,market_value,cash_balance,date,action,amount,fees,reference_id",
+                "account,EUR-4321,Euro Account,2026-03-31,EUR,,,,,,,,,,,",
+                "cash,EUR-4321,Euro Account,2026-03-31,EUR,,,,,,100.00,,,,,",
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_path = Path(tmpdir) / "schwab-eur.csv"
+            input_path.write_text(csv_content, encoding="utf-8")
+
+            payload = run_import_pipeline(
+                plugin_name="charles-schwab",
+                plugins_dir="plugins",
+                input_path=str(input_path),
+            )
+
+        self.assertEqual(payload["base_currency"], "EUR")
+        self.assertEqual(payload["holdings"][0]["market_value"]["currency"], "EUR")
 
     def test_e2e_workspace_exercises_multi_currency_import_and_aggregation(
         self,
