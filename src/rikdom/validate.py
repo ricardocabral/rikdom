@@ -149,8 +149,6 @@ ECONOMIC_EXPOSURE_SUM_MAX = 100.5
 
 
 def _validate_economic_exposure(value: Any, path: str, errors: list[str]) -> None:
-    if value is None:
-        return
     if not isinstance(value, dict):
         errors.append(f"{path} must be an object when provided")
         return

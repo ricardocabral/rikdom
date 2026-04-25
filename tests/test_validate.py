@@ -230,6 +230,37 @@ class EconomicExposureValidationTests(unittest.TestCase):
             msg=f"Expected empty-breakdown error, got: {errors}",
         )
 
+    def test_holding_exposure_null_is_rejected_when_provided(self) -> None:
+        portfolio = load_json("tests/fixtures/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["holdings"][0]["economic_exposure"] = None
+
+        errors = validate_portfolio(candidate)
+
+        self.assertTrue(
+            any(
+                "holdings[0].economic_exposure must be an object when provided" in e
+                for e in errors
+            ),
+            msg=f"Expected null holding exposure error, got: {errors}",
+        )
+
+    def test_asset_type_catalog_exposure_null_is_rejected_when_provided(self) -> None:
+        portfolio = load_json("tests/fixtures/portfolio.json")
+        candidate = copy.deepcopy(portfolio)
+        candidate["asset_type_catalog"][0]["economic_exposure"] = None
+
+        errors = validate_portfolio(candidate)
+
+        self.assertTrue(
+            any(
+                "asset_type_catalog[0].economic_exposure must be an object when provided"
+                in e
+                for e in errors
+            ),
+            msg=f"Expected null catalog exposure error, got: {errors}",
+        )
+
     def test_asset_type_catalog_exposure_is_also_validated(self) -> None:
         portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
