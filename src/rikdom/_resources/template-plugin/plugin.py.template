@@ -11,8 +11,16 @@ from pathlib import Path
 
 try:
     from rikdom.plugin_engine.hookspecs import hookimpl
-except ModuleNotFoundError:  # Generated plugin can run standalone before installing rikdom.
-    def hookimpl(func):
+except ModuleNotFoundError as exc:  # Generated plugin can run standalone before installing rikdom.
+    if exc.name != "rikdom":
+        raise
+
+    def hookimpl(func=None, **_kwargs):
+        def decorator(inner):
+            return inner
+
+        if func is None:
+            return decorator
         return func
 
 

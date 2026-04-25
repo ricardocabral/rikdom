@@ -3,19 +3,19 @@
   "artifacts": [
     {
       "type": "html",
-      "path": "/var/folders/b9/5_dpkjcx5_v6xlg6pjr37k2h0000gn/T/rikdom-contract-refresh-6_jr59cq/out/portfolio-report.html"
+      "path": "out/portfolio-report.html"
     },
     {
       "type": "html_dashboard",
-      "path": "/var/folders/b9/5_dpkjcx5_v6xlg6pjr37k2h0000gn/T/rikdom-contract-refresh-6_jr59cq/out/dashboard.html"
+      "path": "out/dashboard.html"
     },
     {
       "type": "json",
-      "path": "/var/folders/b9/5_dpkjcx5_v6xlg6pjr37k2h0000gn/T/rikdom-contract-refresh-6_jr59cq/out/quarto-input.json"
+      "path": "out/quarto-input.json"
     },
     {
       "type": "js",
-      "path": "/var/folders/b9/5_dpkjcx5_v6xlg6pjr37k2h0000gn/T/rikdom-contract-refresh-6_jr59cq/out/report-data.js"
+      "path": "out/report-data.js"
     }
   ],
   "warnings": [
