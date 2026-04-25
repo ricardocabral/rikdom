@@ -10,11 +10,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+
 def _load_known_tickers_enricher():
     import importlib.util as _iu
     from pathlib import Path as _Path
+
     _path = _Path(__file__).with_name("known_tickers.py")
-    _spec = _iu.spec_from_file_location("btg_wm_conta_internacional_known_tickers", _path)
+    _spec = _iu.spec_from_file_location(
+        "btg_wm_conta_internacional_known_tickers", _path
+    )
     assert _spec and _spec.loader
     _mod = _iu.module_from_spec(_spec)
     _spec.loader.exec_module(_mod)
@@ -26,8 +30,22 @@ _enrich_from_ticker = _load_known_tickers_enricher()
 PROVIDER = "btg_wm_conta_internacional"
 
 
+def _resolve_asset_type_from_ticker(ticker: str, *, default: str) -> str:
+    probe: dict[str, Any] = {
+        "asset_type_id": default,
+        "identifiers": {"ticker": ticker},
+    }
+    _enrich_from_ticker(probe)
+    return str(probe.get("asset_type_id") or default)
+
+
 def _now_iso() -> str:
-    return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(tz=timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _collapse_spaces(value: str) -> str:
@@ -64,7 +82,9 @@ def _extract_text(input_path: Path) -> str:
         return input_path.read_text(encoding="utf-8")
 
     if input_path.suffix.lower() != ".pdf":
-        raise ValueError("BTG WM importer expects a .pdf statement (or .txt extracted text fixture)")
+        raise ValueError(
+            "BTG WM importer expects a .pdf statement (or .txt extracted text fixture)"
+        )
 
     try:
         result = subprocess.run(
@@ -234,7 +254,9 @@ _ACTIVITY_TAIL_RE = re.compile(
 )
 
 
-def _normalize_event_type(activity_type: str, description: str) -> tuple[str, str | None]:
+def _normalize_event_type(
+    activity_type: str, description: str
+) -> tuple[str, str | None]:
     kind = activity_type.upper()
     if kind == "DIV":
         return "dividend", None
@@ -336,10 +358,10 @@ def _parse_activity_table(
                 "source_block": source_block,
             },
         }
-        if symbol == "DWBDS":
-            activity["asset_type_id"] = "cash_equivalent"
-        else:
-            activity["asset_type_id"] = "stock"
+        activity["asset_type_id"] = _resolve_asset_type_from_ticker(
+            symbol,
+            default="stock",
+        )
 
         if subtype:
             activity["subtype"] = subtype
@@ -352,7 +374,9 @@ def _parse_activity_table(
 
 def _parse_activities(text: str, account_number: str) -> list[dict[str, Any]]:
     activity_segment = _section(text, "ACTIVITY", ("SWEEP ACTIVITY",))
-    sweep_segment = _section(text, "SWEEP ACTIVITY", ("CURRENT MONTH AGGREGATE INTEREST ACCRUED",))
+    sweep_segment = _section(
+        text, "SWEEP ACTIVITY", ("CURRENT MONTH AGGREGATE INTEREST ACCRUED",)
+    )
 
     activities: list[dict[str, Any]] = []
     next_index = 1

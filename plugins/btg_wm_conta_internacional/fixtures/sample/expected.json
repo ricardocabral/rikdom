@@ -1,675 +1,675 @@
 {
-  "activities": [
+  "provider": "btg_wm_conta_internacional",
+  "generated_at": "2026-04-30T00:00:00Z",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.txt",
+    "account_number": "BTGP-001-RNDX412921",
+    "statement_period_start": "2026-04-01",
+    "statement_period_end": "2026-04-30",
+    "ending_account_value": 1845914.9,
+    "parsed_holdings_total": 1845914.9
+  },
+  "holdings": [
     {
+      "id": "btgwm:btgp-001-rndx412921:acwi",
       "asset_type_id": "stock",
-      "effective_at": "2026-04-03T00:00:00Z",
-      "event_type": "dividend",
-      "id": "btgwm-act-a1822657e61a37",
-      "instrument": {
-        "country": "US",
-        "ticker": "BND"
+      "label": "ISHARES TR MSCI ACWI ETF",
+      "quantity": 4021.11893452,
+      "market_value": {
+        "amount": 612345.67,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "ACWI",
+        "provider_account_id": "BTGP-001-RNDX412921"
+      },
+      "jurisdiction": {
+        "country": "US"
       },
       "metadata": {
-        "activity_type": "DIV",
-        "description": "BND - VANGUARD BD INDEX FDS TOTAL BND MRKT - DIV:BND(0.1287/sh):TAXCD:A",
-        "price": 0.0,
         "provider": "btg-wm-conta-internacional",
-        "settle_at": "2026-04-03T00:00:00Z",
-        "source_block": "activity"
+        "holding_bucket": "Equity",
+        "unit_cost": 140.28,
+        "total_cost": 564081.39,
+        "market_price": 152.28,
+        "gain_loss": 48264.28,
+        "account_type": "M"
       },
+      "economic_exposure": {
+        "classification_source": "issuer_prospectus",
+        "as_of": "2026-04-01",
+        "confidence": "high",
+        "breakdown": [
+          {
+            "weight_pct": 62,
+            "asset_class": "stocks",
+            "region": "US",
+            "currency": "USD",
+            "factor": "broad_market",
+            "liquidity_tier": "t1"
+          },
+          {
+            "weight_pct": 27,
+            "asset_class": "stocks",
+            "region": "ex_US_DM",
+            "currency": "USD",
+            "factor": "broad_market",
+            "liquidity_tier": "t1"
+          },
+          {
+            "weight_pct": 11,
+            "asset_class": "stocks",
+            "region": "EM",
+            "currency": "USD",
+            "factor": "broad_market",
+            "liquidity_tier": "t1"
+          }
+        ],
+        "notes": "Approximate MSCI ACWI regional split; refresh periodically."
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx412921:bnd",
+      "asset_type_id": "debt_instrument",
+      "label": "VANGUARD BD INDEX FDS TOTAL BND MRKT",
+      "quantity": 3981.927451,
+      "market_value": {
+        "amount": 301234.56,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "BND",
+        "provider_account_id": "BTGP-001-RNDX412921"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 72.65,
+        "total_cost": 289286.03,
+        "market_price": 75.65,
+        "gain_loss": 11948.53,
+        "account_type": "M"
+      },
+      "economic_exposure": {
+        "classification_source": "issuer_prospectus",
+        "as_of": "2026-04-01",
+        "confidence": "high",
+        "breakdown": [
+          {
+            "weight_pct": 100,
+            "asset_class": "debt",
+            "region": "US",
+            "currency": "USD",
+            "duration": "intermediate",
+            "factor": "aggregate_bond",
+            "liquidity_tier": "t1"
+          }
+        ],
+        "notes": "Vanguard Total Bond Market. Broker files as stock; economically US investment-grade aggregate debt."
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx412921:gld",
+      "asset_type_id": "stock",
+      "label": "SPDR GOLD TR GOLD SHS",
+      "quantity": 233.81221,
+      "market_value": {
+        "amount": 98765.43,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "GLD",
+        "provider_account_id": "BTGP-001-RNDX412921"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 381.22,
+        "total_cost": 89144.69,
+        "market_price": 422.41,
+        "gain_loss": 9620.74,
+        "account_type": "M"
+      },
+      "economic_exposure": {
+        "classification_source": "issuer_prospectus",
+        "as_of": "2026-04-01",
+        "confidence": "high",
+        "breakdown": [
+          {
+            "weight_pct": 100,
+            "asset_class": "commodities",
+            "region": "GLOBAL",
+            "currency": "USD",
+            "sector": "precious_metals",
+            "liquidity_tier": "t1"
+          }
+        ],
+        "notes": "SPDR Gold Shares. Physically-backed gold."
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx412921:schh",
+      "asset_type_id": "stock",
+      "label": "SCHWAB STRATEGIC TR US REIT ETF",
+      "quantity": 7010.45,
+      "market_value": {
+        "amount": 155432.1,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "SCHH",
+        "provider_account_id": "BTGP-001-RNDX412921"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 22.4,
+        "total_cost": 157034.08,
+        "market_price": 22.17,
+        "gain_loss": -1601.98,
+        "account_type": "M"
+      },
+      "economic_exposure": {
+        "classification_source": "issuer_prospectus",
+        "as_of": "2026-04-01",
+        "confidence": "high",
+        "breakdown": [
+          {
+            "weight_pct": 100,
+            "asset_class": "reits",
+            "region": "US",
+            "currency": "USD",
+            "sector": "real_estate",
+            "liquidity_tier": "t1"
+          }
+        ],
+        "notes": "Schwab US REIT ETF. Economically US listed real estate."
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx412921:schp",
+      "asset_type_id": "debt_instrument",
+      "label": "SCHWAB STRATEGIC TR US TIPS ETF",
+      "quantity": 7604.21,
+      "market_value": {
+        "amount": 204567.89,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "SCHP",
+        "provider_account_id": "BTGP-001-RNDX412921"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 27.41,
+        "total_cost": 208429.42,
+        "market_price": 26.9,
+        "gain_loss": -3861.53,
+        "account_type": "M"
+      },
+      "economic_exposure": {
+        "classification_source": "issuer_prospectus",
+        "as_of": "2026-04-01",
+        "confidence": "high",
+        "breakdown": [
+          {
+            "weight_pct": 100,
+            "asset_class": "debt",
+            "region": "US",
+            "currency": "USD",
+            "duration": "intermediate",
+            "factor": "sovereign_inflation_linked",
+            "liquidity_tier": "t1"
+          }
+        ],
+        "notes": "Schwab US TIPS ETF. Economically US Treasury inflation-protected debt."
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx412921:sgov",
+      "asset_type_id": "cash_equivalent",
+      "label": "ISHARES TR 0-3 MNTH TREASRY",
+      "quantity": 520.0,
+      "market_value": {
+        "amount": 52468.12,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "SGOV",
+        "provider_account_id": "BTGP-001-RNDX412921"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 100.45,
+        "total_cost": 52234.0,
+        "market_price": 100.9,
+        "gain_loss": 234.12,
+        "account_type": "M"
+      },
+      "economic_exposure": {
+        "classification_source": "issuer_prospectus",
+        "as_of": "2026-04-01",
+        "confidence": "high",
+        "breakdown": [
+          {
+            "weight_pct": 100,
+            "asset_class": "cash_equivalents",
+            "region": "US",
+            "currency": "USD",
+            "duration": "cash",
+            "factor": "sovereign_floating",
+            "liquidity_tier": "t0"
+          }
+        ],
+        "notes": "iShares 0-3 Month Treasury. Economically US T-bills, cash-like."
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx412921:voo",
+      "asset_type_id": "stock",
+      "label": "VANGUARD INDEX FDS S&P 500 ETF SHS",
+      "quantity": 680.7123,
+      "market_value": {
+        "amount": 417890.34,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "VOO",
+        "provider_account_id": "BTGP-001-RNDX412921"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "Equity",
+        "unit_cost": 574.8,
+        "total_cost": 391673.03,
+        "market_price": 613.89,
+        "gain_loss": 26217.31,
+        "account_type": "M"
+      },
+      "economic_exposure": {
+        "classification_source": "issuer_prospectus",
+        "as_of": "2026-04-01",
+        "confidence": "high",
+        "breakdown": [
+          {
+            "weight_pct": 100,
+            "asset_class": "stocks",
+            "region": "US",
+            "currency": "USD",
+            "factor": "broad_market",
+            "liquidity_tier": "t1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "btgwm:btgp-001-rndx412921:dwbds",
+      "asset_type_id": "cash_equivalent",
+      "label": "DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC)",
+      "quantity": 3210.79,
+      "market_value": {
+        "amount": 3210.79,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "DWBDS",
+        "provider_account_id": "BTGP-001-RNDX412921"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "holding_bucket": "MoneyMarket funds",
+        "unit_cost": 1.0,
+        "total_cost": 3210.79,
+        "market_price": 1.0,
+        "gain_loss": 0.0,
+        "account_type": "M"
+      },
+      "economic_exposure": {
+        "classification_source": "issuer_prospectus",
+        "as_of": "2026-04-01",
+        "confidence": "high",
+        "breakdown": [
+          {
+            "weight_pct": 100,
+            "asset_class": "cash_equivalents",
+            "region": "US",
+            "currency": "USD",
+            "duration": "cash",
+            "liquidity_tier": "t0"
+          }
+        ],
+        "notes": "DriveWealth Bank Sweep (FDIC-insured deposit)."
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "btgwm-act-a1822657e61a37",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-04-03T00:00:00Z",
       "money": {
         "amount": 512.44,
         "currency": "USD"
       },
       "quantity": 0.0,
-      "source_ref": "btgwm:BTGP-001-RNDX412921#activity:1",
-      "status": "posted"
-    },
-    {
-      "asset_type_id": "stock",
-      "effective_at": "2026-04-03T00:00:00Z",
-      "event_type": "fee",
-      "id": "btgwm-act-c42dd72586d9f3",
       "instrument": {
-        "country": "US",
-        "ticker": "BND"
+        "ticker": "BND",
+        "country": "US"
       },
+      "source_ref": "btgwm:BTGP-001-RNDX412921#activity:1",
       "metadata": {
-        "activity_type": "DIVNRA",
-        "description": "BND - VANGUARD BD INDEX FDS TOTAL BND MRKT - DIVNRA:BND(0.1287/sh):NRA withholding",
-        "price": 0.0,
         "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIV",
+        "description": "BND - VANGUARD BD INDEX FDS TOTAL BND MRKT - DIV:BND(0.1287/sh):TAXCD:A",
+        "price": 0.0,
         "settle_at": "2026-04-03T00:00:00Z",
         "source_block": "activity"
       },
+      "asset_type_id": "debt_instrument"
+    },
+    {
+      "id": "btgwm-act-c42dd72586d9f3",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-04-03T00:00:00Z",
       "money": {
         "amount": -153.73,
         "currency": "USD"
       },
       "quantity": 0.0,
+      "instrument": {
+        "ticker": "BND",
+        "country": "US"
+      },
       "source_ref": "btgwm:BTGP-001-RNDX412921#activity:2",
-      "status": "posted",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIVNRA",
+        "description": "BND - VANGUARD BD INDEX FDS TOTAL BND MRKT - DIVNRA:BND(0.1287/sh):NRA withholding",
+        "price": 0.0,
+        "settle_at": "2026-04-03T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "debt_instrument",
       "subtype": "withholding_tax"
     },
     {
-      "asset_type_id": "stock",
-      "effective_at": "2026-04-08T00:00:00Z",
-      "event_type": "dividend",
       "id": "btgwm-act-ccc2fe3a128f66",
-      "instrument": {
-        "country": "US",
-        "ticker": "SGOV"
-      },
-      "metadata": {
-        "activity_type": "DIV",
-        "description": "SGOV - ISHARES TR 0-3 MNTH TREASRY - DIV:SGOV(0.1811/sh):TAXCD:4",
-        "price": 0.0,
-        "provider": "btg-wm-conta-internacional",
-        "settle_at": "2026-04-08T00:00:00Z",
-        "source_block": "activity"
-      },
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-04-08T00:00:00Z",
       "money": {
         "amount": 94.18,
         "currency": "USD"
       },
       "quantity": 0.0,
-      "source_ref": "btgwm:BTGP-001-RNDX412921#activity:3",
-      "status": "posted"
-    },
-    {
-      "asset_type_id": "stock",
-      "effective_at": "2026-04-08T00:00:00Z",
-      "event_type": "fee",
-      "id": "btgwm-act-5710cf6646a3ad",
       "instrument": {
-        "country": "US",
-        "ticker": "SGOV"
+        "ticker": "SGOV",
+        "country": "US"
       },
+      "source_ref": "btgwm:BTGP-001-RNDX412921#activity:3",
       "metadata": {
-        "activity_type": "DIVNRA",
-        "description": "SGOV - ISHARES TR 0-3 MNTH TREASRY - DIVNRA:SGOV(0.1811/sh):NRA withholding @30.00%",
-        "price": 0.0,
         "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIV",
+        "description": "SGOV - ISHARES TR 0-3 MNTH TREASRY - DIV:SGOV(0.1811/sh):TAXCD:4",
+        "price": 0.0,
         "settle_at": "2026-04-08T00:00:00Z",
         "source_block": "activity"
       },
+      "asset_type_id": "cash_equivalent"
+    },
+    {
+      "id": "btgwm-act-5710cf6646a3ad",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-04-08T00:00:00Z",
       "money": {
         "amount": -28.25,
         "currency": "USD"
       },
       "quantity": 0.0,
+      "instrument": {
+        "ticker": "SGOV",
+        "country": "US"
+      },
       "source_ref": "btgwm:BTGP-001-RNDX412921#activity:4",
-      "status": "posted",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIVNRA",
+        "description": "SGOV - ISHARES TR 0-3 MNTH TREASRY - DIVNRA:SGOV(0.1811/sh):NRA withholding @30.00%",
+        "price": 0.0,
+        "settle_at": "2026-04-08T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "cash_equivalent",
       "subtype": "withholding_tax"
     },
     {
-      "asset_type_id": "stock",
-      "effective_at": "2026-04-23T00:00:00Z",
-      "event_type": "dividend",
       "id": "btgwm-act-0196c6b2f12c6e",
-      "instrument": {
-        "country": "US",
-        "ticker": "SCHH"
-      },
-      "metadata": {
-        "activity_type": "DIV",
-        "description": "SCHH - SCHWAB STRATEGIC TR US REIT ETF - DIV:SCHH(0.0982/sh):TAXCD:A",
-        "price": 0.0,
-        "provider": "btg-wm-conta-internacional",
-        "settle_at": "2026-04-23T00:00:00Z",
-        "source_block": "activity"
-      },
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-04-23T00:00:00Z",
       "money": {
         "amount": 688.31,
         "currency": "USD"
       },
       "quantity": 0.0,
-      "source_ref": "btgwm:BTGP-001-RNDX412921#activity:5",
-      "status": "posted"
-    },
-    {
-      "asset_type_id": "stock",
-      "effective_at": "2026-04-23T00:00:00Z",
-      "event_type": "fee",
-      "id": "btgwm-act-b3adf8625b4488",
       "instrument": {
-        "country": "US",
-        "ticker": "SCHH"
+        "ticker": "SCHH",
+        "country": "US"
       },
+      "source_ref": "btgwm:BTGP-001-RNDX412921#activity:5",
       "metadata": {
-        "activity_type": "DIVNRA",
-        "description": "SCHH - SCHWAB STRATEGIC TR US REIT ETF - DIVNRA:SCHH(0.0982/sh):NRA withholding @30.00%",
-        "price": 0.0,
         "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIV",
+        "description": "SCHH - SCHWAB STRATEGIC TR US REIT ETF - DIV:SCHH(0.0982/sh):TAXCD:A",
+        "price": 0.0,
         "settle_at": "2026-04-23T00:00:00Z",
         "source_block": "activity"
       },
+      "asset_type_id": "stock"
+    },
+    {
+      "id": "btgwm-act-b3adf8625b4488",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-04-23T00:00:00Z",
       "money": {
         "amount": -206.49,
         "currency": "USD"
       },
       "quantity": 0.0,
+      "instrument": {
+        "ticker": "SCHH",
+        "country": "US"
+      },
       "source_ref": "btgwm:BTGP-001-RNDX412921#activity:6",
-      "status": "posted",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIVNRA",
+        "description": "SCHH - SCHWAB STRATEGIC TR US REIT ETF - DIVNRA:SCHH(0.0982/sh):NRA withholding @30.00%",
+        "price": 0.0,
+        "settle_at": "2026-04-23T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock",
       "subtype": "withholding_tax"
     },
     {
-      "asset_type_id": "stock",
-      "effective_at": "2026-04-29T00:00:00Z",
-      "event_type": "dividend",
       "id": "btgwm-act-2c27a5d2255b85",
-      "instrument": {
-        "country": "US",
-        "ticker": "VOO"
-      },
-      "metadata": {
-        "activity_type": "DIV",
-        "description": "VOO - VANGUARD INDEX FDS S&P 500 ETF SHS - DIV:VOO(1.3237/sh):TAXCD:A",
-        "price": 0.0,
-        "provider": "btg-wm-conta-internacional",
-        "settle_at": "2026-04-29T00:00:00Z",
-        "source_block": "activity"
-      },
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-04-29T00:00:00Z",
       "money": {
         "amount": 901.22,
         "currency": "USD"
       },
       "quantity": 0.0,
-      "source_ref": "btgwm:BTGP-001-RNDX412921#activity:7",
-      "status": "posted"
-    },
-    {
-      "asset_type_id": "stock",
-      "effective_at": "2026-04-29T00:00:00Z",
-      "event_type": "fee",
-      "id": "btgwm-act-2578a7bd3e18c3",
       "instrument": {
-        "country": "US",
-        "ticker": "VOO"
+        "ticker": "VOO",
+        "country": "US"
       },
+      "source_ref": "btgwm:BTGP-001-RNDX412921#activity:7",
       "metadata": {
-        "activity_type": "DIVNRA",
-        "description": "VOO - VANGUARD INDEX FDS S&P 500 ETF SHS - DIVNRA:VOO(1.3237/sh):NRA withholding @30.00%",
-        "price": 0.0,
         "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIV",
+        "description": "VOO - VANGUARD INDEX FDS S&P 500 ETF SHS - DIV:VOO(1.3237/sh):TAXCD:A",
+        "price": 0.0,
         "settle_at": "2026-04-29T00:00:00Z",
         "source_block": "activity"
       },
+      "asset_type_id": "stock"
+    },
+    {
+      "id": "btgwm-act-2578a7bd3e18c3",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-04-29T00:00:00Z",
       "money": {
         "amount": -270.37,
         "currency": "USD"
       },
       "quantity": 0.0,
+      "instrument": {
+        "ticker": "VOO",
+        "country": "US"
+      },
       "source_ref": "btgwm:BTGP-001-RNDX412921#activity:8",
-      "status": "posted",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "DIVNRA",
+        "description": "VOO - VANGUARD INDEX FDS S&P 500 ETF SHS - DIVNRA:VOO(1.3237/sh):NRA withholding @30.00%",
+        "price": 0.0,
+        "settle_at": "2026-04-29T00:00:00Z",
+        "source_block": "activity"
+      },
+      "asset_type_id": "stock",
       "subtype": "withholding_tax"
     },
     {
-      "asset_type_id": "cash_equivalent",
-      "effective_at": "2026-04-03T00:00:00Z",
-      "event_type": "buy",
       "id": "btgwm-act-d39a08275f26c0",
-      "instrument": {
-        "country": "US",
-        "ticker": "DWBDS"
-      },
-      "metadata": {
-        "activity_type": "BUY",
-        "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
-        "price": 1.0,
-        "provider": "btg-wm-conta-internacional",
-        "settle_at": "2026-04-03T00:00:00Z",
-        "source_block": "sweep_activity"
-      },
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-03T00:00:00Z",
       "money": {
         "amount": -421.11,
         "currency": "USD"
       },
       "quantity": 421.11,
-      "source_ref": "btgwm:BTGP-001-RNDX412921#sweep_activity:9",
-      "status": "posted"
-    },
-    {
-      "asset_type_id": "cash_equivalent",
-      "effective_at": "2026-04-08T00:00:00Z",
-      "event_type": "buy",
-      "id": "btgwm-act-e508166f06966d",
       "instrument": {
-        "country": "US",
-        "ticker": "DWBDS"
+        "ticker": "DWBDS",
+        "country": "US"
       },
+      "source_ref": "btgwm:BTGP-001-RNDX412921#sweep_activity:9",
       "metadata": {
+        "provider": "btg-wm-conta-internacional",
         "activity_type": "BUY",
         "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
         "price": 1.0,
-        "provider": "btg-wm-conta-internacional",
-        "settle_at": "2026-04-08T00:00:00Z",
+        "settle_at": "2026-04-03T00:00:00Z",
         "source_block": "sweep_activity"
       },
+      "asset_type_id": "cash_equivalent"
+    },
+    {
+      "id": "btgwm-act-e508166f06966d",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-08T00:00:00Z",
       "money": {
         "amount": -76.04,
         "currency": "USD"
       },
       "quantity": 76.04,
-      "source_ref": "btgwm:BTGP-001-RNDX412921#sweep_activity:10",
-      "status": "posted"
-    },
-    {
-      "asset_type_id": "cash_equivalent",
-      "effective_at": "2026-04-23T00:00:00Z",
-      "event_type": "buy",
-      "id": "btgwm-act-90c9c60cf137cd",
       "instrument": {
-        "country": "US",
-        "ticker": "DWBDS"
+        "ticker": "DWBDS",
+        "country": "US"
       },
+      "source_ref": "btgwm:BTGP-001-RNDX412921#sweep_activity:10",
       "metadata": {
+        "provider": "btg-wm-conta-internacional",
         "activity_type": "BUY",
         "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
         "price": 1.0,
-        "provider": "btg-wm-conta-internacional",
-        "settle_at": "2026-04-23T00:00:00Z",
+        "settle_at": "2026-04-08T00:00:00Z",
         "source_block": "sweep_activity"
       },
+      "asset_type_id": "cash_equivalent"
+    },
+    {
+      "id": "btgwm-act-90c9c60cf137cd",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-23T00:00:00Z",
       "money": {
         "amount": -602.58,
         "currency": "USD"
       },
       "quantity": 602.58,
-      "source_ref": "btgwm:BTGP-001-RNDX412921#sweep_activity:11",
-      "status": "posted"
-    },
-    {
-      "asset_type_id": "cash_equivalent",
-      "effective_at": "2026-04-29T00:00:00Z",
-      "event_type": "buy",
-      "id": "btgwm-act-e49fa83a03ebee",
       "instrument": {
-        "country": "US",
-        "ticker": "DWBDS"
+        "ticker": "DWBDS",
+        "country": "US"
       },
+      "source_ref": "btgwm:BTGP-001-RNDX412921#sweep_activity:11",
       "metadata": {
+        "provider": "btg-wm-conta-internacional",
         "activity_type": "BUY",
         "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
         "price": 1.0,
-        "provider": "btg-wm-conta-internacional",
-        "settle_at": "2026-04-29T00:00:00Z",
+        "settle_at": "2026-04-23T00:00:00Z",
         "source_block": "sweep_activity"
       },
+      "asset_type_id": "cash_equivalent"
+    },
+    {
+      "id": "btgwm-act-e49fa83a03ebee",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-04-29T00:00:00Z",
       "money": {
         "amount": -868.42,
         "currency": "USD"
       },
       "quantity": 868.42,
+      "instrument": {
+        "ticker": "DWBDS",
+        "country": "US"
+      },
       "source_ref": "btgwm:BTGP-001-RNDX412921#sweep_activity:12",
-      "status": "posted"
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "BUY",
+        "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
+        "price": 1.0,
+        "settle_at": "2026-04-29T00:00:00Z",
+        "source_block": "sweep_activity"
+      },
+      "asset_type_id": "cash_equivalent"
     }
-  ],
-  "base_currency": "USD",
-  "generated_at": "2026-04-30T00:00:00Z",
-  "holdings": [
-    {
-      "asset_type_id": "stock",
-      "economic_exposure": {
-        "as_of": "2026-04-01",
-        "breakdown": [
-          {
-            "asset_class": "stocks",
-            "currency": "USD",
-            "factor": "broad_market",
-            "liquidity_tier": "t1",
-            "region": "US",
-            "weight_pct": 62
-          },
-          {
-            "asset_class": "stocks",
-            "currency": "USD",
-            "factor": "broad_market",
-            "liquidity_tier": "t1",
-            "region": "ex_US_DM",
-            "weight_pct": 27
-          },
-          {
-            "asset_class": "stocks",
-            "currency": "USD",
-            "factor": "broad_market",
-            "liquidity_tier": "t1",
-            "region": "EM",
-            "weight_pct": 11
-          }
-        ],
-        "classification_source": "issuer_prospectus",
-        "confidence": "high",
-        "notes": "Approximate MSCI ACWI regional split; refresh periodically."
-      },
-      "id": "btgwm:btgp-001-rndx412921:acwi",
-      "identifiers": {
-        "provider_account_id": "BTGP-001-RNDX412921",
-        "ticker": "ACWI"
-      },
-      "jurisdiction": {
-        "country": "US"
-      },
-      "label": "ISHARES TR MSCI ACWI ETF",
-      "market_value": {
-        "amount": 612345.67,
-        "currency": "USD"
-      },
-      "metadata": {
-        "account_type": "M",
-        "gain_loss": 48264.28,
-        "holding_bucket": "Equity",
-        "market_price": 152.28,
-        "provider": "btg-wm-conta-internacional",
-        "total_cost": 564081.39,
-        "unit_cost": 140.28
-      },
-      "quantity": 4021.11893452
-    },
-    {
-      "asset_type_id": "debt_instrument",
-      "economic_exposure": {
-        "as_of": "2026-04-01",
-        "breakdown": [
-          {
-            "asset_class": "debt",
-            "currency": "USD",
-            "duration": "intermediate",
-            "factor": "aggregate_bond",
-            "liquidity_tier": "t1",
-            "region": "US",
-            "weight_pct": 100
-          }
-        ],
-        "classification_source": "issuer_prospectus",
-        "confidence": "high",
-        "notes": "Vanguard Total Bond Market. Broker files as stock; economically US investment-grade aggregate debt."
-      },
-      "id": "btgwm:btgp-001-rndx412921:bnd",
-      "identifiers": {
-        "provider_account_id": "BTGP-001-RNDX412921",
-        "ticker": "BND"
-      },
-      "jurisdiction": {
-        "country": "US"
-      },
-      "label": "VANGUARD BD INDEX FDS TOTAL BND MRKT",
-      "market_value": {
-        "amount": 301234.56,
-        "currency": "USD"
-      },
-      "metadata": {
-        "account_type": "M",
-        "gain_loss": 11948.53,
-        "holding_bucket": "Equity",
-        "market_price": 75.65,
-        "provider": "btg-wm-conta-internacional",
-        "total_cost": 289286.03,
-        "unit_cost": 72.65
-      },
-      "quantity": 3981.927451
-    },
-    {
-      "asset_type_id": "stock",
-      "economic_exposure": {
-        "as_of": "2026-04-01",
-        "breakdown": [
-          {
-            "asset_class": "commodities",
-            "currency": "USD",
-            "liquidity_tier": "t1",
-            "region": "GLOBAL",
-            "sector": "precious_metals",
-            "weight_pct": 100
-          }
-        ],
-        "classification_source": "issuer_prospectus",
-        "confidence": "high",
-        "notes": "SPDR Gold Shares. Physically-backed gold."
-      },
-      "id": "btgwm:btgp-001-rndx412921:gld",
-      "identifiers": {
-        "provider_account_id": "BTGP-001-RNDX412921",
-        "ticker": "GLD"
-      },
-      "jurisdiction": {
-        "country": "US"
-      },
-      "label": "SPDR GOLD TR GOLD SHS",
-      "market_value": {
-        "amount": 98765.43,
-        "currency": "USD"
-      },
-      "metadata": {
-        "account_type": "M",
-        "gain_loss": 9620.74,
-        "holding_bucket": "Equity",
-        "market_price": 422.41,
-        "provider": "btg-wm-conta-internacional",
-        "total_cost": 89144.69,
-        "unit_cost": 381.22
-      },
-      "quantity": 233.81221
-    },
-    {
-      "asset_type_id": "stock",
-      "economic_exposure": {
-        "as_of": "2026-04-01",
-        "breakdown": [
-          {
-            "asset_class": "reits",
-            "currency": "USD",
-            "liquidity_tier": "t1",
-            "region": "US",
-            "sector": "real_estate",
-            "weight_pct": 100
-          }
-        ],
-        "classification_source": "issuer_prospectus",
-        "confidence": "high",
-        "notes": "Schwab US REIT ETF. Economically US listed real estate."
-      },
-      "id": "btgwm:btgp-001-rndx412921:schh",
-      "identifiers": {
-        "provider_account_id": "BTGP-001-RNDX412921",
-        "ticker": "SCHH"
-      },
-      "jurisdiction": {
-        "country": "US"
-      },
-      "label": "SCHWAB STRATEGIC TR US REIT ETF",
-      "market_value": {
-        "amount": 155432.1,
-        "currency": "USD"
-      },
-      "metadata": {
-        "account_type": "M",
-        "gain_loss": -1601.98,
-        "holding_bucket": "Equity",
-        "market_price": 22.17,
-        "provider": "btg-wm-conta-internacional",
-        "total_cost": 157034.08,
-        "unit_cost": 22.4
-      },
-      "quantity": 7010.45
-    },
-    {
-      "asset_type_id": "debt_instrument",
-      "economic_exposure": {
-        "as_of": "2026-04-01",
-        "breakdown": [
-          {
-            "asset_class": "debt",
-            "currency": "USD",
-            "duration": "intermediate",
-            "factor": "sovereign_inflation_linked",
-            "liquidity_tier": "t1",
-            "region": "US",
-            "weight_pct": 100
-          }
-        ],
-        "classification_source": "issuer_prospectus",
-        "confidence": "high",
-        "notes": "Schwab US TIPS ETF. Economically US Treasury inflation-protected debt."
-      },
-      "id": "btgwm:btgp-001-rndx412921:schp",
-      "identifiers": {
-        "provider_account_id": "BTGP-001-RNDX412921",
-        "ticker": "SCHP"
-      },
-      "jurisdiction": {
-        "country": "US"
-      },
-      "label": "SCHWAB STRATEGIC TR US TIPS ETF",
-      "market_value": {
-        "amount": 204567.89,
-        "currency": "USD"
-      },
-      "metadata": {
-        "account_type": "M",
-        "gain_loss": -3861.53,
-        "holding_bucket": "Equity",
-        "market_price": 26.9,
-        "provider": "btg-wm-conta-internacional",
-        "total_cost": 208429.42,
-        "unit_cost": 27.41
-      },
-      "quantity": 7604.21
-    },
-    {
-      "asset_type_id": "cash_equivalent",
-      "economic_exposure": {
-        "as_of": "2026-04-01",
-        "breakdown": [
-          {
-            "asset_class": "cash_equivalents",
-            "currency": "USD",
-            "duration": "cash",
-            "factor": "sovereign_floating",
-            "liquidity_tier": "t0",
-            "region": "US",
-            "weight_pct": 100
-          }
-        ],
-        "classification_source": "issuer_prospectus",
-        "confidence": "high",
-        "notes": "iShares 0-3 Month Treasury. Economically US T-bills, cash-like."
-      },
-      "id": "btgwm:btgp-001-rndx412921:sgov",
-      "identifiers": {
-        "provider_account_id": "BTGP-001-RNDX412921",
-        "ticker": "SGOV"
-      },
-      "jurisdiction": {
-        "country": "US"
-      },
-      "label": "ISHARES TR 0-3 MNTH TREASRY",
-      "market_value": {
-        "amount": 52468.12,
-        "currency": "USD"
-      },
-      "metadata": {
-        "account_type": "M",
-        "gain_loss": 234.12,
-        "holding_bucket": "Equity",
-        "market_price": 100.9,
-        "provider": "btg-wm-conta-internacional",
-        "total_cost": 52234.0,
-        "unit_cost": 100.45
-      },
-      "quantity": 520.0
-    },
-    {
-      "asset_type_id": "stock",
-      "economic_exposure": {
-        "as_of": "2026-04-01",
-        "breakdown": [
-          {
-            "asset_class": "stocks",
-            "currency": "USD",
-            "factor": "broad_market",
-            "liquidity_tier": "t1",
-            "region": "US",
-            "weight_pct": 100
-          }
-        ],
-        "classification_source": "issuer_prospectus",
-        "confidence": "high"
-      },
-      "id": "btgwm:btgp-001-rndx412921:voo",
-      "identifiers": {
-        "provider_account_id": "BTGP-001-RNDX412921",
-        "ticker": "VOO"
-      },
-      "jurisdiction": {
-        "country": "US"
-      },
-      "label": "VANGUARD INDEX FDS S&P 500 ETF SHS",
-      "market_value": {
-        "amount": 417890.34,
-        "currency": "USD"
-      },
-      "metadata": {
-        "account_type": "M",
-        "gain_loss": 26217.31,
-        "holding_bucket": "Equity",
-        "market_price": 613.89,
-        "provider": "btg-wm-conta-internacional",
-        "total_cost": 391673.03,
-        "unit_cost": 574.8
-      },
-      "quantity": 680.7123
-    },
-    {
-      "asset_type_id": "cash_equivalent",
-      "economic_exposure": {
-        "as_of": "2026-04-01",
-        "breakdown": [
-          {
-            "asset_class": "cash_equivalents",
-            "currency": "USD",
-            "duration": "cash",
-            "liquidity_tier": "t0",
-            "region": "US",
-            "weight_pct": 100
-          }
-        ],
-        "classification_source": "issuer_prospectus",
-        "confidence": "high",
-        "notes": "DriveWealth Bank Sweep (FDIC-insured deposit)."
-      },
-      "id": "btgwm:btgp-001-rndx412921:dwbds",
-      "identifiers": {
-        "provider_account_id": "BTGP-001-RNDX412921",
-        "ticker": "DWBDS"
-      },
-      "jurisdiction": {
-        "country": "US"
-      },
-      "label": "DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC)",
-      "market_value": {
-        "amount": 3210.79,
-        "currency": "USD"
-      },
-      "metadata": {
-        "account_type": "M",
-        "gain_loss": 0.0,
-        "holding_bucket": "MoneyMarket funds",
-        "market_price": 1.0,
-        "provider": "btg-wm-conta-internacional",
-        "total_cost": 3210.79,
-        "unit_cost": 1.0
-      },
-      "quantity": 3210.79
-    }
-  ],
-  "metadata": {
-    "account_number": "BTGP-001-RNDX412921",
-    "ending_account_value": 1845914.9,
-    "parsed_holdings_total": 1845914.9,
-    "source_file": "input.txt",
-    "statement_period_end": "2026-04-30",
-    "statement_period_start": "2026-04-01"
-  },
-  "provider": "btg_wm_conta_internacional"
+  ]
 }

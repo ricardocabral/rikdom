@@ -28,7 +28,9 @@ def _cell_xml(ref: str, value: object) -> str:
 def _sheet_xml(headers: list[str], rows: list[list[object]]) -> str:
     xml_rows: list[str] = []
 
-    header_cells = "".join(_cell_xml(f"{_col_name(i)}1", h) for i, h in enumerate(headers, start=1))
+    header_cells = "".join(
+        _cell_xml(f"{_col_name(i)}1", h) for i, h in enumerate(headers, start=1)
+    )
     xml_rows.append(f'<row r="1">{header_cells}</row>')
 
     for r_index, row in enumerate(rows, start=2):
@@ -43,7 +45,7 @@ def _sheet_xml(headers: list[str], rows: list[list[object]]) -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-        f'<sheetData>{"".join(xml_rows)}</sheetData>'
+        f"<sheetData>{''.join(xml_rows)}</sheetData>"
         "</worksheet>"
     )
 
@@ -51,15 +53,12 @@ def _sheet_xml(headers: list[str], rows: list[list[object]]) -> str:
 def _workbook_xml(sheet_names: list[str]) -> str:
     items: list[str] = []
     for i, name in enumerate(sheet_names, start=1):
-        items.append(
-            f'<sheet name="{escape(name)}" sheetId="{i}" '
-            f'r:id="rId{i}"/>'
-        )
+        items.append(f'<sheet name="{escape(name)}" sheetId="{i}" r:id="rId{i}"/>')
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
         'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        f'<sheets>{"".join(items)}</sheets>'
+        f"<sheets>{''.join(items)}</sheets>"
         "</workbook>"
     )
 
@@ -75,7 +74,7 @@ def _workbook_rels_xml(sheet_count: int) -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-        f'{"".join(rels)}'
+        f"{''.join(rels)}"
         "</Relationships>"
     )
 
@@ -106,12 +105,14 @@ def _content_types_xml(sheet_count: int) -> str:
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
         '<Default Extension="xml" ContentType="application/xml"/>'
-        f'{"".join(overrides)}'
+        f"{''.join(overrides)}"
         "</Types>"
     )
 
 
-def _write_workbook(path: Path, sheets: list[tuple[str, list[str], list[list[object]]]]) -> None:
+def _write_workbook(
+    path: Path, sheets: list[tuple[str, list[str], list[list[object]]]]
+) -> None:
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("[Content_Types].xml", _content_types_xml(len(sheets)))
         zf.writestr("_rels/.rels", _root_rels_xml())
@@ -212,7 +213,18 @@ def _write_test_workbook(path: Path) -> None:
                     10,
                     380.15,
                     3801.5,
-                ]
+                ],
+                [
+                    "B5P211 - IT NOW IMA-B5 P2 FUNDO DE INDICE",
+                    "BANCO BTG PACTUAL S/A",
+                    "12345",
+                    "B5P211",
+                    "BRB5PCTF000 - 100",
+                    "Renda Fixa",
+                    8,
+                    102.3,
+                    818.4,
+                ],
             ],
         ),
         (
@@ -392,7 +404,7 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
 
         self.assertEqual(payload["provider"], "b3-consolidado-mensal")
         self.assertEqual(payload["base_currency"], "BRL")
-        self.assertEqual(len(payload["holdings"]), 11)
+        self.assertEqual(len(payload["holdings"]), 12)
 
         holdings = payload["holdings"]
 
@@ -408,7 +420,16 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
         ivvb11 = _holding_by_ticker(holdings, "IVVB11")
         self.assertEqual(ivvb11["asset_type_id"], "etf_ivvb11")
         self.assertEqual(ivvb11["instrument_attributes"]["b3_ticker"], "IVVB11")
-        self.assertEqual(ivvb11["instrument_attributes"]["underlying_class"], "INTERNACIONAL")
+        self.assertEqual(
+            ivvb11["instrument_attributes"]["underlying_class"], "INTERNACIONAL"
+        )
+
+        b5p211 = _holding_by_ticker(holdings, "B5P211")
+        self.assertEqual(b5p211["asset_type_id"], "etf_b5p211")
+        self.assertEqual(b5p211["instrument_attributes"]["b3_ticker"], "B5P211")
+        self.assertEqual(
+            b5p211["instrument_attributes"]["underlying_class"], "RENDA_FIXA"
+        )
 
         xpml11 = _holding_by_ticker(holdings, "XPML11")
         self.assertEqual(xpml11["asset_type_id"], "reit")
@@ -453,8 +474,22 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
                             "Valor Atualizado",
                         ],
                         [
-                            ["PETR4 - PETROBRAS", "CORRETORA A", "12345", "PETR4", 10, 1000],
-                            ["PETR4 - PETROBRAS", "CORRETORA B", "12345", "PETR4", 20, 2000],
+                            [
+                                "PETR4 - PETROBRAS",
+                                "CORRETORA A",
+                                "12345",
+                                "PETR4",
+                                10,
+                                1000,
+                            ],
+                            [
+                                "PETR4 - PETROBRAS",
+                                "CORRETORA B",
+                                "12345",
+                                "PETR4",
+                                20,
+                                2000,
+                            ],
                         ],
                     )
                 ],
@@ -542,6 +577,7 @@ class B3ConsolidadoMensalPluginTests(unittest.TestCase):
                     plugins_dir="plugins",
                     input_path=str(statement),
                 )
+
 
 if __name__ == "__main__":
     unittest.main()

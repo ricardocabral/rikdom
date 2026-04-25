@@ -23,7 +23,12 @@ from typing import Any
 _AS_OF = "2026-04-01"
 
 
-def _exposure(breakdown: list[dict[str, Any]], *, confidence: str = "high", notes: str | None = None) -> dict[str, Any]:
+def _exposure(
+    breakdown: list[dict[str, Any]],
+    *,
+    confidence: str = "high",
+    notes: str | None = None,
+) -> dict[str, Any]:
     block: dict[str, Any] = {
         "classification_source": "issuer_prospectus",
         "as_of": _AS_OF,
@@ -37,23 +42,46 @@ def _exposure(breakdown: list[dict[str, Any]], *, confidence: str = "high", note
 
 TICKER_HINTS: dict[str, dict[str, Any]] = {
     "VOO": {
-        "economic_exposure": _exposure([
-            {
-                "weight_pct": 100,
-                "asset_class": "stocks",
-                "region": "US",
-                "currency": "USD",
-                "factor": "broad_market",
-                "liquidity_tier": "t1",
-            },
-        ]),
+        "economic_exposure": _exposure(
+            [
+                {
+                    "weight_pct": 100,
+                    "asset_class": "stocks",
+                    "region": "US",
+                    "currency": "USD",
+                    "factor": "broad_market",
+                    "liquidity_tier": "t1",
+                },
+            ]
+        ),
     },
     "ACWI": {
         "economic_exposure": _exposure(
             [
-                {"weight_pct": 62, "asset_class": "stocks", "region": "US", "currency": "USD", "factor": "broad_market", "liquidity_tier": "t1"},
-                {"weight_pct": 27, "asset_class": "stocks", "region": "ex_US_DM", "currency": "USD", "factor": "broad_market", "liquidity_tier": "t1"},
-                {"weight_pct": 11, "asset_class": "stocks", "region": "EM", "currency": "USD", "factor": "broad_market", "liquidity_tier": "t1"},
+                {
+                    "weight_pct": 62,
+                    "asset_class": "stocks",
+                    "region": "US",
+                    "currency": "USD",
+                    "factor": "broad_market",
+                    "liquidity_tier": "t1",
+                },
+                {
+                    "weight_pct": 27,
+                    "asset_class": "stocks",
+                    "region": "ex_US_DM",
+                    "currency": "USD",
+                    "factor": "broad_market",
+                    "liquidity_tier": "t1",
+                },
+                {
+                    "weight_pct": 11,
+                    "asset_class": "stocks",
+                    "region": "EM",
+                    "currency": "USD",
+                    "factor": "broad_market",
+                    "liquidity_tier": "t1",
+                },
             ],
             notes="Approximate MSCI ACWI regional split; refresh periodically.",
         ),
@@ -140,6 +168,7 @@ TICKER_HINTS: dict[str, dict[str, Any]] = {
         ),
     },
     "DWBDS": {
+        "asset_type_id": "cash_equivalent",
         "economic_exposure": _exposure(
             [
                 {
