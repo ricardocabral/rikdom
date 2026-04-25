@@ -1,0 +1,335 @@
+/* =========================================================================
+   rikdom — design tokens
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* ---------- Core palette ---------- */
+  --paper:       #F4EFE6;   /* default background — warm off-white */
+  --linen:       #E9E2D4;   /* secondary surface / card background */
+  --stone:       #B8AE9E;   /* hairline borders, muted text */
+  --graphite:    #4A4239;   /* secondary text */
+  --ink:         #1F1A14;   /* primary text — warm near-black */
+  --midnight:    #14161A;   /* dark-mode background */
+
+  --fjord:       #2C4A6B;   /* the one accent */
+  --fjord-deep:  #1F3550;   /* fjord pressed / hover-dark */
+
+  --moss:        #5F6B3A;   /* gains / positive */
+  --rust:        #8A3A1F;   /* losses / destructive */
+  --amber:       #B98A2C;   /* caution / pending */
+
+  /* ---------- Semantic color vars ---------- */
+  --bg:          var(--paper);
+  --bg-2:        var(--linen);
+  --surface:     var(--linen);
+  --overlay:     rgba(31, 26, 20, 0.40);
+
+  --fg:          var(--ink);
+  --fg-1:        var(--ink);
+  --fg-2:        var(--graphite);
+  --fg-3:        var(--stone);
+
+  --border:      var(--stone);
+  --border-soft: #D9D1C1;
+
+  --link:        var(--fjord);
+  --focus:       var(--fjord);
+
+  --accent:      var(--fjord);
+  --accent-fg:   var(--paper);
+
+  --pos:         var(--moss);
+  --neg:         var(--rust);
+  --warn:        var(--amber);
+
+  /* ---------- Type families ---------- */
+  --font-serif:  "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-mono:   "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans:   "Fraunces", system-ui, sans-serif; /* no sans in rikdom; alias to serif */
+
+  /* ---------- Type scale (modest) ---------- */
+  --step-0:  0.875rem;   /* 14px  small */
+  --step-1:  1rem;       /* 16px  body */
+  --step-2:  1.125rem;   /* 18px  body-lg */
+  --step-3:  1.375rem;   /* 22px  h4 */
+  --step-4:  1.75rem;    /* 28px  h3 */
+  --step-5:  2.25rem;    /* 36px  h2 */
+  --step-6:  3rem;       /* 48px  h1 */
+  --step-7:  4rem;       /* 64px  display */
+
+  /* ---------- Line height ---------- */
+  --lh-tight:  1.15;
+  --lh-snug:   1.35;
+  --lh-normal: 1.55;
+  --lh-loose:  1.75;
+
+  /* ---------- Spacing — 8pt baseline ---------- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 64px;
+  --space-8: 96px;
+  --space-9: 128px;
+
+  /* ---------- Radii ---------- */
+  --radius-sm: 2px;
+  --radius:    4px;
+  --radius-lg: 8px;
+
+  /* ---------- Borders ---------- */
+  --hairline: 1px solid var(--border);
+  --hairline-soft: 1px solid var(--border-soft);
+
+  /* ---------- Shadows (used sparingly — dropdowns, modals only) ---------- */
+  --shadow-float: 0 2px 12px rgba(31,26,20,0.08), 0 8px 32px rgba(31,26,20,0.06);
+
+  /* ---------- Motion ---------- */
+  --ease-settle: cubic-bezier(0.2, 0, 0, 1);
+  --dur-micro:  150ms;
+  --dur-std:    240ms;
+  --dur-enter:  400ms;
+
+  /* ---------- Content widths ---------- */
+  --prose-max:   640px;
+  --page-max:    960px;
+  --wide-max:   1120px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:          var(--midnight);
+    --bg-2:        #1B1E23;
+    --surface:     #1B1E23;
+
+    --fg:          #E8E3D8;
+    --fg-1:        #E8E3D8;
+    --fg-2:        #B8B1A1;
+    --fg-3:        #7A7366;
+
+    --border:      #2E3138;
+    --border-soft: #24272D;
+
+    --link:        #8AA9CE;
+    --focus:       #8AA9CE;
+
+    --accent:      #8AA9CE;
+    --accent-fg:   var(--midnight);
+
+    --pos:         #9AAE6B;
+    --neg:         #C9775A;
+    --warn:        #D9B070;
+
+    color-scheme: dark;
+  }
+}
+
+[data-theme="dark"] {
+  --bg:          var(--midnight);
+  --bg-2:        #1B1E23;
+  --surface:     #1B1E23;
+  --fg:          #E8E3D8;
+  --fg-1:        #E8E3D8;
+  --fg-2:        #B8B1A1;
+  --fg-3:        #7A7366;
+  --border:      #2E3138;
+  --border-soft: #24272D;
+  --link:        #8AA9CE;
+  --focus:       #8AA9CE;
+  --accent:      #8AA9CE;
+  --accent-fg:   var(--midnight);
+  --pos:         #9AAE6B;
+  --neg:         #C9775A;
+  --warn:        #D9B070;
+  color-scheme: dark;
+}
+
+/* =========================================================================
+   Base type
+   ========================================================================= */
+
+html, body {
+  background: var(--bg);
+  color: var(--fg-1);
+  font-family: var(--font-serif);
+  font-size: var(--step-1);
+  line-height: var(--lh-normal);
+  font-feature-settings: "ss01", "ss02", "liga", "calt";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings — sentence case enforced at editorial level; CSS just sets scale */
+h1, .h1 {
+  font-family: var(--font-serif);
+  font-size: var(--step-6);
+  font-weight: 400;
+  font-variation-settings: "opsz" 72, "SOFT" 30;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-4);
+}
+
+h2, .h2 {
+  font-family: var(--font-serif);
+  font-size: var(--step-5);
+  font-weight: 400;
+  font-variation-settings: "opsz" 48, "SOFT" 30;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.005em;
+  margin: 0 0 var(--space-3);
+}
+
+h3, .h3 {
+  font-family: var(--font-serif);
+  font-size: var(--step-4);
+  font-weight: 500;
+  font-variation-settings: "opsz" 24;
+  line-height: var(--lh-snug);
+  margin: 0 0 var(--space-2);
+}
+
+h4, .h4 {
+  font-family: var(--font-serif);
+  font-size: var(--step-3);
+  font-weight: 500;
+  line-height: var(--lh-snug);
+  margin: 0 0 var(--space-2);
+}
+
+.display {
+  font-family: var(--font-serif);
+  font-size: var(--step-7);
+  font-weight: 300;
+  font-variation-settings: "opsz" 144, "SOFT" 50;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+p {
+  margin: 0 0 var(--space-3);
+  max-width: var(--prose-max);
+  text-wrap: pretty;
+}
+
+small, .small { font-size: var(--step-0); color: var(--fg-2); }
+
+code, .code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+code {
+  background: var(--bg-2);
+  border: var(--hairline-soft);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+pre {
+  background: var(--bg-2);
+  border: var(--hairline-soft);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  line-height: var(--lh-snug);
+  font-size: var(--step-0);
+  color: var(--fg-1);
+}
+pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in oklab, var(--link) 45%, transparent);
+  transition: text-decoration-color var(--dur-micro) var(--ease-settle);
+}
+a:hover { text-decoration-color: var(--link); }
+a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+hr {
+  border: 0;
+  border-top: var(--hairline-soft);
+  margin: var(--space-5) 0;
+}
+
+/* =========================================================================
+   Forms & buttons (primitive rules — UI kit refines)
+   ========================================================================= */
+
+button, .btn {
+  font-family: var(--font-serif);
+  font-size: var(--step-1);
+  font-weight: 500;
+  line-height: 1;
+  padding: 10px 16px;
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-settle),
+              transform var(--dur-micro) var(--ease-settle);
+}
+button:hover, .btn:hover { background: #000; }
+button:active, .btn:active { transform: translateY(1px); background: #000; }
+button:focus-visible, .btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--linen); }
+
+input, textarea, select {
+  font-family: var(--font-serif);
+  font-size: var(--step-1);
+  color: var(--fg-1);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-color: var(--focus);
+}
+
+/* =========================================================================
+   Utility
+   ========================================================================= */
+
+.mono { font-family: var(--font-mono); }
+.serif { font-family: var(--font-serif); }
+
+.text-pos { color: var(--pos); }
+.text-neg { color: var(--neg); }
+.text-warn { color: var(--warn); }
+.text-muted { color: var(--fg-2); }
+.text-faint { color: var(--fg-3); }
+
+.surface { background: var(--surface); border: var(--hairline); border-radius: var(--radius); }

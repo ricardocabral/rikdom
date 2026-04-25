@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rikdom · CLI</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:var(--paper); }
+  .page { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:48px 24px 64px; box-sizing:border-box; }
+  .brand { display:flex; align-items:baseline; gap:10px; margin-bottom:20px; }
+  .brand .wm { font-family:var(--font-serif); font-size:28px; font-weight:400; letter-spacing:-0.02em; font-variation-settings:'opsz' 144,'SOFT' 50; }
+  .brand .dot { width:6px; height:6px; background:var(--fjord); display:inline-block; border-radius:50%; margin-left:-4px; translate:0 -4px; }
+  .brand .tag { font-family:var(--font-mono); font-size:11px; color:var(--fg-2); letter-spacing:0.08em; text-transform:uppercase; margin-left:12px; }
+  .wrap { width:100%; max-width:960px; }
+  .term { background:#14161A; border-radius:var(--radius-lg); overflow:hidden; box-shadow: 0 2px 12px rgba(31,26,20,0.08), 0 8px 32px rgba(31,26,20,0.06); border:1px solid #2E3138; }
+  .term-chrome { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#1B1E23; border-bottom:1px solid #2E3138; }
+  .term-dots { display:flex; gap:6px; }
+  .term-dots span { width:10px; height:10px; border-radius:50%; display:block; opacity:0.6; }
+  .term-title { font-family:var(--font-mono); font-size:12px; color:#B8B1A1; letter-spacing:0.02em; }
+  .term-body { padding:20px 24px; font-family:var(--font-mono); font-size:13.5px; line-height:1.7; color:#E8E3D8; min-height:520px; max-height:640px; overflow-y:auto; }
+
+  .line { white-space:pre-wrap; }
+  .line.out { word-break: break-word; }
+  .prompt-user { color:#9AAE6B; }
+  .prompt-at { color:#7A7366; }
+  .prompt-host { color:#8AA9CE; }
+  .prompt-sep { color:#7A7366; }
+  .prompt-cwd { color:#D9B070; }
+  .prompt-caret { color:#7A7366; }
+  .prompt-cmd { color:#E8E3D8; }
+
+  .out { color:#B8B1A1; }
+  .out-strong { color:#E8E3D8; }
+  .out-pos { color:#9AAE6B; }
+  .out-neg { color:#C9775A; }
+  .out-warn { color:#D9B070; }
+  .out-fjord { color:#8AA9CE; }
+
+  .note { color:#7A7366; font-style:italic; }
+  .note-mark { color:#7A7366; }
+
+  .prompt-form { margin:0; }
+  .prompt-live { display:flex; align-items:center; }
+  .prompt-input { flex:1; background:transparent; border:0; outline:0; color:#E8E3D8; font:inherit; padding:0; caret-color:#8AA9CE; }
+  .prompt-hint { color:#7A7366; padding-left:22ch; font-size:12px; font-style:italic; margin-top:-2px; }
+
+  /* Tree */
+  .tree { color:#B8B1A1; }
+  .tree-line { white-space:pre; }
+  .tree-prefix { color:#4A4239; }
+  .tree-label { color:#E8E3D8; }
+  .tree-meta { color:#7A7366; font-style:italic; }
+
+  /* Schema JSON */
+  .schema { background:#1B1E23; border:1px solid #2E3138; border-radius:4px; padding:12px 16px; margin:6px 0; overflow-x:auto; }
+  .schema code { color:#B8B1A1; font-size:12.5px; line-height:1.65; }
+  .j-key { color:#8AA9CE; }
+  .j-str { color:#9AAE6B; }
+  .j-num { color:#D9B070; }
+  .j-bool { color:#C9775A; }
+  .j-null { color:#7A7366; }
+
+  /* Table */
+  .otable { display:grid; margin:6px 0 10px; }
+  .otable-head, .otable-row { display:grid; grid-template-columns: 1.4fr 0.7fr 0.8fr 0.9fr 0.7fr; gap:16px; padding:3px 0; }
+  .otable-head { color:#7A7366; border-bottom:1px solid #2E3138; padding-bottom:6px; margin-bottom:4px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; }
+  .otable-row { color:#E8E3D8; }
+  .otable-cell { font-variant-numeric: tabular-nums; }
+
+  /* Footer links */
+  .footer { font-family:var(--font-mono); font-size:11px; color:var(--fg-2); margin-top:16px; display:flex; gap:14px; }
+  .footer a { color:var(--fg-2); }
+
+  /* Step controls */
+  .steps { display:flex; gap:8px; margin-top:20px; flex-wrap:wrap; align-items:center; }
+  .steps .label { font-family:var(--font-mono); font-size:11px; color:var(--fg-2); letter-spacing:0.08em; text-transform:uppercase; margin-right:6px; white-space:nowrap; }
+  .steps button { font-family:var(--font-serif); font-size:14px; font-weight:500; padding:7px 14px; background:transparent; color:var(--ink); border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; transition: background var(--dur-micro) var(--ease-settle); white-space:nowrap; }
+  .steps button:hover { background:var(--linen); }
+  .steps button.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="wrap">
+    <div class="brand">
+      <span class="wm">rikdom</span><span class="dot"></span>
+      <span class="tag">CLI · v0.3.1</span>
+    </div>
+    <div id="root"></div>
+    <div class="footer">
+      <span>MIT</span>
+      <span>·</span>
+      <span>schema v0.3</span>
+      <span>·</span>
+      <span>built from <code>a1f9c02</code></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="Terminal.jsx"></script>
+<script type="text/babel" src="Line.jsx"></script>
+<script type="text/babel" src="Prompt.jsx"></script>
+<script type="text/babel" src="Output.jsx"></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+function App() {
+  const [lines, setLines] = useState(initialLines());
+  const [step, setStep] = useState(0);
+
+  const append = (more) => setLines((prev) => [...prev, ...more]);
+
+  const runCommand = (cmd) => {
+    const entry = { kind: "prompt", cmd };
+    const out = dispatch(cmd);
+    setLines((prev) => [...prev, entry, ...out]);
+  };
+
+  const jumpTo = (i) => {
+    setStep(i);
+    setLines(initialLines().concat(scriptedUpTo(i)));
+  };
+
+  return (
+    <div>
+      <Terminal>
+        {lines.map((l, i) => renderLine(l, i))}
+        <Prompt onSubmit={runCommand} hint="try: rikdom add holding --ticker MOWI.OL --qty 50" />
+      </Terminal>
+      <div className="steps">
+        <span className="label">Walk-through</span>
+        {["init", "add holding", "list", "snapshot", "dashboard"].map((label, i) => (
+          <button key={i} className={step === i ? "active" : ""} onClick={() => jumpTo(i)}>
+            {i + 1}. {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderLine(l, i) {
+  if (l.kind === "prompt") return <PromptLine key={i} cwd={l.cwd} cmd={l.cmd} />;
+  if (l.kind === "out") return <OutLine key={i} tone={l.tone}>{l.text}</OutLine>;
+  if (l.kind === "blank") return <Blank key={i} />;
+  if (l.kind === "note") return <Note key={i}>{l.text}</Note>;
+  if (l.kind === "tree") return <Tree key={i} items={l.items} />;
+  if (l.kind === "schema") return <Schema key={i} json={l.json} />;
+  if (l.kind === "table") return <Table key={i} cols={l.cols} rows={l.rows} align={l.align} />;
+  return null;
+}
+
+function initialLines() {
+  return [
+    { kind: "out", tone: "strong", text: "rikdom 0.3.1 — a local-first wealth-portfolio toolkit." },
+    { kind: "out", text: "Type `rikdom help` to see commands. Your folder: ~/portfolio" },
+    { kind: "blank" },
+  ];
+}
+
+function dispatch(cmd) {
+  const c = cmd.trim().toLowerCase();
+  if (c === "rikdom help" || c === "help") return helpOutput();
+  if (c === "rikdom init") return initOutput();
+  if (c.startsWith("rikdom add")) return addOutput(cmd);
+  if (c === "rikdom list" || c === "rikdom ls") return listOutput();
+  if (c === "rikdom snapshot") return snapshotOutput();
+  if (c === "rikdom dashboard") return dashboardOutput();
+  if (c === "clear") { setTimeout(()=>location.reload(), 10); return []; }
+  return [
+    { kind: "out", tone: "neg", text: `rikdom: unknown command "${cmd}". Try \`rikdom help\`.` },
+    { kind: "blank" },
+  ];
+}
+
+function helpOutput() {
+  return [
+    { kind: "out", tone: "strong", text: "rikdom — commands" },
+    { kind: "out", text: "  init               Create a portfolio folder in the current directory." },
+    { kind: "out", text: "  add holding ...    Add a holding (stock, reit, fund, real-estate, cash, crypto)." },
+    { kind: "out", text: "  list               List all holdings with class and value." },
+    { kind: "out", text: "  snapshot           Append a dated snapshot to snapshots/." },
+    { kind: "out", text: "  dashboard          Generate static HTML into site/." },
+    { kind: "out", text: "  ops                Show recurring operations and their last-done." },
+    { kind: "out", text: "  plugin ...         Install or list community plugins." },
+    { kind: "blank" },
+  ];
+}
+
+function initOutput() {
+  return [
+    { kind: "out", text: "Creating portfolio in ~/portfolio" },
+    { kind: "tree", items: [
+      { label: "portfolio.json", meta: "schema v0.3" },
+      { label: "holdings/", children: [
+        { label: "equities/", meta: "(empty)" },
+        { label: "funds/", meta: "(empty)" },
+        { label: "real-estate/", meta: "(empty)" },
+        { label: "cash/", meta: "(empty)" },
+        { label: "crypto/", meta: "(empty)" },
+      ]},
+      { label: "snapshots/", meta: "jsonl" },
+      { label: "operations/", meta: "recurring tasks" },
+      { label: "plugins/", meta: "(none installed)" },
+      { label: "README.md" },
+    ]},
+    { kind: "out", tone: "pos", text: "✓ Initialised. 8 files, 0 holdings." },
+    { kind: "note", text: "This folder is yours. rikdom will only touch files inside it." },
+    { kind: "blank" },
+  ];
+}
+
+function addOutput() {
+  return [
+    { kind: "out", text: "Wrote holdings/equities/EQNR.OL.json" },
+    { kind: "schema", json: {
+      "id": "eqnr.ol",
+      "class": "stock",
+      "ticker": "EQNR.OL",
+      "name": "Equinor ASA",
+      "country": "NO",
+      "currency": "NOK",
+      "quantity": 120,
+      "avg_cost": 298.50,
+      "acquired": "2024-11-03",
+      "metadata": { "sector": "energy" },
+      "extensions": {}
+    }},
+    { kind: "out", tone: "pos", text: "✓ Added EQNR.OL · 120 shares · avg 298.50 NOK" },
+    { kind: "blank" },
+  ];
+}
+
+function listOutput() {
+  return [
+    { kind: "table",
+      cols: ["Holding", "Class", "Qty", "Value (NOK)", "Δ 30d"],
+      align: ["left","left","right","right","right"],
+      rows: [
+        ["Equinor", "stock", "120", "42 840.00", <span className="out-pos">+2.4%</span>],
+        ["DNB Bank", "stock", "85", "19 104.50", <span className="out-neg">−0.8%</span>],
+        ["Norsk Hydro", "stock", "200", "14 260.00", <span className="out-pos">+1.1%</span>],
+        ["KLP AksjeGlobal", "fund", "1 842", "318 104.00", <span className="out-pos">+1.7%</span>],
+        ["Apt. Majorstuen", "re", "1", "4 200 000.00", <span className="out">—</span>],
+        ["Statsobligasjon 2029", "bond", "50", "49 750.00", <span className="out-pos">+0.2%</span>],
+      ]
+    },
+    { kind: "out", text: "6 holdings · total 4 644 058.50 NOK" },
+    { kind: "blank" },
+  ];
+}
+
+function snapshotOutput() {
+  return [
+    { kind: "out", text: "Collecting prices from 3 sources ..." },
+    { kind: "out", tone: "fjord", text: "  · oslo-bors (plugin)         ok  — 4 quotes" },
+    { kind: "out", tone: "fjord", text: "  · coingecko (plugin)         ok  — 1 quote" },
+    { kind: "out", tone: "fjord", text: "  · manual/real-estate         ok  — 1 valuation" },
+    { kind: "out", text: "Writing snapshots/2026-04-24.jsonl" },
+    { kind: "out", tone: "pos", text: "✓ Snapshot written. 6 lines, schema v0.3." },
+    { kind: "note", text: "Next snapshot due 2026-05-24 (operation: monthly-snapshot)." },
+    { kind: "blank" },
+  ];
+}
+
+function dashboardOutput() {
+  return [
+    { kind: "out", text: "Reading portfolio.json ..." },
+    { kind: "out", text: "Rendering static site ..." },
+    { kind: "tree", items: [
+      { label: "site/", children: [
+        { label: "index.html", meta: "28 KB" },
+        { label: "style.css", meta: "6 KB" },
+        { label: "data.json", meta: "12 KB" },
+      ]}
+    ]},
+    { kind: "out", tone: "pos", text: "✓ Dashboard generated. Open site/index.html." },
+    { kind: "out", text: "  Allocation, holdings table, and 12-month snapshot chart — all zero-dependency HTML." },
+    { kind: "blank" },
+  ];
+}
+
+function scriptedUpTo(step) {
+  const seq = [
+    { kind: "prompt", cmd: "rikdom init" }, ...initOutput(),
+    { kind: "prompt", cmd: "rikdom add holding --ticker EQNR.OL --qty 120 --avg-cost 298.50" }, ...addOutput(),
+    { kind: "prompt", cmd: "rikdom list" }, ...listOutput(),
+    { kind: "prompt", cmd: "rikdom snapshot" }, ...snapshotOutput(),
+    { kind: "prompt", cmd: "rikdom dashboard" }, ...dashboardOutput(),
+  ];
+  const markers = [0, 1, 2, 3, 4].map((i) => {
+    let count = 0;
+    let promptsSeen = 0;
+    for (let j = 0; j < seq.length; j++) {
+      if (seq[j].kind === "prompt") {
+        if (promptsSeen === i + 1) break;
+        promptsSeen++;
+      }
+      count = j + 1;
+    }
+    return count;
+  });
+  return seq.slice(0, markers[step]);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

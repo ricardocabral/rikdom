@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"></head>
+<body>
+<div class="card">
+  <div class="label-mono">Inputs · quiet, 1px border, 2px radius</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:600px;">
+    <label style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-serif); font-size:14px; color:var(--graphite);">
+      Ticker
+      <input placeholder="EQNR.OL" style="font-family:var(--font-serif); font-size:16px; padding:9px 12px; background:#F4EFE6; border:1px solid #B8AE9E; border-radius:2px; color:#1F1A14;">
+    </label>
+    <label style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-serif); font-size:14px; color:var(--graphite);">
+      Quantity
+      <input value="120" style="font-family:var(--font-mono); font-size:15px; padding:9px 12px; background:#F4EFE6; border:2px solid #2C4A6B; border-radius:2px; color:#1F1A14; outline:none;">
+    </label>
+    <label style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-serif); font-size:14px; color:var(--graphite);">
+      Country
+      <select style="font-family:var(--font-serif); font-size:16px; padding:9px 12px; background:#F4EFE6; border:1px solid #B8AE9E; border-radius:2px; color:#1F1A14;">
+        <option>Norway</option><option>Sweden</option>
+      </select>
+    </label>
+    <label style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-serif); font-size:14px; color:var(--graphite);">
+      Note <span style="color:#8A3A1F; font-size:12px;">Required</span>
+      <input style="font-family:var(--font-serif); font-size:16px; padding:9px 12px; background:#F4EFE6; border:1px solid #8A3A1F; border-radius:2px;">
+    </label>
+  </div>
+</div>
+</body>
+</html>

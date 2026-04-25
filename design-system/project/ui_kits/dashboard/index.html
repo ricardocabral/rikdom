@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rikdom · dashboard</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:var(--paper); }
+  .dh-page { max-width: 1040px; margin: 0 auto; padding: 40px 32px 64px; }
+
+  /* Header */
+  .dh-header { display:flex; align-items:flex-end; gap:32px; border-bottom:1px solid var(--border); padding-bottom:20px; margin-bottom:32px; }
+  .dh-brand { display:flex; align-items:baseline; gap:2px; }
+  .dh-wm { font-family:var(--font-serif); font-size:28px; font-weight:400; letter-spacing:-0.02em; font-variation-settings:'opsz' 144,'SOFT' 50; color:var(--ink); }
+  .dh-dot { width:6px; height:6px; background:var(--fjord); border-radius:50%; display:inline-block; margin-left:2px; translate:0 -2px; }
+  .dh-crumbs { font-family:var(--font-mono); font-size:12px; color:var(--fg-2); letter-spacing:0.04em; padding-bottom:2px; }
+  .dh-sep { margin:0 8px; color:var(--fg-3); }
+  .dh-meta { margin-left:auto; display:flex; gap:22px; font-family:var(--font-mono); font-size:11px; color:var(--fg-2); }
+  .dh-meta-k { letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-3); margin-right:6px; }
+  .dh-meta-v.mono, .mono { font-family:var(--font-mono); }
+
+  /* Summary */
+  .dh-summary { display:grid; grid-template-columns: 1fr auto; gap:40px; align-items:end; margin-bottom:48px; }
+  .dh-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--fg-2); }
+  .dh-hero { font-family:var(--font-serif); font-size:72px; font-weight:300; line-height:1; font-variation-settings:'opsz' 144,'SOFT' 50; letter-spacing:-0.02em; margin-top:10px; font-variant-numeric: tabular-nums; }
+  .dh-hero-unit { font-size:20px; color:var(--fg-2); margin-left:6px; font-weight:400; font-variation-settings:'opsz' 24; }
+  .dh-sub { margin-top:10px; font-family:var(--font-mono); font-size:13px; color:var(--fg-2); }
+  .dh-sub-sep { margin:0 8px; color:var(--fg-3); }
+  .dh-sub-muted { color:var(--fg-2); }
+  .dh-delta-pos { color:var(--pos); }
+  .dh-delta-neg { color:var(--neg); }
+  .dh-summary-side { display:flex; gap:28px; padding-bottom:6px; }
+  .dh-stat-k { font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--fg-2); }
+  .dh-stat-v { font-family:var(--font-serif); font-size:32px; font-weight:400; line-height:1.1; font-variation-settings:'opsz' 48; margin-top:6px; font-variant-numeric: tabular-nums; }
+
+  /* Section */
+  .dh-section { margin-bottom:40px; }
+  .dh-section-title { margin-bottom:14px; }
+
+  /* Allocation */
+  .dh-alloc-bar { display:flex; width:100%; height:16px; border:1px solid var(--border); border-radius:2px; overflow:hidden; }
+  .dh-alloc-legend { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:6px 28px; margin-top:14px; font-family:var(--font-mono); font-size:12px; }
+  .dh-alloc-item { display:flex; align-items:center; gap:10px; }
+  .dh-alloc-swatch { width:10px; height:10px; display:inline-block; }
+  .dh-alloc-label { color:var(--ink); flex:1; }
+  .dh-stat-v, .dh-hero { color: var(--ink); }
+  .dh-alloc-pct { color:var(--fg-2); font-variant-numeric: tabular-nums; }
+
+  /* Table */
+  .dh-table { width:100%; border-collapse:collapse; font-family:var(--font-serif); font-variant-numeric: tabular-nums; }
+  .dh-table thead th { font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-2); font-weight:500; padding: 10px 8px; border-bottom:1px solid var(--border); }
+  .dh-table tbody td { padding: 10px 8px; border-bottom:1px solid var(--border-soft); font-size:14px; }
+  .dh-group-row td { background:transparent; border-bottom:1px solid var(--border); padding-top:18px; padding-bottom:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--fg-2); }
+  .dh-group-count { color:var(--fg-3); }
+  .dh-row-sub { font-size:11px; color:var(--fg-2); font-family:var(--font-mono); margin-top:2px; }
+  .dh-row-class { font-size:11px; color:var(--fg-2); text-transform:uppercase; letter-spacing:0.04em; }
+
+  /* Operations */
+  .dh-ops { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:14px; }
+  .dh-op { border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; display:grid; grid-template-columns: 1fr auto; gap:6px 16px; align-items:center; background:var(--linen); }
+  .dh-op-title { font-family:var(--font-serif); font-size:16px; }
+  .dh-op-meta { grid-column:1/2; font-family:var(--font-mono); font-size:12px; color:var(--fg-2); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .dh-op-status { grid-row:1/3; grid-column:2/3; font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; padding:4px 10px; border-radius:2px; }
+  .dh-op-ok .dh-op-status { background: rgba(95,107,58,0.15); color:#3F4A1F; }
+  .dh-op-due .dh-op-status { background: rgba(185,138,44,0.18); color:#7A5A1A; }
+  .dh-op-over .dh-op-status { background: rgba(138,58,31,0.15); color:#6A2A14; }
+
+  /* Chart */
+  .dh-chart { background: var(--paper); display:block; }
+
+  /* Footer */
+  .dh-foot { margin-top:48px; padding-top:18px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:11px; color:var(--fg-2); display:flex; gap:14px; }
+</style>
+</head>
+<body>
+<div class="dh-page">
+  <div id="root"></div>
+  <div class="dh-foot">
+    <span>MIT</span><span>·</span>
+    <span>generated by <span class="mono">rikdom 0.3.1</span></span><span>·</span>
+    <span>this page is static HTML — no JS required to read</span>
+  </div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="Header.jsx"></script>
+<script type="text/babel" src="Summary.jsx"></script>
+<script type="text/babel" src="Allocation.jsx"></script>
+<script type="text/babel" src="HoldingsTable.jsx"></script>
+<script type="text/babel" src="Operations.jsx"></script>
+<script type="text/babel" src="SnapshotChart.jsx"></script>
+
+<script type="text/babel">
+function fmt(n) { return Math.round(n).toLocaleString("en-US").replace(/,/g, "\u202F"); }
+
+const slices = [
+  { label: "Real estate",        pct: 42, color: "#1F1A14" },
+  { label: "Global equity funds", pct: 24, color: "#4A4239" },
+  { label: "Single stocks",       pct: 15, color: "#8A7A64" },
+  { label: "Bonds",               pct: 8,  color: "#B8AE9E" },
+  { label: "Cash",                pct: 5,  color: "#D9D1C1" },
+  { label: "Crypto",              pct: 4,  color: "#2C4A6B" },
+  { label: "Other",               pct: 2,  color: "#5F6B3A" },
+];
+
+const groups = [
+  { label: "Real estate", rows: [
+    { name: "Apt. Majorstuen, Oslo", sub: "72 m² · acquired 2019-05", cls: "REAL ESTATE", qty: "1", value: "4 200 000", delta: null, share: "42.1" },
+  ]},
+  { label: "Funds", rows: [
+    { name: "KLP AksjeGlobal Indeks", sub: "ISIN NO0010682553", cls: "FUND", qty: "1 842", value: "318 104", delta: 1.7, share: "24.1" },
+  ]},
+  { label: "Stocks", rows: [
+    { name: "Equinor ASA",  sub: "EQNR.OL · energy",    cls: "STOCK", qty: "120", value: "42 840", delta: 2.4, share: "3.2" },
+    { name: "DNB Bank",     sub: "DNB.OL · financials", cls: "STOCK", qty: "85",  value: "19 104", delta: -0.8, share: "1.4" },
+    { name: "Norsk Hydro",  sub: "NHY.OL · materials",  cls: "STOCK", qty: "200", value: "14 260", delta: 1.1, share: "1.1" },
+    { name: "Mowi ASA",     sub: "MOWI.OL · consumer",  cls: "STOCK", qty: "60",  value: "11 580", delta: -1.4, share: "0.9" },
+  ]},
+  { label: "Bonds", rows: [
+    { name: "Statsobligasjon 2029", sub: "coupon 3.125%", cls: "BOND", qty: "50", value: "49 750", delta: 0.2, share: "0.5" },
+  ]},
+  { label: "Cash", rows: [
+    { name: "Brukskonto", sub: "NOK · DNB", cls: "CASH", qty: "—", value: "58 200", delta: null, share: "4.2" },
+  ]},
+  { label: "Crypto", rows: [
+    { name: "Bitcoin", sub: "self-custody · cold wallet", cls: "CRYPTO", qty: "0.142", value: "54 920", delta: 6.1, share: "4.1" },
+  ]},
+];
+
+const ops = [
+  { name: "Monthly snapshot",         last: "2026-03-24", next: "2026-04-24", status: "due",  statusLabel: "Due today" },
+  { name: "Annual tax statements",    last: "2025-05-02", next: "2026-05-01", status: "ok",   statusLabel: "On track" },
+  { name: "Rebalance toward policy",  last: "2026-01-15", next: "2026-04-15", status: "over", statusLabel: "Overdue · 9d" },
+  { name: "Cash sweep to fund",       last: "2026-04-01", next: "2026-05-01", status: "ok",   statusLabel: "On track" },
+];
+
+const snapshotPoints = [
+  { label: "May",  v: 8.95e6 },
+  { label: "Jun",  v: 9.02e6 },
+  { label: "Jul",  v: 9.18e6 },
+  { label: "Aug",  v: 9.24e6 },
+  { label: "Sep",  v: 9.11e6 },
+  { label: "Oct",  v: 9.33e6 },
+  { label: "Nov",  v: 9.42e6 },
+  { label: "Dec",  v: 9.51e6 },
+  { label: "Jan",  v: 9.44e6 },
+  { label: "Feb",  v: 9.62e6 },
+  { label: "Mar",  v: 9.78e6 },
+  { label: "Apr",  v: 9.88e6 },
+];
+
+function App() {
+  return (
+    <div>
+      <Header portfolio="Henrik Solberg" generated="2026-04-24 14:02" commit="a1f9c02" />
+      <Summary total={9_876_234} delta30={98_120} delta1y={10.6} holdings={9} classes={6} asOf="2026-04-24" />
+      <Allocation slices={slices} />
+      <SnapshotChart points={snapshotPoints} />
+      <HoldingsTable groups={groups} />
+      <Operations items={ops} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

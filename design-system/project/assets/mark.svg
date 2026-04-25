@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="rikdom mark">
+  
+  <rect class="bg" x="0" y="0" width="96" height="96" rx="8"></rect>
+  <rect class="b" x="0.5" y="0.5" width="95" height="95" rx="7.5"></rect>
+  <text x="22" y="72" class="r">r</text>
+  <circle cx="68" cy="68" r="4" class="dot"></circle>
+</svg>
