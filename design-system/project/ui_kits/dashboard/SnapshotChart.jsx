@@ -2,11 +2,30 @@
 
 function SnapshotChart({ points }) {
   const W = 920, H = 220, PAD_L = 52, PAD_R = 16, PAD_T = 16, PAD_B = 28;
+
+  if (!points || points.length === 0) {
+    return (
+      <section className="dh-section">
+        <div className="dh-section-title">
+          <span className="dh-eyebrow">Snapshots · last 12 months</span>
+        </div>
+        <svg viewBox={`0 0 ${W} ${H}`} className="dh-chart" width="100%" preserveAspectRatio="xMidYMid meet">
+          <text x={W / 2} y={H / 2} fontSize="12" fill="#8A8070" textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+            no snapshots yet
+          </text>
+        </svg>
+      </section>
+    );
+  }
+
   const xs = points.map((_, i) => i);
   const ys = points.map(p => p.v);
   const yMin = Math.min(...ys), yMax = Math.max(...ys);
   const yRange = yMax - yMin || 1;
-  const sx = (i) => PAD_L + (i / (xs.length - 1)) * (W - PAD_L - PAD_R);
+  const xDenom = xs.length > 1 ? xs.length - 1 : 1;
+  const sx = (i) => xs.length > 1
+    ? PAD_L + (i / xDenom) * (W - PAD_L - PAD_R)
+    : (PAD_L + (W - PAD_R)) / 2;
   const sy = (v) => PAD_T + (1 - (v - yMin) / yRange) * (H - PAD_T - PAD_B);
   const d = points.map((p, i) => (i === 0 ? "M" : "L") + sx(i) + " " + sy(p.v)).join(" ");
   const area = d + ` L ${sx(points.length - 1)} ${H - PAD_B} L ${sx(0)} ${H - PAD_B} Z`;

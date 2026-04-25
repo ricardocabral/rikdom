@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="rikdom mark">
-  
-  <rect class="bg" x="0" y="0" width="96" height="96" rx="8"></rect>
-  <rect class="b" x="0.5" y="0.5" width="95" height="95" rx="7.5"></rect>
-  <text x="22" y="72" class="r">r</text>
-  <circle cx="68" cy="68" r="4" class="dot"></circle>
+  <rect x="0" y="0" width="96" height="96" rx="8" fill="#F4EFE6"/>
+  <rect x="0.5" y="0.5" width="95" height="95" rx="7.5" fill="none" stroke="#B8AE9E" stroke-width="1"/>
+  <text x="22" y="72" fill="#1F1A14" font-family="Fraunces, 'Iowan Old Style', Georgia, serif" font-size="64" font-weight="400" font-variation-settings="'opsz' 144, 'SOFT' 50" style="font-variation-settings:'opsz' 144, 'SOFT' 50;">r</text>
+  <circle cx="68" cy="68" r="4" fill="#2C4A6B"/>
 </svg>

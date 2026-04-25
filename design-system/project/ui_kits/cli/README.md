@@ -10,7 +10,6 @@ This is a recreation, not a working CLI. State is faked in JS. It behaves like a
 - `Terminal.jsx` — the terminal chrome + scroll container.
 - `Line.jsx` — prompt / output / system-note primitives.
 - `Prompt.jsx` — the input line with history.
-- `Output.jsx` — multi-line output rendering (tables, JSON, tree views).
-- `Schema.jsx` — pretty-printed JSON / JSONL snippets.
+- `Output.jsx` — multi-line output rendering: tables, tree views, and the `Schema` component for pretty-printed JSON / JSONL snippets.
 
 No real process runs. All commands are dispatched through a small switch in `index.html`.
