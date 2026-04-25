@@ -14,8 +14,6 @@ format:
 
 ```{=html}
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap');
-
   :root {
     --rk-paper: #F4EFE6;
     --rk-linen: #E9E2D4;
@@ -37,8 +35,8 @@ format:
     --rk-negative: var(--rk-rust);
     --rk-primary: var(--rk-fjord);
 
-    --rk-font-serif: "Fraunces", "Iowan Old Style", Georgia, serif;
-    --rk-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --rk-font-serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --rk-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     color-scheme: light;
   }
 
@@ -95,7 +93,7 @@ format:
     font-variation-settings: 'opsz' 144, 'SOFT' 50;
     color: var(--rk-ink);
   }
-  .rk-dot { width:6px; height:6px; background:var(--rk-fjord); border-radius:50%; display:inline-block; margin-left:2px; translate:0 -2px; }
+  .rk-brand-dot { width:6px; height:6px; background:var(--rk-fjord); border-radius:50%; display:inline-block; margin-left:2px; translate:0 -2px; }
 
   .rk-title {
     font-family: var(--rk-font-serif);
@@ -297,7 +295,7 @@ format:
     font-size: 0.8rem;
   }
 
-  .rk-dot { width: 10px; height: 10px; border-radius: 0; }
+  .rk-legend-dot { width: 10px; height: 10px; border-radius: 0; display: inline-block; }
 
   .rk-list-row .name {
     min-width: 0;
@@ -681,7 +679,7 @@ format:
         const share = total > 0 ? value / total : 0;
         return `
           <div class="rk-list-row">
-            <span class="rk-dot" style="background:${color}"></span>
+            <span class="rk-legend-dot" style="background:${color}"></span>
             <span class="name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
             <span class="value">${formatPct(share, 1)} · ${formatMoneyCompact(value, currency)}</span>
           </div>
@@ -755,7 +753,7 @@ format:
     app.innerHTML = `
       <header class="rk-topbar">
         <div>
-          <div class="rk-brand"><span class="rk-wordmark">rikdom</span><span class="rk-dot"></span></div>
+          <div class="rk-brand"><span class="rk-wordmark">rikdom</span><span class="rk-brand-dot"></span></div>
           <h1 class="rk-title">${escapeHtml(portfolioName)}</h1>
           <div class="rk-subtitle">Static portfolio report · base ${escapeHtml(baseCurrency)}</div>
         </div>

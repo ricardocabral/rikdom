@@ -8,8 +8,6 @@ format:
 
 ```{=html}
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap');
-
   :root {
     --paper: #F4EFE6;
     --linen: #E9E2D4;
@@ -21,8 +19,8 @@ format:
     --moss: #5F6B3A;
     --rust: #8A3A1F;
     --amber: #B98A2C;
-    --font-serif: "Fraunces", "Iowan Old Style", Georgia, serif;
-    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --font-serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     color-scheme: light;
   }
 
