@@ -265,7 +265,7 @@ format:
 
   .rk-grid-mid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr 2fr 1fr;
     gap: 16px;
     margin-bottom: 16px;
   }
