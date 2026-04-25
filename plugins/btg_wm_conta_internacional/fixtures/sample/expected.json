@@ -368,6 +368,214 @@
   ],
   "activities": [
     {
+      "id": "btgwm-open-9f95128a7c7fcf",
+      "event_type": "transfer_in",
+      "subtype": "opening_balance",
+      "status": "posted",
+      "effective_at": "2026-04-01T00:00:00Z",
+      "money": {
+        "amount": 612345.67,
+        "currency": "USD"
+      },
+      "quantity": 4021.11893452,
+      "instrument": {
+        "ticker": "ACWI",
+        "country": "US"
+      },
+      "asset_type_id": "stock",
+      "source_ref": "btgwm:BTGP-001-RNDX412921#opening_balance:ACWI",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "OPENING_BALANCE",
+        "description": "Synthetic opening balance for ACWI at period start",
+        "synthesized": true,
+        "source_block": "opening_balance",
+        "period_start": "2026-04-01"
+      }
+    },
+    {
+      "id": "btgwm-open-86369c84c41e6a",
+      "event_type": "transfer_in",
+      "subtype": "opening_balance",
+      "status": "posted",
+      "effective_at": "2026-04-01T00:00:00Z",
+      "money": {
+        "amount": 301234.56,
+        "currency": "USD"
+      },
+      "quantity": 3981.927451,
+      "instrument": {
+        "ticker": "BND",
+        "country": "US"
+      },
+      "asset_type_id": "debt_instrument",
+      "source_ref": "btgwm:BTGP-001-RNDX412921#opening_balance:BND",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "OPENING_BALANCE",
+        "description": "Synthetic opening balance for BND at period start",
+        "synthesized": true,
+        "source_block": "opening_balance",
+        "period_start": "2026-04-01"
+      }
+    },
+    {
+      "id": "btgwm-open-79be0980c78830",
+      "event_type": "transfer_in",
+      "subtype": "opening_balance",
+      "status": "posted",
+      "effective_at": "2026-04-01T00:00:00Z",
+      "money": {
+        "amount": 98765.43,
+        "currency": "USD"
+      },
+      "quantity": 233.81221,
+      "instrument": {
+        "ticker": "GLD",
+        "country": "US"
+      },
+      "asset_type_id": "stock",
+      "source_ref": "btgwm:BTGP-001-RNDX412921#opening_balance:GLD",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "OPENING_BALANCE",
+        "description": "Synthetic opening balance for GLD at period start",
+        "synthesized": true,
+        "source_block": "opening_balance",
+        "period_start": "2026-04-01"
+      }
+    },
+    {
+      "id": "btgwm-open-11dcbff39d752d",
+      "event_type": "transfer_in",
+      "subtype": "opening_balance",
+      "status": "posted",
+      "effective_at": "2026-04-01T00:00:00Z",
+      "money": {
+        "amount": 155432.1,
+        "currency": "USD"
+      },
+      "quantity": 7010.45,
+      "instrument": {
+        "ticker": "SCHH",
+        "country": "US"
+      },
+      "asset_type_id": "stock",
+      "source_ref": "btgwm:BTGP-001-RNDX412921#opening_balance:SCHH",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "OPENING_BALANCE",
+        "description": "Synthetic opening balance for SCHH at period start",
+        "synthesized": true,
+        "source_block": "opening_balance",
+        "period_start": "2026-04-01"
+      }
+    },
+    {
+      "id": "btgwm-open-df79140df836b6",
+      "event_type": "transfer_in",
+      "subtype": "opening_balance",
+      "status": "posted",
+      "effective_at": "2026-04-01T00:00:00Z",
+      "money": {
+        "amount": 204567.89,
+        "currency": "USD"
+      },
+      "quantity": 7604.21,
+      "instrument": {
+        "ticker": "SCHP",
+        "country": "US"
+      },
+      "asset_type_id": "debt_instrument",
+      "source_ref": "btgwm:BTGP-001-RNDX412921#opening_balance:SCHP",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "OPENING_BALANCE",
+        "description": "Synthetic opening balance for SCHP at period start",
+        "synthesized": true,
+        "source_block": "opening_balance",
+        "period_start": "2026-04-01"
+      }
+    },
+    {
+      "id": "btgwm-open-28cd474df58381",
+      "event_type": "transfer_in",
+      "subtype": "opening_balance",
+      "status": "posted",
+      "effective_at": "2026-04-01T00:00:00Z",
+      "money": {
+        "amount": 52345.69,
+        "currency": "USD"
+      },
+      "quantity": 520.0,
+      "instrument": {
+        "ticker": "SGOV",
+        "country": "US"
+      },
+      "asset_type_id": "cash_equivalent",
+      "source_ref": "btgwm:BTGP-001-RNDX412921#opening_balance:SGOV",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "OPENING_BALANCE",
+        "description": "Synthetic opening balance for SGOV at period start",
+        "synthesized": true,
+        "source_block": "opening_balance",
+        "period_start": "2026-04-01"
+      }
+    },
+    {
+      "id": "btgwm-open-7620e623d9e95d",
+      "event_type": "transfer_in",
+      "subtype": "opening_balance",
+      "status": "posted",
+      "effective_at": "2026-04-01T00:00:00Z",
+      "money": {
+        "amount": 417890.34,
+        "currency": "USD"
+      },
+      "quantity": 680.7123,
+      "instrument": {
+        "ticker": "VOO",
+        "country": "US"
+      },
+      "asset_type_id": "stock",
+      "source_ref": "btgwm:BTGP-001-RNDX412921#opening_balance:VOO",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "OPENING_BALANCE",
+        "description": "Synthetic opening balance for VOO at period start",
+        "synthesized": true,
+        "source_block": "opening_balance",
+        "period_start": "2026-04-01"
+      }
+    },
+    {
+      "id": "btgwm-open-07b38ffb8b40b6",
+      "event_type": "transfer_in",
+      "subtype": "opening_balance",
+      "status": "posted",
+      "effective_at": "2026-04-01T00:00:00Z",
+      "money": {
+        "amount": 1242.6399999999999,
+        "currency": "USD"
+      },
+      "quantity": 1242.6399999999999,
+      "instrument": {
+        "ticker": "DWBDS",
+        "country": "US"
+      },
+      "asset_type_id": "cash_equivalent",
+      "source_ref": "btgwm:BTGP-001-RNDX412921#opening_balance:DWBDS",
+      "metadata": {
+        "provider": "btg-wm-conta-internacional",
+        "activity_type": "OPENING_BALANCE",
+        "description": "Synthetic opening balance for DWBDS at period start",
+        "synthesized": true,
+        "source_block": "opening_balance",
+        "period_start": "2026-04-01"
+      }
+    },
+    {
       "id": "btgwm-act-a1822657e61a37",
       "event_type": "dividend",
       "status": "posted",

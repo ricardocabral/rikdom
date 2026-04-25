@@ -21,7 +21,13 @@ class BtgWmContaInternacionalPluginTests(unittest.TestCase):
         self.assertEqual(payload["provider"], "btg_wm_conta_internacional")
         self.assertEqual(payload["base_currency"], "USD")
         self.assertEqual(len(payload["holdings"]), 8)
-        self.assertEqual(len(payload["activities"]), 12)
+        # 12 real activities + 8 synthesized opening balances (one per holding)
+        self.assertEqual(len(payload["activities"]), 20)
+        opens = [a for a in payload["activities"] if a["event_type"] == "transfer_in"
+                 and a.get("subtype") == "opening_balance"]
+        self.assertEqual(len(opens), 8)
+        for op in opens:
+            self.assertTrue(op["metadata"].get("synthesized"))
 
         total_assets = sum(float(h["market_value"]["amount"]) for h in payload["holdings"])
         self.assertAlmostEqual(total_assets, payload["metadata"]["ending_account_value"], places=2)

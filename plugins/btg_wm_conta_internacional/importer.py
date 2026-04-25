@@ -372,6 +372,123 @@ def _parse_activity_table(
     return activities, idx
 
 
+_QTY_SIGNS: dict[str, float] = {
+    "buy": 1.0,
+    "sell": -1.0,
+    "transfer_in": 1.0,
+    "transfer_out": -1.0,
+}
+
+_CASH_SIGNS: dict[str, float] = {
+    "buy": -1.0,
+    "sell": 1.0,
+    "dividend": 1.0,
+    "interest": 1.0,
+    "fee": -1.0,
+    "transfer_in": 1.0,
+    "transfer_out": -1.0,
+    "income": 1.0,
+    "reimbursement": 1.0,
+}
+
+
+def _period_deltas_for_ticker(
+    activities: list[dict[str, Any]], ticker: str
+) -> tuple[float, float]:
+    """Sum quantity and cash deltas already captured by parsed period
+    activities for ``ticker``. Used to back the opening balance into
+    ending == opening + Σ(period deltas)."""
+    qty_delta = 0.0
+    cash_delta = 0.0
+    for a in activities:
+        if (a.get("instrument") or {}).get("ticker") != ticker:
+            continue
+        evt = a.get("event_type", "")
+        qty = float(a.get("quantity") or 0.0)
+        money = float((a.get("money") or {}).get("amount") or 0.0)
+        qty_delta += qty * _QTY_SIGNS.get(evt, 0.0)
+        cash_delta += money * _CASH_SIGNS.get(evt, 0.0)
+    return qty_delta, cash_delta
+
+
+def _synthesize_opening_balances(
+    holdings: list[dict[str, Any]],
+    activities: list[dict[str, Any]],
+    *,
+    account_number: str,
+    period_start: str | None,
+) -> list[dict[str, Any]]:
+    """Emit one synthetic ``transfer_in`` per parsed holding so the activity
+    ledger reconciles against the snapshot. BTG WM monthly statements list
+    only deltas (dividends, fees, buys, sells) that occurred *during* the
+    period, never the inherited position from prior periods. Without an
+    opening balance, the ledger underreports both quantity and cash for
+    every position carried over month-to-month.
+
+    For cash sweep accounts (e.g. DWBDS) the period's activities already
+    represent the in-period inflows; we therefore back the opening qty out
+    of (ending_qty - Σ period qty deltas) so the ledger reconciles without
+    double-counting.
+    """
+    if not holdings:
+        return []
+
+    if period_start:
+        effective_at = f"{period_start}T00:00:00Z"
+    else:
+        effective_at = _now_iso()
+
+    opens: list[dict[str, Any]] = []
+    for h in holdings:
+        ticker = h.get("identifiers", {}).get("ticker") or ""
+        ending_qty = float(h.get("quantity") or 0.0)
+        market_value = h.get("market_value") or {}
+        ending_amount = float(market_value.get("amount") or 0.0)
+        currency = market_value.get("currency") or "USD"
+
+        period_qty_delta, period_cash_delta = _period_deltas_for_ticker(
+            activities, ticker
+        )
+        opening_qty = ending_qty - period_qty_delta
+        # For positions whose unit price is ~$1 (cash sweep / money market),
+        # opening cash mirrors opening quantity. For tradable instruments
+        # mark-to-market is post-period; we still emit ending market_value
+        # so the ledger has a representative basis, but only money for
+        # cash_equivalent holdings affects the cash drift check.
+        is_cash_like = h.get("asset_type_id") == "cash_equivalent"
+        opening_amount = (
+            ending_amount - period_cash_delta if is_cash_like else ending_amount
+        )
+
+        digest_source = "|".join(
+            [account_number, "opening_balance", ticker, period_start or "unknown"]
+        )
+        digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:14]
+        opens.append(
+            {
+                "id": f"btgwm-open-{digest}",
+                "event_type": "transfer_in",
+                "subtype": "opening_balance",
+                "status": "posted",
+                "effective_at": effective_at,
+                "money": {"amount": opening_amount, "currency": currency},
+                "quantity": opening_qty,
+                "instrument": {"ticker": ticker, "country": "US"},
+                "asset_type_id": h.get("asset_type_id", "stock"),
+                "source_ref": f"btgwm:{account_number}#opening_balance:{ticker}",
+                "metadata": {
+                    "provider": "btg-wm-conta-internacional",
+                    "activity_type": "OPENING_BALANCE",
+                    "description": f"Synthetic opening balance for {ticker} at period start",
+                    "synthesized": True,
+                    "source_block": "opening_balance",
+                    "period_start": period_start,
+                },
+            }
+        )
+    return opens
+
+
 def _parse_activities(text: str, account_number: str) -> list[dict[str, Any]]:
     activity_segment = _section(text, "ACTIVITY", ("SWEEP ACTIVITY",))
     sweep_segment = _section(
@@ -409,6 +526,13 @@ def parse_statement(path: Path) -> dict[str, Any]:
 
     holdings = _parse_holdings(text, account_number)
     activities = _parse_activities(text, account_number)
+    opening_balances = _synthesize_opening_balances(
+        holdings,
+        activities,
+        account_number=account_number,
+        period_start=period_start,
+    )
+    activities = opening_balances + activities
 
     if not holdings and not activities:
         raise ValueError("BTG WM statement did not produce holdings or activities")
