@@ -515,5 +515,146 @@ class QuartoPluginTests(unittest.TestCase):
             self.assertIn("sections", payload)
 
 
+    def test_quarto_breakdowns_use_snapshot_fx_lock_with_holding_fallback(
+        self,
+    ) -> None:
+        """Guard the FX precedence contract for asset_type_breakdown,
+        geography, and quickview.currency.converted_base:
+
+        - snapshot ``metadata.fx_lock.rates_to_base[CCY]`` takes precedence
+          over per-holding ``metadata.fx_rate_to_base`` (even when both
+          are present and conflict);
+        - when the snapshot fx_lock is missing for a currency, the per-
+          holding ``metadata.fx_rate_to_base`` is used as fallback;
+        - when both are missing, the holding is excluded from base-
+          converted breakdowns but still surfaces in the native
+          currency_split.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            portfolio_path = tmp / "portfolio.json"
+            snapshots_path = tmp / "snapshots.jsonl"
+            out_dir = tmp / "out"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            portfolio_path.write_text(
+                json.dumps(
+                    {
+                        "profile": {"display_name": "FX Precedence", "country": "BR"},
+                        "settings": {"base_currency": "BRL"},
+                        "asset_type_catalog": [
+                            {"id": "stock", "asset_class": "stocks"},
+                            {"id": "fund", "asset_class": "funds"},
+                        ],
+                        "holdings": [
+                            # Snapshot fx_lock should win even though the
+                            # holding declares a different rate.
+                            {
+                                "id": "h-us-conflict",
+                                "asset_type_id": "stock",
+                                "label": "US Conflicting FX",
+                                "jurisdiction": {"country": "US"},
+                                "market_value": {"amount": 100, "currency": "USD"},
+                                "metadata": {"fx_rate_to_base": 4.0},
+                            },
+                            # No per-holding rate — only snapshot fx_lock
+                            # can convert this one.
+                            {
+                                "id": "h-us-snapshot-only",
+                                "asset_type_id": "stock",
+                                "label": "US Snapshot Only",
+                                "jurisdiction": {"country": "US"},
+                                "market_value": {"amount": 50, "currency": "USD"},
+                            },
+                            # Currency missing from snapshot fx_lock —
+                            # falls back to per-holding rate.
+                            {
+                                "id": "h-eur-fallback",
+                                "asset_type_id": "fund",
+                                "label": "EUR Fallback",
+                                "jurisdiction": {"country": "DE"},
+                                "market_value": {"amount": 10, "currency": "EUR"},
+                                "metadata": {"fx_rate_to_base": 6.0},
+                            },
+                            # Currency missing everywhere — must be
+                            # excluded from base-converted breakdowns.
+                            {
+                                "id": "h-gbp-unconverted",
+                                "asset_type_id": "fund",
+                                "label": "GBP Unconverted",
+                                "jurisdiction": {"country": "GB"},
+                                "market_value": {"amount": 20, "currency": "GBP"},
+                            },
+                            {
+                                "id": "h-brl",
+                                "asset_type_id": "fund",
+                                "label": "Local Fund",
+                                "jurisdiction": {"country": "BR"},
+                                "market_value": {"amount": 300, "currency": "BRL"},
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            snapshots_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-25T00:00:00Z",
+                        "totals": {"portfolio_value_base": 1300},
+                        "metadata": {
+                            "fx_lock": {
+                                "base_currency": "BRL",
+                                "rates_to_base": {"USD": 5.0, "BRL": 1.0},
+                            }
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = run_output_pipeline(
+                plugin_name="quarto-portfolio-report",
+                plugins_dir="plugins",
+                portfolio_path=str(portfolio_path),
+                snapshots_path=str(snapshots_path),
+                output_dir=str(out_dir),
+            )
+
+            json_artifact = next(a for a in result["artifacts"] if a["type"] == "json")
+            payload = json.loads(
+                Path(json_artifact["path"]).read_text(encoding="utf-8")
+            )
+            sections = payload["sections"]
+
+            # Snapshot fx_lock (USD=5.0) wins over per-holding fx_rate_to_base
+            # (4.0). 100 USD * 5.0 + 50 USD * 5.0 = 750.
+            self.assertEqual(sections["geography"].get("US"), 750.0)
+            self.assertEqual(sections["asset_type_breakdown"].get("stock"), 750.0)
+
+            # EUR has no snapshot rate -> per-holding 6.0 is the fallback.
+            # GBP has neither -> excluded from base-converted breakdowns
+            # but still present in the native currency_split.
+            self.assertEqual(sections["geography"].get("DE"), 60.0)
+            self.assertEqual(sections["asset_type_breakdown"].get("fund"), 360.0)
+            self.assertEqual(sections["geography"].get("BR"), 300.0)
+            self.assertNotIn("GB", sections["geography"])
+
+            # Native currency_split is independent of FX and includes GBP.
+            self.assertEqual(sections["currency_split"].get("USD"), 150.0)
+            self.assertEqual(sections["currency_split"].get("EUR"), 10.0)
+            self.assertEqual(sections["currency_split"].get("GBP"), 20.0)
+            self.assertEqual(sections["currency_split"].get("BRL"), 300.0)
+
+            # Quickview converted_base must apply the same snapshot rate.
+            quickview = sections["quickview"]["currency"]
+            converted = quickview["converted_base"]
+            self.assertEqual(converted.get("USD"), 750.0)
+            self.assertEqual(converted.get("BRL"), 300.0)
+            # GBP can't be converted -> must be flagged as missing rate.
+            self.assertIn("GBP", quickview["missing_rates"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -318,6 +318,127 @@ class DashboardJsSafetyTests(unittest.TestCase):
                 f"escapeHtml missing replacement step: {replacement}",
             )
 
+    def test_chart_palette_is_theme_aware_via_css_vars(self) -> None:
+        """Chart palette must read CSS variables so light/dark themes
+        propagate to slices/legends. Hard-coded hex literals in the
+        palette array would silently break theme support."""
+        # Helper that reads CSS vars must exist.
+        self.assertRegex(
+            self.source,
+            r"const\s+cssVar\s*=",
+            msg="dashboard.qmd must declare a cssVar(...) helper",
+        )
+        # Each of the 8 chart slots must resolve through cssVar('--chart-N', ...).
+        for n in range(1, 9):
+            self.assertRegex(
+                self.source,
+                rf"cssVar\(\s*['\"]--chart-{n}['\"]",
+                msg=f"chart palette slot {n} must come from CSS var --chart-{n}",
+            )
+        # Both light and dark themes must define the palette CSS vars.
+        light_block = self.source.split("@media (prefers-color-scheme: dark)")[0]
+        dark_split = self.source.split("@media (prefers-color-scheme: dark)")
+        self.assertEqual(
+            len(dark_split),
+            2,
+            msg="dashboard.qmd must define a dark-theme media query",
+        )
+        dark_block = dark_split[1]
+        for n in range(1, 9):
+            self.assertRegex(
+                light_block,
+                rf"--chart-{n}\s*:",
+                msg=f"light theme missing --chart-{n} declaration",
+            )
+            self.assertRegex(
+                dark_block,
+                rf"--chart-{n}\s*:",
+                msg=f"dark theme missing --chart-{n} declaration",
+            )
+
+
+REPORT_TEMPLATE_PATH = Path("plugins/quarto-portfolio-report/templates/report.qmd")
+
+
+class ReportTemplateContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.source = REPORT_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+    def test_chart_palette_is_theme_aware_via_css_vars(self) -> None:
+        self.assertRegex(self.source, r"const\s+cssVar\s*=")
+        for n in range(1, 9):
+            self.assertRegex(
+                self.source,
+                rf"cssVar\(\s*['\"]--rk-chart-{n}['\"]",
+                msg=f"report palette slot {n} must come from CSS var --rk-chart-{n}",
+            )
+        # Trend chart axis/line colors must also flow through CSS vars so
+        # the SVG adapts to dark mode (previously hard-coded hex strings).
+        for required in (
+            r"cssVar\(\s*['\"]--rk-chart-axis['\"]",
+            r"cssVar\(\s*['\"]--rk-chart-line['\"]",
+        ):
+            self.assertRegex(
+                self.source,
+                required,
+                msg=f"report.qmd must source {required!r} from CSS var",
+            )
+
+    def test_top_holdings_table_header_and_row_column_counts_match(self) -> None:
+        """The Top holdings table dropped the per-row ID column. Header
+        and row column counts must stay in sync — a future regression that
+        re-adds <th>ID</th> without a matching <td> (or vice versa) would
+        misalign the rendered table."""
+        # The row template precedes the header in source order
+        # (topHoldings.map(...) builds rows, then the surrounding return `
+        # <table>...</table>` wraps them). Match each fragment independently.
+        row_match = re.search(
+            r"topHoldings\.map\(.*?return\s*`\s*<tr>(?P<row>.*?)</tr>\s*`",
+            self.source,
+            re.DOTALL,
+        )
+        header_match = re.search(
+            r"<thead>\s*<tr>(?P<header>.*?)</tr>\s*</thead>",
+            self.source,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(
+            row_match, msg="Top holdings row template not found in report.qmd"
+        )
+        self.assertIsNotNone(
+            header_match, msg="Top holdings <thead> not found in report.qmd"
+        )
+        header = header_match.group("header")
+        row = row_match.group("row")
+
+        header_cells = re.findall(r"<th\b", header)
+        row_cells = re.findall(r"<td\b", row)
+
+        self.assertEqual(
+            len(header_cells),
+            len(row_cells),
+            msg=(
+                f"Top holdings table column mismatch: "
+                f"{len(header_cells)} <th> vs {len(row_cells)} <td>. "
+                "Header/row must stay aligned (ID column was intentionally removed)."
+            ),
+        )
+        # Lock the contract to the post-removal column set so a future
+        # edit that re-adds the ID column has to update this test
+        # deliberately.
+        self.assertEqual(
+            len(header_cells),
+            4,
+            msg="Top holdings table must have exactly 4 columns "
+            "(Holding / Amount / Share / Relative Size)",
+        )
+        self.assertNotRegex(
+            header,
+            r">\s*ID\s*</th>",
+            msg="ID column header reintroduced in Top holdings table",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
