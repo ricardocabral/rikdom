@@ -75,14 +75,22 @@ class DashboardJsSafetyTests(unittest.TestCase):
                 expression, nested, expr_end = cls._extract_js_expression(
                     source, expr_start
                 )
-                if nested:
-                    expressions.extend(nested)
-                else:
-                    expressions.append(expression)
+                expressions.append(expression)
+                expressions.extend(nested)
                 i = expr_end
                 continue
             i += 1
         return expressions, i
+
+    @staticmethod
+    def _skip_js_line_comment(source: str, start: int) -> int:
+        newline = source.find("\n", start + 2)
+        return len(source) if newline == -1 else newline + 1
+
+    @staticmethod
+    def _skip_js_block_comment(source: str, start: int) -> int:
+        end = source.find("*/", start + 2)
+        return len(source) if end == -1 else end + 2
 
     @classmethod
     def _extract_assignment_interpolations(
@@ -90,8 +98,18 @@ class DashboardJsSafetyTests(unittest.TestCase):
     ) -> tuple[list[str], int]:
         expressions: list[str] = []
         i = start
+        depth = 0
+        openers = {"(": ")", "{": "}", "[": "]"}
+        closers = set(openers.values())
         while i < len(source):
             ch = source[i]
+            next_ch = source[i + 1] if i + 1 < len(source) else ""
+            if ch == "/" and next_ch == "/":
+                i = cls._skip_js_line_comment(source, i)
+                continue
+            if ch == "/" and next_ch == "*":
+                i = cls._skip_js_block_comment(source, i)
+                continue
             if ch in ("'", '"'):
                 i = cls._skip_js_string(source, i, ch)
                 continue
@@ -99,7 +117,15 @@ class DashboardJsSafetyTests(unittest.TestCase):
                 nested, i = cls._extract_template_interpolations(source, i)
                 expressions.extend(nested)
                 continue
-            if ch == ";":
+            if ch in openers:
+                depth += 1
+                i += 1
+                continue
+            if ch in closers:
+                depth = max(depth - 1, 0)
+                i += 1
+                continue
+            if ch == ";" and depth == 0:
                 return expressions, i + 1
             i += 1
         return expressions, i
@@ -149,9 +175,17 @@ class DashboardJsSafetyTests(unittest.TestCase):
             rf"^\((?:t\.y|{arithmetic_terms})\s*[-+]\s*\d+\)\.toFixed\(\d+\)$",
             r"^(?:t\.y|xFor\([^`]*\)|yFor\([^`]*\))\.toFixed\(\d+\)$",
         )
+        template_fragment_container_patterns = (
+            r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\.map\([^`]*=>\s*`.*`\)\.join\(''\)$",
+        )
         explicitly_safe_html_fragments = ("slices.map(s => s.piece).join('')",)
-        return expression in explicitly_safe_html_fragments or any(
-            re.fullmatch(pattern, expression) for pattern in numeric_patterns
+        return (
+            expression in explicitly_safe_html_fragments
+            or any(re.fullmatch(pattern, expression) for pattern in numeric_patterns)
+            or any(
+                re.fullmatch(pattern, expression, flags=re.DOTALL)
+                for pattern in template_fragment_container_patterns
+            )
         )
 
     @classmethod
@@ -199,6 +233,28 @@ class DashboardJsSafetyTests(unittest.TestCase):
             i = next_index
 
         return expressions
+
+    def test_template_parser_preserves_outer_and_nested_interpolations(self) -> None:
+        expressions, end = self._extract_template_interpolations(
+            "`value ${unsafe + `${escapeHtml(safe)}`}`",
+            0,
+        )
+
+        self.assertEqual(end, len("`value ${unsafe + `${escapeHtml(safe)}`}`"))
+        self.assertIn("unsafe + `${escapeHtml(safe)}`", expressions)
+        self.assertIn("escapeHtml(safe)", expressions)
+
+    def test_assignment_parser_ignores_nested_and_commented_semicolons(self) -> None:
+        source = """
+          (`ignored ;` + /* ; */ `${escapeHtml(first)}` + ({ label: ';' }).label);
+          next.innerHTML = `${second}`;
+        """
+
+        expressions, end = self._extract_assignment_interpolations(source, 0)
+
+        self.assertIn("escapeHtml(first)", expressions)
+        self.assertNotIn("second", expressions)
+        self.assertEqual(end, source.index(");\n") + 2)
 
     def test_fmt_compact_uses_intl_compact_notation(self) -> None:
         """Threshold promotion must be delegated to Intl compact notation."""
