@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Any
 
 
@@ -55,6 +56,30 @@ def _parse_semver(value: str) -> tuple[int, int, int] | None:
     if not match:
         return None
     return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def _is_iso_datetime(value: str) -> bool:
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        datetime.fromisoformat(normalized)
+    except ValueError:
+        return False
+    return True
+
+
+def _validate_iso_datetime_field(
+    value: Any,
+    path: str,
+    errors: list[str],
+    *,
+    required: bool = False,
+) -> None:
+    if value is None or value == "":
+        if required:
+            errors.append(f"{path} is required")
+        return
+    if not isinstance(value, str) or not _is_iso_datetime(value):
+        errors.append(f"{path} must be an ISO-8601 datetime string")
 
 
 def _check_schema_compatibility(portfolio: dict[str, Any], errors: list[str]) -> None:
@@ -124,7 +149,9 @@ def _collect_instrument_attribute_defs(
     if attrs is None:
         return {}
     if not isinstance(attrs, list):
-        errors.append(f"asset_type_catalog[{asset_type_index}].instrument_attributes must be an array")
+        errors.append(
+            f"asset_type_catalog[{asset_type_index}].instrument_attributes must be an array"
+        )
         return {}
 
     defs_by_id: dict[str, dict[str, Any]] = {}
@@ -139,7 +166,9 @@ def _collect_instrument_attribute_defs(
             errors.append(f"{prefix}.id is required")
             continue
         if attr_id in defs_by_id:
-            errors.append(f"Duplicate instrument attribute id '{attr_id}' in asset_type_catalog[{asset_type_index}]")
+            errors.append(
+                f"Duplicate instrument attribute id '{attr_id}' in asset_type_catalog[{asset_type_index}]"
+            )
             continue
 
         label = str(item.get("label", "")).strip()
@@ -167,7 +196,6 @@ def _collect_instrument_attribute_defs(
         defs_by_id[attr_id] = item
 
     return defs_by_id
-
 
 
 ECONOMIC_EXPOSURE_SUM_MIN = 99.5
@@ -212,7 +240,11 @@ def _validate_money(value: Any, path: str, errors: list[str]) -> None:
     currency = value.get("currency")
     if not isinstance(amount, (int, float)) or isinstance(amount, bool):
         errors.append(f"{path}.amount must be numeric")
-    if not isinstance(currency, str) or len(currency) != 3 or currency != currency.upper():
+    if (
+        not isinstance(currency, str)
+        or len(currency) != 3
+        or currency != currency.upper()
+    ):
         errors.append(f"{path}.currency must be ISO-4217 (3 uppercase letters)")
 
 
@@ -266,10 +298,17 @@ def _validate_liabilities(
             )
 
         if "account_id" in liability:
-            _validate_account_id(liability.get("account_id"), f"{prefix}.account_id", errors)
+            _validate_account_id(
+                liability.get("account_id"), f"{prefix}.account_id", errors
+            )
 
         secured_by = liability.get("secured_by_holding_id")
-        if isinstance(secured_by, str) and secured_by and holding_ids and secured_by not in holding_ids:
+        if (
+            isinstance(secured_by, str)
+            and secured_by
+            and holding_ids
+            and secured_by not in holding_ids
+        ):
             errors.append(
                 f"{prefix}.secured_by_holding_id '{secured_by}' not in holdings"
             )
@@ -306,8 +345,9 @@ def _validate_tax_lots(
         elif holding_ids and holding_id not in holding_ids:
             errors.append(f"{prefix}.holding_id '{holding_id}' not in holdings")
 
-        if not lot.get("acquired_at"):
-            errors.append(f"{prefix}.acquired_at is required")
+        _validate_iso_datetime_field(
+            lot.get("acquired_at"), f"{prefix}.acquired_at", errors, required=True
+        )
 
         quantity = lot.get("quantity")
         if not isinstance(quantity, (int, float)) or isinstance(quantity, bool):
@@ -333,11 +373,10 @@ def _validate_tax_lots(
 
         # disposal consistency
         disposed_at = lot.get("disposed_at")
+        _validate_iso_datetime_field(disposed_at, f"{prefix}.disposed_at", errors)
         disposal_activity_id = lot.get("disposal_activity_id")
         if disposal_activity_id and not disposed_at:
-            errors.append(
-                f"{prefix}.disposal_activity_id set without disposed_at"
-            )
+            errors.append(f"{prefix}.disposal_activity_id set without disposed_at")
 
 
 def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
@@ -387,7 +426,9 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
             if not asset_type.get("asset_class"):
                 errors.append(f"asset_type_catalog[{i}].asset_class is required")
             if type_id:
-                catalog_attr_defs[type_id] = _collect_instrument_attribute_defs(asset_type, i, errors)
+                catalog_attr_defs[type_id] = _collect_instrument_attribute_defs(
+                    asset_type, i, errors
+                )
             if "economic_exposure" in asset_type:
                 _validate_economic_exposure(
                     asset_type.get("economic_exposure"),
@@ -427,7 +468,9 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
 
             instrument_attrs = holding.get("instrument_attributes")
             if instrument_attrs is not None and not isinstance(instrument_attrs, dict):
-                errors.append(f"holdings[{i}].instrument_attributes must be an object when provided")
+                errors.append(
+                    f"holdings[{i}].instrument_attributes must be an object when provided"
+                )
             attrs_obj = instrument_attrs if isinstance(instrument_attrs, dict) else {}
             declared_attrs = catalog_attr_defs.get(asset_type_id, {})
             for attr_id, attr_def in declared_attrs.items():
@@ -452,7 +495,11 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                     continue
 
                 enum_values = attr_def.get("enum")
-                if isinstance(enum_values, list) and enum_values and attr_value not in enum_values:
+                if (
+                    isinstance(enum_values, list)
+                    and enum_values
+                    and attr_value not in enum_values
+                ):
                     errors.append(
                         f"holdings[{i}].instrument_attributes.{attr_key} must be one of {enum_values}"
                     )
@@ -466,13 +513,17 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
 
             market_value = holding.get("market_value")
             if not isinstance(market_value, dict):
-                errors.append(f"holdings[{i}].market_value is required and must be an object")
+                errors.append(
+                    f"holdings[{i}].market_value is required and must be an object"
+                )
             else:
                 if not isinstance(market_value.get("amount"), (int, float)):
                     errors.append(f"holdings[{i}].market_value.amount must be numeric")
                 currency = market_value.get("currency")
                 if not isinstance(currency, str) or len(currency) != 3:
-                    errors.append(f"holdings[{i}].market_value.currency must be ISO-4217")
+                    errors.append(
+                        f"holdings[{i}].market_value.currency must be ISO-4217"
+                    )
 
     activities = portfolio.get("activities", [])
     if activities is not None:
@@ -497,7 +548,9 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
 
             task_ids: set[str] = set()
             if not isinstance(tasks, list):
-                errors.append("'operations.task_catalog' must be an array when provided")
+                errors.append(
+                    "'operations.task_catalog' must be an array when provided"
+                )
             else:
                 for i, task in enumerate(tasks):
                     if not isinstance(task, dict):
@@ -505,7 +558,9 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                         continue
                     for k in ("id", "label", "category", "status", "cadence"):
                         if not task.get(k):
-                            errors.append(f"operations.task_catalog[{i}].{k} is required")
+                            errors.append(
+                                f"operations.task_catalog[{i}].{k} is required"
+                            )
 
                     tid = str(task.get("id", "")).strip()
                     if tid:
@@ -516,7 +571,9 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                     cadence = task.get("cadence")
                     if cadence is not None:
                         if not isinstance(cadence, dict):
-                            errors.append(f"operations.task_catalog[{i}].cadence must be an object")
+                            errors.append(
+                                f"operations.task_catalog[{i}].cadence must be an object"
+                            )
                         elif not cadence.get("frequency"):
                             errors.append(
                                 f"operations.task_catalog[{i}].cadence.frequency is required"
@@ -532,7 +589,9 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                         continue
                     for k in ("id", "task_id", "event_type", "occurred_at"):
                         if not event.get(k):
-                            errors.append(f"operations.task_events[{i}].{k} is required")
+                            errors.append(
+                                f"operations.task_events[{i}].{k} is required"
+                            )
 
                     eid = str(event.get("id", "")).strip()
                     if eid:

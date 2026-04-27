@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeGuard
 
 
 @dataclass
@@ -48,7 +48,7 @@ _CASH_EVENT_SIGNS: dict[str, float] = {
 }
 
 
-def _is_numeric(value: Any) -> bool:
+def _is_numeric(value: Any) -> TypeGuard[int | float]:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
@@ -97,11 +97,23 @@ def _lookthrough_bucket(dim: str, line: dict[str, Any], holding: dict[str, Any])
     return UNCLASSIFIED
 
 
+def _distribute_unclassified_lookthrough(
+    breakdowns: dict[str, dict[str, float]],
+    holding: dict[str, Any],
+    amount_base: float,
+) -> None:
+    for dim in _LOOKTHROUGH_DIMENSIONS:
+        bucket = _holding_market_value_currency(holding) if dim == "currency" else None
+        bucket = bucket or UNCLASSIFIED
+        breakdowns[dim][bucket] = breakdowns[dim].get(bucket, 0.0) + amount_base
+
+
 def _distribute_lookthrough(
     breakdowns: dict[str, dict[str, float]],
     exposure: dict[str, Any] | None,
     holding: dict[str, Any],
     amount_base: float,
+    warnings: list[str] | None = None,
 ) -> None:
     """Apportion amount_base across by_region/by_currency/by_duration/by_liquidity_tier buckets.
 
@@ -110,12 +122,7 @@ def _distribute_lookthrough(
     """
 
     if exposure is None or not isinstance(exposure.get("breakdown"), list):
-        for dim in _LOOKTHROUGH_DIMENSIONS:
-            bucket = (
-                _holding_market_value_currency(holding) if dim == "currency" else None
-            )
-            bucket = bucket or UNCLASSIFIED
-            breakdowns[dim][bucket] = breakdowns[dim].get(bucket, 0.0) + amount_base
+        _distribute_unclassified_lookthrough(breakdowns, holding, amount_base)
         return
 
     breakdown = exposure["breakdown"]
@@ -126,6 +133,13 @@ def _distribute_lookthrough(
             if isinstance(weight, (int, float)) and not isinstance(weight, bool):
                 total_weight += float(weight)
     if total_weight <= 0:
+        _distribute_unclassified_lookthrough(breakdowns, holding, amount_base)
+        if warnings is not None:
+            hid = str(holding.get("id", "unknown"))
+            warnings.append(
+                f"Holding '{hid}' has non-positive look-through exposure weight; "
+                "assigned exposure to __unclassified__"
+            )
         return
 
     for dim in _LOOKTHROUGH_DIMENSIONS:
@@ -409,7 +423,12 @@ def _append_quantity_consistency_warnings(
         if not matching_indices:
             continue
 
-        ledger_qty = sum(deltas[i] for i in matching_indices if deltas[i] is not None)
+        ledger_qty = sum(
+            delta
+            for i in matching_indices
+            for delta in (deltas[i],)
+            if delta is not None
+        )
         holding_qty = float(quantity)
         drift = holding_qty - ledger_qty
         if abs(drift) <= tolerance:
@@ -655,7 +674,7 @@ def aggregate_portfolio(
         by_asset_class[asset_class] = by_asset_class.get(asset_class, 0.0) + amount_base
 
         exposure = _resolve_holding_exposure(holding, asset_type_id, catalog_exposures)
-        _distribute_lookthrough(breakdowns, exposure, holding, amount_base)
+        _distribute_lookthrough(breakdowns, exposure, holding, amount_base, warnings)
 
     normalized_holdings = (
         [h for h in holdings if isinstance(h, dict)]

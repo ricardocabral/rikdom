@@ -523,6 +523,27 @@ class LookthroughBreakdownTests(unittest.TestCase):
         self.assertEqual(result.by_duration, {"__unclassified__": 5000.0})
         self.assertEqual(result.by_liquidity_tier, {"__unclassified__": 5000.0})
 
+    def test_non_positive_exposure_weight_falls_back_to_unclassified(self) -> None:
+        portfolio = self._portfolio(
+            holding_overrides={
+                "economic_exposure": {
+                    "breakdown": [{"weight_pct": 0, "region": "US", "currency": "USD"}]
+                }
+            }
+        )
+        result = aggregate_portfolio(portfolio, fx_rates_to_base={"USD": 5.0})
+        self.assertEqual(result.by_currency, {"USD": 5000.0})
+        self.assertEqual(result.by_region, {"__unclassified__": 5000.0})
+        self.assertEqual(result.by_duration, {"__unclassified__": 5000.0})
+        self.assertEqual(result.by_liquidity_tier, {"__unclassified__": 5000.0})
+        self.assertTrue(
+            any(
+                "non-positive look-through exposure weight" in w
+                for w in result.warnings
+            ),
+            result.warnings,
+        )
+
     def test_catalog_exposure_used_when_holding_lacks_one(self) -> None:
         portfolio = {
             "settings": {"base_currency": "BRL"},

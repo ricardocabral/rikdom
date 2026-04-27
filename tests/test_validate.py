@@ -26,7 +26,9 @@ class ValidateTests(unittest.TestCase):
             msg=f"Expected task reference error, got: {errors}",
         )
 
-    def test_operations_event_reference_rejected_with_empty_or_missing_catalog(self) -> None:
+    def test_operations_event_reference_rejected_with_empty_or_missing_catalog(
+        self,
+    ) -> None:
         portfolio = load_json("tests/fixtures/portfolio.json")
 
         for mutate_catalog in ("empty", "missing"):
@@ -53,7 +55,10 @@ class ValidateTests(unittest.TestCase):
 
         errors = validate_portfolio(candidate)
         self.assertTrue(
-            any("last_event_id" in error and "not in operations.task_events" in error for error in errors),
+            any(
+                "last_event_id" in error and "not in operations.task_events" in error
+                for error in errors
+            ),
             msg=f"Expected last_event_id integrity error, got: {errors}",
         )
 
@@ -70,17 +75,22 @@ class ValidateTests(unittest.TestCase):
             msg=f"Expected required instrument attribute error, got: {errors}",
         )
 
-    def test_instrument_attribute_is_rejected_when_asset_type_declares_none(self) -> None:
+    def test_instrument_attribute_is_rejected_when_asset_type_declares_none(
+        self,
+    ) -> None:
         portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
 
-        stock_holding = next(h for h in candidate["holdings"] if h["asset_type_id"] == "stock")
+        stock_holding = next(
+            h for h in candidate["holdings"] if h["asset_type_id"] == "stock"
+        )
         stock_holding["instrument_attributes"] = {"ticker": "PETR4"}
 
         errors = validate_portfolio(candidate)
         self.assertTrue(
             any(
-                "instrument_attributes.ticker not declared for asset_type_id 'stock'" in error
+                "instrument_attributes.ticker not declared for asset_type_id 'stock'"
+                in error
                 for error in errors
             ),
             msg=f"Expected undeclared instrument attribute error, got: {errors}",
@@ -162,7 +172,10 @@ class ValidateTests(unittest.TestCase):
 
         errors = validate_portfolio(candidate)
         self.assertTrue(
-            any("instrument_attributes.semestral_payments must be boolean" in error for error in errors),
+            any(
+                "instrument_attributes.semestral_payments must be boolean" in error
+                for error in errors
+            ),
             msg=f"Expected instrument attribute type error, got: {errors}",
         )
 
@@ -178,11 +191,13 @@ class EconomicExposureValidationTests(unittest.TestCase):
         return candidate
 
     def test_valid_multi_line_breakdown_summing_to_100_is_accepted(self) -> None:
-        candidate = self._portfolio_with_holding_exposure([
-            {"weight_pct": 62, "asset_class": "stocks"},
-            {"weight_pct": 27, "asset_class": "stocks"},
-            {"weight_pct": 11, "asset_class": "stocks"},
-        ])
+        candidate = self._portfolio_with_holding_exposure(
+            [
+                {"weight_pct": 62, "asset_class": "stocks"},
+                {"weight_pct": 27, "asset_class": "stocks"},
+                {"weight_pct": 11, "asset_class": "stocks"},
+            ]
+        )
         errors = validate_portfolio(candidate)
         self.assertFalse(
             any("economic_exposure" in e for e in errors),
@@ -190,10 +205,12 @@ class EconomicExposureValidationTests(unittest.TestCase):
         )
 
     def test_overweight_breakdown_is_rejected(self) -> None:
-        candidate = self._portfolio_with_holding_exposure([
-            {"weight_pct": 60, "asset_class": "stocks"},
-            {"weight_pct": 60, "asset_class": "debt"},
-        ])
+        candidate = self._portfolio_with_holding_exposure(
+            [
+                {"weight_pct": 60, "asset_class": "stocks"},
+                {"weight_pct": 60, "asset_class": "debt"},
+            ]
+        )
         errors = validate_portfolio(candidate)
         self.assertTrue(
             any("must sum to ~100" in e for e in errors),
@@ -201,9 +218,11 @@ class EconomicExposureValidationTests(unittest.TestCase):
         )
 
     def test_underweight_breakdown_is_rejected(self) -> None:
-        candidate = self._portfolio_with_holding_exposure([
-            {"weight_pct": 20, "asset_class": "stocks"},
-        ])
+        candidate = self._portfolio_with_holding_exposure(
+            [
+                {"weight_pct": 20, "asset_class": "stocks"},
+            ]
+        )
         errors = validate_portfolio(candidate)
         self.assertTrue(
             any("must sum to ~100" in e for e in errors),
@@ -211,11 +230,13 @@ class EconomicExposureValidationTests(unittest.TestCase):
         )
 
     def test_tolerance_band_accepts_small_rounding_residual(self) -> None:
-        candidate = self._portfolio_with_holding_exposure([
-            {"weight_pct": 33.3, "asset_class": "stocks"},
-            {"weight_pct": 33.3, "asset_class": "debt"},
-            {"weight_pct": 33.3, "asset_class": "cash_equivalents"},
-        ])
+        candidate = self._portfolio_with_holding_exposure(
+            [
+                {"weight_pct": 33.3, "asset_class": "stocks"},
+                {"weight_pct": 33.3, "asset_class": "debt"},
+                {"weight_pct": 33.3, "asset_class": "cash_equivalents"},
+            ]
+        )
         errors = validate_portfolio(candidate)
         self.assertFalse(
             any("economic_exposure" in e for e in errors),
@@ -305,7 +326,9 @@ class LiabilitiesValidationTests(unittest.TestCase):
             }
         ]
         errors = validate_portfolio(candidate)
-        self.assertTrue(any("liabilities[0].kind 'bogus_kind'" in e for e in errors), errors)
+        self.assertTrue(
+            any("liabilities[0].kind 'bogus_kind'" in e for e in errors), errors
+        )
 
     def test_duplicate_id_is_rejected(self) -> None:
         candidate = self._base()
@@ -322,7 +345,9 @@ class LiabilitiesValidationTests(unittest.TestCase):
             },
         ]
         errors = validate_portfolio(candidate)
-        self.assertTrue(any("Duplicate liability id 'dup'" in e for e in errors), errors)
+        self.assertTrue(
+            any("Duplicate liability id 'dup'" in e for e in errors), errors
+        )
 
     def test_secured_by_holding_must_exist(self) -> None:
         candidate = self._base()
@@ -337,7 +362,8 @@ class LiabilitiesValidationTests(unittest.TestCase):
         errors = validate_portfolio(candidate)
         self.assertTrue(
             any(
-                "liabilities[0].secured_by_holding_id 'no-such-holding' not in holdings" in e
+                "liabilities[0].secured_by_holding_id 'no-such-holding' not in holdings"
+                in e
                 for e in errors
             ),
             errors,
@@ -385,7 +411,64 @@ class TaxLotValidationTests(unittest.TestCase):
         ]
         errors = validate_portfolio(candidate)
         self.assertTrue(
-            any("tax_lots[0].holding_id 'missing' not in holdings" in e for e in errors),
+            any(
+                "tax_lots[0].holding_id 'missing' not in holdings" in e for e in errors
+            ),
+            errors,
+        )
+
+    def test_acquired_at_must_be_iso_datetime_string(self) -> None:
+        candidate, hid = self._base_with_known_holding_id()
+        candidate["tax_lots"] = [
+            {
+                "id": "lot-1",
+                "holding_id": hid,
+                "acquired_at": 123,
+                "quantity": 1,
+                "cost_basis": {"amount": 1, "currency": "BRL"},
+            },
+            {
+                "id": "lot-2",
+                "holding_id": hid,
+                "acquired_at": "not-a-date",
+                "quantity": 1,
+                "cost_basis": {"amount": 1, "currency": "BRL"},
+            },
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any(
+                "tax_lots[0].acquired_at must be an ISO-8601 datetime string" in e
+                for e in errors
+            ),
+            errors,
+        )
+        self.assertTrue(
+            any(
+                "tax_lots[1].acquired_at must be an ISO-8601 datetime string" in e
+                for e in errors
+            ),
+            errors,
+        )
+
+    def test_disposed_at_must_be_iso_datetime_string_when_provided(self) -> None:
+        candidate, hid = self._base_with_known_holding_id()
+        candidate["tax_lots"] = [
+            {
+                "id": "lot-1",
+                "holding_id": hid,
+                "acquired_at": "2024-01-15T00:00:00Z",
+                "disposed_at": "not-a-date",
+                "quantity": 1,
+                "cost_basis": {"amount": 1, "currency": "BRL"},
+            }
+        ]
+        errors = validate_portfolio(candidate)
+        self.assertTrue(
+            any(
+                "tax_lots[0].disposed_at must be an ISO-8601 datetime string" in e
+                for e in errors
+            ),
             errors,
         )
 
@@ -402,7 +485,9 @@ class TaxLotValidationTests(unittest.TestCase):
             }
         ]
         errors = validate_portfolio(candidate)
-        self.assertTrue(any("tax_lots[0].acquisition_kind 'magic'" in e for e in errors), errors)
+        self.assertTrue(
+            any("tax_lots[0].acquisition_kind 'magic'" in e for e in errors), errors
+        )
 
     def test_disposal_activity_requires_disposed_at(self) -> None:
         candidate, hid = self._base_with_known_holding_id()
