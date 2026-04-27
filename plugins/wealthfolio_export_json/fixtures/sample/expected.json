@@ -1,0 +1,120 @@
+{
+  "activities": [
+    {
+      "effective_at": "2026-03-01T15:30:00Z",
+      "event_type": "buy",
+      "fees": {
+        "amount": 1.5,
+        "currency": "USD"
+      },
+      "id": "wealthfolio-wf-act-buy-1",
+      "instrument": {
+        "isin": "US0378331005",
+        "name": "Apple Inc.",
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "raw_activity_type": "buy"
+      },
+      "money": {
+        "amount": -1702.5,
+        "currency": "USD"
+      },
+      "quantity": 10.0,
+      "source_ref": "account-main",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-03-20T00:00:00Z",
+      "event_type": "dividend",
+      "id": "wealthfolio-wf-act-div-1",
+      "instrument": {
+        "isin": "US0378331005",
+        "name": "Apple Inc.",
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "raw_activity_type": "dividend"
+      },
+      "money": {
+        "amount": 12.4,
+        "currency": "USD"
+      },
+      "source_ref": "account-main",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-03-05T00:00:00Z",
+      "event_type": "transfer_in",
+      "id": "wealthfolio-wf-act-deposit-1",
+      "metadata": {
+        "raw_activity_type": "deposit"
+      },
+      "money": {
+        "amount": 5000.0,
+        "currency": "USD"
+      },
+      "source_ref": "account-main",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-03-21T00:00:00Z",
+      "event_type": "other",
+      "id": "wealthfolio-wf-act-tax-1",
+      "instrument": {
+        "isin": "US0378331005",
+        "name": "Apple Inc.",
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "raw_activity_type": "tax"
+      },
+      "money": {
+        "amount": -2.1,
+        "currency": "USD"
+      },
+      "source_ref": "account-main",
+      "status": "posted",
+      "subtype": "wealthfolio:tax"
+    },
+    {
+      "effective_at": "2026-04-01T00:00:00Z",
+      "event_type": "buy",
+      "id": "wealthfolio-wf-act-draft-1",
+      "instrument": {
+        "name": "Vanguard Total Stock Market ETF",
+        "ticker": "VTI"
+      },
+      "metadata": {
+        "raw_activity_type": "buy"
+      },
+      "money": {
+        "amount": -1000.0,
+        "currency": "USD"
+      },
+      "quantity": 5.0,
+      "source_ref": "account-main",
+      "status": "pending"
+    }
+  ],
+  "holdings": [
+    {
+      "asset_type_id": "stock",
+      "id": "wealthfolio-wf-hold-aapl",
+      "identifiers": {
+        "isin": "US0378331005",
+        "ticker": "AAPL"
+      },
+      "label": "Apple Inc.",
+      "market_value": {
+        "amount": 1750.0,
+        "currency": "USD"
+      },
+      "provenance": {
+        "source_ref": "account-main"
+      },
+      "quantity": 10.0
+    }
+  ],
+  "provider": "wealthfolio_export_json"
+}

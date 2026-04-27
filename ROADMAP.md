@@ -52,10 +52,10 @@ Sequencing override:
 
 ### Acceptance criteria
 
-- [ ] Ship first-party `portfolio_performance_csv` importer with locale/date/number parsing tests.
-- [ ] Ship first-party `wealthfolio_export_json` importer with enum mapping and fallback tests.
-- [ ] Ship `wealthfolio_activity_csv` fallback importer path with fixtures.
-- [ ] Add IBKR cancellation/corporate-action edge-case tests.
+- [x] Ship first-party `portfolio_performance_csv` importer with locale/date/number parsing tests.
+- [x] Ship first-party `wealthfolio_export_json` importer with enum mapping and fallback tests.
+- [x] Ship `wealthfolio_activity_csv` fallback importer path with fixtures.
+- [x] Add IBKR cancellation/corporate-action edge-case tests.
 
 ---
 

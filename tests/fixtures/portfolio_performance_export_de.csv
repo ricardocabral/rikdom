@@ -1,0 +1,5 @@
+Datum;Uhrzeit;Typ;Wert;Buchungswährung;Bruttobetrag;Währung Bruttobetrag;Wechselkurs;Gebühren;Währung Gebühren;Steuern;Währung Steuern;Stück;ISIN;WKN;Ticker-Symbol;Wertpapiername;Notiz
+20.04.2026;10:30:00;Kauf;-1.512,75;EUR;1.500,00;EUR;1,0000;9,75;EUR;3,00;EUR;10;US0378331005;865985;AAPL;Apple Inc.;pp-de-buy-1
+22.04.2026;;Dividende;7,80;EUR;10,00;EUR;1,0000;0,00;EUR;2,20;EUR;;US0378331005;865985;AAPL;Apple Inc.;pp-de-div-1
+01.04.2026;;Einlage;5.000,00;EUR;5.000,00;EUR;1,0000;;;;;;;;;;Sparrate April
+15.04.2026;;Steuern;-12,50;EUR;12,50;EUR;1,0000;;;;;;;;;;Steuerausgleich

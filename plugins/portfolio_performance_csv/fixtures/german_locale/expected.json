@@ -1,0 +1,87 @@
+{
+  "activities": [
+    {
+      "effective_at": "2026-04-20T10:30:00Z",
+      "event_type": "buy",
+      "fees": {
+        "amount": 9.75,
+        "currency": "EUR"
+      },
+      "id": "pp-de-buy-1",
+      "instrument": {
+        "isin": "US0378331005",
+        "name": "Apple Inc.",
+        "ticker": "AAPL",
+        "wkn": "865985"
+      },
+      "metadata": {
+        "raw_type": "Kauf",
+        "taxes": {
+          "amount": 3.0,
+          "currency": "EUR"
+        }
+      },
+      "money": {
+        "amount": -1512.75,
+        "currency": "EUR"
+      },
+      "quantity": 10.0,
+      "source_ref": "portfolio_performance_csv#pp-de-buy-1",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-22T00:00:00Z",
+      "event_type": "dividend",
+      "id": "pp-de-div-1",
+      "instrument": {
+        "isin": "US0378331005",
+        "name": "Apple Inc.",
+        "ticker": "AAPL",
+        "wkn": "865985"
+      },
+      "metadata": {
+        "raw_type": "Dividende",
+        "taxes": {
+          "amount": 2.2,
+          "currency": "EUR"
+        }
+      },
+      "money": {
+        "amount": 7.8,
+        "currency": "EUR"
+      },
+      "source_ref": "portfolio_performance_csv#pp-de-div-1",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-01T00:00:00Z",
+      "event_type": "transfer_in",
+      "id": "pp-Sparrate April",
+      "metadata": {
+        "raw_type": "Einlage"
+      },
+      "money": {
+        "amount": 5000.0,
+        "currency": "EUR"
+      },
+      "source_ref": "portfolio_performance_csv#Sparrate April",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-15T00:00:00Z",
+      "event_type": "other",
+      "id": "pp-Steuerausgleich",
+      "metadata": {
+        "raw_type": "Steuern"
+      },
+      "money": {
+        "amount": -12.5,
+        "currency": "EUR"
+      },
+      "source_ref": "portfolio_performance_csv#Steuerausgleich",
+      "status": "posted",
+      "subtype": "pp:steuern"
+    }
+  ],
+  "provider": "portfolio_performance_csv"
+}

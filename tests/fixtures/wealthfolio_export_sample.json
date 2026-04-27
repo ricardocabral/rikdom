@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-04-21T08:00:00Z",
+  "assets": [
+    {
+      "id": "asset-aapl",
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "asset_type": "EQUITY",
+      "currency": "USD",
+      "isin": "US0378331005"
+    },
+    {
+      "id": "asset-vti",
+      "symbol": "VTI",
+      "name": "Vanguard Total Stock Market ETF",
+      "asset_type": "ETF",
+      "currency": "USD"
+    }
+  ],
+  "activities": [
+    {
+      "id": "wf-act-buy-1",
+      "account_id": "account-main",
+      "asset_id": "asset-aapl",
+      "activity_type": "BUY",
+      "activity_date": "2026-03-01T15:30:00Z",
+      "quantity": 10,
+      "unit_price": 170.25,
+      "currency": "USD",
+      "fee": 1.5,
+      "is_draft": false
+    },
+    {
+      "id": "wf-act-div-1",
+      "account_id": "account-main",
+      "asset_id": "asset-aapl",
+      "activity_type": "dividend",
+      "activity_date": "2026-03-20",
+      "amount": 12.4,
+      "currency": "USD"
+    },
+    {
+      "id": "wf-act-deposit-1",
+      "account_id": "account-main",
+      "activity_type": "DEPOSIT",
+      "activity_date": "2026-03-05",
+      "amount": 5000,
+      "currency": "USD"
+    },
+    {
+      "id": "wf-act-tax-1",
+      "account_id": "account-main",
+      "asset_id": "asset-aapl",
+      "activity_type": "TAX",
+      "activity_date": "2026-03-21",
+      "amount": -2.1,
+      "currency": "USD"
+    },
+    {
+      "id": "wf-act-draft-1",
+      "account_id": "account-main",
+      "asset_id": "asset-vti",
+      "activity_type": "BUY",
+      "activity_date": "2026-04-01",
+      "quantity": 5,
+      "unit_price": 200,
+      "is_draft": true
+    }
+  ],
+  "holdings": [
+    {
+      "id": "wf-hold-aapl",
+      "account_id": "account-main",
+      "asset_id": "asset-aapl",
+      "quantity": 10,
+      "market_value": 1750.0,
+      "currency": "USD"
+    }
+  ]
+}

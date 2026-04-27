@@ -1,0 +1,6 @@
+id,date,symbol,activity_type,quantity,unit_price,amount,currency,fee,account_id,comment,is_draft
+wf-csv-buy-1,2026-04-10T15:30:00Z,AAPL,BUY,10,170.50,,USD,1.50,account-main,initial buy,false
+wf-csv-div-1,2026-04-15,AAPL,DIVIDEND,,,12.40,USD,,account-main,quarterly,false
+wf-csv-dep-1,2026-04-01,,DEPOSIT,,,5000,USD,,account-main,paycheck,false
+wf-csv-tax-1,2026-04-16,AAPL,TAX,,,-2.10,USD,,account-main,withholding,false
+wf-csv-draft-1,2026-04-20,VTI,BUY,5,200,,USD,,account-main,planned,true

@@ -1,0 +1,9 @@
+{
+  "name": "wealthfolio_activity_csv",
+  "version": "0.1.0",
+  "api_version": "1.0",
+  "plugin_types": ["source/input"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Fallback Wealthfolio importer that reads the activity CSV format"
+}

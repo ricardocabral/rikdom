@@ -102,6 +102,43 @@ class IbkrFlexXmlPluginTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, r"event_type='other'.*cannot infer cashflow sign"):
                 ibkr_importer.parse_statement(path)
 
+    def test_plugin_filters_cancellations_and_maps_corporate_actions(self) -> None:
+        payload = run_import_pipeline(
+            plugin_name="ibkr_flex_xml",
+            plugins_dir="plugins",
+            input_path="tests/fixtures/ibkr_flex_statement_corporate_actions.xml",
+        )
+
+        ids = {a["id"] for a in payload["activities"]}
+        self.assertNotIn("ibkr-trade-tx-cancel-flag-1", ids)
+        self.assertNotIn("ibkr-trade-tx-cancel-code-1", ids)
+        self.assertNotIn("ibkr-ca-ca-cancelled-1", ids)
+        self.assertIn("ibkr-trade-tx-buy-real", ids)
+
+        split = next(a for a in payload["activities"] if a["id"] == "ibkr-ca-ca-split-1")
+        self.assertEqual(split["event_type"], "split")
+        self.assertEqual(split["quantity"], 9.0)
+        self.assertEqual(split["instrument"]["ticker"], "AAPL")
+        self.assertEqual(split["metadata"]["corporate_action_type"], "FS")
+        self.assertNotIn("money", split)
+
+        merger = next(a for a in payload["activities"] if a["id"] == "ibkr-ca-ca-merger-1")
+        self.assertEqual(merger["event_type"], "other")
+        self.assertEqual(merger["subtype"], "ibkr_corporate_action:tc")
+        self.assertEqual(merger["money"], {"amount": 2500.0, "currency": "USD"})
+        self.assertEqual(merger["quantity"], 50.0)
+        self.assertEqual(merger["instrument"]["ticker"], "XYZ")
+
+    def test_plugin_idempotent_for_repeated_cancellations(self) -> None:
+        payload = run_import_pipeline(
+            plugin_name="ibkr_flex_xml",
+            plugins_dir="plugins",
+            input_path="tests/fixtures/ibkr_flex_statement_corporate_actions.xml",
+        )
+        ids = [a["id"] for a in payload["activities"]]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertNotIn("ibkr-trade-tx-cancel-flag-1", ids)
+
     def test_plugin_raises_for_unparseable_trade_date(self) -> None:
         with self.assertRaisesRegex(
             ValueError,

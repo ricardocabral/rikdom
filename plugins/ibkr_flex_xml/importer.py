@@ -180,11 +180,89 @@ def _is_cancel_like_trade(row: dict[str, str]) -> bool:
         if value in {"1", "true", "yes", "y"}:
             return True
 
-    for field in ("notes", "description", "transactionType", "buySell", "code"):
+    for field in ("notes", "description", "transactionType", "buySell", "code", "openCloseIndicator"):
         if "cancel" in as_text(row.get(field)).lower():
             return True
 
     return False
+
+
+_CORPORATE_ACTION_SPLIT_TYPES = {"FS", "RS", "SPLIT"}
+
+
+def _corporate_action_id(row: dict[str, str]) -> str:
+    for key in ("transactionID", "actionID", "actionId", "id"):
+        value = as_text(row.get(key))
+        if value:
+            return value
+    return _stable_id("ibkr-ca", row)
+
+
+def _corporate_action_activity(row: dict[str, str], account_id: str) -> dict[str, Any] | None:
+    if _is_cancel_like_trade(row):
+        return None
+
+    ca_ref = _corporate_action_id(row)
+    raw_type = as_text(row.get("type")).upper()
+    description = as_text(row.get("description"))
+    effective_at = _resolve_effective_at(row, kind="corporate action", row_id=ca_ref)
+
+    quantity = parse_decimal(row.get("quantity"))
+    proceeds = parse_decimal(row.get("proceeds") or row.get("value") or row.get("amount"))
+    currency = normalize_currency(row.get("currency"))
+
+    is_split = raw_type in _CORPORATE_ACTION_SPLIT_TYPES or "split" in description.lower()
+
+    if is_split:
+        if quantity is None:
+            raise ValueError(
+                f"IBKR corporate action '{ca_ref}' is a split but has no quantity"
+            )
+        activity: dict[str, Any] = {
+            "id": f"ibkr-ca-{ca_ref}",
+            "event_type": "split",
+            "effective_at": effective_at,
+            "status": "posted",
+            "quantity": abs(quantity),
+            "source_ref": f"ibkr:{account_id}#corporate-action:{ca_ref}",
+            "metadata": {
+                "ibkr_row_type": "CorporateAction",
+                "corporate_action_type": raw_type,
+                "description": description,
+            },
+        }
+        symbol = as_text(row.get("symbol"))
+        if symbol:
+            activity["instrument"] = {"ticker": symbol}
+        return activity
+
+    if proceeds is None or proceeds == 0:
+        return None
+    if not currency:
+        raise ValueError(
+            f"IBKR corporate action '{ca_ref}' has cash proceeds but no currency"
+        )
+
+    activity = {
+        "id": f"ibkr-ca-{ca_ref}",
+        "event_type": "other",
+        "subtype": f"ibkr_corporate_action:{(raw_type or 'unknown').lower()}",
+        "effective_at": effective_at,
+        "status": "posted",
+        "money": {"amount": proceeds, "currency": currency},
+        "source_ref": f"ibkr:{account_id}#corporate-action:{ca_ref}",
+        "metadata": {
+            "ibkr_row_type": "CorporateAction",
+            "corporate_action_type": raw_type,
+            "description": description,
+        },
+    }
+    if quantity is not None:
+        activity["quantity"] = abs(quantity)
+    symbol = as_text(row.get("symbol"))
+    if symbol:
+        activity["instrument"] = {"ticker": symbol}
+    return activity
 
 
 def _trade_id(row: dict[str, str]) -> str:
@@ -330,6 +408,17 @@ def parse_statement(path: Path) -> dict[str, Any]:
     for cash_row in _iter_elements(root, "CashTransaction"):
         row = {k: v for k, v in cash_row.attrib.items()}
         activity = _cash_activity(row, account_id)
+        aid = activity["id"]
+        if aid in seen_ids:
+            continue
+        seen_ids.add(aid)
+        activities.append(activity)
+
+    for ca_row in _iter_elements(root, "CorporateAction"):
+        row = {k: v for k, v in ca_row.attrib.items()}
+        activity = _corporate_action_activity(row, account_id)
+        if activity is None:
+            continue
         aid = activity["id"]
         if aid in seen_ids:
             continue

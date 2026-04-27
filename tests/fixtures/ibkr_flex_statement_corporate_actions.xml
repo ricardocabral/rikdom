@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexQueryResponse queryName="ActivityStatement" type="AF">
+  <FlexStatements count="1">
+    <FlexStatement accountId="U7654321" whenGenerated="20260421;143000">
+      <Trades>
+        <Trade
+          transactionID="tx-cancel-flag-1"
+          symbol="TSLA"
+          buySell="BUY"
+          quantity="2"
+          tradePrice="500"
+          proceeds="-1000"
+          ibCommission="-1.00"
+          currency="USD"
+          dateTime="20260420;120000"
+          isCancel="Y"
+        />
+        <Trade
+          transactionID="tx-cancel-code-1"
+          symbol="TSLA"
+          buySell="SELL"
+          quantity="2"
+          tradePrice="510"
+          proceeds="1020"
+          currency="USD"
+          dateTime="20260420;130000"
+          code="CANCEL"
+        />
+        <Trade
+          transactionID="tx-buy-real"
+          symbol="AAPL"
+          buySell="BUY"
+          quantity="3"
+          tradePrice="170.00"
+          proceeds="-510.00"
+          ibCommission="-0.50"
+          currency="USD"
+          dateTime="20260420;140000"
+        />
+      </Trades>
+      <CorporateActions>
+        <CorporateAction
+          transactionID="ca-split-1"
+          symbol="AAPL"
+          type="FS"
+          description="AAPL 4-for-1 forward split"
+          quantity="9"
+          proceeds="0"
+          currency="USD"
+          dateTime="20260421;090000"
+        />
+        <CorporateAction
+          transactionID="ca-merger-1"
+          symbol="XYZ"
+          type="TC"
+          description="Cash merger consideration"
+          quantity="-50"
+          proceeds="2500.00"
+          currency="USD"
+          dateTime="20260421;100000"
+        />
+        <CorporateAction
+          transactionID="ca-cancelled-1"
+          symbol="ABC"
+          type="FS"
+          description="Cancelled split announcement"
+          quantity="10"
+          proceeds="0"
+          currency="USD"
+          dateTime="20260421;110000"
+          isCancel="Y"
+        />
+      </CorporateActions>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

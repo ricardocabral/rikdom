@@ -1,0 +1,99 @@
+{
+  "activities": [
+    {
+      "effective_at": "2026-04-10T15:30:00Z",
+      "event_type": "buy",
+      "fees": {
+        "amount": 1.5,
+        "currency": "USD"
+      },
+      "id": "wealthfolio-csv-wf-csv-buy-1",
+      "instrument": {
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "comment": "initial buy",
+        "raw_activity_type": "buy"
+      },
+      "money": {
+        "amount": -1705.0,
+        "currency": "USD"
+      },
+      "quantity": 10.0,
+      "source_ref": "account-main",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-15T00:00:00Z",
+      "event_type": "dividend",
+      "id": "wealthfolio-csv-wf-csv-div-1",
+      "instrument": {
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "comment": "quarterly",
+        "raw_activity_type": "dividend"
+      },
+      "money": {
+        "amount": 12.4,
+        "currency": "USD"
+      },
+      "source_ref": "account-main",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-01T00:00:00Z",
+      "event_type": "transfer_in",
+      "id": "wealthfolio-csv-wf-csv-dep-1",
+      "metadata": {
+        "comment": "paycheck",
+        "raw_activity_type": "deposit"
+      },
+      "money": {
+        "amount": 5000.0,
+        "currency": "USD"
+      },
+      "source_ref": "account-main",
+      "status": "posted"
+    },
+    {
+      "effective_at": "2026-04-16T00:00:00Z",
+      "event_type": "other",
+      "id": "wealthfolio-csv-wf-csv-tax-1",
+      "instrument": {
+        "ticker": "AAPL"
+      },
+      "metadata": {
+        "comment": "withholding",
+        "raw_activity_type": "tax"
+      },
+      "money": {
+        "amount": -2.1,
+        "currency": "USD"
+      },
+      "source_ref": "account-main",
+      "status": "posted",
+      "subtype": "wealthfolio:tax"
+    },
+    {
+      "effective_at": "2026-04-20T00:00:00Z",
+      "event_type": "buy",
+      "id": "wealthfolio-csv-wf-csv-draft-1",
+      "instrument": {
+        "ticker": "VTI"
+      },
+      "metadata": {
+        "comment": "planned",
+        "raw_activity_type": "buy"
+      },
+      "money": {
+        "amount": -1000.0,
+        "currency": "USD"
+      },
+      "quantity": 5.0,
+      "source_ref": "account-main",
+      "status": "pending"
+    }
+  ],
+  "provider": "wealthfolio_activity_csv"
+}
