@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, TypeGuard
 
+from rikdom.reconciliation import Finding, record_finding
+
 
 @dataclass
 class AggregateResult:
@@ -16,6 +18,7 @@ class AggregateResult:
     by_currency: dict[str, float] = field(default_factory=dict)
     by_duration: dict[str, float] = field(default_factory=dict)
     by_liquidity_tier: dict[str, float] = field(default_factory=dict)
+    findings: list[Finding] = field(default_factory=list)
 
 
 UNCLASSIFIED = "__unclassified__"
@@ -114,6 +117,7 @@ def _distribute_lookthrough(
     holding: dict[str, Any],
     amount_base: float,
     warnings: list[str] | None = None,
+    findings: list[Finding] | None = None,
 ) -> None:
     """Apportion amount_base across by_region/by_currency/by_duration/by_liquidity_tier buckets.
 
@@ -136,9 +140,20 @@ def _distribute_lookthrough(
         _distribute_unclassified_lookthrough(breakdowns, holding, amount_base)
         if warnings is not None:
             hid = str(holding.get("id", "unknown"))
-            warnings.append(
+            message = (
                 f"Holding '{hid}' has non-positive look-through exposure weight; "
                 "assigned exposure to __unclassified__"
+            )
+            warnings.append(message)
+            record_finding(
+                findings,
+                "RECON_LOOKTHROUGH_NON_POSITIVE_WEIGHT",
+                message,
+                scope="holding",
+                refs={"holding_id": hid},
+                suggested_fix=(
+                    "Set economic_exposure.breakdown weight_pct values that sum to a positive total."
+                ),
             )
         return
 
@@ -191,6 +206,8 @@ def _resolve_to_base_amount(
     errors: list[str],
     strict: bool,
     context: str,
+    findings: list[Finding] | None = None,
+    refs: dict[str, str] | None = None,
 ) -> float | None:
     currency_code = currency.strip().upper()
     if currency_code == base_currency:
@@ -204,8 +221,19 @@ def _resolve_to_base_amount(
         metadata.get("fx_rate_to_base") if isinstance(metadata, dict) else None
     )
     if _is_numeric(metadata_fx) and float(metadata_fx) > 0:
-        warnings.append(
-            f"{context} used compatibility fallback metadata.fx_rate_to_base"
+        message = f"{context} used compatibility fallback metadata.fx_rate_to_base"
+        warnings.append(message)
+        record_finding(
+            findings,
+            "TRUST_FX_FALLBACK_USED",
+            message,
+            scope=context,
+            refs=refs or {},
+            observed={"currency": currency_code, "fx_rate": float(metadata_fx)},
+            suggested_fix=(
+                f"Provide fx_rates_to_base['{currency_code}'] from authoritative FX history "
+                "instead of relying on metadata.fx_rate_to_base."
+            ),
         )
         return amount * float(metadata_fx)
 
@@ -217,6 +245,18 @@ def _resolve_to_base_amount(
         errors.append(message)
     else:
         warnings.append(message)
+    record_finding(
+        findings,
+        "RECON_FX_MISSING",
+        message,
+        scope=context,
+        refs=refs or {},
+        observed={"currency": currency_code},
+        suggested_fix=(
+            f"Add an FX rate for '{currency_code}' -> '{base_currency}' to fx_rates_to_base, "
+            "or set metadata.fx_rate_to_base on the affected record."
+        ),
+    )
     return None
 
 
@@ -226,11 +266,22 @@ def _report_invalid_money(
     warnings: list[str],
     errors: list[str],
     strict: bool,
+    findings: list[Finding] | None = None,
+    scope: str = "",
+    refs: dict[str, str] | None = None,
 ) -> None:
     if strict:
         errors.append(message)
     else:
         warnings.append(message)
+    record_finding(
+        findings,
+        "RECON_INVALID_MONEY",
+        message,
+        scope=scope,
+        refs=refs or {},
+        suggested_fix="Ensure money objects are {amount: number, currency: ISO-4217 code}.",
+    )
 
 
 def _to_base_amount(
@@ -242,7 +293,9 @@ def _to_base_amount(
     errors: list[str],
     strict: bool,
     context: str,
+    findings: list[Finding] | None = None,
 ) -> float | None:
+    refs = {"holding_id": str(holding.get("id", "unknown"))}
     market_value = holding.get("market_value")
     if market_value is None:
         return None
@@ -252,6 +305,9 @@ def _to_base_amount(
             warnings=warnings,
             errors=errors,
             strict=strict,
+            findings=findings,
+            scope=context,
+            refs=refs,
         )
         return None
 
@@ -263,6 +319,9 @@ def _to_base_amount(
             warnings=warnings,
             errors=errors,
             strict=strict,
+            findings=findings,
+            scope=context,
+            refs=refs,
         )
         return None
 
@@ -276,6 +335,8 @@ def _to_base_amount(
         errors=errors,
         strict=strict,
         context=context,
+        findings=findings,
+        refs=refs,
     )
 
 
@@ -374,6 +435,7 @@ def _append_quantity_consistency_warnings(
     warnings: list[str],
     *,
     tolerance: float,
+    findings: list[Finding] | None = None,
 ) -> None:
     deltas, key_index, activity_identifier_fields = _build_quantity_ledger_index(
         activities
@@ -435,9 +497,23 @@ def _append_quantity_consistency_warnings(
             continue
 
         hid = str(holding.get("id", "unknown"))
-        warnings.append(
+        message = (
             f"Quantity drift for holding '{hid}': "
             f"holding={holding_qty:.6f}, ledger={ledger_qty:.6f}, drift={drift:+.6f}"
+        )
+        warnings.append(message)
+        record_finding(
+            findings,
+            "RECON_QTY_LEDGER_MISMATCH",
+            message,
+            scope="holding",
+            refs={"holding_id": hid},
+            observed={"holding_quantity": holding_qty, "ledger_quantity": ledger_qty},
+            expected={"drift_within": tolerance},
+            suggested_fix=(
+                "Reconcile activity ledger entries against the declared holding quantity: "
+                "fix missing buy/sell/transfer/split events or correct the holding quantity."
+            ),
         )
 
 
@@ -450,6 +526,7 @@ def _to_base_activity_money_delta(
     errors: list[str],
     strict: bool,
     context: str,
+    findings: list[Finding] | None = None,
 ) -> float | None:
     if not _is_posted_activity(activity):
         return None
@@ -458,6 +535,8 @@ def _to_base_activity_money_delta(
     sign = _CASH_EVENT_SIGNS.get(event_type)
     if sign is None:
         return None
+
+    refs = {"activity_id": str(activity.get("id", "unknown"))}
 
     money = activity.get("money")
     if money is None:
@@ -468,6 +547,9 @@ def _to_base_activity_money_delta(
             warnings=warnings,
             errors=errors,
             strict=strict,
+            findings=findings,
+            scope=context,
+            refs=refs,
         )
         return None
 
@@ -479,6 +561,9 @@ def _to_base_activity_money_delta(
             warnings=warnings,
             errors=errors,
             strict=strict,
+            findings=findings,
+            scope=context,
+            refs=refs,
         )
         return None
 
@@ -492,6 +577,8 @@ def _to_base_activity_money_delta(
         errors=errors,
         strict=strict,
         context=context,
+        findings=findings,
+        refs=refs,
     )
     if money_base is None:
         return None
@@ -506,6 +593,9 @@ def _to_base_activity_money_delta(
                 warnings=warnings,
                 errors=errors,
                 strict=strict,
+                findings=findings,
+                scope=context,
+                refs=refs,
             )
         else:
             fee_amount = fees.get("amount")
@@ -520,6 +610,9 @@ def _to_base_activity_money_delta(
                     warnings=warnings,
                     errors=errors,
                     strict=strict,
+                    findings=findings,
+                    scope=context,
+                    refs=refs,
                 )
             else:
                 fee_base = _resolve_to_base_amount(
@@ -532,6 +625,8 @@ def _to_base_activity_money_delta(
                     errors=errors,
                     strict=strict,
                     context=f"{context} fees",
+                    findings=findings,
+                    refs=refs,
                 )
                 if fee_base is not None:
                     delta -= fee_base
@@ -550,6 +645,7 @@ def _append_cash_drift_warnings(
     errors: list[str],
     strict: bool,
     tolerance_base: float,
+    findings: list[Finding] | None = None,
 ) -> None:
     cash_asset_type_ids = {
         type_id
@@ -575,6 +671,7 @@ def _append_cash_drift_warnings(
             errors=errors,
             strict=strict,
             context=f"Cash holding '{hid}'",
+            findings=findings,
         )
         if amount_base is None:
             continue
@@ -598,6 +695,7 @@ def _append_cash_drift_warnings(
             errors=errors,
             strict=strict,
             context=f"Cash activity '{aid}'",
+            findings=findings,
         )
         if delta is None:
             continue
@@ -612,9 +710,27 @@ def _append_cash_drift_warnings(
     if abs(drift) <= tolerance_base:
         return
 
-    warnings.append(
+    message = (
         f"Cash drift detected: holdings={holdings_cash_base:.2f} {base_currency}, "
         f"activity_ledger={ledger_cash_base:.2f} {base_currency}, drift={drift:+.2f} {base_currency}"
+    )
+    warnings.append(message)
+    record_finding(
+        findings,
+        "RECON_CASH_DRIFT",
+        message,
+        scope="portfolio",
+        observed={
+            "holdings_cash_base": round(holdings_cash_base, 2),
+            "ledger_cash_base": round(ledger_cash_base, 2),
+            "drift_base": round(drift, 2),
+            "base_currency": base_currency,
+        },
+        expected={"drift_within_base": tolerance_base},
+        suggested_fix=(
+            "Verify cash holdings balances against the activity ledger; add missing "
+            "deposit/withdrawal/dividend events or correct the cash holding amount."
+        ),
     )
 
 
@@ -650,10 +766,19 @@ def aggregate_portfolio(
     }
     warnings: list[str] = []
     errors: list[str] = []
+    findings: list[Finding] = []
 
     for holding in holdings if isinstance(holdings, list) else []:
         if not isinstance(holding, dict):
-            warnings.append("Skipped malformed holding entry")
+            message = "Skipped malformed holding entry"
+            warnings.append(message)
+            record_finding(
+                findings,
+                "RECON_MALFORMED_HOLDING",
+                message,
+                scope="portfolio",
+                suggested_fix="Ensure each holding entry is a JSON object with the expected fields.",
+            )
             continue
 
         hid = str(holding.get("id", "unknown"))
@@ -665,6 +790,7 @@ def aggregate_portfolio(
             errors=errors,
             strict=strict,
             context=f"Holding '{hid}'",
+            findings=findings,
         )
         if amount_base is None:
             continue
@@ -674,7 +800,9 @@ def aggregate_portfolio(
         by_asset_class[asset_class] = by_asset_class.get(asset_class, 0.0) + amount_base
 
         exposure = _resolve_holding_exposure(holding, asset_type_id, catalog_exposures)
-        _distribute_lookthrough(breakdowns, exposure, holding, amount_base, warnings)
+        _distribute_lookthrough(
+            breakdowns, exposure, holding, amount_base, warnings, findings=findings
+        )
 
     normalized_holdings = (
         [h for h in holdings if isinstance(h, dict)]
@@ -692,6 +820,7 @@ def aggregate_portfolio(
         normalized_activities,
         warnings,
         tolerance=quantity_tolerance,
+        findings=findings,
     )
     _append_cash_drift_warnings(
         class_index,
@@ -703,6 +832,7 @@ def aggregate_portfolio(
         errors=errors,
         strict=strict,
         tolerance_base=cash_drift_tolerance_base,
+        findings=findings,
     )
 
     total_value = sum(by_asset_class.values())
@@ -718,4 +848,5 @@ def aggregate_portfolio(
         by_liquidity_tier={
             k: round(v, 2) for k, v in sorted(breakdowns["liquidity_tier"].items())
         },
+        findings=findings,
     )

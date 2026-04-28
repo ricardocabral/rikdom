@@ -16,13 +16,19 @@ class PortfolioPerformanceCsvPluginTests(unittest.TestCase):
         )
 
         self.assertEqual(payload["provider"], "portfolio_performance_csv")
-        ids = {a["id"] for a in payload["activities"]}
+        notes = {a["metadata"]["note"] for a in payload["activities"]}
         self.assertEqual(
-            ids,
-            {"pp-de-buy-1", "pp-de-div-1", "pp-Sparrate April", "pp-Steuerausgleich"},
+            notes,
+            {"pp-de-buy-1", "pp-de-div-1", "Sparrate April", "Steuerausgleich"},
         )
+        for activity in payload["activities"]:
+            self.assertTrue(activity["id"].startswith("pp-"))
+            self.assertEqual(activity["source_ref"], f"portfolio_performance_csv#{activity['id']}")
 
-        buy = next(a for a in payload["activities"] if a["id"] == "pp-de-buy-1")
+        def by_note(note: str) -> dict:
+            return next(a for a in payload["activities"] if a["metadata"].get("note") == note)
+
+        buy = by_note("pp-de-buy-1")
         self.assertEqual(buy["event_type"], "buy")
         self.assertEqual(buy["effective_at"], "2026-04-20T10:30:00Z")
         self.assertEqual(buy["money"], {"amount": -1512.75, "currency": "EUR"})
@@ -32,15 +38,15 @@ class PortfolioPerformanceCsvPluginTests(unittest.TestCase):
         self.assertEqual(buy["instrument"]["isin"], "US0378331005")
         self.assertEqual(buy["metadata"]["taxes"], {"amount": 3.0, "currency": "EUR"})
 
-        div = next(a for a in payload["activities"] if a["id"] == "pp-de-div-1")
+        div = by_note("pp-de-div-1")
         self.assertEqual(div["event_type"], "dividend")
         self.assertEqual(div["money"], {"amount": 7.8, "currency": "EUR"})
 
-        deposit = next(a for a in payload["activities"] if a["id"] == "pp-Sparrate April")
+        deposit = by_note("Sparrate April")
         self.assertEqual(deposit["event_type"], "transfer_in")
         self.assertEqual(deposit["money"], {"amount": 5000.0, "currency": "EUR"})
 
-        tax = next(a for a in payload["activities"] if a["id"] == "pp-Steuerausgleich")
+        tax = by_note("Steuerausgleich")
         self.assertEqual(tax["event_type"], "other")
         self.assertEqual(tax["subtype"], "pp:steuern")
 
@@ -51,20 +57,23 @@ class PortfolioPerformanceCsvPluginTests(unittest.TestCase):
             input_path="tests/fixtures/portfolio_performance_export_en.csv",
         )
 
-        ids = {a["id"] for a in payload["activities"]}
-        self.assertIn("pp-en-buy-1", ids)
+        notes = {a["metadata"].get("note") for a in payload["activities"]}
+        self.assertIn("pp-en-buy-1", notes)
 
-        buy = next(a for a in payload["activities"] if a["id"] == "pp-en-buy-1")
+        def by_note(note: str) -> dict:
+            return next(a for a in payload["activities"] if a["metadata"].get("note") == note)
+
+        buy = by_note("pp-en-buy-1")
         self.assertEqual(buy["event_type"], "buy")
         self.assertEqual(buy["effective_at"], "2026-04-20T00:00:00Z")
         self.assertEqual(buy["money"], {"amount": -1702.5, "currency": "USD"})
         self.assertEqual(buy["fees"], {"amount": 2.5, "currency": "USD"})
 
-        div = next(a for a in payload["activities"] if a["id"] == "pp-en-div-1")
+        div = by_note("pp-en-div-1")
         self.assertEqual(div["event_type"], "dividend")
         self.assertEqual(div["money"], {"amount": 12.34, "currency": "USD"})
 
-        withdraw = next(a for a in payload["activities"] if a["id"] == "pp-en-withdraw-1")
+        withdraw = by_note("pp-en-withdraw-1")
         self.assertEqual(withdraw["event_type"], "transfer_out")
         self.assertEqual(withdraw["money"], {"amount": -500.0, "currency": "USD"})
 

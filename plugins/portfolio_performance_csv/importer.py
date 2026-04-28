@@ -196,7 +196,7 @@ def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
     if not raw_type:
         raise ValueError("Portfolio Performance row is missing required Type column")
     event_type = _resolve_event_type(raw_type)
-    row_id = row.get("note") or _stable_id(row)
+    row_id = _stable_id(row)
     effective_at = _parse_date(row, row_id)
 
     currency = (
@@ -222,16 +222,19 @@ def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
 
     amount = _signed_amount(event_type, magnitude, raw_value)
 
+    metadata: dict[str, Any] = {"raw_type": raw_type}
+    note = as_text(row.get("note"))
+    if note:
+        metadata["note"] = note
+
     activity: dict[str, Any] = {
-        "id": f"pp-{row_id}" if not row_id.startswith("pp-") else row_id,
+        "id": row_id,
         "event_type": event_type,
         "effective_at": effective_at,
         "status": "posted",
         "money": {"amount": amount, "currency": currency},
         "source_ref": f"{PROVIDER}#{row_id}",
-        "metadata": {
-            "raw_type": raw_type,
-        },
+        "metadata": metadata,
     }
 
     if event_type == "other" and raw_type:

@@ -180,7 +180,7 @@ def _is_cancel_like_trade(row: dict[str, str]) -> bool:
         if value in {"1", "true", "yes", "y"}:
             return True
 
-    for field in ("notes", "description", "transactionType", "buySell", "code", "openCloseIndicator"):
+    for field in ("notes", "description", "transactionType", "buySell", "code"):
         if "cancel" in as_text(row.get(field)).lower():
             return True
 
