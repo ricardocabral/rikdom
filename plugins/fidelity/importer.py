@@ -88,29 +88,40 @@ def _normalize_fidelity_date(value: str) -> str | None:
     return normalize_datetime(raw)
 
 
+def _has_word(value: str, word: str) -> bool:
+    return re.search(rf"\b{re.escape(word)}\b", value) is not None
+
+
+def _has_any_word(value: str, words: tuple[str, ...]) -> bool:
+    return any(_has_word(value, word) for word in words)
+
+
+def _has_any_phrase(value: str, phrases: tuple[str, ...]) -> bool:
+    return any(re.search(rf"\b{re.escape(phrase)}\b", value) for phrase in phrases)
+
+
 def _activity_type(action: str) -> tuple[str, str | None]:
     lowered = action.lower()
-    if any(
-        token in lowered
-        for token in ("you bought", "buy", "purchase", "reinvestment", "reinvest")
+    if _has_any_phrase(lowered, ("you bought",)) or _has_any_word(
+        lowered, ("buy", "purchase", "reinvestment", "reinvest")
     ):
         return "buy", None
-    if any(token in lowered for token in ("you sold", "sell", "redemption")):
+    if _has_any_phrase(lowered, ("you sold",)) or _has_any_word(
+        lowered, ("sell", "redemption")
+    ):
         return "sell", None
-    if "dividend" in lowered:
+    if _has_word(lowered, "dividend"):
         return "dividend", None
-    if "interest" in lowered:
+    if _has_word(lowered, "interest"):
         return "interest", None
-    if any(token in lowered for token in ("fee", "commission", "advisor")):
+    if _has_any_word(lowered, ("fee", "commission", "advisor")):
         return "fee", None
-    if any(
-        token in lowered
-        for token in ("deposit", "contribution", "transfer in", "received", "incoming")
+    if _has_any_phrase(lowered, ("transfer in",)) or _has_any_word(
+        lowered, ("deposit", "contribution")
     ):
         return "transfer_in", None
-    if any(
-        token in lowered
-        for token in ("withdraw", "distribution", "transfer out", "sent", "outgoing")
+    if _has_any_phrase(lowered, ("transfer out",)) or _has_any_word(
+        lowered, ("withdraw", "withdrawal", "distribution")
     ):
         return "transfer_out", None
     return "other", f"fidelity:{_slug(action)}"
@@ -204,7 +215,9 @@ def _parse_cash(row: dict[str, str]) -> dict[str, Any]:
     }
 
 
-def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
+def _parse_transaction(
+    row: dict[str, str], *, account_currency: str | None = None
+) -> dict[str, Any]:
     account_number = _required(row, "account_number", context="transaction")
     action = _required(row, "action", context="transaction")
     raw_amount = _required(row, "amount", context="transaction")
@@ -221,7 +234,9 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
     if not effective_at:
         raise ValueError(f"Fidelity transaction row has invalid date '{raw_date}'")
 
-    currency = normalize_currency(row.get("currency")) or _DEFAULT_CURRENCY
+    currency = (
+        normalize_currency(row.get("currency")) or account_currency or _DEFAULT_CURRENCY
+    )
     symbol = row.get("symbol", "").upper()
 
     raw_quantity = row.get("quantity", "").strip()
@@ -304,6 +319,8 @@ def parse_statement(path: Path) -> dict[str, Any]:
             info = accounts.setdefault(
                 account_number, {"account_number": account_number, "currency": currency}
             )
+            if row_currency:
+                info["currency"] = row_currency
             if account_name:
                 info["account_name"] = account_name
             if account_type:
@@ -328,10 +345,22 @@ def parse_statement(path: Path) -> dict[str, Any]:
                 seen_holding_ids.add(holding["id"])
             continue
         if record_type == "transaction":
-            activity = _parse_transaction(row)
-            if activity["id"] not in seen_activity_ids:
-                activities.append(activity)
-                seen_activity_ids.add(activity["id"])
+            activity = _parse_transaction(
+                row,
+                account_currency=accounts.get(account_number, {}).get("currency"),
+            )
+            if activity["id"] in seen_activity_ids:
+                digest = activity["idempotency_key"].rsplit(":", 1)[-1]
+                duplicate_id = f"fidelity-txn-{_slug(account_number)}-{digest}"
+                if duplicate_id in seen_activity_ids:
+                    continue
+                activity["metadata"]["duplicate_reference_id"] = activity[
+                    "source_ref"
+                ].rsplit("#txn:", 1)[-1]
+                activity["id"] = duplicate_id
+                activity["source_ref"] = f"fidelity:{account_number}#txn:{digest}"
+            activities.append(activity)
+            seen_activity_ids.add(activity["id"])
             continue
         raise ValueError(
             "Fidelity row has unknown record_type; expected one of account, position, cash, transaction"
