@@ -1,0 +1,8 @@
+record_type,account_number,account_name,account_type,statement_date,currency,security_type,symbol,description,cusip,quantity,market_value,cash_balance,date,action,amount,fees,reference_id
+account,FID-IRA-2468,Rollover IRA,Traditional IRA,2026-03-31,USD,,,,,,,,,,,
+position,FID-IRA-2468,Rollover IRA,Traditional IRA,2026-03-31,USD,Mutual Fund,FXAIX,Fidelity 500 Index Fund,315911750,50,8900.00,,,,,
+position,FID-IRA-2468,Rollover IRA,Traditional IRA,2026-03-31,USD,Money Market,SPAXX,Fidelity Government Money Market Fund,31617H102,1000,1000.00,,,,,
+cash,FID-IRA-2468,Rollover IRA,Traditional IRA,2026-03-31,USD,,,,,,,250.00,,,,
+transaction,FID-IRA-2468,Rollover IRA,Traditional IRA,2026-03-31,USD,,CASH,Annual IRA contribution,,0,, ,03/01/2026,Contribution,6500.00,,IRATXN-2001
+transaction,FID-IRA-2468,Rollover IRA,Traditional IRA,2026-03-31,USD,Mutual Fund,FXAIX,Reinvestment Fidelity 500 Index Fund,315911750,0.35,, ,03/22/2026,Reinvestment,-62.50,,IRATXN-2002
+transaction,FID-IRA-2468,Rollover IRA,Traditional IRA,2026-03-31,USD,,CASH,Retirement distribution,,0,, ,03/28/2026,Distribution,-500.00,,IRATXN-2003

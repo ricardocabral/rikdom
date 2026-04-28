@@ -1,0 +1,131 @@
+{
+  "provider": "fidelity",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.csv",
+    "input_format": "csv",
+    "accounts": [
+      {
+        "account_number": "FID-IRA-2468",
+        "currency": "USD",
+        "account_name": "Rollover IRA",
+        "account_type": "Traditional IRA"
+      }
+    ]
+  },
+  "holdings": [
+    {
+      "id": "fidelity:fid-ira-2468:pos:fxaix",
+      "asset_type_id": "fund",
+      "label": "Fidelity 500 Index Fund",
+      "quantity": 50.0,
+      "market_value": {
+        "amount": 8900.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "FXAIX",
+        "provider_account_id": "FID-IRA-2468",
+        "cusip": "315911750"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Mutual Fund"
+      }
+    },
+    {
+      "id": "fidelity:fid-ira-2468:pos:spaxx",
+      "asset_type_id": "cash_equivalent",
+      "label": "Fidelity Government Money Market Fund",
+      "quantity": 1000.0,
+      "market_value": {
+        "amount": 1000.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "SPAXX",
+        "provider_account_id": "FID-IRA-2468",
+        "cusip": "31617H102"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Money Market"
+      }
+    },
+    {
+      "id": "fidelity:fid-ira-2468:cash:usd",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash balance (USD)",
+      "market_value": {
+        "amount": 250.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "provider_account_id": "FID-IRA-2468",
+        "ticker": "CASH"
+      },
+      "jurisdiction": {
+        "country": "US"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "fidelity-txn-fid-ira-2468-IRATXN-2001",
+      "event_type": "transfer_in",
+      "status": "posted",
+      "effective_at": "2026-03-01T00:00:00Z",
+      "money": {
+        "amount": 6500.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "fidelity:fid-ira-2468:62d530bea33d3d6e",
+      "source_ref": "fidelity:FID-IRA-2468#txn:IRATXN-2001",
+      "metadata": {
+        "action": "Contribution",
+        "description": "Annual IRA contribution"
+      }
+    },
+    {
+      "id": "fidelity-txn-fid-ira-2468-IRATXN-2002",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-03-22T00:00:00Z",
+      "money": {
+        "amount": -62.5,
+        "currency": "USD"
+      },
+      "idempotency_key": "fidelity:fid-ira-2468:d2b83d2f088fa358",
+      "source_ref": "fidelity:FID-IRA-2468#txn:IRATXN-2002",
+      "metadata": {
+        "action": "Reinvestment",
+        "description": "Reinvestment Fidelity 500 Index Fund"
+      },
+      "instrument": {
+        "ticker": "FXAIX",
+        "country": "US"
+      },
+      "quantity": 0.35
+    },
+    {
+      "id": "fidelity-txn-fid-ira-2468-IRATXN-2003",
+      "event_type": "transfer_out",
+      "status": "posted",
+      "effective_at": "2026-03-28T00:00:00Z",
+      "money": {
+        "amount": -500.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "fidelity:fid-ira-2468:b77710461e4e4b66",
+      "source_ref": "fidelity:FID-IRA-2468#txn:IRATXN-2003",
+      "metadata": {
+        "action": "Distribution",
+        "description": "Retirement distribution"
+      }
+    }
+  ]
+}

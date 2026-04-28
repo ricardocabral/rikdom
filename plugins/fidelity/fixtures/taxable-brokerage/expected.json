@@ -1,0 +1,172 @@
+{
+  "provider": "fidelity",
+  "base_currency": "USD",
+  "metadata": {
+    "source_file": "input.csv",
+    "input_format": "csv",
+    "accounts": [
+      {
+        "account_number": "FID-123456789",
+        "currency": "USD",
+        "account_name": "Individual Brokerage",
+        "account_type": "Taxable Brokerage"
+      }
+    ]
+  },
+  "holdings": [
+    {
+      "id": "fidelity:fid-123456789:pos:aapl",
+      "asset_type_id": "stock",
+      "label": "Apple Inc",
+      "quantity": 10.0,
+      "market_value": {
+        "amount": 1715.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "AAPL",
+        "provider_account_id": "FID-123456789",
+        "cusip": "037833100"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "Equity"
+      }
+    },
+    {
+      "id": "fidelity:fid-123456789:pos:itot",
+      "asset_type_id": "fund",
+      "label": "iShares Core S&P Total U.S. Stock Market ETF",
+      "quantity": 20.0,
+      "market_value": {
+        "amount": 2200.0,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "ticker": "ITOT",
+        "provider_account_id": "FID-123456789",
+        "cusip": "464287150"
+      },
+      "jurisdiction": {
+        "country": "US"
+      },
+      "metadata": {
+        "security_type": "ETF"
+      }
+    },
+    {
+      "id": "fidelity:fid-123456789:cash:usd",
+      "asset_type_id": "cash_equivalent",
+      "label": "Cash balance (USD)",
+      "market_value": {
+        "amount": 325.42,
+        "currency": "USD"
+      },
+      "identifiers": {
+        "provider_account_id": "FID-123456789",
+        "ticker": "CASH"
+      },
+      "jurisdiction": {
+        "country": "US"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "fidelity-txn-fid-123456789-FIDTXN-1001",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-03-05T00:00:00Z",
+      "money": {
+        "amount": -340.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "fidelity:fid-123456789:132e4fa8fcb23fa7",
+      "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1001",
+      "metadata": {
+        "action": "Buy",
+        "description": "You bought Apple Inc"
+      },
+      "instrument": {
+        "ticker": "AAPL",
+        "country": "US"
+      },
+      "quantity": 2.0
+    },
+    {
+      "id": "fidelity-txn-fid-123456789-FIDTXN-1002",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-03-15T00:00:00Z",
+      "money": {
+        "amount": 18.25,
+        "currency": "USD"
+      },
+      "idempotency_key": "fidelity:fid-123456789:2fea6b737cc02b28",
+      "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1002",
+      "metadata": {
+        "action": "Dividend Received",
+        "description": "Dividend received from ITOT"
+      },
+      "instrument": {
+        "ticker": "ITOT",
+        "country": "US"
+      }
+    },
+    {
+      "id": "fidelity-txn-fid-123456789-FIDTXN-1003",
+      "event_type": "interest",
+      "status": "posted",
+      "effective_at": "2026-03-31T00:00:00Z",
+      "money": {
+        "amount": 1.12,
+        "currency": "USD"
+      },
+      "idempotency_key": "fidelity:fid-123456789:d1b3fb229a75a005",
+      "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1003",
+      "metadata": {
+        "action": "Interest",
+        "description": "Core position interest"
+      }
+    },
+    {
+      "id": "fidelity-txn-fid-123456789-FIDTXN-1004",
+      "event_type": "fee",
+      "status": "posted",
+      "effective_at": "2026-03-20T00:00:00Z",
+      "money": {
+        "amount": -10.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "fidelity:fid-123456789:4778f128baf139cb",
+      "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1004",
+      "metadata": {
+        "action": "Fee",
+        "description": "Outgoing wire fee"
+      }
+    },
+    {
+      "id": "fidelity-txn-fid-123456789-FIDTXN-1005",
+      "event_type": "sell",
+      "status": "posted",
+      "effective_at": "2026-03-25T00:00:00Z",
+      "money": {
+        "amount": 175.0,
+        "currency": "USD"
+      },
+      "idempotency_key": "fidelity:fid-123456789:c916c5e23504252e",
+      "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1005",
+      "metadata": {
+        "action": "Sell",
+        "description": "You sold Apple Inc"
+      },
+      "instrument": {
+        "ticker": "AAPL",
+        "country": "US"
+      },
+      "quantity": 1.0
+    }
+  ]
+}

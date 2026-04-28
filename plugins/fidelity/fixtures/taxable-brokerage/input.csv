@@ -1,0 +1,10 @@
+record_type,account_number,account_name,account_type,statement_date,currency,security_type,symbol,description,cusip,quantity,market_value,cash_balance,date,action,amount,fees,reference_id
+account,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,,,,,,,,,,,
+position,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,Equity,AAPL,Apple Inc,037833100,10,1715.00,,,,,
+position,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,ETF,ITOT,iShares Core S&P Total U.S. Stock Market ETF,464287150,20,2200.00,,,,,
+cash,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,,,,,,,325.42,,,,
+transaction,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,Equity,AAPL,You bought Apple Inc,037833100,2,, ,03/05/2026,Buy,-340.00,0,FIDTXN-1001
+transaction,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,ETF,ITOT,Dividend received from ITOT,464287150,,, ,03/15/2026,Dividend Received,18.25,,FIDTXN-1002
+transaction,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,,CASH,Core position interest,,0,, ,03/31/2026,Interest,1.12,,FIDTXN-1003
+transaction,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,,CASH,Outgoing wire fee,,0,, ,03/20/2026,Fee,-10.00,,FIDTXN-1004
+transaction,FID-123456789,Individual Brokerage,Taxable Brokerage,2026-03-31,USD,Equity,AAPL,You sold Apple Inc,037833100,1,, ,03/25/2026,Sell,175.00,0,FIDTXN-1005
