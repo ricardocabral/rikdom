@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, TypeGuard
 
-from rikdom.reconciliation import Finding, record_finding
+from rikdom.reconciliation import Finding, Severity, record_finding
 
 
 @dataclass
@@ -206,6 +206,7 @@ def _resolve_to_base_amount(
     errors: list[str],
     strict: bool,
     context: str,
+    scope: str,
     findings: list[Finding] | None = None,
     refs: dict[str, str] | None = None,
 ) -> float | None:
@@ -227,7 +228,7 @@ def _resolve_to_base_amount(
             findings,
             "TRUST_FX_FALLBACK_USED",
             message,
-            scope=context,
+            scope=scope,
             refs=refs or {},
             observed={"currency": currency_code, "fx_rate": float(metadata_fx)},
             suggested_fix=(
@@ -249,7 +250,8 @@ def _resolve_to_base_amount(
         findings,
         "RECON_FX_MISSING",
         message,
-        scope=context,
+        severity=Severity.ERROR if strict else None,
+        scope=scope,
         refs=refs or {},
         observed={"currency": currency_code},
         suggested_fix=(
@@ -278,6 +280,7 @@ def _report_invalid_money(
         findings,
         "RECON_INVALID_MONEY",
         message,
+        severity=Severity.ERROR if strict else None,
         scope=scope,
         refs=refs or {},
         suggested_fix="Ensure money objects are {amount: number, currency: ISO-4217 code}.",
@@ -306,7 +309,7 @@ def _to_base_amount(
             errors=errors,
             strict=strict,
             findings=findings,
-            scope=context,
+            scope="holding",
             refs=refs,
         )
         return None
@@ -320,7 +323,7 @@ def _to_base_amount(
             errors=errors,
             strict=strict,
             findings=findings,
-            scope=context,
+            scope="holding",
             refs=refs,
         )
         return None
@@ -335,6 +338,7 @@ def _to_base_amount(
         errors=errors,
         strict=strict,
         context=context,
+        scope="holding",
         findings=findings,
         refs=refs,
     )
@@ -548,7 +552,7 @@ def _to_base_activity_money_delta(
             errors=errors,
             strict=strict,
             findings=findings,
-            scope=context,
+            scope="activity",
             refs=refs,
         )
         return None
@@ -562,7 +566,7 @@ def _to_base_activity_money_delta(
             errors=errors,
             strict=strict,
             findings=findings,
-            scope=context,
+            scope="activity",
             refs=refs,
         )
         return None
@@ -577,6 +581,7 @@ def _to_base_activity_money_delta(
         errors=errors,
         strict=strict,
         context=context,
+        scope="activity",
         findings=findings,
         refs=refs,
     )
@@ -594,7 +599,7 @@ def _to_base_activity_money_delta(
                 errors=errors,
                 strict=strict,
                 findings=findings,
-                scope=context,
+                scope="activity",
                 refs=refs,
             )
         else:
@@ -611,7 +616,7 @@ def _to_base_activity_money_delta(
                     errors=errors,
                     strict=strict,
                     findings=findings,
-                    scope=context,
+                    scope="activity",
                     refs=refs,
                 )
             else:
@@ -625,6 +630,7 @@ def _to_base_activity_money_delta(
                     errors=errors,
                     strict=strict,
                     context=f"{context} fees",
+                    scope="activity",
                     findings=findings,
                     refs=refs,
                 )

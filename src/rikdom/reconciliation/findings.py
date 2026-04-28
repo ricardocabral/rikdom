@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,9 +29,9 @@ class Finding:
         if self.refs:
             out["refs"] = dict(self.refs)
         if self.observed is not None:
-            out["observed"] = self.observed
+            out["observed"] = deepcopy(self.observed)
         if self.expected is not None:
-            out["expected"] = self.expected
+            out["expected"] = deepcopy(self.expected)
         if self.suggested_fix:
             out["suggested_fix"] = self.suggested_fix
         return out
@@ -64,8 +65,8 @@ def record_finding(
             message=message,
             scope=scope,
             refs=dict(refs) if refs else {},
-            observed=observed,
-            expected=expected,
+            observed=deepcopy(observed),
+            expected=deepcopy(expected),
             suggested_fix=suggested_fix,
         )
     )

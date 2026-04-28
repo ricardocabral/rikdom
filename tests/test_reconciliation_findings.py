@@ -30,6 +30,27 @@ class ReconciliationCodesTests(unittest.TestCase):
             {"code": "RECON_CASH_DRIFT", "severity": "warning", "message": "msg"},
         )
 
+    def test_record_finding_copies_mutable_observed_expected_values(self) -> None:
+        findings: list[Finding] = []
+        observed = {"nested": {"value": 1}}
+        expected = {"nested": {"value": 2}}
+        record_finding(
+            findings,
+            "RECON_CASH_DRIFT",
+            "msg",
+            observed=observed,
+            expected=expected,
+        )
+
+        observed["nested"]["value"] = 99
+        expected["nested"]["value"] = 100
+        as_dict = findings[0].to_dict()
+        as_dict["observed"]["nested"]["value"] = 101
+        as_dict["expected"]["nested"]["value"] = 102
+
+        self.assertEqual(findings[0].observed, {"nested": {"value": 1}})
+        self.assertEqual(findings[0].expected, {"nested": {"value": 2}})
+
     def test_record_finding_no_op_when_target_is_none(self) -> None:
         record_finding(None, "RECON_CASH_DRIFT", "msg")  # must not raise
 
@@ -74,8 +95,27 @@ class AggregateFindingsShimTests(unittest.TestCase):
         self.assertIn("RECON_FX_MISSING", codes)
         self.assertEqual(len(result.findings), len(result.warnings))
         finding = next(f for f in result.findings if f.code == "RECON_FX_MISSING")
+        self.assertEqual(finding.scope, "holding")
         self.assertEqual(finding.refs.get("holding_id"), "h-us")
         self.assertEqual(finding.severity, Severity.WARNING)
+
+    def test_missing_fx_strict_finding_is_error(self) -> None:
+        portfolio = {
+            "settings": {"base_currency": "BRL"},
+            "asset_type_catalog": self._stocks_catalog(),
+            "holdings": [
+                {
+                    "id": "h-us",
+                    "asset_type_id": "stock",
+                    "market_value": {"amount": 100.0, "currency": "USD"},
+                }
+            ],
+        }
+        result = aggregate_portfolio(portfolio, strict=True)
+        finding = next(f for f in result.findings if f.code == "RECON_FX_MISSING")
+        self.assertTrue(result.errors)
+        self.assertEqual(finding.scope, "holding")
+        self.assertEqual(finding.severity, Severity.ERROR)
 
     def test_metadata_fx_fallback_emits_trust_finding(self) -> None:
         portfolio = {
