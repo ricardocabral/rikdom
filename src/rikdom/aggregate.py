@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, TypeGuard
 
-from rikdom.reconciliation import Finding, Severity, record_finding
+from rikdom.reconciliation import (
+    Finding,
+    FxSource,
+    HoldingTrustRecord,
+    Severity,
+    record_finding,
+)
 
 
 @dataclass
@@ -19,6 +25,7 @@ class AggregateResult:
     by_duration: dict[str, float] = field(default_factory=dict)
     by_liquidity_tier: dict[str, float] = field(default_factory=dict)
     findings: list[Finding] = field(default_factory=list)
+    trust_records: list[HoldingTrustRecord] = field(default_factory=list)
 
 
 UNCLASSIFIED = "__unclassified__"
@@ -193,6 +200,129 @@ def _normalize_fx_rates_to_base(
         if _is_numeric(rate) and float(rate) > 0:
             normalized[code] = float(rate)
     return normalized
+
+
+def _lookup_fx_rate(
+    currency: str,
+    base_currency: str,
+    *,
+    metadata: Any,
+    fx_rates_to_base: dict[str, float],
+) -> tuple[float, FxSource] | None:
+    """Pure FX rate resolution — no side effects, mirrors `_resolve_to_base_amount`.
+
+    Returned source matches what `_resolve_to_base_amount` would have used so
+    trust records and findings stay consistent.
+    """
+
+    code = currency.strip().upper()
+    if code == base_currency:
+        return 1.0, "identity"
+    rate = fx_rates_to_base.get(code)
+    if rate is not None and rate > 0:
+        return float(rate), "fx_rates_to_base"
+    metadata_fx = metadata.get("fx_rate_to_base") if isinstance(metadata, dict) else None
+    if _is_numeric(metadata_fx) and float(metadata_fx) > 0:
+        return float(metadata_fx), "metadata.fx_rate_to_base"
+    return None
+
+
+def _build_holding_trust_record(
+    holding: dict[str, Any],
+    *,
+    asset_class: str,
+    base_currency: str,
+    base_amount: float | None,
+    fx_rates_to_base: dict[str, float],
+) -> HoldingTrustRecord:
+    holding_id = str(holding.get("id", "unknown"))
+    asset_type_id = str(holding.get("asset_type_id", "")).strip()
+
+    market_value = holding.get("market_value")
+    if market_value is None:
+        return HoldingTrustRecord(
+            holding_id=holding_id,
+            asset_type_id=asset_type_id,
+            asset_class=asset_class,
+            source_amount=None,
+            source_currency=None,
+            base_currency=base_currency,
+            base_amount=None,
+            fx_rate=None,
+            fx_source=None,
+            excluded_reason="missing_market_value",
+        )
+
+    if not isinstance(market_value, dict):
+        return HoldingTrustRecord(
+            holding_id=holding_id,
+            asset_type_id=asset_type_id,
+            asset_class=asset_class,
+            source_amount=None,
+            source_currency=None,
+            base_currency=base_currency,
+            base_amount=None,
+            fx_rate=None,
+            fx_source=None,
+            excluded_reason="invalid_money",
+        )
+
+    raw_amount = market_value.get("amount")
+    raw_currency = market_value.get("currency")
+    valid_money = (
+        _is_numeric(raw_amount)
+        and isinstance(raw_currency, str)
+        and bool(raw_currency.strip())
+    )
+    if not valid_money:
+        return HoldingTrustRecord(
+            holding_id=holding_id,
+            asset_type_id=asset_type_id,
+            asset_class=asset_class,
+            source_amount=float(raw_amount) if _is_numeric(raw_amount) else None,
+            source_currency=raw_currency if isinstance(raw_currency, str) else None,
+            base_currency=base_currency,
+            base_amount=None,
+            fx_rate=None,
+            fx_source=None,
+            excluded_reason="invalid_money",
+        )
+
+    source_amount = float(raw_amount)  # type: ignore[arg-type]
+    source_currency = raw_currency.strip().upper()  # type: ignore[union-attr]
+    fx = _lookup_fx_rate(
+        source_currency,
+        base_currency,
+        metadata=holding.get("metadata"),
+        fx_rates_to_base=fx_rates_to_base,
+    )
+    if fx is None:
+        return HoldingTrustRecord(
+            holding_id=holding_id,
+            asset_type_id=asset_type_id,
+            asset_class=asset_class,
+            source_amount=source_amount,
+            source_currency=source_currency,
+            base_currency=base_currency,
+            base_amount=None,
+            fx_rate=None,
+            fx_source=None,
+            excluded_reason="fx_missing",
+        )
+
+    fx_rate, fx_source = fx
+    return HoldingTrustRecord(
+        holding_id=holding_id,
+        asset_type_id=asset_type_id,
+        asset_class=asset_class,
+        source_amount=source_amount,
+        source_currency=source_currency,
+        base_currency=base_currency,
+        base_amount=base_amount,
+        fx_rate=fx_rate,
+        fx_source=fx_source,
+        excluded_reason=None if base_amount is not None else "fx_missing",
+    )
 
 
 def _resolve_to_base_amount(
@@ -773,6 +903,7 @@ def aggregate_portfolio(
     warnings: list[str] = []
     errors: list[str] = []
     findings: list[Finding] = []
+    trust_records: list[HoldingTrustRecord] = []
 
     for holding in holdings if isinstance(holdings, list) else []:
         if not isinstance(holding, dict):
@@ -798,11 +929,22 @@ def aggregate_portfolio(
             context=f"Holding '{hid}'",
             findings=findings,
         )
-        if amount_base is None:
-            continue
 
         asset_type_id = str(holding.get("asset_type_id", ""))
         asset_class = class_index.get(asset_type_id, "other")
+        trust_records.append(
+            _build_holding_trust_record(
+                holding,
+                asset_class=asset_class,
+                base_currency=base_currency,
+                base_amount=amount_base,
+                fx_rates_to_base=normalized_fx_rates,
+            )
+        )
+
+        if amount_base is None:
+            continue
+
         by_asset_class[asset_class] = by_asset_class.get(asset_class, 0.0) + amount_base
 
         exposure = _resolve_holding_exposure(holding, asset_type_id, catalog_exposures)
@@ -841,6 +983,17 @@ def aggregate_portfolio(
         findings=findings,
     )
 
+    records_by_holding_id: dict[str, HoldingTrustRecord] = {
+        r.holding_id: r for r in trust_records
+    }
+    for finding in findings:
+        hid = finding.refs.get("holding_id") if finding.refs else None
+        if not hid:
+            continue
+        record = records_by_holding_id.get(hid)
+        if record is not None and finding.code not in record.findings:
+            record.findings.append(finding.code)
+
     total_value = sum(by_asset_class.values())
     return AggregateResult(
         base_currency=base_currency,
@@ -855,4 +1008,5 @@ def aggregate_portfolio(
             k: round(v, 2) for k, v in sorted(breakdowns["liquidity_tier"].items())
         },
         findings=findings,
+        trust_records=trust_records,
     )

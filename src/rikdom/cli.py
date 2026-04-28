@@ -13,6 +13,12 @@ from pathlib import Path
 from typing import Any
 
 from .aggregate import aggregate_portfolio
+from .reconciliation.reports import (
+    render_holding_trust_json,
+    render_holding_trust_markdown,
+    render_reconciliation_json,
+    render_reconciliation_markdown,
+)
 from .backfill import backfill_cashflows, backfill_exposure
 from .fx import ensure_snapshot_fx_lock
 from .journal import (
@@ -303,6 +309,85 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
         if value:
             output[key] = value
     print(json.dumps(output, indent=2, ensure_ascii=False))
+    if result.errors:
+        print("Data quality check failed in strict mode", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _portfolio_id(portfolio: dict[str, Any]) -> str:
+    settings = portfolio.get("settings")
+    if isinstance(settings, dict):
+        pid = settings.get("portfolio_id") or settings.get("name")
+        if isinstance(pid, str) and pid.strip():
+            return pid.strip()
+    pid = portfolio.get("id")
+    if isinstance(pid, str) and pid.strip():
+        return pid.strip()
+    return "portfolio"
+
+
+def cmd_reconcile(args: argparse.Namespace) -> int:
+    portfolio = load_json(args.portfolio)
+    generated_at = _now_iso()
+    fx_lock, fx_warnings = ensure_snapshot_fx_lock(
+        portfolio,
+        fx_history_path=args.fx_history,
+        snapshot_timestamp=generated_at,
+        auto_ingest=False,
+    )
+    result = aggregate_portfolio(
+        portfolio,
+        strict=bool(getattr(args, "strict_quality", False)),
+        fx_rates_to_base=fx_lock.get("rates_to_base"),
+    )
+    result.warnings.extend(fx_warnings)
+
+    pid = _portfolio_id(portfolio)
+    out_dir = Path(getattr(args, "out_dir", None) or Path(args.out_root) / "reports")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    fmt = getattr(args, "format", "both")
+    write_json = fmt in ("both", "json")
+    write_md = fmt in ("both", "md")
+
+    trust_json = render_holding_trust_json(
+        result, portfolio_id=pid, generated_at=generated_at
+    )
+    recon_json = render_reconciliation_json(
+        result, portfolio_id=pid, generated_at=generated_at
+    )
+
+    written: list[str] = []
+    if write_json:
+        trust_json_path = out_dir / "holding_trust.json"
+        save_json(str(trust_json_path), trust_json)
+        written.append(str(trust_json_path))
+        recon_json_path = out_dir / "reconciliation.json"
+        save_json(str(recon_json_path), recon_json)
+        written.append(str(recon_json_path))
+    if write_md:
+        trust_md_path = out_dir / "holding_trust.md"
+        trust_md_path.write_text(
+            render_holding_trust_markdown(trust_json), encoding="utf-8"
+        )
+        written.append(str(trust_md_path))
+        recon_md_path = out_dir / "reconciliation.md"
+        recon_md_path.write_text(
+            render_reconciliation_markdown(recon_json), encoding="utf-8"
+        )
+        written.append(str(recon_md_path))
+
+    summary = recon_json["summary"]
+    print(
+        f"Reconciliation: {summary['total']} findings "
+        f"(errors: {summary['error_count']}, "
+        f"warnings: {summary['warning_count']}, "
+        f"info: {summary['info_count']})"
+    )
+    for path in written:
+        print(f"- wrote {path}")
+
     if result.errors:
         print("Data quality check failed in strict mode", file=sys.stderr)
         return 1
@@ -1328,6 +1413,28 @@ def build_parser() -> argparse.ArgumentParser:
         p_aggregate, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
     p_aggregate.set_defaults(func=cmd_aggregate)
+
+    p_reconcile = sub.add_parser(
+        "reconcile",
+        help="Generate calculation-trust + reconciliation reports",
+    )
+    p_reconcile.add_argument("--portfolio", default=None)
+    p_reconcile.add_argument("--fx-history", default=None)
+    p_reconcile.add_argument(
+        "--strict-quality",
+        action="store_true",
+        help="Treat missing FX conversion warnings as hard errors",
+    )
+    p_reconcile.add_argument(
+        "--format",
+        choices=("both", "json", "md"),
+        default="both",
+        help="Which report formats to write (default: both)",
+    )
+    _add_workspace_options(
+        p_reconcile, with_out_root=True, with_portfolio_name=True, with_registry=True
+    )
+    p_reconcile.set_defaults(func=cmd_reconcile)
 
     p_snapshot = sub.add_parser(
         "snapshot", help="Append one snapshot into JSONL history"

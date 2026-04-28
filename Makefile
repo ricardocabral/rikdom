@@ -1,4 +1,4 @@
-.PHONY: help sync bootstrap validate validate-fixture aggregate snapshot viz \
+.PHONY: help sync bootstrap validate validate-fixture aggregate reconcile snapshot viz \
 	visualize render-report \
 	plugins-list import-sample storage-sync migrate-dry-run \
 	test lint check
@@ -46,6 +46,9 @@ validate-fixture:
 
 aggregate:
 	uv run rikdom aggregate $(WORKSPACE_ARGS)
+
+reconcile:
+	uv run rikdom reconcile $(WORKSPACE_ARGS)
 
 snapshot:
 	uv run rikdom snapshot $(WORKSPACE_ARGS)
