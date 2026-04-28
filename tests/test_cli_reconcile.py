@@ -121,5 +121,66 @@ class CliReconcileTests(unittest.TestCase):
             self.assertFalse((reports_dir / "reconciliation.md").exists())
 
 
+    def test_portfolio_name_writes_to_scoped_reports_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            out_root = Path(tmp) / "out"
+            scoped_data = data_dir / "portfolios" / "paper"
+            scoped_data.mkdir(parents=True)
+            save_json(str(scoped_data / "portfolio.json"), _portfolio())
+            save_json(
+                str(data_dir / "portfolio_registry.json"),
+                {
+                    "schema_version": "1.0",
+                    "default_portfolio": "paper",
+                    "portfolios": [{"name": "paper"}],
+                },
+            )
+
+            rc = self._run(
+                "reconcile",
+                "--data-dir",
+                str(data_dir),
+                "--out-root",
+                str(out_root),
+                "--portfolio-name",
+                "paper",
+            )
+            self.assertEqual(rc, 0)
+
+            scoped_reports = out_root / "reports" / "paper"
+            for name in (
+                "holding_trust.json",
+                "holding_trust.md",
+                "reconciliation.json",
+                "reconciliation.md",
+            ):
+                self.assertTrue(
+                    (scoped_reports / name).exists(),
+                    f"missing {name} in scoped reports dir",
+                )
+            self.assertFalse((out_root / "reports" / "holding_trust.json").exists())
+
+    def test_explicit_out_dir_overrides_workspace_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            out_root = Path(tmp) / "out"
+            custom_dir = Path(tmp) / "custom-reports"
+            data_dir.mkdir()
+            save_json(str(data_dir / "portfolio.json"), _portfolio())
+
+            rc = self._run(
+                "reconcile",
+                "--data-dir",
+                str(data_dir),
+                "--out-root",
+                str(out_root),
+                "--out-dir",
+                str(custom_dir),
+            )
+            self.assertEqual(rc, 0)
+            self.assertTrue((custom_dir / "reconciliation.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1431,6 +1431,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="both",
         help="Which report formats to write (default: both)",
     )
+    p_reconcile.add_argument(
+        "--out-dir",
+        default=None,
+        help="Directory to write report files into (default: <out-root>/reports, "
+        "or <out-root>/reports/<portfolio-name> when --portfolio-name is set)",
+    )
     _add_workspace_options(
         p_reconcile, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
