@@ -1,6 +1,7 @@
 .PHONY: help sync bootstrap validate validate-fixture aggregate reconcile snapshot viz \
 	visualize render-report \
 	plugins-list import-sample storage-sync migrate-dry-run \
+	migrate-dry-run-policy validate-with-policy \
 	test lint check
 
 DATA_DIR ?= data
@@ -25,7 +26,9 @@ help:
 	@echo "  make plugins-list     - List plugins in plugins/"
 	@echo "  make import-sample    - Import sample statement using csv-generic"
 	@echo "  make storage-sync     - Run duckdb storage sync plugin"
-	@echo "  make migrate-dry-run  - Run schema migration in dry-run mode"
+	@echo "  make migrate-dry-run  - Run portfolio schema migration in dry-run mode"
+	@echo "  make migrate-dry-run-policy - Run policy schema migration in dry-run mode"
+	@echo "  make validate-with-policy   - Validate sample portfolio with cross-file policy account_id check"
 	@echo "  make lint             - Run ruff lint checks"
 	@echo "  make test             - Run unit tests"
 	@echo "  make check            - Run lint + validate-fixture + test"
@@ -76,6 +79,12 @@ storage-sync:
 
 migrate-dry-run:
 	uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
+
+migrate-dry-run-policy:
+	uv run rikdom migrate-policy --policy data-sample/policy.json --dry-run
+
+validate-with-policy:
+	uv run rikdom validate --portfolio data-sample/portfolio.json --policy data-sample/policy.json
 
 test:
 	uv run python -m unittest discover -s tests -v

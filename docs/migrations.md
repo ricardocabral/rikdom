@@ -1,8 +1,32 @@
 # Schema Migrations
 
-Rikdom portfolios are long-lived JSON files. As the canonical schema evolves under semver
-(`CURRENT_SCHEMA_VERSION` in `src/rikdom/validate.py`), the `rikdom migrate` command upgrades
-older files forward while preserving unknown user data.
+Rikdom maintains two independent schema tracks, each evolved under its own semver:
+
+- **Portfolio** — `CURRENT_SCHEMA_VERSION` in `src/rikdom/validate.py`, upgraded by
+  `rikdom migrate`.
+- **Policy** (Investment Policy Statement) — `CURRENT_POLICY_SCHEMA_VERSION` in
+  `src/rikdom/policy.py`, upgraded by `rikdom migrate-policy`.
+
+Both files are long-lived JSON; migrations move them forward while preserving unknown
+user data under `metadata` / `extensions`.
+
+## Version history
+
+### Portfolio
+
+| from → to | summary |
+| --- | --- |
+| 1.0.0 → 1.1.0 | optional `activities[]` ledger |
+| 1.1.0 → 1.2.0 | optional `operations` (task catalog/events) slot |
+| 1.2.0 → 1.3.0 | optional `liabilities[]`, `tax_lots[]`, `holdings[].account_id` |
+| 1.3.0 → 1.4.0 | expanded `activities[].event_type` (merger, contribution, withdrawal, tax_withheld, fx_conversion) and optional `account_id`, `holding_id`, `tax_lot_ids`, `withholding_tax`, `realized_gain`, `fx_rate`, `counter_money` |
+
+### Policy
+
+| from → to | summary |
+| --- | --- |
+| 0.1.0 → 0.2.0 | optional `benchmarks[]` registry + `benchmark_id` on allocation targets |
+| 0.2.0 → 0.3.0 | optional `tax_rules[]` and `tax_exemptions[]` tables |
 
 ## Compatibility policy
 
@@ -14,6 +38,8 @@ older files forward while preserving unknown user data.
 - Downgrades are **not supported**. If you need an older shape, restore from backup.
 
 ## CLI
+
+### Portfolio
 
 ```bash
 # Quick make shortcut (dry-run against sample portfolio)
@@ -33,6 +59,23 @@ uv run rikdom migrate --portfolio data/portfolio.json --no-backup
 
 # Pin a specific target version
 uv run rikdom migrate --portfolio data/portfolio.json --to 1.1.0
+```
+
+### Policy
+
+The policy track mirrors the portfolio CLI; flags are identical except the file
+argument is `--policy`.
+
+```bash
+# Dry-run against sample policy
+make migrate-dry-run-policy
+
+# Preview / migrate in place / pin a target version
+uv run rikdom migrate-policy --policy data/policy.json --dry-run
+uv run rikdom migrate-policy --policy data/policy.json
+uv run rikdom migrate-policy --policy data/policy.json --to 0.2.0
+uv run rikdom migrate-policy --policy data/policy.json --output data/policy.next.json
+uv run rikdom migrate-policy --policy data/policy.json --no-backup
 ```
 
 Exit codes:
@@ -63,6 +106,8 @@ migration lands as an auditable commit.
 
 ## Authoring a new migration
 
+### Portfolio
+
 1. Create `src/rikdom/migrations/vMAJOR_MINOR_PATCH_to_vMAJOR_MINOR_PATCH.py`.
 2. Define a pure `_upgrade(portfolio) -> (new_portfolio, change_log)` function that:
    - works on a `copy.deepcopy` of the input (never mutates it),
@@ -76,6 +121,19 @@ migration lands as an auditable commit.
 5. Bump `CURRENT_SCHEMA_VERSION` in `src/rikdom/validate.py` and update the `portfolio`
    schema if the migration introduces new shapes.
 6. Add a fixture and round-trip test under `tests/`.
+
+### Policy
+
+Same shape as the portfolio track, under `src/rikdom/migrations/policy/`:
+
+1. Create `src/rikdom/migrations/policy/v0_X_0_to_v0_Y_0.py` with the same
+   `_upgrade(policy) -> (new_policy, change_log)` contract.
+2. Append the `migration` instance to `POLICY_MIGRATIONS` in
+   `src/rikdom/migrations/policy/__init__.py` (contiguity enforced by
+   `tests/test_policy_migrations.py::PlannerTests::test_registry_is_contiguous`).
+3. Bump `CURRENT_POLICY_SCHEMA_VERSION` in `src/rikdom/policy.py` and update the
+   policy schema at `src/rikdom/_resources/policy.schema.json` if shapes change.
+4. Add a round-trip test under `tests/`.
 
 ## Known limits
 

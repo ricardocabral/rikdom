@@ -193,6 +193,157 @@ plus effective-date windows.
 shows the v0.2.0→v0.3.0 step, sample policy round-trips through both
 policy migrations.
 
+## Phase 1 status
+
+All four steps are landed (commit `c456ca4`):
+
+- Step 1 — `holdings[].account_id` wired with cross-file validation,
+  `--policy` flag on `validate`, per-account aggregate roll-up.
+- Step 2 — portfolio `1.4.0` with expanded activity event taxonomy and
+  cost-basis links.
+- Step 3 — policy `0.2.0` with benchmarks registry, `benchmark_id` on
+  allocation targets, and a policy migration framework + CLI.
+- Step 4 — policy `0.3.0` with `tax_rules[]` and `tax_exemptions[]`.
+
+Tests at 398 (+46 from baseline), `make check` green.
+
+## Phase 2 — next horizons
+
+Higher-level capabilities that depend on Phase 1's grounding. None of
+these is in progress. Listed in rough leverage order.
+
+### Step 5 — Performance time series (TWR/MWR + benchmark attribution)
+
+**Goal.** Compute time-weighted and money-weighted returns per
+portfolio, per account, and per strategic-allocation bucket; compare
+each against its declared `benchmark_id`. Required for any "how am I
+doing?" question.
+
+**Touch points.**
+
+- `src/rikdom/performance.py` (new). Pure functions:
+  `twr(snapshots, cashflows, *, period)`,
+  `mwr(snapshots, cashflows, *, period)`,
+  `attribution(twr, benchmark_returns)`.
+- `snapshot.schema.json` may need a per-bucket value field if not
+  already present, plus a `cashflows[]` slice (we now have the
+  activity event types to compute it).
+- Snapshot writer (`src/rikdom/snapshot.py`) should emit
+  `by_account` (already in aggregate) and a daily/period
+  `cashflow_total` block.
+- Benchmark series ingestion: thin plugin + JSONL store
+  (`data/benchmarks/<benchmark_id>.jsonl`) with `as_of`, `level`,
+  `currency`. The reference `benchmark_id` already exists in policy.
+- New CLI: `rikdom performance --portfolio … --policy … --since 2026-01-01`.
+
+**Decisions to make.** Whether to ship benchmark ingestion as a new
+plugin type or as a free-form file under `data/`. The latter is
+simpler and consistent with the local-first ethos.
+
+### Step 6 — Funded-ratio derived view
+
+**Goal.** Single derived snapshot answering "am I on track to fund
+my objectives?" Inputs are already in policy and portfolio.
+
+**Touch points.**
+
+- `src/rikdom/funded_ratio.py` (new). Combines `objectives[]`,
+  current portfolio value, expected contributions
+  (`cashflow_policy.contributions[]`), CMA expected returns, and
+  `spending_plan` to project terminal wealth and a funded-ratio per
+  objective.
+- New CLI: `rikdom funded-ratio --portfolio … --policy …` emitting
+  `{objective_id, target_amount_today, projected_value, ratio,
+  shortfall, monte_carlo_p10/p50/p90?}`.
+- Stretch: pluggable Monte Carlo engine (deterministic seed) using
+  CMA volatilities and correlations. Skip if scope creeps.
+
+### Step 7 — FX provenance per valuation
+
+**Goal.** Every `holding.market_value` and every `activity.money`
+should be reconstructible to the FX snapshot it was converted at, so
+the agent can detect stale conversions and report base-currency
+numbers with confidence.
+
+**Touch points.**
+
+- `schema/portfolio.schema.json`: optional `fx_ref` on Money / on
+  market_value, pointing at a row in `fx_rates.jsonl` by
+  `(as_of, currency_pair)`.
+- `src/rikdom/fx.py`: writer must stamp the lock used at aggregate
+  time onto each holding via `fx_ref`. We already have FX-lock
+  plumbing; this surfaces it down to the line item.
+- Validator: warn when `market_value.currency != base_currency`
+  and there is no `fx_ref`.
+- Portfolio bump `1.4.0 → 1.5.0` (new optional field, idempotent
+  migration).
+
+### Step 8 — Instrument enrichment block
+
+**Goal.** Stop the agent from inventing sector/industry, expense
+ratios, bond duration, ETF look-through. Stamp facts the agent can
+cite.
+
+**Touch points.**
+
+- `schema/portfolio.schema.json`: per-holding optional
+  `instrument_reference` block with `as_of`, `source`, and typed
+  fields per instrument kind (sector/industry for stocks; expense
+  ratio for funds; duration/maturity/coupon/credit_rating for bonds;
+  custody type for crypto).
+- `asset_type_catalog[].instrument_attributes` already supports
+  free-form typed attributes — the new block is the *resolved* and
+  *sourced* counterpart, not a per-asset-type schema definition.
+- Importers should populate it when statements carry the data; LLM
+  enrichment is allowed but must record `source: "llm_assisted"`
+  and a confidence level so reconciliation can flag low-confidence
+  numbers.
+- Portfolio bump `1.5.0 → 1.6.0`.
+
+### Step 9 — Household financial context
+
+**Goal.** Make income trajectory, expenses, insurance, and
+beneficiaries first-class so retirement / spending plans are not
+floating in space.
+
+**Touch points.**
+
+- Policy schema: new optional `household` block with `income[]`
+  (source, amount, growth_pct, taxable), `expenses[]`
+  (essentials/discretionary/healthcare with growth indices),
+  `insurance[]` (kind, coverage, premium), `beneficiaries[]`
+  (kind, account_ids covered).
+- This overlaps with `spending_plan` and `cashflow_policy` —
+  spec out the migration carefully so we deduplicate rather than
+  double-count.
+- Policy bump `0.3.0 → 0.4.0`.
+
+### Step 10 — Decision log
+
+**Goal.** Append-only record of policy changes and major rebalancing
+decisions so the agent can see "we already considered and rejected
+X in 2025-Q3 because Y."
+
+**Touch points.**
+
+- Policy schema: new optional `decisions[]` with
+  `{id, decided_at, kind, summary, rationale, affects_section[]}`.
+- `define-policy` skill: prompt the user to record the rationale
+  whenever a policy answer changes during an update interview.
+- Agents reading the policy should see decisions adjacent to the
+  fields they explain (e.g., a glide-path decision next to
+  `glide_path.nodes`).
+- Policy bump `0.4.0 → 0.5.0`.
+
+## Sequencing notes for Phase 2
+
+- 5 and 7 should land together if possible; performance numbers
+  without FX provenance are misleading on multi-currency portfolios.
+- 8 (enrichment) is independent and unblocks better risk decomposition.
+- 6 (funded ratio) is independent of all others but reads more
+  fields, so save for after 5+7 to avoid rework.
+- 9 and 10 are policy-side, low risk, can ship interleaved.
+
 ## Cross-cutting acceptance criteria
 
 - `make check` green at the end of each step.
