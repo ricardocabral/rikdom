@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.3.0",
   "schema_uri": "https://example.org/rikdom/schema/policy.schema.json",
   "identity": {
     "portfolio_id": "sample-portfolio",
@@ -105,10 +105,10 @@
   "strategic_allocation": {
     "dimensions": ["asset_class", "region", "currency"],
     "targets": [
-      { "dimension": "asset_class", "bucket": "stocks", "weight_pct": 65, "min_pct": 55, "max_pct": 75, "rebalance_priority": "high" },
-      { "dimension": "asset_class", "bucket": "debt", "weight_pct": 25, "min_pct": 20, "max_pct": 35, "rebalance_priority": "high" },
-      { "dimension": "asset_class", "bucket": "reits", "weight_pct": 5, "min_pct": 0, "max_pct": 10, "rebalance_priority": "medium" },
-      { "dimension": "asset_class", "bucket": "cash_equivalents", "weight_pct": 5, "min_pct": 3, "max_pct": 15, "rebalance_priority": "low" },
+      { "dimension": "asset_class", "bucket": "stocks", "weight_pct": 65, "min_pct": 55, "max_pct": 75, "rebalance_priority": "high", "benchmark_id": "global-stocks-blend" },
+      { "dimension": "asset_class", "bucket": "debt", "weight_pct": 25, "min_pct": 20, "max_pct": 35, "rebalance_priority": "high", "benchmark_id": "ipca-plus" },
+      { "dimension": "asset_class", "bucket": "reits", "weight_pct": 5, "min_pct": 0, "max_pct": 10, "rebalance_priority": "medium", "benchmark_id": "ifix" },
+      { "dimension": "asset_class", "bucket": "cash_equivalents", "weight_pct": 5, "min_pct": 3, "max_pct": 15, "rebalance_priority": "low", "benchmark_id": "cdi" },
       { "dimension": "region", "bucket": "BR", "weight_pct": 45, "min_pct": 35, "max_pct": 55, "rebalance_priority": "medium" },
       { "dimension": "region", "bucket": "US", "weight_pct": 40, "min_pct": 30, "max_pct": 50, "rebalance_priority": "medium" },
       { "dimension": "region", "bucket": "ex_US_DM", "weight_pct": 10, "min_pct": 5, "max_pct": 20, "rebalance_priority": "low" },
@@ -291,6 +291,160 @@
     "cadence": { "frequency": "semiannual" },
     "triggers": ["birthday", "job_change", "drawdown_gt_20pct", "inheritance", "marriage_or_divorce"]
   },
+  "tax_rules": [
+    {
+      "id": "br-stocks-cgt",
+      "label": "BR stocks capital gains tax",
+      "jurisdiction": "BR",
+      "applies_to": {
+        "tax_account_types": ["br_corretora_tributada"],
+        "asset_classes": ["stocks"],
+        "event_kinds": ["sell"],
+        "is_day_trade": false
+      },
+      "rate_pct": 15,
+      "rate_kind": "flat",
+      "effective_from": "2005-01-01",
+      "notes": "Standard 15% CGT on monthly net gains above the isenção threshold (see tax_exemptions)."
+    },
+    {
+      "id": "br-stocks-day-trade",
+      "label": "BR stocks day-trade",
+      "jurisdiction": "BR",
+      "applies_to": {
+        "tax_account_types": ["br_corretora_tributada"],
+        "asset_classes": ["stocks"],
+        "event_kinds": ["sell"],
+        "is_day_trade": true
+      },
+      "rate_pct": 20,
+      "rate_kind": "flat",
+      "effective_from": "2005-01-01"
+    },
+    {
+      "id": "br-fii-cgt",
+      "label": "BR FII (REIT) capital gains tax",
+      "jurisdiction": "BR",
+      "applies_to": {
+        "tax_account_types": ["br_corretora_tributada"],
+        "asset_classes": ["reits"],
+        "event_kinds": ["sell"]
+      },
+      "rate_pct": 20,
+      "rate_kind": "flat",
+      "effective_from": "2005-01-01",
+      "notes": "FII gains taxed at 20% with no monthly exemption."
+    },
+    {
+      "id": "br-fixed-income-regressive",
+      "label": "BR fixed-income IR regressive table",
+      "jurisdiction": "BR",
+      "applies_to": {
+        "tax_account_types": ["br_corretora_tributada"],
+        "asset_classes": ["debt"],
+        "event_kinds": ["interest", "sell"]
+      },
+      "rate_pct": 22.5,
+      "rate_kind": "regressive",
+      "brackets": [
+        { "max_holding_days": 180, "rate_pct": 22.5 },
+        { "min_holding_days": 181, "max_holding_days": 360, "rate_pct": 20 },
+        { "min_holding_days": 361, "max_holding_days": 720, "rate_pct": 17.5 },
+        { "min_holding_days": 721, "rate_pct": 15 }
+      ],
+      "effective_from": "2005-01-01"
+    },
+    {
+      "id": "br-offshore-stocks",
+      "label": "BR offshore stocks (resident-abroad broker)",
+      "jurisdiction": "BR",
+      "applies_to": {
+        "tax_account_types": ["br_corretora_offshore"],
+        "asset_classes": ["stocks"],
+        "event_kinds": ["sell", "dividend"]
+      },
+      "rate_pct": 15,
+      "rate_kind": "flat",
+      "effective_from": "2024-01-01",
+      "notes": "Lei 14.754/2023: 15% flat on offshore investment income for BR residents."
+    }
+  ],
+  "tax_exemptions": [
+    {
+      "id": "br-stocks-monthly-isencao",
+      "label": "BR stocks: isenção mensal de R$20k em vendas",
+      "jurisdiction": "BR",
+      "applies_to": {
+        "tax_account_types": ["br_corretora_tributada"],
+        "asset_classes": ["stocks"],
+        "event_kinds": ["sell"]
+      },
+      "threshold_amount": { "amount": 20000, "currency": "BRL" },
+      "threshold_period": "month",
+      "rule_kind": "isencao",
+      "effective_from": "2005-01-01",
+      "notes": "Net stock sales up to R$20k/month are tax-free for individuals; does not apply to FII or day-trade."
+    }
+  ],
+  "benchmarks": [
+    {
+      "id": "ibov",
+      "label": "Ibovespa",
+      "kind": "index",
+      "currency": "BRL",
+      "index_code": "IBOV",
+      "provider": "B3"
+    },
+    {
+      "id": "sp500",
+      "label": "S&P 500",
+      "kind": "index",
+      "currency": "USD",
+      "index_code": "SPX",
+      "provider": "S&P Dow Jones"
+    },
+    {
+      "id": "acwi-ex-us",
+      "label": "MSCI ACWI ex-US",
+      "kind": "index",
+      "currency": "USD",
+      "index_code": "ACWI-ex-US",
+      "provider": "MSCI"
+    },
+    {
+      "id": "cdi",
+      "label": "CDI",
+      "kind": "cash_rate",
+      "currency": "BRL",
+      "provider": "B3"
+    },
+    {
+      "id": "ipca-plus",
+      "label": "IPCA + 6%",
+      "kind": "custom",
+      "currency": "BRL",
+      "notes": "Inflation index plus a fixed 6% real-return floor; matches Tesouro IPCA+ long-duration target."
+    },
+    {
+      "id": "ifix",
+      "label": "IFIX",
+      "kind": "index",
+      "currency": "BRL",
+      "index_code": "IFIX",
+      "provider": "B3"
+    },
+    {
+      "id": "global-stocks-blend",
+      "label": "Global stocks blend (45% IBOV / 40% S&P 500 / 15% ACWI ex-US)",
+      "kind": "composite",
+      "currency": "BRL",
+      "components": [
+        { "benchmark_id": "ibov", "weight_pct": 45 },
+        { "benchmark_id": "sp500", "weight_pct": 40 },
+        { "benchmark_id": "acwi-ex-us", "weight_pct": 15 }
+      ]
+    }
+  ],
   "provenance": {
     "created_at": "2026-04-24T00:00:00Z",
     "version": "1",

@@ -19,7 +19,7 @@ VALID_INSTRUMENT_VALUE_TYPES = {"string", "integer", "number", "boolean"}
 
 
 CANONICAL_SCHEMA_URI = "https://example.org/rikdom/schema/portfolio.schema.json"
-CURRENT_SCHEMA_VERSION = (1, 3, 0)
+CURRENT_SCHEMA_VERSION = (1, 4, 0)
 MIN_COMPATIBLE_SCHEMA_VERSION = (1, 0, 0)
 
 
@@ -43,6 +43,25 @@ TAX_LOT_ACQUISITION_KINDS = {
     "grant_vest",
     "gift",
     "inheritance",
+    "other",
+}
+
+ACTIVITY_EVENT_TYPES = {
+    "buy",
+    "sell",
+    "dividend",
+    "interest",
+    "fee",
+    "transfer_in",
+    "transfer_out",
+    "split",
+    "merger",
+    "income",
+    "reimbursement",
+    "contribution",
+    "withdrawal",
+    "tax_withheld",
+    "fx_conversion",
     "other",
 }
 
@@ -526,6 +545,14 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                     )
 
     activities = portfolio.get("activities", [])
+    tax_lot_ids: set[str] = set()
+    raw_tax_lots = portfolio.get("tax_lots")
+    if isinstance(raw_tax_lots, list):
+        for lot in raw_tax_lots:
+            if isinstance(lot, dict):
+                lid = lot.get("id")
+                if isinstance(lid, str) and lid:
+                    tax_lot_ids.add(lid)
     if activities is not None:
         if not isinstance(activities, list):
             errors.append("'activities' must be an array when provided")
@@ -537,6 +564,87 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                 for k in ("id", "event_type", "status", "effective_at"):
                     if not activity.get(k):
                         errors.append(f"activities[{i}].{k} is required")
+
+                event_type = activity.get("event_type")
+                if (
+                    isinstance(event_type, str)
+                    and event_type
+                    and event_type not in ACTIVITY_EVENT_TYPES
+                ):
+                    errors.append(
+                        f"activities[{i}].event_type '{event_type}' must be one of: "
+                        f"{', '.join(sorted(ACTIVITY_EVENT_TYPES))}"
+                    )
+
+                if "account_id" in activity:
+                    _validate_account_id(
+                        activity.get("account_id"),
+                        f"activities[{i}].account_id",
+                        errors,
+                    )
+
+                if "holding_id" in activity:
+                    h_ref = activity.get("holding_id")
+                    if not isinstance(h_ref, str) or not h_ref:
+                        errors.append(
+                            f"activities[{i}].holding_id must be a non-empty string"
+                        )
+                    elif holding_ids and h_ref not in holding_ids:
+                        errors.append(
+                            f"activities[{i}].holding_id '{h_ref}' not in holdings"
+                        )
+
+                if "tax_lot_ids" in activity:
+                    refs = activity.get("tax_lot_ids")
+                    if not isinstance(refs, list):
+                        errors.append(
+                            f"activities[{i}].tax_lot_ids must be an array when provided"
+                        )
+                    else:
+                        for j, ref in enumerate(refs):
+                            if not isinstance(ref, str) or not ref:
+                                errors.append(
+                                    f"activities[{i}].tax_lot_ids[{j}] must be a non-empty string"
+                                )
+                                continue
+                            if tax_lot_ids and ref not in tax_lot_ids:
+                                errors.append(
+                                    f"activities[{i}].tax_lot_ids[{j}] '{ref}' not in tax_lots[].id"
+                                )
+
+                if "withholding_tax" in activity:
+                    _validate_money(
+                        activity.get("withholding_tax"),
+                        f"activities[{i}].withholding_tax",
+                        errors,
+                    )
+                if "realized_gain" in activity:
+                    _validate_money(
+                        activity.get("realized_gain"),
+                        f"activities[{i}].realized_gain",
+                        errors,
+                    )
+                if "counter_money" in activity:
+                    _validate_money(
+                        activity.get("counter_money"),
+                        f"activities[{i}].counter_money",
+                        errors,
+                    )
+
+                if event_type == "fx_conversion":
+                    if "counter_money" not in activity:
+                        errors.append(
+                            f"activities[{i}].counter_money is required for fx_conversion events"
+                        )
+                    fx_rate = activity.get("fx_rate")
+                    if fx_rate is not None and (
+                        not isinstance(fx_rate, (int, float))
+                        or isinstance(fx_rate, bool)
+                        or fx_rate <= 0
+                    ):
+                        errors.append(
+                            f"activities[{i}].fx_rate must be a positive number"
+                        )
 
     operations = portfolio.get("operations")
     if operations is not None:
@@ -619,3 +727,93 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
     _validate_tax_lots(portfolio.get("tax_lots"), holding_ids, errors)
 
     return errors
+
+
+def collect_policy_account_ids(policy: Any) -> set[str]:
+    """Return the set of account_id strings declared in a policy document.
+
+    A missing/invalid policy yields an empty set; callers should treat that
+    as 'no cross-file check possible' rather than as a failure.
+    """
+    if not isinstance(policy, dict):
+        return set()
+    accounts = policy.get("accounts")
+    if not isinstance(accounts, list):
+        return set()
+    out: set[str] = set()
+    for account in accounts:
+        if not isinstance(account, dict):
+            continue
+        aid = account.get("account_id")
+        if isinstance(aid, str) and aid:
+            out.add(aid)
+    return out
+
+
+def _collect_holding_account_ids(holdings: Any) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    if not isinstance(holdings, list):
+        return out
+    for i, holding in enumerate(holdings):
+        if not isinstance(holding, dict):
+            continue
+        aid = holding.get("account_id")
+        if isinstance(aid, str) and aid:
+            out.append((f"holdings[{i}].account_id", aid))
+    return out
+
+
+def _collect_attr_account_ids(
+    items: Any, parent: str
+) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    if not isinstance(items, list):
+        return out
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        aid = item.get("account_id")
+        if isinstance(aid, str) and aid:
+            out.append((f"{parent}[{i}].account_id", aid))
+    return out
+
+
+def cross_validate_account_ids(
+    portfolio: dict[str, Any], policy: dict[str, Any]
+) -> tuple[list[str], list[str]]:
+    """Cross-file referential integrity for account_id soft references.
+
+    Returns (errors, warnings):
+    - errors: account_id values that don't resolve in policy.accounts.
+    - warnings: holdings without an account_id when a policy is present
+      (so agents see what's unassigned without blocking validation).
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    declared = collect_policy_account_ids(policy)
+    if not declared:
+        return errors, warnings
+
+    refs: list[tuple[str, str]] = []
+    refs.extend(_collect_holding_account_ids(portfolio.get("holdings")))
+    refs.extend(_collect_attr_account_ids(portfolio.get("liabilities"), "liabilities"))
+    refs.extend(_collect_attr_account_ids(portfolio.get("tax_lots"), "tax_lots"))
+    refs.extend(_collect_attr_account_ids(portfolio.get("activities"), "activities"))
+
+    for path, aid in refs:
+        if aid not in declared:
+            errors.append(
+                f"{path} '{aid}' not declared in policy.accounts[].account_id"
+            )
+
+    holdings = portfolio.get("holdings")
+    if isinstance(holdings, list):
+        for i, holding in enumerate(holdings):
+            if not isinstance(holding, dict):
+                continue
+            if "account_id" not in holding:
+                warnings.append(
+                    f"holdings[{i}] has no account_id; placement-aware analysis "
+                    "(tax-location, per-account drift) will treat it as unassigned"
+                )
+    return errors, warnings

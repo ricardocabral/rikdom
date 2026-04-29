@@ -652,6 +652,21 @@
         "notes": { "type": "string" }
       }
     },
+    "benchmarks": {
+      "type": "array",
+      "description": "Registry of benchmarks referenceable from strategic_allocation.targets[].benchmark_id. Lets agents ground performance attribution in a declared index/ETF/composite rather than guessing.",
+      "items": { "$ref": "#/$defs/Benchmark" }
+    },
+    "tax_rules": {
+      "type": "array",
+      "description": "Declarative tax-rate table. Each rule specifies who/what it applies to (jurisdiction, tax_account_type, asset_class, holding period, event kind) and the rate. Agents should match the most specific rule for a transaction; absence means agents must ask the user before computing tax-aware advice.",
+      "items": { "$ref": "#/$defs/TaxRule" }
+    },
+    "tax_exemptions": {
+      "type": "array",
+      "description": "Structured exemptions and thresholds (e.g., BR R$20k/month equity-sale isenção, US wash-sale rules). Distinct from tax_rules to keep rate logic and exemption logic separable.",
+      "items": { "$ref": "#/$defs/TaxExemption" }
+    },
     "provenance": {
       "type": "object",
       "additionalProperties": false,
@@ -710,6 +725,10 @@
           "type": "string",
           "enum": ["high", "medium", "low"],
           "description": "How aggressively agents should correct drift in this bucket."
+        },
+        "benchmark_id": {
+          "type": "string",
+          "description": "Optional soft reference to benchmarks[].id at the policy root. Lets agents compute attribution against a declared index instead of inventing one."
         },
         "notes": { "type": "string" }
       }
@@ -869,6 +888,171 @@
         },
         "due_timezone": { "type": "string" },
         "rrule": { "type": "string" }
+      }
+    },
+    "TaxRule": {
+      "type": "object",
+      "required": ["id", "jurisdiction", "rate_pct"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_\\-]+$" },
+        "label": { "type": "string" },
+        "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "applies_to": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tax_account_types": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "asset_classes": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "asset_type_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "event_kinds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "buy",
+                  "sell",
+                  "dividend",
+                  "interest",
+                  "income",
+                  "withdrawal",
+                  "contribution",
+                  "tax_withheld",
+                  "come_cotas",
+                  "estate",
+                  "other"
+                ]
+              }
+            },
+            "holding_period_days_min": { "type": "integer", "minimum": 0 },
+            "holding_period_days_max": { "type": "integer", "minimum": 0 },
+            "is_day_trade": { "type": "boolean" }
+          }
+        },
+        "rate_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "flat_amount": { "$ref": "#/$defs/Money" },
+        "rate_kind": {
+          "type": "string",
+          "enum": ["flat", "regressive", "progressive", "withholding"],
+          "description": "Optional hint at how rate_pct should be interpreted; regressive/progressive imply additional rules elsewhere or in tax_rule_brackets."
+        },
+        "brackets": {
+          "type": "array",
+          "description": "For progressive/regressive rates, a sorted list of (threshold, rate) tiers. The matching engine selects the bracket whose threshold the taxable basis crosses.",
+          "items": {
+            "type": "object",
+            "required": ["rate_pct"],
+            "additionalProperties": false,
+            "properties": {
+              "min_holding_days": { "type": "integer", "minimum": 0 },
+              "max_holding_days": { "type": "integer", "minimum": 0 },
+              "min_amount": { "$ref": "#/$defs/Money" },
+              "max_amount": { "$ref": "#/$defs/Money" },
+              "rate_pct": { "type": "number", "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
+        "effective_from": { "type": "string", "format": "date" },
+        "effective_to": { "type": "string", "format": "date" },
+        "source_url": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "TaxExemption": {
+      "type": "object",
+      "required": ["id", "jurisdiction"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_\\-]+$" },
+        "label": { "type": "string" },
+        "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "applies_to": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tax_account_types": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "asset_classes": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "event_kinds": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "threshold_amount": { "$ref": "#/$defs/Money" },
+        "threshold_period": {
+          "type": "string",
+          "enum": ["day", "month", "quarter", "year", "lifetime", "per_event"]
+        },
+        "rule_kind": {
+          "type": "string",
+          "enum": [
+            "isencao",
+            "wash_sale",
+            "long_term_capital_gain",
+            "loss_carryforward",
+            "annual_gift",
+            "other"
+          ]
+        },
+        "effective_from": { "type": "string", "format": "date" },
+        "effective_to": { "type": "string", "format": "date" },
+        "source_url": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "Benchmark": {
+      "type": "object",
+      "required": ["id", "label", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$",
+          "description": "Stable id referenced by strategic_allocation.targets[].benchmark_id."
+        },
+        "label": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["index", "etf", "fund", "cash_rate", "composite", "custom"]
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Reporting currency of the benchmark series."
+        },
+        "ticker": { "type": "string" },
+        "index_code": { "type": "string" },
+        "provider": { "type": "string" },
+        "source_url": { "type": "string" },
+        "components": {
+          "type": "array",
+          "description": "For kind=composite, the weighted blend of other benchmarks. Each component.benchmark_id must resolve in benchmarks[]; weights must sum to ~100.",
+          "items": {
+            "type": "object",
+            "required": ["benchmark_id", "weight_pct"],
+            "additionalProperties": false,
+            "properties": {
+              "benchmark_id": { "type": "string" },
+              "weight_pct": { "type": "number", "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
+        "notes": { "type": "string" }
       }
     }
   }

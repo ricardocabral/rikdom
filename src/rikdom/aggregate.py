@@ -24,11 +24,13 @@ class AggregateResult:
     by_currency: dict[str, float] = field(default_factory=dict)
     by_duration: dict[str, float] = field(default_factory=dict)
     by_liquidity_tier: dict[str, float] = field(default_factory=dict)
+    by_account: dict[str, float] = field(default_factory=dict)
     findings: list[Finding] = field(default_factory=list)
     trust_records: list[HoldingTrustRecord] = field(default_factory=list)
 
 
 UNCLASSIFIED = "__unclassified__"
+UNASSIGNED_ACCOUNT = "__unassigned__"
 _LOOKTHROUGH_DIMENSIONS = ("region", "currency", "duration", "liquidity_tier")
 
 
@@ -897,6 +899,7 @@ def aggregate_portfolio(
     normalized_fx_rates = _normalize_fx_rates_to_base(fx_rates_to_base)
 
     by_asset_class: dict[str, float] = {}
+    by_account: dict[str, float] = {}
     breakdowns: dict[str, dict[str, float]] = {
         dim: {} for dim in _LOOKTHROUGH_DIMENSIONS
     }
@@ -946,6 +949,14 @@ def aggregate_portfolio(
             continue
 
         by_asset_class[asset_class] = by_asset_class.get(asset_class, 0.0) + amount_base
+
+        raw_account_id = holding.get("account_id")
+        account_key = (
+            raw_account_id.strip()
+            if isinstance(raw_account_id, str) and raw_account_id.strip()
+            else UNASSIGNED_ACCOUNT
+        )
+        by_account[account_key] = by_account.get(account_key, 0.0) + amount_base
 
         exposure = _resolve_holding_exposure(holding, asset_type_id, catalog_exposures)
         _distribute_lookthrough(
@@ -1007,6 +1018,7 @@ def aggregate_portfolio(
         by_liquidity_tier={
             k: round(v, 2) for k, v in sorted(breakdowns["liquidity_tier"].items())
         },
+        by_account={k: round(v, 2) for k, v in sorted(by_account.items())},
         findings=findings,
         trust_records=trust_records,
     )

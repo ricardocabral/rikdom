@@ -36,6 +36,15 @@ from .migrations import (
     parse_version,
     plan_migrations,
 )
+from .migrations.policy import (
+    PolicyMigrationPlanError,
+    apply_policy_migrations,
+    plan_policy_migrations,
+)
+from .policy import (
+    CURRENT_POLICY_SCHEMA_VERSION,
+    validate_policy,
+)
 from .plugin_engine.errors import PluginEngineError
 from .plugin_engine.loader import discover_plugins
 from .plugin_engine.pipeline import (
@@ -54,7 +63,11 @@ from .plugins import (
 )
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
-from .validate import CURRENT_SCHEMA_VERSION, validate_portfolio
+from .validate import (
+    CURRENT_SCHEMA_VERSION,
+    cross_validate_account_ids,
+    validate_portfolio,
+)
 
 
 DEFAULT_DATA_DIR = "data"
@@ -268,13 +281,29 @@ def _bootstrap_default_workspace(args: argparse.Namespace) -> None:
 def cmd_validate(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
     errors = validate_portfolio(portfolio)
+
+    warnings: list[str] = []
+    policy_path = getattr(args, "policy", None)
+    if isinstance(policy_path, str) and policy_path:
+        policy = load_json(policy_path)
+        cross_errors, cross_warnings = cross_validate_account_ids(portfolio, policy)
+        errors.extend(cross_errors)
+        warnings.extend(cross_warnings)
+
     if errors:
         print("Validation failed:")
         for err in errors:
             print(f"- {err}")
+        for warn in warnings:
+            print(f"- (warn) {warn}")
         return 1
 
-    print("Portfolio structure is valid")
+    if warnings:
+        print("Portfolio structure is valid (with warnings):")
+        for warn in warnings:
+            print(f"- {warn}")
+    else:
+        print("Portfolio structure is valid")
     return 0
 
 
@@ -305,6 +334,7 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
         ("by_currency", result.by_currency),
         ("by_duration", result.by_duration),
         ("by_liquidity_tier", result.by_liquidity_tier),
+        ("by_account", result.by_account),
     ):
         if value:
             output[key] = value
@@ -1204,6 +1234,98 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_migrate_policy(args: argparse.Namespace) -> int:
+    policy_path = Path(args.policy)
+    try:
+        policy = load_json(policy_path)
+    except FileNotFoundError:
+        print(f"Policy not found: {policy_path}", file=sys.stderr)
+        return 1
+
+    raw_version = policy.get("schema_version")
+    if not isinstance(raw_version, str):
+        print("Policy missing string 'schema_version'", file=sys.stderr)
+        return 1
+
+    try:
+        current = parse_version(raw_version)
+    except ValueError as exc:
+        print(f"Invalid schema_version: {exc}", file=sys.stderr)
+        return 1
+
+    target_str = args.to or format_version(CURRENT_POLICY_SCHEMA_VERSION)
+    try:
+        target = parse_version(target_str)
+    except ValueError as exc:
+        print(f"Invalid --to: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        steps = plan_policy_migrations(current, target)
+    except PolicyMigrationPlanError as exc:
+        print(f"Policy migration planning failed: {exc}", file=sys.stderr)
+        return 1
+
+    if not steps:
+        print(
+            json.dumps(
+                {
+                    "from": format_version(current),
+                    "to": format_version(target),
+                    "status": "noop",
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    migrated, applied = apply_policy_migrations(policy, steps)
+
+    post_errors = validate_policy(migrated)
+    if post_errors:
+        print("Policy migration produced an invalid policy:", file=sys.stderr)
+        for err in post_errors:
+            print(f"- {err}", file=sys.stderr)
+        return 1
+
+    payload: dict = {
+        "from": format_version(current),
+        "to": format_version(target),
+        "steps": [
+            {
+                "from": format_version(step.from_version),
+                "to": format_version(step.to_version),
+                "description": step.description,
+                "changes": step.changes,
+            }
+            for step in applied
+        ],
+        "dry_run": bool(args.dry_run),
+    }
+
+    if args.dry_run:
+        payload["status"] = "planned"
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    output_path = Path(args.output) if args.output else policy_path
+    in_place = _is_same_path(output_path, policy_path)
+    backup_written: str | None = None
+    if in_place and not args.no_backup:
+        backup = _backup_path(policy_path)
+        shutil.copy2(policy_path, backup)
+        backup_written = str(backup)
+
+    save_json(output_path, migrated)
+
+    payload["status"] = "written"
+    payload["output"] = str(output_path)
+    if backup_written:
+        payload["backup"] = backup_written
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+    return 0
+
+
 def _run_backfill(
     args: argparse.Namespace,
     operation,
@@ -1396,6 +1518,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_validate = sub.add_parser("validate", help="Validate portfolio structure")
     p_validate.add_argument("--portfolio", default=None)
+    p_validate.add_argument(
+        "--policy",
+        default=None,
+        help="Path to policy.json; enables cross-file account_id checking",
+    )
     _add_workspace_options(
         p_validate, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
@@ -1655,6 +1782,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_workspace_options(p_migrate, with_portfolio_name=True, with_registry=True)
     p_migrate.set_defaults(func=cmd_migrate)
+
+    p_migrate_policy = sub.add_parser(
+        "migrate-policy", help="Upgrade policy schema to a newer version"
+    )
+    p_migrate_policy.add_argument("--policy", required=True)
+    p_migrate_policy.add_argument(
+        "--to",
+        default=None,
+        help="Target semver (default: current CURRENT_POLICY_SCHEMA_VERSION)",
+    )
+    p_migrate_policy.add_argument("--dry-run", action="store_true")
+    p_migrate_policy.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip writing a .bak-<timestamp> sibling before overwriting",
+    )
+    p_migrate_policy.add_argument(
+        "--output",
+        default=None,
+        help="Write migrated file here instead of overwriting --policy",
+    )
+    p_migrate_policy.set_defaults(func=cmd_migrate_policy)
 
     p_backfill = sub.add_parser(
         "backfill", help="Synthesize fallback exposure or cash-flow data with explicit provenance"

@@ -649,8 +649,13 @@
 						"transfer_in",
 						"transfer_out",
 						"split",
+						"merger",
 						"income",
 						"reimbursement",
+						"contribution",
+						"withdrawal",
+						"tax_withheld",
+						"fx_conversion",
 						"other"
 					]
 				},
@@ -679,6 +684,20 @@
 					"type": "string",
 					"pattern": "^[a-z0-9_\\-]+$"
 				},
+				"account_id": {
+					"type": "string",
+					"pattern": "^[a-z0-9_\\-]+$",
+					"description": "Optional soft reference to policy.accounts[].account_id."
+				},
+				"holding_id": {
+					"type": "string",
+					"description": "Optional soft reference to holdings[].id when the activity targets a single holding (buy/sell/dividend/interest/split/merger)."
+				},
+				"tax_lot_ids": {
+					"type": "array",
+					"items": { "type": "string" },
+					"description": "Optional list of tax_lots[].id consumed (sell) or transferred (transfer_out) by this activity. Validated against the tax_lots ledger when present."
+				},
 				"instrument": {
 					"type": "object",
 					"additionalProperties": true
@@ -691,6 +710,22 @@
 				},
 				"fees": {
 					"$ref": "#/$defs/Money"
+				},
+				"withholding_tax": {
+					"$ref": "#/$defs/Money",
+					"description": "Tax withheld at source for dividend/interest/withdrawal events; net cash to the investor is money - withholding_tax."
+				},
+				"realized_gain": {
+					"$ref": "#/$defs/Money",
+					"description": "Realized gain/loss for sell events. Positive = gain, negative = loss. Agents may compute it from tax_lot_ids; importers may also assert the broker-reported number."
+				},
+				"fx_rate": {
+					"type": "number",
+					"description": "Quote rate for fx_conversion events (units of counter_money.currency per 1 money.currency)."
+				},
+				"counter_money": {
+					"$ref": "#/$defs/Money",
+					"description": "Counter leg of an fx_conversion (e.g., money is BRL sold, counter_money is USD bought)."
 				},
 				"metadata": {
 					"type": "object",
