@@ -302,15 +302,95 @@ class CreateBundleSafetyTests(unittest.TestCase):
 
 
 class ReadVerifiedPayloadsAtomicityTests(unittest.TestCase):
-    def test_payloads_match_verified_bytes_when_bundle_replaced_after_verify(
+    def test_returns_verified_bytes_when_file_replaced_after_verify(
         self,
     ) -> None:
-        """Replacing the bundle file after verification must NOT yield
-        unverified bytes from read_verified_payloads. We simulate this
-        by patching `verify_export_bundle` to corrupt the file as soon
-        as it returns — if read_verified_payloads still re-opens after
-        verify, it would return tampered bytes; with the shared open
-        handle, it returns the bytes that were checksum-verified."""
+        """If the bundle file on disk is replaced with tampered bytes
+        between verification and payload reads, the returned payloads
+        must still match the manifest's checksums.
+
+        Implementation: patch the public verify boundary to swap the
+        bundle file on disk after it returns. Against the previous
+        verify-then-reopen implementation this swap would propagate
+        to the second open and the returned payloads would be the
+        tampered bytes; against the shared-open implementation the
+        payloads are captured before the swap and remain correct.
+        """
+        from unittest import mock
+
+        from rikdom import export_bundle
+        from rikdom.export_bundle import (
+            create_export_bundle,
+            read_verified_payloads,
+        )
+
+        with TemporaryDirectory() as td:
+            tmp = Path(td)
+            portfolio = tmp / "portfolio.json"
+            shutil.copy2(FIXTURE, portfolio)
+            bundle = tmp / "out.zip"
+            create_export_bundle(
+                bundle,
+                created_at="2026-01-01T00:00:00Z",
+                portfolio=portfolio,
+            )
+            original_portfolio_bytes = portfolio.read_bytes()
+
+            # Build an internally consistent tampered bundle — its
+            # manifest is regenerated from the tampered payload bytes,
+            # so a naive "verify then reopen and read" implementation
+            # would happily return tampered bytes (manifest from the
+            # first open, payload from the swapped file). Verifying
+            # against this swapped bundle on its own would also pass.
+            tampered_portfolio = tmp / "tampered.json"
+            tampered_portfolio.write_text('{"tampered": true}\n', encoding="utf-8")
+            tampered_bundle = tmp / "tampered.zip"
+            create_export_bundle(
+                tampered_bundle,
+                created_at="2026-01-01T00:00:00Z",
+                portfolio=tampered_portfolio,
+            )
+
+            real_verify = export_bundle.verify_export_bundle
+
+            def verify_then_swap(path):
+                manifest = real_verify(path)
+                # Race window: replace the bundle on disk before the
+                # caller can re-open it. The shared-open implementation
+                # is immune; the legacy reopen-after-verify shape would
+                # see this file on the second open.
+                shutil.copy2(tampered_bundle, bundle)
+                return manifest
+
+            # Confirm the swapped file would actually deliver tampered
+            # bytes if a second open were performed — guarantees the
+            # test would fail on the legacy implementation.
+            with zipfile.ZipFile(tampered_bundle, "r") as zf:
+                self.assertNotEqual(
+                    zf.read("data/portfolio.json"), original_portfolio_bytes
+                )
+
+            with mock.patch.object(
+                export_bundle, "verify_export_bundle", verify_then_swap
+            ):
+                _, payloads = read_verified_payloads(bundle)
+
+            self.assertEqual(payloads["portfolio"], original_portfolio_bytes)
+            sha = hashlib.sha256(payloads["portfolio"]).hexdigest()
+            with zipfile.ZipFile(tampered_bundle, "r") as zf:
+                manifest = json.loads(zf.read("rikdom-export.json"))
+            tampered_sha = next(
+                e["sha256"] for e in manifest["entries"] if e["kind"] == "portfolio"
+            )
+            self.assertNotEqual(sha, tampered_sha)
+
+    def test_read_verified_payloads_opens_bundle_exactly_once(self) -> None:
+        """Structural guard: the shared-open implementation must call
+        zipfile.ZipFile exactly once per read_verified_payloads. The
+        previous verify-then-reopen implementation called it twice."""
+        from unittest import mock
+
+        from rikdom import export_bundle
         from rikdom.export_bundle import (
             create_export_bundle,
             read_verified_payloads,
@@ -327,26 +407,24 @@ class ReadVerifiedPayloadsAtomicityTests(unittest.TestCase):
                 portfolio=portfolio,
             )
 
-            replaced = tmp / "replaced.zip"
-            with zipfile.ZipFile(bundle, "r") as src, zipfile.ZipFile(
-                replaced, "w", compression=zipfile.ZIP_DEFLATED
-            ) as dst:
-                for name in src.namelist():
-                    data = src.read(name)
-                    if name.endswith("portfolio.json"):
-                        data = b'{"tampered": true}\n'
-                    dst.writestr(name, data)
+            real_zipfile = zipfile.ZipFile
+            with mock.patch.object(
+                export_bundle.zipfile, "ZipFile", wraps=real_zipfile
+            ) as spy:
+                read_verified_payloads(bundle)
 
-            manifest, payloads = read_verified_payloads(bundle)
-
-            # The portfolio payload returned must equal the original
-            # bytes whose checksum was validated, never anything else.
-            self.assertEqual(payloads["portfolio"], portfolio.read_bytes())
-            sha = hashlib.sha256(payloads["portfolio"]).hexdigest()
-            entry = next(
-                e for e in manifest["entries"] if e["kind"] == "portfolio"
+            read_opens = [
+                call
+                for call in spy.call_args_list
+                if (len(call.args) < 2 or call.args[1] == "r")
+                and call.kwargs.get("mode", "r") == "r"
+            ]
+            self.assertEqual(
+                len(read_opens),
+                1,
+                f"expected single read-mode open, got {len(read_opens)}: "
+                f"{spy.call_args_list}",
             )
-            self.assertEqual(entry["sha256"], sha)
 
 
 if __name__ == "__main__":
