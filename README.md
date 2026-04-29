@@ -30,6 +30,7 @@ With coding agents and LLMs, it is much easier to build your own asset managemen
 - Model recurring operations (monthly/yearly tasks) and keep an auditable "last done" history.
 - Extend asset types with country-specific classes, metadata, and typed instrument attributes.
 - Persist data in simple disk files (`JSON` + `JSONL`).
+- Archive or transfer data with checksum-verified [`rikdom-export`](docs/export-format.md) bundles.
 - Generate a minimal static dashboard for allocation and progress over time.
 - Ingest provider statements through community plugins.
 
@@ -45,11 +46,11 @@ With coding agents and LLMs, it is much easier to build your own asset managemen
 `rikdom` is not trying to be another full investment app.
 It is a schema + CLI + plugin foundation focused on durability, portability, and auditable local files.
 
-| Project | Primary shape | Storage model | Core focus |
-| --- | --- | --- | --- |
-| [rikdom](https://github.com/ricardocabral/rikdom) | Python CLI toolkit + JSON schema + plugin engine | Plain `JSON` + append-only `JSONL` in your repo/workspace | Long-term, local-first data durability and machine-readable portfolio workflows |
-| [Ghostfolio](https://github.com/ghostfolio/ghostfolio) | Full web app (Angular + NestJS) for portfolio tracking | Server stack (`PostgreSQL` + `Redis`) with optional cloud offering | Operational wealth dashboard with rich UI, analytics, and continuous app runtime |
-| [Wealthfolio](https://github.com/afadil/wealthfolio) | Desktop investment tracker (Tauri + React + Rust) | Local `SQLite` database | Beautiful local desktop experience with performance analytics and addon ecosystem |
+| Project                                                | Primary shape                                          | Storage model                                                      | Core focus                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| [rikdom](https://github.com/ricardocabral/rikdom)      | Python CLI toolkit + JSON schema + plugin engine       | Plain `JSON` + append-only `JSONL` in your repo/workspace          | Long-term, local-first data durability and machine-readable portfolio workflows   |
+| [Ghostfolio](https://github.com/ghostfolio/ghostfolio) | Full web app (Angular + NestJS) for portfolio tracking | Server stack (`PostgreSQL` + `Redis`) with optional cloud offering | Operational wealth dashboard with rich UI, analytics, and continuous app runtime  |
+| [Wealthfolio](https://github.com/afadil/wealthfolio)   | Desktop investment tracker (Tauri + React + Rust)      | Local `SQLite` database                                            | Beautiful local desktop experience with performance analytics and addon ecosystem |
 
 Practical difference:
 
@@ -142,7 +143,17 @@ make snapshot
 make viz
 ```
 
-### 8. Multi-portfolio workspace (optional)
+### 8. Export or import a portable bundle
+
+```bash
+uv run rikdom export --output out/rikdom-export.zip
+uv run rikdom verify-export --bundle out/rikdom-export.zip
+uv run rikdom import-export --bundle out/rikdom-export.zip --dry-run
+```
+
+See [`docs/export-format.md`](docs/export-format.md) for the manifest and checksum format.
+
+### 9. Multi-portfolio workspace (optional)
 
 Initialize a registry with isolated data paths:
 
@@ -207,16 +218,16 @@ make migrate-dry-run
 
 ### Community plugin showcase
 
-| Use case | Plugin | Description |
-| --- | --- | --- |
-| Importing statements | [`csv-generic`](plugins/csv-generic/README.md) | Imports holdings and activities from a generic CSV statement. |
-| Importing statements | [`ghostfolio_export_json`](plugins/ghostfolio_export_json/README.md) | Imports holdings and activities from Ghostfolio JSON export files. |
-| Importing statements | [`ibkr_flex_xml`](plugins/ibkr_flex_xml/README.md) | Imports activities from Interactive Brokers Flex XML statements. |
-| Importing statements | [`charles-schwab`](plugins/charles-schwab/README.md) | Imports account metadata, holdings, cash balances, and activities from Charles Schwab CSV statement exports. |
-| Importing statements | [`b3-consolidado-mensal`](plugins/b3-consolidado-mensal/README.md) | Imports holdings from B3 consolidated monthly XLSX reports. |
-| Asset type enrichment | [`asset-types-br-catalog`](plugins/asset-types-br-catalog/README.md) | Brazilian asset-type catalog for FIIs, public/private debt, BDRs, COEs, and special funds. |
-| Storage sync / analytics | [`duckdb-storage`](plugins/duckdb-storage/README.md) | Mirrors rikdom canonical JSON data into DuckDB for local analytics workflows. |
-| Reporting / visualization | [`quarto-portfolio-report`](plugins/quarto-portfolio-report/README.md) | Renders portfolio graphics and reports through Quarto. |
+| Use case                  | Plugin                                                                 | Description                                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Importing statements      | [`csv-generic`](plugins/csv-generic/README.md)                         | Imports holdings and activities from a generic CSV statement.                                                |
+| Importing statements      | [`ghostfolio_export_json`](plugins/ghostfolio_export_json/README.md)   | Imports holdings and activities from Ghostfolio JSON export files.                                           |
+| Importing statements      | [`ibkr_flex_xml`](plugins/ibkr_flex_xml/README.md)                     | Imports activities from Interactive Brokers Flex XML statements.                                             |
+| Importing statements      | [`charles-schwab`](plugins/charles-schwab/README.md)                   | Imports account metadata, holdings, cash balances, and activities from Charles Schwab CSV statement exports. |
+| Importing statements      | [`b3-consolidado-mensal`](plugins/b3-consolidado-mensal/README.md)     | Imports holdings from B3 consolidated monthly XLSX reports.                                                  |
+| Asset type enrichment     | [`asset-types-br-catalog`](plugins/asset-types-br-catalog/README.md)   | Brazilian asset-type catalog for FIIs, public/private debt, BDRs, COEs, and special funds.                   |
+| Storage sync / analytics  | [`duckdb-storage`](plugins/duckdb-storage/README.md)                   | Mirrors rikdom canonical JSON data into DuckDB for local analytics workflows.                                |
+| Reporting / visualization | [`quarto-portfolio-report`](plugins/quarto-portfolio-report/README.md) | Renders portfolio graphics and reports through Quarto.                                                       |
 
 Plugin quick commands:
 

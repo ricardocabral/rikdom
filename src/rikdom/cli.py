@@ -6,6 +6,7 @@ import re
 import shutil
 import sys
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from tempfile import TemporaryDirectory
 from importlib.resources import as_file, files as resource_files
@@ -20,6 +21,12 @@ from .reconciliation.reports import (
     render_reconciliation_markdown,
 )
 from .backfill import backfill_cashflows, backfill_exposure
+from .export_bundle import (
+    ExportBundleError,
+    create_export_bundle,
+    read_verified_payloads,
+    verify_export_bundle,
+)
 from .fx import ensure_snapshot_fx_lock
 from .journal import (
     DEFAULT_POLICY,
@@ -1131,6 +1138,166 @@ def _is_same_path(left: Path, right: Path) -> bool:
     return left.resolve(strict=False) == right.resolve(strict=False)
 
 
+def _optional_export_path(
+    value: str | None,
+    *,
+    explicit: bool,
+    label: str,
+) -> str | None:
+    if not value:
+        return None
+    if Path(value).exists():
+        return value
+    if explicit:
+        raise ExportBundleError(f"Requested export input not found: {label}={value}")
+    return None
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    try:
+        manifest = create_export_bundle(
+            args.output,
+            created_at=_now_iso(),
+            portfolio=args.portfolio,
+            snapshots=_optional_export_path(
+                args.snapshots,
+                explicit=getattr(args, "_snapshots_explicit", False),
+                label="snapshots",
+            ),
+            fx_history=_optional_export_path(
+                args.fx_history,
+                explicit=getattr(args, "_fx_history_explicit", False),
+                label="fx_history",
+            ),
+            policy=_optional_export_path(
+                args.policy,
+                explicit=getattr(args, "_policy_explicit", False),
+                label="policy",
+            ),
+        )
+    except ExportBundleError as exc:
+        print(f"Export failed: {exc}", file=sys.stderr)
+        return 1
+    print(
+        json.dumps(
+            {"status": "written", "output": args.output, **manifest},
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def cmd_verify_export(args: argparse.Namespace) -> int:
+    try:
+        manifest = verify_export_bundle(args.bundle)
+    except (FileNotFoundError, ExportBundleError, zipfile.BadZipFile) as exc:
+        print(f"Bundle verification failed: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps({"status": "verified", **manifest}, indent=2, ensure_ascii=False))
+    return 0
+
+
+def _write_import_payload(
+    path: str | Path,
+    data: bytes,
+    *,
+    no_backup: bool,
+) -> str | None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    backup_written: str | None = None
+    if target.exists() and not no_backup:
+        backup = _backup_path(target)
+        shutil.copy2(target, backup)
+        backup_written = str(backup)
+    target.write_bytes(data)
+    return backup_written
+
+
+def cmd_import_export(args: argparse.Namespace) -> int:
+    try:
+        manifest, payloads = read_verified_payloads(args.bundle)
+    except (FileNotFoundError, ExportBundleError, zipfile.BadZipFile) as exc:
+        print(f"Bundle verification failed: {exc}", file=sys.stderr)
+        return 1
+
+    portfolio_bytes = payloads.get("portfolio")
+    if portfolio_bytes is None:
+        print("Bundle missing portfolio payload", file=sys.stderr)
+        return 1
+    try:
+        portfolio = json.loads(portfolio_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        print(f"Invalid portfolio payload: {exc}", file=sys.stderr)
+        return 1
+    portfolio_errors = validate_portfolio(portfolio)
+    if portfolio_errors:
+        print("Refusing to import an invalid portfolio:", file=sys.stderr)
+        for err in portfolio_errors:
+            print(f"- {err}", file=sys.stderr)
+        return 1
+
+    policy_bytes = payloads.get("policy")
+    if policy_bytes is not None:
+        try:
+            policy_payload = json.loads(policy_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            print(f"Invalid policy payload: {exc}", file=sys.stderr)
+            return 1
+        policy_errors = validate_policy(policy_payload)
+        cross_errors, cross_warnings = cross_validate_account_ids(
+            portfolio, policy_payload
+        )
+        policy_errors.extend(cross_errors)
+        if policy_errors:
+            print("Refusing to import an invalid policy:", file=sys.stderr)
+            for err in policy_errors:
+                print(f"- {err}", file=sys.stderr)
+            for warn in cross_warnings:
+                print(f"- (warn) {warn}", file=sys.stderr)
+            return 1
+
+    written: dict[str, str] = {}
+    backups: dict[str, str] = {}
+    targets = {
+        "portfolio": args.portfolio,
+        "snapshots": args.snapshots,
+        "fx_history": args.fx_history,
+        "policy": args.policy,
+    }
+    available = [kind for kind in targets if kind in payloads and targets[kind]]
+
+    if args.dry_run:
+        print(
+            json.dumps(
+                {
+                    "status": "verified",
+                    "dry_run": True,
+                    "would_write": {kind: targets[kind] for kind in available},
+                    "manifest": manifest,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
+    for kind in available:
+        backup = _write_import_payload(
+            targets[kind], payloads[kind], no_backup=args.no_backup
+        )
+        written[kind] = targets[kind]
+        if backup:
+            backups[kind] = backup
+
+    response: dict[str, Any] = {"status": "imported", "written": written}
+    if backups:
+        response["backups"] = backups
+    print(json.dumps(response, indent=2, ensure_ascii=False))
+    return 0
+
+
 def cmd_migrate(args: argparse.Namespace) -> int:
     portfolio_path = Path(args.portfolio)
     try:
@@ -1354,9 +1521,7 @@ def _run_backfill(
 
     post_errors = validate_portfolio(new_portfolio)
     if post_errors:
-        print(
-            f"Backfill {label} produced an invalid portfolio:", file=sys.stderr
-        )
+        print(f"Backfill {label} produced an invalid portfolio:", file=sys.stderr)
         for err in post_errors:
             print(f"- {err}", file=sys.stderr)
         return 1
@@ -1760,6 +1925,45 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_storage.set_defaults(func=cmd_storage_sync)
 
+    p_export = sub.add_parser("export", help="Create a portable rikdom-export bundle")
+    p_export.add_argument("--output", required=True, help="Path to write .zip bundle")
+    p_export.add_argument("--portfolio", default=None)
+    p_export.add_argument("--snapshots", default=None, action=_StoreExplicitAction)
+    p_export.add_argument("--fx-history", default=None, action=_StoreExplicitAction)
+    p_export.add_argument("--policy", default=None, action=_StoreExplicitAction)
+    _add_workspace_options(
+        p_export, with_out_root=True, with_portfolio_name=True, with_registry=True
+    )
+    p_export.set_defaults(func=cmd_export)
+
+    p_verify_export = sub.add_parser(
+        "verify-export", help="Verify a rikdom-export bundle checksum manifest"
+    )
+    p_verify_export.add_argument("--bundle", required=True)
+    p_verify_export.set_defaults(func=cmd_verify_export)
+
+    p_import_export = sub.add_parser(
+        "import-export", help="Verify and import a rikdom-export bundle"
+    )
+    p_import_export.add_argument("--bundle", required=True)
+    p_import_export.add_argument("--portfolio", default=None)
+    p_import_export.add_argument("--snapshots", default=None)
+    p_import_export.add_argument("--fx-history", default=None)
+    p_import_export.add_argument("--policy", default=None)
+    p_import_export.add_argument("--dry-run", action="store_true")
+    p_import_export.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip .bak-<timestamp> backup before overwriting existing files",
+    )
+    _add_workspace_options(
+        p_import_export,
+        with_out_root=True,
+        with_portfolio_name=True,
+        with_registry=True,
+    )
+    p_import_export.set_defaults(func=cmd_import_export)
+
     p_migrate = sub.add_parser(
         "migrate", help="Upgrade portfolio schema to a newer version"
     )
@@ -1806,7 +2010,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_migrate_policy.set_defaults(func=cmd_migrate_policy)
 
     p_backfill = sub.add_parser(
-        "backfill", help="Synthesize fallback exposure or cash-flow data with explicit provenance"
+        "backfill",
+        help="Synthesize fallback exposure or cash-flow data with explicit provenance",
     )
     p_backfill_sub = p_backfill.add_subparsers(dest="backfill_command", required=True)
 
