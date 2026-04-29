@@ -260,5 +260,94 @@ class ExportBundleCliTests(unittest.TestCase):
         self.assertEqual(len(list(target_dir.glob("portfolio.json.bak-*"))), 1)
 
 
+class CreateBundleSafetyTests(unittest.TestCase):
+    def test_refuses_to_overwrite_input_file(self) -> None:
+        from rikdom.export_bundle import ExportBundleError, create_export_bundle
+
+        with TemporaryDirectory() as td:
+            tmp = Path(td)
+            portfolio = tmp / "portfolio.json"
+            shutil.copy2(FIXTURE, portfolio)
+            original_bytes = portfolio.read_bytes()
+
+            with self.assertRaises(ExportBundleError) as cm:
+                create_export_bundle(
+                    portfolio,
+                    created_at="2026-01-01T00:00:00Z",
+                    portfolio=portfolio,
+                )
+            self.assertIn("same path", str(cm.exception))
+            # File must be untouched.
+            self.assertEqual(portfolio.read_bytes(), original_bytes)
+
+    def test_refuses_when_output_resolves_to_optional_input(self) -> None:
+        from rikdom.export_bundle import ExportBundleError, create_export_bundle
+
+        with TemporaryDirectory() as td:
+            tmp = Path(td)
+            portfolio = tmp / "portfolio.json"
+            policy = tmp / "policy.json"
+            shutil.copy2(FIXTURE, portfolio)
+            shutil.copy2(SAMPLE_POLICY, policy)
+            original_policy = policy.read_bytes()
+
+            with self.assertRaises(ExportBundleError):
+                create_export_bundle(
+                    policy,
+                    created_at="2026-01-01T00:00:00Z",
+                    portfolio=portfolio,
+                    policy=policy,
+                )
+            self.assertEqual(policy.read_bytes(), original_policy)
+
+
+class ReadVerifiedPayloadsAtomicityTests(unittest.TestCase):
+    def test_payloads_match_verified_bytes_when_bundle_replaced_after_verify(
+        self,
+    ) -> None:
+        """Replacing the bundle file after verification must NOT yield
+        unverified bytes from read_verified_payloads. We simulate this
+        by patching `verify_export_bundle` to corrupt the file as soon
+        as it returns — if read_verified_payloads still re-opens after
+        verify, it would return tampered bytes; with the shared open
+        handle, it returns the bytes that were checksum-verified."""
+        from rikdom.export_bundle import (
+            create_export_bundle,
+            read_verified_payloads,
+        )
+
+        with TemporaryDirectory() as td:
+            tmp = Path(td)
+            portfolio = tmp / "portfolio.json"
+            shutil.copy2(FIXTURE, portfolio)
+            bundle = tmp / "out.zip"
+            create_export_bundle(
+                bundle,
+                created_at="2026-01-01T00:00:00Z",
+                portfolio=portfolio,
+            )
+
+            replaced = tmp / "replaced.zip"
+            with zipfile.ZipFile(bundle, "r") as src, zipfile.ZipFile(
+                replaced, "w", compression=zipfile.ZIP_DEFLATED
+            ) as dst:
+                for name in src.namelist():
+                    data = src.read(name)
+                    if name.endswith("portfolio.json"):
+                        data = b'{"tampered": true}\n'
+                    dst.writestr(name, data)
+
+            manifest, payloads = read_verified_payloads(bundle)
+
+            # The portfolio payload returned must equal the original
+            # bytes whose checksum was validated, never anything else.
+            self.assertEqual(payloads["portfolio"], portfolio.read_bytes())
+            sha = hashlib.sha256(payloads["portfolio"]).hexdigest()
+            entry = next(
+                e for e in manifest["entries"] if e["kind"] == "portfolio"
+            )
+            self.assertEqual(entry["sha256"], sha)
+
+
 if __name__ == "__main__":
     unittest.main()

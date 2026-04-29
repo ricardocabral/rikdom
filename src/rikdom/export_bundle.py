@@ -138,6 +138,17 @@ def create_export_bundle(
     }
 
     out = Path(output)
+    out_resolved = out.resolve(strict=False)
+    for bundle_file, _ in payloads:
+        try:
+            source_resolved = bundle_file.source.resolve(strict=False)
+        except OSError:
+            continue
+        if source_resolved == out_resolved:
+            raise ExportBundleError(
+                f"Refusing to write bundle: --output '{out}' resolves to the same "
+                f"path as input '{bundle_file.source}'"
+            )
     out.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(
@@ -148,78 +159,94 @@ def create_export_bundle(
     return manifest
 
 
+def _verify_open_bundle(
+    zf: zipfile.ZipFile,
+) -> tuple[dict[str, Any], dict[str, bytes]]:
+    """Verify a bundle on an already-open ZipFile.
+
+    Returns the manifest plus a mapping of kind -> payload bytes that have
+    been size- and SHA-256-checked. Reading and verifying from the same
+    open handle removes the time-of-check / time-of-use gap that would
+    exist if the bundle were closed and reopened between verification
+    and import.
+    """
+    names = set(zf.namelist())
+    if MANIFEST_PATH not in names:
+        raise ExportBundleError(f"Bundle missing {MANIFEST_PATH}")
+    try:
+        manifest = json.loads(zf.read(MANIFEST_PATH).decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ExportBundleError(f"Invalid {MANIFEST_PATH}: {exc}") from exc
+
+    if not isinstance(manifest, dict):
+        raise ExportBundleError(f"Invalid {MANIFEST_PATH}: expected object")
+    if manifest.get("format") != EXPORT_FORMAT:
+        raise ExportBundleError("Not a rikdom-export bundle")
+    if manifest.get("format_version") != EXPORT_VERSION:
+        raise ExportBundleError(
+            f"Unsupported rikdom-export version: {manifest.get('format_version')}"
+        )
+    entries = manifest.get("entries")
+    if not isinstance(entries, list):
+        raise ExportBundleError("Bundle manifest missing entries list")
+
+    payloads: dict[str, bytes] = {}
+    seen: set[str] = set()
+    seen_kinds: set[str] = set()
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ExportBundleError(f"Manifest entry {index} is not an object")
+        path = entry.get("path")
+        if (
+            not isinstance(path, str)
+            or path.startswith("/")
+            or ".." in Path(path).parts
+        ):
+            raise ExportBundleError(f"Manifest entry {index} has unsafe path")
+        kind = entry.get("kind")
+        if not isinstance(kind, str) or kind not in SUPPORTED_KINDS:
+            raise ExportBundleError(f"Unsupported manifest kind: {kind}")
+        if kind in seen_kinds:
+            raise ExportBundleError(f"Duplicate manifest kind: {kind}")
+        seen_kinds.add(kind)
+        if path in seen:
+            raise ExportBundleError(f"Duplicate manifest path: {path}")
+        seen.add(path)
+        if path not in names:
+            raise ExportBundleError(f"Bundle missing payload: {path}")
+        data = zf.read(path)
+        expected_size = entry.get("bytes")
+        if not isinstance(expected_size, int) or expected_size != len(data):
+            raise ExportBundleError(f"Size mismatch for {path}")
+        expected_sha = entry.get("sha256")
+        if not isinstance(expected_sha, str) or expected_sha != _sha256(data):
+            raise ExportBundleError(f"Checksum mismatch for {path}")
+        payloads[kind] = data
+    missing_required = REQUIRED_KINDS - seen_kinds
+    if missing_required:
+        missing = ", ".join(sorted(missing_required))
+        raise ExportBundleError(
+            f"Bundle missing required payload kind(s): {missing}"
+        )
+    return manifest, payloads
+
+
 def verify_export_bundle(bundle: str | Path) -> dict[str, Any]:
     """Verify all manifest checksums and return the parsed manifest."""
     with zipfile.ZipFile(bundle, "r") as zf:
-        names = set(zf.namelist())
-        if MANIFEST_PATH not in names:
-            raise ExportBundleError(f"Bundle missing {MANIFEST_PATH}")
-        try:
-            manifest = json.loads(zf.read(MANIFEST_PATH).decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise ExportBundleError(f"Invalid {MANIFEST_PATH}: {exc}") from exc
-
-        if not isinstance(manifest, dict):
-            raise ExportBundleError(f"Invalid {MANIFEST_PATH}: expected object")
-        if manifest.get("format") != EXPORT_FORMAT:
-            raise ExportBundleError("Not a rikdom-export bundle")
-        if manifest.get("format_version") != EXPORT_VERSION:
-            raise ExportBundleError(
-                f"Unsupported rikdom-export version: {manifest.get('format_version')}"
-            )
-        entries = manifest.get("entries")
-        if not isinstance(entries, list):
-            raise ExportBundleError("Bundle manifest missing entries list")
-
-        seen: set[str] = set()
-        seen_kinds: set[str] = set()
-        for index, entry in enumerate(entries):
-            if not isinstance(entry, dict):
-                raise ExportBundleError(f"Manifest entry {index} is not an object")
-            path = entry.get("path")
-            if (
-                not isinstance(path, str)
-                or path.startswith("/")
-                or ".." in Path(path).parts
-            ):
-                raise ExportBundleError(f"Manifest entry {index} has unsafe path")
-            kind = entry.get("kind")
-            if not isinstance(kind, str) or kind not in SUPPORTED_KINDS:
-                raise ExportBundleError(f"Unsupported manifest kind: {kind}")
-            if kind in seen_kinds:
-                raise ExportBundleError(f"Duplicate manifest kind: {kind}")
-            seen_kinds.add(kind)
-            if path in seen:
-                raise ExportBundleError(f"Duplicate manifest path: {path}")
-            seen.add(path)
-            if path not in names:
-                raise ExportBundleError(f"Bundle missing payload: {path}")
-            data = zf.read(path)
-            expected_size = entry.get("bytes")
-            if not isinstance(expected_size, int) or expected_size != len(data):
-                raise ExportBundleError(f"Size mismatch for {path}")
-            expected_sha = entry.get("sha256")
-            if not isinstance(expected_sha, str) or expected_sha != _sha256(data):
-                raise ExportBundleError(f"Checksum mismatch for {path}")
-        missing_required = REQUIRED_KINDS - seen_kinds
-        if missing_required:
-            missing = ", ".join(sorted(missing_required))
-            raise ExportBundleError(
-                f"Bundle missing required payload kind(s): {missing}"
-            )
-        return manifest
+        manifest, _ = _verify_open_bundle(zf)
+    return manifest
 
 
 def read_verified_payloads(
     bundle: str | Path,
 ) -> tuple[dict[str, Any], dict[str, bytes]]:
-    """Verify a bundle, then return manifest plus payload bytes by kind."""
-    manifest = verify_export_bundle(bundle)
-    payloads: dict[str, bytes] = {}
+    """Verify a bundle and return manifest plus payload bytes by kind.
+
+    Verification and payload reads share a single open ZipFile so the
+    bytes returned to the caller are the same bytes whose checksums
+    were validated.
+    """
     with zipfile.ZipFile(bundle, "r") as zf:
-        for entry in manifest["entries"]:
-            kind = entry.get("kind")
-            path = entry.get("path")
-            if isinstance(kind, str) and isinstance(path, str):
-                payloads[kind] = zf.read(path)
+        manifest, payloads = _verify_open_bundle(zf)
     return manifest, payloads
