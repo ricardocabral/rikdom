@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import io
 import json
 import unittest
+from argparse import Namespace
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 from rikdom.performance import (
     Cashflow,
+    PerformanceResult,
     compute_performance,
+    external_cashflow_currencies,
     extract_external_cashflows,
     modified_dietz,
     xirr,
@@ -153,6 +159,49 @@ class ExtractCashflowsTests(unittest.TestCase):
         self.assertEqual(len(flows), 1)
         self.assertAlmostEqual(flows[0].amount_base, 500.0)
 
+    def test_outflows_use_absolute_money_before_sign(self) -> None:
+        activities = [
+            {
+                "id": "a-withdraw-negative",
+                "event_type": "withdrawal",
+                "status": "posted",
+                "effective_at": "2026-02-01T00:00:00Z",
+                "money": {"amount": -300, "currency": "BRL"},
+            },
+            {
+                "id": "a-transfer-negative",
+                "event_type": "transfer_out",
+                "status": "posted",
+                "effective_at": "2026-02-02T00:00:00Z",
+                "money": {"amount": -200, "currency": "BRL"},
+            },
+        ]
+        flows, warnings = extract_external_cashflows(activities, "BRL")
+        self.assertEqual(warnings, [])
+        self.assertEqual([flow.amount_base for flow in flows], [-300.0, -200.0])
+
+    def test_external_cashflow_currencies_ignores_internal_and_base_events(
+        self,
+    ) -> None:
+        activities = [
+            {
+                "event_type": "buy",
+                "status": "posted",
+                "money": {"amount": 100, "currency": "EUR"},
+            },
+            {
+                "event_type": "contribution",
+                "status": "posted",
+                "money": {"amount": 100, "currency": "usd"},
+            },
+            {
+                "event_type": "transfer_out",
+                "status": "posted",
+                "money": {"amount": 100, "currency": "BRL"},
+            },
+        ]
+        self.assertEqual(external_cashflow_currencies(activities, "BRL"), ["USD"])
+
 
 class ComputePerformanceTests(unittest.TestCase):
     def test_end_to_end_no_cashflows(self) -> None:
@@ -169,6 +218,7 @@ class ComputePerformanceTests(unittest.TestCase):
             },
         ]
         result = compute_performance(snapshots, [], base_currency="BRL")
+        assert result.twr_pct is not None
         self.assertAlmostEqual(result.twr_pct, 10.0, places=4)
         assert result.mwr_pct is not None
         # XIRR annualizes by 365-day years; Jan 1 -> Dec 31 is 364 days,
@@ -228,11 +278,98 @@ class ComputePerformanceTests(unittest.TestCase):
         result = compute_performance(
             snapshots, [], base_currency="BRL", since="2026-01-01"
         )
+        assert result.twr_pct is not None
         self.assertAlmostEqual(result.twr_pct, 10.0, places=4)
         self.assertEqual(result.start_value_base, 100_000.0)
 
+    def test_date_only_until_includes_entire_calendar_day(self) -> None:
+        snapshots = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {"portfolio_value_base": 100_000, "by_asset_class": {}},
+            },
+            {
+                "timestamp": "2026-12-31T18:00:00Z",
+                "base_currency": "BRL",
+                "totals": {"portfolio_value_base": 110_000, "by_asset_class": {}},
+            },
+        ]
+        activities = [
+            {
+                "id": "same-day-withdrawal",
+                "event_type": "withdrawal",
+                "status": "posted",
+                "effective_at": "2026-12-31T12:00:00Z",
+                "money": {"amount": 1_000, "currency": "BRL"},
+            }
+        ]
+        result = compute_performance(
+            snapshots, activities, base_currency="BRL", until="2026-12-31"
+        )
+        self.assertEqual(result.end_value_base, 110_000.0)
+        self.assertEqual(result.cashflow_count, 1)
+        self.assertAlmostEqual(result.net_external_cashflow_base, -1_000.0)
+
 
 class CliPerformanceTests(unittest.TestCase):
+    def test_cmd_performance_requests_fx_for_external_cashflows(self) -> None:
+        from rikdom.cli import cmd_performance
+
+        portfolio = {
+            "settings": {"base_currency": "BRL"},
+            "holdings": [],
+            "activities": [
+                {
+                    "id": "cashflow-eur",
+                    "event_type": "contribution",
+                    "status": "posted",
+                    "effective_at": "2026-01-15T00:00:00Z",
+                    "money": {"amount": 100, "currency": "EUR"},
+                }
+            ],
+        }
+        result = PerformanceResult(
+            base_currency="BRL",
+            period_start="2026-01-01T00:00:00Z",
+            period_end="2026-12-31T00:00:00Z",
+            start_value_base=100.0,
+            end_value_base=110.0,
+            net_external_cashflow_base=500.0,
+            twr_pct=10.0,
+            mwr_pct=10.0,
+            cashflow_count=1,
+        )
+        args = Namespace(
+            portfolio="portfolio.json",
+            snapshots="snapshots.jsonl",
+            fx_history="fx.jsonl",
+            since=None,
+            until=None,
+        )
+
+        with (
+            mock.patch("rikdom.cli.load_json", return_value=portfolio),
+            mock.patch("rikdom.cli.load_jsonl", return_value=[]),
+            mock.patch(
+                "rikdom.cli.ensure_snapshot_fx_lock",
+                return_value=({"rates_to_base": {"EUR": 5.0}}, []),
+            ) as mock_fx,
+            mock.patch("rikdom.cli.compute_performance", return_value=result),
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                code = cmd_performance(args)
+
+        self.assertEqual(code, 0)
+        mock_fx.assert_called_once_with(
+            portfolio,
+            fx_history_path="fx.jsonl",
+            snapshot_timestamp=mock.ANY,
+            auto_ingest=False,
+            extra_quote_currencies=["EUR"],
+        )
+
     def test_cli_runs_against_sample(self) -> None:
         from rikdom.cli import main
 

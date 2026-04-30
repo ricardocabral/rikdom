@@ -133,6 +133,7 @@ def ensure_snapshot_fx_lock(
     snapshot_timestamp: str,
     auto_ingest: bool = True,
     fetcher: FxFetcher | None = None,
+    extra_quote_currencies: list[str] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     settings = portfolio.get("settings") if isinstance(portfolio, dict) else {}
     if not isinstance(settings, dict):
@@ -143,6 +144,13 @@ def ensure_snapshot_fx_lock(
     quote_currencies = _required_quote_currencies(
         portfolio, base_currency=base_currency
     )
+    if extra_quote_currencies:
+        merged = set(quote_currencies)
+        for currency in extra_quote_currencies:
+            code = _normalize_currency(currency)
+            if len(code) == 3 and code != base_currency:
+                merged.add(code)
+        quote_currencies = sorted(merged)
 
     rows = load_jsonl(fx_history_path)
     rates_to_base, rate_dates = _best_history_rates(

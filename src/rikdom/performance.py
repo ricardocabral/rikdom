@@ -11,7 +11,7 @@ MVP scope (Phase 2 / Step 5):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from typing import Any, Iterable
 
 # External cashflows = money/assets crossing the portfolio boundary.
@@ -54,6 +54,18 @@ def _parse_iso(value: str) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+def _is_date_only(value: str) -> bool:
+    text = value.strip()
+    return len(text) == 10 and text[4] == "-" and text[7] == "-"
+
+
+def _parse_until_bound(value: str) -> datetime:
+    dt = _parse_iso(value)
+    if _is_date_only(value):
+        return datetime.combine(dt.date(), time.max, tzinfo=timezone.utc)
+    return dt
 
 
 def _years_between(a: datetime, b: datetime) -> float:
@@ -189,7 +201,11 @@ def _resolve_to_base(
         return amount * rate
     if isinstance(metadata, dict):
         meta_fx = metadata.get("fx_rate_to_base")
-        if isinstance(meta_fx, (int, float)) and not isinstance(meta_fx, bool) and meta_fx > 0:
+        if (
+            isinstance(meta_fx, (int, float))
+            and not isinstance(meta_fx, bool)
+            and meta_fx > 0
+        ):
             return amount * float(meta_fx)
     return None
 
@@ -202,6 +218,29 @@ def _is_posted(activity: dict[str, Any]) -> bool:
         return False
     s = status.strip().lower()
     return not s or s == "posted"
+
+
+def external_cashflow_currencies(
+    activities: list[dict[str, Any]], base_currency: str
+) -> list[str]:
+    base = base_currency.strip().upper()
+    currencies: set[str] = set()
+    for act in activities:
+        if not isinstance(act, dict) or not _is_posted(act):
+            continue
+        event_type = str(act.get("event_type", "")).strip().lower()
+        if event_type not in _EXTERNAL_FLOW_SIGNS:
+            continue
+        money = act.get("money")
+        if not isinstance(money, dict):
+            continue
+        currency = money.get("currency")
+        if not isinstance(currency, str):
+            continue
+        code = currency.strip().upper()
+        if len(code) == 3 and code != base:
+            currencies.add(code)
+    return sorted(currencies)
 
 
 def extract_external_cashflows(
@@ -219,7 +258,11 @@ def extract_external_cashflows(
     a partial answer is still produced.
     """
 
-    rates = {k.strip().upper(): float(v) for k, v in (fx_rates_to_base or {}).items() if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0}
+    rates = {
+        k.strip().upper(): float(v)
+        for k, v in (fx_rates_to_base or {}).items()
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+    }
     flows: list[Cashflow] = []
     warnings: list[str] = []
     for act in activities:
@@ -255,7 +298,7 @@ def extract_external_cashflows(
         if period_end is not None and when > period_end:
             continue
         base_amount = _resolve_to_base(
-            float(amount),
+            abs(float(amount)),
             currency,
             base_currency,
             metadata=act.get("metadata"),
@@ -342,7 +385,7 @@ def compute_performance(
     until: str | datetime | None = None,
 ) -> PerformanceResult:
     since_dt = _parse_iso(since) if isinstance(since, str) else since
-    until_dt = _parse_iso(until) if isinstance(until, str) else until
+    until_dt = _parse_until_bound(until) if isinstance(until, str) else until
 
     start_snap, end_snap = _select_bookend_snapshots(snapshots, since_dt, until_dt)
     warnings: list[str] = []
@@ -367,7 +410,9 @@ def compute_performance(
     start_value = _snap_value(start_snap)
     end_value = _snap_value(end_snap)
     if start_value is None or end_value is None:
-        warnings.append("Snapshot is missing portfolio_value_base; cannot compute return")
+        warnings.append(
+            "Snapshot is missing portfolio_value_base; cannot compute return"
+        )
         return PerformanceResult(
             base_currency=base_currency,
             period_start=start_snap.get("timestamp", ""),
@@ -390,9 +435,7 @@ def compute_performance(
     )
     warnings.extend(cf_warnings)
 
-    twr_fraction = modified_dietz(
-        start_value, end_value, cashflows, start_ts, end_ts
-    )
+    twr_fraction = modified_dietz(start_value, end_value, cashflows, start_ts, end_ts)
 
     xirr_series = [Cashflow(when=start_ts, amount_base=-start_value)]
     for cf in cashflows:

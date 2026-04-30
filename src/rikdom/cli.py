@@ -68,7 +68,7 @@ from .plugins import (
     merge_holdings,
     stamp_provenance,
 )
-from .performance import compute_performance
+from .performance import compute_performance, external_cashflow_currencies
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
 from .validate import (
@@ -478,21 +478,25 @@ def cmd_performance(args: argparse.Namespace) -> int:
         if isinstance(raw, str) and raw.strip():
             base_currency = raw.strip().upper()
 
+    activities = portfolio.get("activities") or []
+    if not isinstance(activities, list):
+        activities = []
+
     fx_lock, fx_warnings = ensure_snapshot_fx_lock(
         portfolio,
         fx_history_path=args.fx_history,
         snapshot_timestamp=_now_iso(),
         auto_ingest=False,
+        extra_quote_currencies=external_cashflow_currencies(activities, base_currency),
     )
-    activities = portfolio.get("activities") or []
-    if not isinstance(activities, list):
-        activities = []
 
     result = compute_performance(
         snapshots,
         activities,
         base_currency=base_currency,
-        fx_rates_to_base=fx_lock.get("rates_to_base") if isinstance(fx_lock, dict) else None,
+        fx_rates_to_base=fx_lock.get("rates_to_base")
+        if isinstance(fx_lock, dict)
+        else None,
         since=getattr(args, "since", None),
         until=getattr(args, "until", None),
     )
