@@ -68,7 +68,11 @@ from .plugins import (
     merge_holdings,
     stamp_provenance,
 )
-from .performance import compute_performance, external_cashflow_currencies
+from .performance import (
+    compute_performance,
+    external_cashflow_currencies,
+    performance_period_bounds,
+)
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
 from .validate import (
@@ -482,12 +486,23 @@ def cmd_performance(args: argparse.Namespace) -> int:
     if not isinstance(activities, list):
         activities = []
 
+    period_start, period_end = performance_period_bounds(
+        snapshots,
+        since=getattr(args, "since", None),
+        until=getattr(args, "until", None),
+    )
+
     fx_lock, fx_warnings = ensure_snapshot_fx_lock(
         portfolio,
         fx_history_path=args.fx_history,
         snapshot_timestamp=_now_iso(),
         auto_ingest=False,
-        extra_quote_currencies=external_cashflow_currencies(activities, base_currency),
+        extra_quote_currencies=external_cashflow_currencies(
+            activities,
+            base_currency,
+            period_start=period_start,
+            period_end=period_end,
+        ),
     )
 
     result = compute_performance(

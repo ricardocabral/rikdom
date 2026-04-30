@@ -220,10 +220,51 @@ def _is_posted(activity: dict[str, Any]) -> bool:
     return not s or s == "posted"
 
 
+def _normalize_fx_rates(fx_rates_to_base: dict[str, float] | None) -> dict[str, float]:
+    return {
+        k.strip().upper(): float(v)
+        for k, v in (fx_rates_to_base or {}).items()
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+    }
+
+
+def _coerce_bound(
+    value: str | datetime | None, *, until: bool = False
+) -> datetime | None:
+    if isinstance(value, str):
+        return _parse_until_bound(value) if until else _parse_iso(value)
+    return value
+
+
+def performance_period_bounds(
+    snapshots: list[dict[str, Any]],
+    *,
+    since: str | datetime | None = None,
+    until: str | datetime | None = None,
+) -> tuple[datetime | None, datetime | None]:
+    """Return the effective snapshot-bounded performance window."""
+
+    since_dt = _coerce_bound(since)
+    until_dt = _coerce_bound(until, until=True)
+    start_snap, end_snap = _select_bookend_snapshots(snapshots, since_dt, until_dt)
+    if start_snap is None or end_snap is None:
+        return None, None
+    try:
+        return _parse_iso(start_snap["timestamp"]), _parse_iso(end_snap["timestamp"])
+    except (KeyError, TypeError, ValueError):
+        return None, None
+
+
 def external_cashflow_currencies(
-    activities: list[dict[str, Any]], base_currency: str
+    activities: list[dict[str, Any]],
+    base_currency: str,
+    *,
+    fx_rates_to_base: dict[str, float] | None = None,
+    period_start: datetime | None = None,
+    period_end: datetime | None = None,
 ) -> list[str]:
     base = base_currency.strip().upper()
+    rates = _normalize_fx_rates(fx_rates_to_base)
     currencies: set[str] = set()
     for act in activities:
         if not isinstance(act, dict) or not _is_posted(act):
@@ -234,11 +275,37 @@ def external_cashflow_currencies(
         money = act.get("money")
         if not isinstance(money, dict):
             continue
+        amount = money.get("amount")
         currency = money.get("currency")
+        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+            continue
         if not isinstance(currency, str):
             continue
         code = currency.strip().upper()
-        if len(code) == 3 and code != base:
+        if len(code) != 3 or code == base:
+            continue
+        if period_start is not None or period_end is not None:
+            when_raw = act.get("effective_at")
+            if not isinstance(when_raw, str):
+                continue
+            try:
+                when = _parse_iso(when_raw)
+            except ValueError:
+                continue
+            if period_start is not None and when < period_start:
+                continue
+            if period_end is not None and when > period_end:
+                continue
+        if (
+            _resolve_to_base(
+                abs(float(amount)),
+                code,
+                base,
+                metadata=act.get("metadata"),
+                fx_rates_to_base=rates,
+            )
+            is None
+        ):
             currencies.add(code)
     return sorted(currencies)
 
@@ -258,11 +325,7 @@ def extract_external_cashflows(
     a partial answer is still produced.
     """
 
-    rates = {
-        k.strip().upper(): float(v)
-        for k, v in (fx_rates_to_base or {}).items()
-        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
-    }
+    rates = _normalize_fx_rates(fx_rates_to_base)
     flows: list[Cashflow] = []
     warnings: list[str] = []
     for act in activities:

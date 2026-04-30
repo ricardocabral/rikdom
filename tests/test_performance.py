@@ -202,6 +202,51 @@ class ExtractCashflowsTests(unittest.TestCase):
         ]
         self.assertEqual(external_cashflow_currencies(activities, "BRL"), ["USD"])
 
+    def test_external_cashflow_currencies_uses_period_bounds(self) -> None:
+        activities = [
+            {
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2025-12-31T00:00:00Z",
+                "money": {"amount": 100, "currency": "EUR"},
+            },
+            {
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-02-01T00:00:00Z",
+                "money": {"amount": 100, "currency": "USD"},
+            },
+        ]
+        self.assertEqual(
+            external_cashflow_currencies(
+                activities,
+                "BRL",
+                period_start=_dt("2026-01-01T00:00:00Z"),
+                period_end=_dt("2026-12-31T00:00:00Z"),
+            ),
+            ["USD"],
+        )
+
+    def test_external_cashflow_currencies_ignores_metadata_fx_fallbacks(
+        self,
+    ) -> None:
+        activities = [
+            {
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-02-01T00:00:00Z",
+                "money": {"amount": 100, "currency": "EUR"},
+                "metadata": {"fx_rate_to_base": 5.0},
+            },
+            {
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-02-01T00:00:00Z",
+                "money": {"amount": 100, "currency": "USD"},
+            },
+        ]
+        self.assertEqual(external_cashflow_currencies(activities, "BRL"), ["USD"])
+
 
 class ComputePerformanceTests(unittest.TestCase):
     def test_end_to_end_no_cashflows(self) -> None:
@@ -329,6 +374,16 @@ class CliPerformanceTests(unittest.TestCase):
                 }
             ],
         }
+        snapshots = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "totals": {"portfolio_value_base": 100},
+            },
+            {
+                "timestamp": "2026-12-31T00:00:00Z",
+                "totals": {"portfolio_value_base": 110},
+            },
+        ]
         result = PerformanceResult(
             base_currency="BRL",
             period_start="2026-01-01T00:00:00Z",
@@ -350,7 +405,7 @@ class CliPerformanceTests(unittest.TestCase):
 
         with (
             mock.patch("rikdom.cli.load_json", return_value=portfolio),
-            mock.patch("rikdom.cli.load_jsonl", return_value=[]),
+            mock.patch("rikdom.cli.load_jsonl", return_value=snapshots),
             mock.patch(
                 "rikdom.cli.ensure_snapshot_fx_lock",
                 return_value=({"rates_to_base": {"EUR": 5.0}}, []),
@@ -369,6 +424,78 @@ class CliPerformanceTests(unittest.TestCase):
             auto_ingest=False,
             extra_quote_currencies=["EUR"],
         )
+
+    def test_cmd_performance_requests_fx_only_for_effective_window(self) -> None:
+        from rikdom.cli import cmd_performance
+
+        portfolio = {
+            "settings": {"base_currency": "BRL"},
+            "holdings": [],
+            "activities": [
+                {
+                    "id": "old-eur",
+                    "event_type": "contribution",
+                    "status": "posted",
+                    "effective_at": "2025-06-01T00:00:00Z",
+                    "money": {"amount": 100, "currency": "EUR"},
+                },
+                {
+                    "id": "period-usd",
+                    "event_type": "contribution",
+                    "status": "posted",
+                    "effective_at": "2026-06-01T00:00:00Z",
+                    "money": {"amount": 100, "currency": "USD"},
+                },
+            ],
+        }
+        snapshots = [
+            {
+                "timestamp": "2025-01-01T00:00:00Z",
+                "totals": {"portfolio_value_base": 90},
+            },
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "totals": {"portfolio_value_base": 100},
+            },
+            {
+                "timestamp": "2026-12-31T00:00:00Z",
+                "totals": {"portfolio_value_base": 110},
+            },
+        ]
+        result = PerformanceResult(
+            base_currency="BRL",
+            period_start="2026-01-01T00:00:00Z",
+            period_end="2026-12-31T00:00:00Z",
+            start_value_base=100.0,
+            end_value_base=110.0,
+            net_external_cashflow_base=500.0,
+            twr_pct=10.0,
+            mwr_pct=10.0,
+            cashflow_count=1,
+        )
+        args = Namespace(
+            portfolio="portfolio.json",
+            snapshots="snapshots.jsonl",
+            fx_history="fx.jsonl",
+            since="2026-01-01",
+            until="2026-12-31",
+        )
+
+        with (
+            mock.patch("rikdom.cli.load_json", return_value=portfolio),
+            mock.patch("rikdom.cli.load_jsonl", return_value=snapshots),
+            mock.patch(
+                "rikdom.cli.ensure_snapshot_fx_lock",
+                return_value=({"rates_to_base": {"USD": 5.0}}, []),
+            ) as mock_fx,
+            mock.patch("rikdom.cli.compute_performance", return_value=result),
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                code = cmd_performance(args)
+
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_fx.call_args.kwargs["extra_quote_currencies"], ["USD"])
 
     def test_cli_runs_against_sample(self) -> None:
         from rikdom.cli import main
