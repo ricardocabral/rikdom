@@ -219,26 +219,32 @@ portfolio, per account, and per strategic-allocation bucket; compare
 each against its declared `benchmark_id`. Required for any "how am I
 doing?" question.
 
-**Touch points.**
+**MVP landed (portfolio-level TWR/MWR).**
 
-- `src/rikdom/performance.py` (new). Pure functions:
-  `twr(snapshots, cashflows, *, period)`,
-  `mwr(snapshots, cashflows, *, period)`,
-  `attribution(twr, benchmark_returns)`.
-- `snapshot.schema.json` may need a per-bucket value field if not
-  already present, plus a `cashflows[]` slice (we now have the
-  activity event types to compute it).
-- Snapshot writer (`src/rikdom/snapshot.py`) should emit
-  `by_account` (already in aggregate) and a daily/period
-  `cashflow_total` block.
-- Benchmark series ingestion: thin plugin + JSONL store
-  (`data/benchmarks/<benchmark_id>.jsonl`) with `as_of`, `level`,
-  `currency`. The reference `benchmark_id` already exists in policy.
-- New CLI: `rikdom performance --portfolio … --policy … --since 2026-01-01`.
+- `src/rikdom/performance.py` ships `modified_dietz`, `xirr`,
+  `extract_external_cashflows`, and `compute_performance` orchestrator.
+  External cashflows = `contribution`, `withdrawal`, `transfer_in`,
+  `transfer_out` (other event_types are internal).
+- `rikdom performance --portfolio … --snapshots … [--since … --until …]`
+  emits `{period_start, period_end, start_value_base, end_value_base,
+  net_external_cashflow_base, twr_pct, mwr_pct, cashflow_count, warnings}`.
+- FX of foreign-currency cashflows uses the same
+  `fx_rates_to_base` + `metadata.fx_rate_to_base` fallback as
+  `aggregate_portfolio`; cashflows that cannot be converted are skipped
+  with a warning rather than blocking the whole computation.
 
-**Decisions to make.** Whether to ship benchmark ingestion as a new
-plugin type or as a free-form file under `data/`. The latter is
-simpler and consistent with the local-first ethos.
+**Deferred to follow-up slices.**
+
+- Per-account / per-strategic-bucket TWR (needs snapshot schema bump for
+  per-bucket values plus a richer cashflow attribution).
+- Benchmark series ingestion + attribution. Open decision (kept open):
+  thin plugin vs. free-form `data/benchmarks/<benchmark_id>.jsonl` with
+  `as_of`, `level`, `currency`. The latter is simpler and consistent
+  with the local-first ethos.
+- `cashflows[]` slice in `snapshot.schema.json`. Snapshot writer
+  emitting daily/period `cashflow_total`.
+- Policy hookup: `rikdom performance --policy …` resolving
+  `benchmark_id` per bucket once attribution lands.
 
 ### Step 6 — Funded-ratio derived view
 

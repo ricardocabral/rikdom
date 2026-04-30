@@ -68,6 +68,7 @@ from .plugins import (
     merge_holdings,
     stamp_provenance,
 )
+from .performance import compute_performance
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
 from .validate import (
@@ -464,6 +465,52 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         print("Warnings:")
         for warning in result.warnings:
             print(f"- {warning}")
+    return 0
+
+
+def cmd_performance(args: argparse.Namespace) -> int:
+    portfolio = load_json(args.portfolio)
+    snapshots = load_jsonl(args.snapshots)
+    settings = portfolio.get("settings") or {}
+    base_currency = "USD"
+    if isinstance(settings, dict):
+        raw = settings.get("base_currency")
+        if isinstance(raw, str) and raw.strip():
+            base_currency = raw.strip().upper()
+
+    fx_lock, fx_warnings = ensure_snapshot_fx_lock(
+        portfolio,
+        fx_history_path=args.fx_history,
+        snapshot_timestamp=_now_iso(),
+        auto_ingest=False,
+    )
+    activities = portfolio.get("activities") or []
+    if not isinstance(activities, list):
+        activities = []
+
+    result = compute_performance(
+        snapshots,
+        activities,
+        base_currency=base_currency,
+        fx_rates_to_base=fx_lock.get("rates_to_base") if isinstance(fx_lock, dict) else None,
+        since=getattr(args, "since", None),
+        until=getattr(args, "until", None),
+    )
+    result.warnings.extend(fx_warnings)
+
+    output = {
+        "base_currency": result.base_currency,
+        "period_start": result.period_start,
+        "period_end": result.period_end,
+        "start_value_base": result.start_value_base,
+        "end_value_base": result.end_value_base,
+        "net_external_cashflow_base": result.net_external_cashflow_base,
+        "twr_pct": result.twr_pct,
+        "mwr_pct": result.mwr_pct,
+        "cashflow_count": result.cashflow_count,
+        "warnings": result.warnings,
+    }
+    print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0
 
 
@@ -1761,6 +1808,28 @@ def build_parser() -> argparse.ArgumentParser:
         p_snapshot, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
     p_snapshot.set_defaults(func=cmd_snapshot)
+
+    p_performance = sub.add_parser(
+        "performance",
+        help="Compute portfolio TWR (Modified Dietz) and MWR (XIRR) over a window",
+    )
+    p_performance.add_argument("--portfolio", default=None)
+    p_performance.add_argument("--snapshots", default=None)
+    p_performance.add_argument("--fx-history", default=None)
+    p_performance.add_argument(
+        "--since",
+        default=None,
+        help="Window start as ISO date or datetime (default: earliest snapshot)",
+    )
+    p_performance.add_argument(
+        "--until",
+        default=None,
+        help="Window end as ISO date or datetime (default: most recent snapshot)",
+    )
+    _add_workspace_options(
+        p_performance, with_out_root=True, with_portfolio_name=True, with_registry=True
+    )
+    p_performance.set_defaults(func=cmd_performance)
 
     p_compact = sub.add_parser(
         "compact", help="Compact and/or rotate a snapshots journal"

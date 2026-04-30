@@ -1,5 +1,5 @@
 .PHONY: help sync bootstrap validate validate-fixture aggregate reconcile snapshot viz \
-	visualize render-report \
+	visualize render-report performance \
 	plugins-list import-sample storage-sync migrate-dry-run \
 	migrate-dry-run-policy validate-with-policy \
 	test lint check
@@ -22,6 +22,7 @@ help:
 	@echo "  make validate-fixture - Validate test fixture portfolio"
 	@echo "  make aggregate        - Aggregate holdings by asset class"
 	@echo "  make snapshot         - Append a historical snapshot"
+	@echo "  make performance      - Compute portfolio TWR and MWR"
 	@echo "  make viz              - Generate quickview + deep-dive via quarto plugin"
 	@echo "  make plugins-list     - List plugins in plugins/"
 	@echo "  make import-sample    - Import sample statement using csv-generic"
@@ -55,6 +56,9 @@ reconcile:
 
 snapshot:
 	uv run rikdom snapshot $(WORKSPACE_ARGS)
+
+performance:
+	uv run rikdom performance $(WORKSPACE_ARGS)
 
 viz:
 	uv run rikdom viz $(WORKSPACE_ARGS) --include-current
