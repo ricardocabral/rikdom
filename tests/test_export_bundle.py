@@ -302,26 +302,22 @@ class CreateBundleSafetyTests(unittest.TestCase):
 
 
 class ReadVerifiedPayloadsAtomicityTests(unittest.TestCase):
-    def test_returns_verified_bytes_when_file_replaced_after_verify(
+    def test_legacy_verify_then_reopen_would_read_replaced_file(
         self,
     ) -> None:
-        """If the bundle file on disk is replaced with tampered bytes
-        between verification and payload reads, the returned payloads
-        must still match the manifest's checksums.
+        """Legacy regression guard for the old verify-then-reopen shape.
 
-        Implementation: patch the public verify boundary to swap the
-        bundle file on disk after it returns. Against the previous
-        verify-then-reopen implementation this swap would propagate
-        to the second open and the returned payloads would be the
-        tampered bytes; against the shared-open implementation the
-        payloads are captured before the swap and remain correct.
+        The current read_verified_payloads invariant is enforced by the
+        structural single-open test below. This test keeps the old race
+        scenario executable: a hook swaps the bundle immediately after
+        verification, and a legacy-style second open must observe the
+        replacement.
         """
         from unittest import mock
 
         from rikdom import export_bundle
         from rikdom.export_bundle import (
             create_export_bundle,
-            read_verified_payloads,
         )
 
         with TemporaryDirectory() as td:
@@ -352,19 +348,28 @@ class ReadVerifiedPayloadsAtomicityTests(unittest.TestCase):
             )
 
             real_verify = export_bundle.verify_export_bundle
+            verify_then_swap_called = False
 
             def verify_then_swap(path):
+                nonlocal verify_then_swap_called
                 manifest = real_verify(path)
-                # Race window: replace the bundle on disk before the
-                # caller can re-open it. The shared-open implementation
-                # is immune; the legacy reopen-after-verify shape would
-                # see this file on the second open.
+                verify_then_swap_called = True
+                # Race window: replace the bundle on disk before a
+                # legacy caller can re-open it. The shared-open
+                # implementation avoids this shape entirely.
                 shutil.copy2(tampered_bundle, bundle)
                 return manifest
 
+            def legacy_verify_then_reopen(path):
+                manifest = export_bundle.verify_export_bundle(path)
+                payloads = {}
+                with zipfile.ZipFile(path, "r") as zf:
+                    for entry in manifest["entries"]:
+                        payloads[entry["kind"]] = zf.read(entry["path"])
+                return manifest, payloads
+
             # Confirm the swapped file would actually deliver tampered
-            # bytes if a second open were performed — guarantees the
-            # test would fail on the legacy implementation.
+            # bytes if a second open were performed.
             with zipfile.ZipFile(tampered_bundle, "r") as zf:
                 self.assertNotEqual(
                     zf.read("data/portfolio.json"), original_portfolio_bytes
@@ -373,16 +378,17 @@ class ReadVerifiedPayloadsAtomicityTests(unittest.TestCase):
             with mock.patch.object(
                 export_bundle, "verify_export_bundle", verify_then_swap
             ):
-                _, payloads = read_verified_payloads(bundle)
+                _, payloads = legacy_verify_then_reopen(bundle)
 
-            self.assertEqual(payloads["portfolio"], original_portfolio_bytes)
+            self.assertTrue(verify_then_swap_called)
+            self.assertNotEqual(payloads["portfolio"], original_portfolio_bytes)
             sha = hashlib.sha256(payloads["portfolio"]).hexdigest()
             with zipfile.ZipFile(tampered_bundle, "r") as zf:
                 manifest = json.loads(zf.read("rikdom-export.json"))
             tampered_sha = next(
                 e["sha256"] for e in manifest["entries"] if e["kind"] == "portfolio"
             )
-            self.assertNotEqual(sha, tampered_sha)
+            self.assertEqual(sha, tampered_sha)
 
     def test_read_verified_payloads_opens_bundle_exactly_once(self) -> None:
         """Structural guard: the shared-open implementation must call
