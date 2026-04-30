@@ -90,7 +90,9 @@ All other event types — `buy`, `sell`, `dividend`, `interest`, `fee`,
 portfolio and are deliberately excluded from the cashflow series. Their
 effect already shows up in the next snapshot's `portfolio_value_base`.
 
-Activities without `status: posted` are skipped (matches `aggregate`).
+Activities with an explicit non-posted `status` (e.g. `pending`, `cancelled`)
+are skipped. A missing or blank `status` is treated as `posted` and included
+— this matches `aggregate`.
 
 ## FX handling
 

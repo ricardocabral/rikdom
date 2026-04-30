@@ -150,7 +150,8 @@ uv run rikdom performance --since 2026-01-01 --until 2026-12-31
 ```
 
 Emits a JSON block with Modified-Dietz TWR (period return) and XIRR-based MWR
-(annualized) plus the external cashflows used. See [`docs/performance.md`](docs/performance.md).
+(annualized), plus the net external cashflow total and count over the window.
+See [`docs/performance.md`](docs/performance.md).
 
 ### 8. Generate dashboard
 
