@@ -137,13 +137,28 @@ make snapshot
 
 `snapshot` now auto-ingests missing FX history for non-base holdings and locks the FX rates used into the snapshot row metadata (`metadata.fx_lock`) for deterministic valuation history.
 
-### 7. Generate dashboard
+### 7. Compute portfolio TWR / MWR
+
+```bash
+make performance
+```
+
+Or pick a window directly:
+
+```bash
+uv run rikdom performance --since 2026-01-01 --until 2026-12-31
+```
+
+Emits a JSON block with Modified-Dietz TWR (period return) and XIRR-based MWR
+(annualized) plus the external cashflows used. See [`docs/performance.md`](docs/performance.md).
+
+### 8. Generate dashboard
 
 ```bash
 make viz
 ```
 
-### 8. Export or import a portable bundle
+### 9. Export or import a portable bundle
 
 ```bash
 uv run rikdom export --output out/rikdom-export.zip
@@ -153,7 +168,7 @@ uv run rikdom import-export --bundle out/rikdom-export.zip --dry-run
 
 See [`docs/export-format.md`](docs/export-format.md) for the manifest and checksum format.
 
-### 9. Multi-portfolio workspace (optional)
+### 10. Multi-portfolio workspace (optional)
 
 Initialize a registry with isolated data paths:
 
@@ -183,6 +198,7 @@ uv run rikdom workspace rollup --data-dir data
 ## User Guides
 
 - [Native Multi-Currency Engine guide](docs/native-multi-currency-engine.md)
+- [Performance module (TWR / MWR)](docs/performance.md)
 - [Visualization module](docs/visualization.md)
 - [Plugin system](docs/plugin-system.md)
 
