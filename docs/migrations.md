@@ -20,6 +20,7 @@ user data under `metadata` / `extensions`.
 | 1.1.0 → 1.2.0 | optional `operations` (task catalog/events) slot |
 | 1.2.0 → 1.3.0 | optional `liabilities[]`, `tax_lots[]`, `holdings[].account_id` |
 | 1.3.0 → 1.4.0 | expanded `activities[].event_type` (merger, contribution, withdrawal, tax_withheld, fx_conversion) and optional `account_id`, `holding_id`, `tax_lot_ids`, `withholding_tax`, `realized_gain`, `fx_rate`, `counter_money` |
+| 1.4.0 → 1.5.0 | optional `Money.fx_ref` (`as_of_date`, `base_currency`, `quote_currency`, `rate_to_base`, `source`) for line-item FX provenance |
 
 ### Policy
 

@@ -157,6 +157,42 @@
 					"type": "integer",
 					"minimum": 0,
 					"description": "Optional significant precision marker from importer source."
+				},
+				"fx_ref": {
+					"$ref": "#/$defs/FxRef",
+					"description": "Optional pointer to the FX history row used to convert this Money into the portfolio's base_currency. Used for line-item FX provenance so base-currency totals are reconstructible."
+				}
+			}
+		},
+		"FxRef": {
+			"type": "object",
+			"description": "Reference to a row in fx_rates.jsonl identifying the FX rate used to convert an enclosing Money into the portfolio base currency. Keyed by (as_of_date, base_currency, quote_currency); rate_to_base is embedded for self-containment.",
+			"required": ["as_of_date", "base_currency", "quote_currency", "rate_to_base"],
+			"additionalProperties": false,
+			"properties": {
+				"as_of_date": {
+					"type": "string",
+					"format": "date",
+					"description": "FX history row date (YYYY-MM-DD). Must be on or before the snapshot's as-of date."
+				},
+				"base_currency": {
+					"type": "string",
+					"pattern": "^[A-Z]{3}$",
+					"description": "Portfolio base currency the rate converts into."
+				},
+				"quote_currency": {
+					"type": "string",
+					"pattern": "^[A-Z]{3}$",
+					"description": "Source currency of the enclosing Money. Must match the enclosing Money.currency."
+				},
+				"rate_to_base": {
+					"type": "number",
+					"exclusiveMinimum": 0,
+					"description": "Units of base_currency per 1 unit of quote_currency."
+				},
+				"source": {
+					"type": "string",
+					"description": "How the rate was sourced (e.g., 'fx_lock', 'history', 'auto_ingest', 'manual')."
 				}
 			}
 		},

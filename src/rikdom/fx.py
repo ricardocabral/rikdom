@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -222,3 +223,77 @@ def ensure_snapshot_fx_lock(
         },
     }
     return fx_lock, warnings
+
+
+def _fx_ref_from_lock(
+    currency: str, fx_lock: dict[str, Any]
+) -> dict[str, Any] | None:
+    if not isinstance(fx_lock, dict):
+        return None
+    base_currency = _normalize_currency(fx_lock.get("base_currency"))
+    quote = _normalize_currency(currency)
+    if not base_currency or not quote or quote == base_currency:
+        return None
+    rates = fx_lock.get("rates_to_base") or {}
+    rate = rates.get(quote) if isinstance(rates, dict) else None
+    if not isinstance(rate, (int, float)) or rate <= 0:
+        return None
+    rate_dates = fx_lock.get("rate_dates") or {}
+    sources = fx_lock.get("sources") or {}
+    as_of_date = (
+        rate_dates.get(quote) if isinstance(rate_dates, dict) else None
+    )
+    if not isinstance(as_of_date, str) or len(as_of_date) != 10:
+        return None
+    fx_ref: dict[str, Any] = {
+        "as_of_date": as_of_date,
+        "base_currency": base_currency,
+        "quote_currency": quote,
+        "rate_to_base": float(rate),
+    }
+    source = sources.get(quote) if isinstance(sources, dict) else None
+    if isinstance(source, str) and source:
+        fx_ref["source"] = source
+    return fx_ref
+
+
+def attach_fx_refs_to_holdings(
+    portfolio: dict[str, Any], fx_lock: dict[str, Any]
+) -> dict[str, Any]:
+    """Return a deep copy of ``portfolio`` with fx_ref stamped on each
+    foreign-currency ``holding.market_value`` and ``activity.money`` using
+    the rates in ``fx_lock``.
+
+    Idempotent: existing fx_ref values are preserved untouched. Money values
+    whose currency equals the lock's base_currency or that lack a rate in
+    the lock are left as-is.
+    """
+    new_portfolio = copy.deepcopy(portfolio) if isinstance(portfolio, dict) else {}
+    if not isinstance(fx_lock, dict):
+        return new_portfolio
+
+    holdings = new_portfolio.get("holdings")
+    if isinstance(holdings, list):
+        for holding in holdings:
+            if not isinstance(holding, dict):
+                continue
+            money = holding.get("market_value")
+            if not isinstance(money, dict) or "fx_ref" in money:
+                continue
+            fx_ref = _fx_ref_from_lock(money.get("currency", ""), fx_lock)
+            if fx_ref is not None:
+                money["fx_ref"] = fx_ref
+
+    activities = new_portfolio.get("activities")
+    if isinstance(activities, list):
+        for activity in activities:
+            if not isinstance(activity, dict):
+                continue
+            money = activity.get("money")
+            if not isinstance(money, dict) or "fx_ref" in money:
+                continue
+            fx_ref = _fx_ref_from_lock(money.get("currency", ""), fx_lock)
+            if fx_ref is not None:
+                money["fx_ref"] = fx_ref
+
+    return new_portfolio

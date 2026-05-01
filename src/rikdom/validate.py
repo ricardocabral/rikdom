@@ -19,7 +19,7 @@ VALID_INSTRUMENT_VALUE_TYPES = {"string", "integer", "number", "boolean"}
 
 
 CANONICAL_SCHEMA_URI = "https://example.org/rikdom/schema/portfolio.schema.json"
-CURRENT_SCHEMA_VERSION = (1, 4, 0)
+CURRENT_SCHEMA_VERSION = (1, 5, 0)
 MIN_COMPATIBLE_SCHEMA_VERSION = (1, 0, 0)
 
 
@@ -265,6 +265,57 @@ def _validate_money(value: Any, path: str, errors: list[str]) -> None:
         or currency != currency.upper()
     ):
         errors.append(f"{path}.currency must be ISO-4217 (3 uppercase letters)")
+    if "fx_ref" in value:
+        _validate_fx_ref(value.get("fx_ref"), currency, f"{path}.fx_ref", errors)
+
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _validate_fx_ref(
+    value: Any, enclosing_currency: Any, path: str, errors: list[str]
+) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object when present")
+        return
+    as_of_date = value.get("as_of_date")
+    base_currency = value.get("base_currency")
+    quote_currency = value.get("quote_currency")
+    rate_to_base = value.get("rate_to_base")
+    if not isinstance(as_of_date, str) or not _DATE_RE.match(as_of_date):
+        errors.append(f"{path}.as_of_date must be YYYY-MM-DD")
+    else:
+        try:
+            datetime.strptime(as_of_date, "%Y-%m-%d")
+        except ValueError:
+            errors.append(f"{path}.as_of_date '{as_of_date}' is not a valid date")
+    if (
+        not isinstance(base_currency, str)
+        or len(base_currency) != 3
+        or base_currency != base_currency.upper()
+    ):
+        errors.append(f"{path}.base_currency must be ISO-4217 (3 uppercase letters)")
+    if (
+        not isinstance(quote_currency, str)
+        or len(quote_currency) != 3
+        or quote_currency != quote_currency.upper()
+    ):
+        errors.append(f"{path}.quote_currency must be ISO-4217 (3 uppercase letters)")
+    elif (
+        isinstance(enclosing_currency, str)
+        and len(enclosing_currency) == 3
+        and quote_currency != enclosing_currency.upper()
+    ):
+        errors.append(
+            f"{path}.quote_currency '{quote_currency}' must equal the enclosing "
+            f"Money.currency '{enclosing_currency}'"
+        )
+    if (
+        not isinstance(rate_to_base, (int, float))
+        or isinstance(rate_to_base, bool)
+        or float(rate_to_base) <= 0
+    ):
+        errors.append(f"{path}.rate_to_base must be a positive number")
 
 
 def _validate_account_id(value: Any, path: str, errors: list[str]) -> None:
@@ -543,6 +594,13 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"holdings[{i}].market_value.currency must be ISO-4217"
                     )
+                if "fx_ref" in market_value:
+                    _validate_fx_ref(
+                        market_value.get("fx_ref"),
+                        currency,
+                        f"holdings[{i}].market_value.fx_ref",
+                        errors,
+                    )
 
     activities = portfolio.get("activities", [])
     tax_lot_ids: set[str] = set()
@@ -727,6 +785,65 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
     _validate_tax_lots(portfolio.get("tax_lots"), holding_ids, errors)
 
     return errors
+
+
+def validate_fx_provenance(portfolio: dict[str, Any]) -> list[str]:
+    """Soft warnings when foreign-currency Money values lack fx_ref provenance.
+
+    Returns one warning per holdings[].market_value (and activities[].money) whose
+    currency differs from settings.base_currency and where no fx_ref is stamped.
+    Such values rely on aggregate-time FX lookup, which works but loses the
+    line-item audit trail (which fx_rates.jsonl row was used).
+    """
+    warnings: list[str] = []
+    if not isinstance(portfolio, dict):
+        return warnings
+    settings = portfolio.get("settings")
+    base = (
+        settings.get("base_currency")
+        if isinstance(settings, dict) and isinstance(settings.get("base_currency"), str)
+        else None
+    )
+    if not base:
+        return warnings
+    base = base.strip().upper()
+
+    def _check(money: Any, path: str) -> None:
+        if not isinstance(money, dict):
+            return
+        currency = money.get("currency")
+        if not isinstance(currency, str):
+            return
+        if currency.strip().upper() == base:
+            return
+        if "fx_ref" in money:
+            fx_ref = money.get("fx_ref")
+            if isinstance(fx_ref, dict):
+                ref_base = fx_ref.get("base_currency")
+                if isinstance(ref_base, str) and ref_base.strip().upper() != base:
+                    warnings.append(
+                        f"{path}.fx_ref.base_currency '{ref_base}' does not match "
+                        f"settings.base_currency '{base}'"
+                    )
+            return
+        warnings.append(
+            f"{path} is in {currency} but has no fx_ref; base-currency conversion "
+            f"to {base} cannot be sourced to a specific fx_rates.jsonl row"
+        )
+
+    holdings = portfolio.get("holdings")
+    if isinstance(holdings, list):
+        for i, holding in enumerate(holdings):
+            if isinstance(holding, dict):
+                _check(holding.get("market_value"), f"holdings[{i}].market_value")
+
+    activities = portfolio.get("activities")
+    if isinstance(activities, list):
+        for i, activity in enumerate(activities):
+            if isinstance(activity, dict):
+                _check(activity.get("money"), f"activities[{i}].money")
+
+    return warnings
 
 
 def collect_policy_account_ids(policy: Any) -> set[str]:

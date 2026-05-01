@@ -271,18 +271,31 @@ should be reconstructible to the FX snapshot it was converted at, so
 the agent can detect stale conversions and report base-currency
 numbers with confidence.
 
-**Touch points.**
+**MVP landed (portfolio bump 1.4.0 → 1.5.0).**
 
-- `schema/portfolio.schema.json`: optional `fx_ref` on Money / on
-  market_value, pointing at a row in `fx_rates.jsonl` by
-  `(as_of, currency_pair)`.
-- `src/rikdom/fx.py`: writer must stamp the lock used at aggregate
-  time onto each holding via `fx_ref`. We already have FX-lock
-  plumbing; this surfaces it down to the line item.
-- Validator: warn when `market_value.currency != base_currency`
-  and there is no `fx_ref`.
-- Portfolio bump `1.4.0 → 1.5.0` (new optional field, idempotent
-  migration).
+- `schema/portfolio.schema.json`: optional `Money.fx_ref` with
+  `{as_of_date, base_currency, quote_currency, rate_to_base, source?}`
+  pointing at a row in `fx_rates.jsonl`.
+- `src/rikdom/fx.py`: `attach_fx_refs_to_holdings(portfolio, fx_lock)`
+  returns a deep-copied portfolio with `fx_ref` stamped on every
+  foreign-currency `holding.market_value` and `activity.money` that
+  has a rate in the lock. Idempotent: existing `fx_ref` values are
+  preserved.
+- `src/rikdom/validate.py`: structural checks on `fx_ref` shape
+  (date format, ISO-4217 codes, positive `rate_to_base`,
+  `quote_currency` matches enclosing `Money.currency`) plus a soft
+  warning channel `validate_fx_provenance(portfolio)` for
+  foreign-currency Money missing `fx_ref`. Wired into
+  `rikdom validate`.
+- Migration `v1_4_0_to_v1_5_0` (idempotent version bump).
+
+**Deferred to follow-up slices.**
+
+- Wire `attach_fx_refs_to_holdings` into the snapshot/aggregate write
+  paths so generated artifacts carry line-item provenance by default
+  (today the helper is opt-in for importers/tools).
+- Importer-side stamping: brokers/CSV importers should emit `fx_ref`
+  directly when they perform their own currency conversion.
 
 ### Step 8 — Instrument enrichment block
 
@@ -345,6 +358,9 @@ X in 2025-Q3 because Y."
 
 - 5 and 7 should land together if possible; performance numbers
   without FX provenance are misleading on multi-currency portfolios.
+  Step 7 MVP has landed; the next 5 follow-ups (per-account /
+  per-bucket TWR + benchmark attribution) can now build on
+  per-line-item FX refs.
 - 8 (enrichment) is independent and unblocks better risk decomposition.
 - 6 (funded ratio) is independent of all others but reads more
   fields, so save for after 5+7 to avoid rework.

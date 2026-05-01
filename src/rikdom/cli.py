@@ -78,6 +78,7 @@ from .storage import append_jsonl, load_json, load_jsonl, save_json
 from .validate import (
     CURRENT_SCHEMA_VERSION,
     cross_validate_account_ids,
+    validate_fx_provenance,
     validate_portfolio,
 )
 
@@ -295,6 +296,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     errors = validate_portfolio(portfolio)
 
     warnings: list[str] = []
+    warnings.extend(validate_fx_provenance(portfolio))
     policy_path = getattr(args, "policy", None)
     if isinstance(policy_path, str) and policy_path:
         policy = load_json(policy_path)
