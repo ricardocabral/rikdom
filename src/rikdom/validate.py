@@ -318,6 +318,53 @@ def _validate_fx_ref(
         errors.append(f"{path}.rate_to_base must be a positive number")
 
 
+def _fx_ref_is_usable(fx_ref: Any, enclosing_currency: Any) -> bool:
+    """Mirror ``_validate_fx_ref`` checks without recording errors.
+
+    Returns ``True`` only when ``fx_ref`` has every field the structural
+    validator would accept; provenance reporting treats any other shape
+    as 'no usable audit trail' and falls through to the missing-fx_ref
+    warning.
+    """
+    if not isinstance(fx_ref, dict) or not fx_ref:
+        return False
+    as_of_date = fx_ref.get("as_of_date")
+    if not isinstance(as_of_date, str) or not _DATE_RE.match(as_of_date):
+        return False
+    try:
+        datetime.strptime(as_of_date, "%Y-%m-%d")
+    except ValueError:
+        return False
+    base_currency = fx_ref.get("base_currency")
+    if (
+        not isinstance(base_currency, str)
+        or len(base_currency) != 3
+        or base_currency != base_currency.upper()
+    ):
+        return False
+    quote_currency = fx_ref.get("quote_currency")
+    if (
+        not isinstance(quote_currency, str)
+        or len(quote_currency) != 3
+        or quote_currency != quote_currency.upper()
+    ):
+        return False
+    if (
+        isinstance(enclosing_currency, str)
+        and len(enclosing_currency) == 3
+        and quote_currency != enclosing_currency.upper()
+    ):
+        return False
+    rate_to_base = fx_ref.get("rate_to_base")
+    if (
+        not isinstance(rate_to_base, (int, float))
+        or isinstance(rate_to_base, bool)
+        or float(rate_to_base) <= 0
+    ):
+        return False
+    return True
+
+
 def _validate_account_id(value: Any, path: str, errors: list[str]) -> None:
     if not isinstance(value, str) or not _ACCOUNT_ID_RE.match(value):
         errors.append(f"{path} must match pattern '^[a-z0-9_\\-]+$'")
@@ -828,18 +875,16 @@ def validate_fx_provenance(portfolio: dict[str, Any]) -> list[str]:
             return
         if currency.strip().upper() == base:
             return
-        if "fx_ref" in money:
+        if "fx_ref" in money and _fx_ref_is_usable(money.get("fx_ref"), currency):
             fx_ref = money.get("fx_ref")
-            if isinstance(fx_ref, dict) and fx_ref:
-                ref_base = fx_ref.get("base_currency")
-                if isinstance(ref_base, str) and ref_base.strip().upper() != base:
-                    warnings.append(
-                        f"{path}.fx_ref.base_currency '{ref_base}' does not match "
-                        f"settings.base_currency '{base}'"
-                    )
-                return
-            # Malformed fx_ref (non-dict or empty) doesn't suppress the
-            # missing-provenance warning — the audit trail is still absent.
+            ref_base = fx_ref.get("base_currency") if isinstance(fx_ref, dict) else None
+            if isinstance(ref_base, str) and ref_base.strip().upper() != base:
+                warnings.append(
+                    f"{path}.fx_ref.base_currency '{ref_base}' does not match "
+                    f"settings.base_currency '{base}'"
+                )
+            return
+        # Missing or malformed fx_ref both leave the audit trail absent.
         warnings.append(
             f"{path} is in {currency} but has no fx_ref; base-currency conversion "
             f"to {base} cannot be sourced to a specific fx_rates.jsonl row"

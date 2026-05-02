@@ -170,6 +170,68 @@ class ValidateFxProvenanceTests(unittest.TestCase):
             f"expected fx_ref structural error on fees, got: {errors}",
         )
 
+    def test_non_empty_malformed_fx_ref_does_not_suppress_provenance_warning(
+        self,
+    ) -> None:
+        # fx_ref is a non-empty dict but lacks the fields needed to source
+        # the conversion (no base/quote currency, no rate, bad date). The
+        # audit trail is unusable, so the missing-provenance warning must
+        # still fire.
+        portfolio = _minimal_portfolio_v1_5_0(
+            {
+                "holdings": [
+                    {
+                        "id": "h-aapl",
+                        "asset_type_id": "stock",
+                        "label": "AAPL",
+                        "market_value": {
+                            "amount": 100,
+                            "currency": "USD",
+                            "fx_ref": {"as_of_date": "not-a-date"},
+                        },
+                    }
+                ]
+            }
+        )
+        warnings = validate_fx_provenance(portfolio)
+        self.assertTrue(
+            any(
+                "holdings[0].market_value" in w and "no fx_ref" in w
+                for w in warnings
+            ),
+            f"expected missing-provenance warning, got: {warnings}",
+        )
+
+    def test_fx_ref_with_quote_currency_mismatch_falls_through(self) -> None:
+        # Otherwise well-formed fx_ref but quote_currency does not match
+        # the enclosing Money.currency — unusable, fall through.
+        portfolio = _minimal_portfolio_v1_5_0(
+            {
+                "holdings": [
+                    {
+                        "id": "h-aapl",
+                        "asset_type_id": "stock",
+                        "label": "AAPL",
+                        "market_value": {
+                            "amount": 100,
+                            "currency": "USD",
+                            "fx_ref": {
+                                "as_of_date": "2026-04-19",
+                                "base_currency": "BRL",
+                                "quote_currency": "EUR",
+                                "rate_to_base": 5.25,
+                            },
+                        },
+                    }
+                ]
+            }
+        )
+        warnings = validate_fx_provenance(portfolio)
+        self.assertTrue(
+            any("no fx_ref" in w for w in warnings),
+            f"expected missing-provenance warning, got: {warnings}",
+        )
+
     def test_warns_when_fx_ref_base_does_not_match_settings(self) -> None:
         portfolio = _minimal_portfolio_v1_5_0(
             {
