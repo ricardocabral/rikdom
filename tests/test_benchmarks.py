@@ -236,5 +236,62 @@ class ResolveTests(unittest.TestCase):
         self.assertTrue(any("cycle" in w.lower() for w in cycle_msgs))
 
 
+class DirLoaderConfinementTests(unittest.TestCase):
+    def test_path_traversal_id_returns_empty_series(self) -> None:
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            bench_dir = tmp_path / "benchmarks"
+            bench_dir.mkdir()
+            # A sensitive file outside the benchmarks dir that an attacker
+            # might try to read by escaping via '..'.
+            secret = tmp_path / "secret.jsonl"
+            _write_jsonl(
+                secret,
+                [{"as_of": "2026-01-01", "level": 100.0, "currency": "BRL"}],
+            )
+            loader = make_dir_loader(bench_dir)
+            self.assertEqual(loader("../secret"), [])
+            self.assertEqual(loader("..//secret"), [])
+
+    def test_absolute_path_id_returns_empty_series(self) -> None:
+        with TemporaryDirectory() as tmp:
+            bench_dir = Path(tmp) / "benchmarks"
+            bench_dir.mkdir()
+            loader = make_dir_loader(bench_dir)
+            self.assertEqual(loader("/etc/passwd"), [])
+
+    def test_separator_in_id_returns_empty_series(self) -> None:
+        with TemporaryDirectory() as tmp:
+            bench_dir = Path(tmp) / "benchmarks"
+            bench_dir.mkdir()
+            sub = bench_dir / "sub"
+            sub.mkdir()
+            _write_jsonl(
+                sub / "x.jsonl",
+                [{"as_of": "2026-01-01", "level": 100.0, "currency": "BRL"}],
+            )
+            loader = make_dir_loader(bench_dir)
+            self.assertEqual(loader("sub/x"), [])
+
+    def test_hidden_or_dot_ids_return_empty_series(self) -> None:
+        with TemporaryDirectory() as tmp:
+            bench_dir = Path(tmp) / "benchmarks"
+            bench_dir.mkdir()
+            loader = make_dir_loader(bench_dir)
+            for bad in ("", ".", "..", ".hidden"):
+                self.assertEqual(loader(bad), [], msg=bad)
+
+    def test_safe_id_still_loads(self) -> None:
+        with TemporaryDirectory() as tmp:
+            bench_dir = Path(tmp) / "benchmarks"
+            bench_dir.mkdir()
+            _write_jsonl(
+                bench_dir / "ibov.jsonl",
+                [{"as_of": "2026-01-01", "level": 100.0, "currency": "BRL"}],
+            )
+            loader = make_dir_loader(bench_dir)
+            self.assertEqual(len(loader("ibov")), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -152,16 +152,42 @@ def benchmark_native_twr(
 BenchmarkLoader = Callable[[str], list[BenchmarkPoint]]
 
 
-def make_dir_loader(benchmarks_dir: str | Path) -> BenchmarkLoader:
-    """Default loader: ``<benchmarks_dir>/<id>.jsonl``."""
+_SAFE_BENCHMARK_ID_CHARS = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-."
+)
 
-    base = Path(benchmarks_dir)
+
+def _is_safe_benchmark_id(benchmark_id: str) -> bool:
+    if not benchmark_id or benchmark_id in {".", ".."}:
+        return False
+    if benchmark_id.startswith("."):
+        # Reject hidden files and any leading-dot tricks ('.', '..', '.foo').
+        return False
+    return all(ch in _SAFE_BENCHMARK_ID_CHARS for ch in benchmark_id)
+
+
+def make_dir_loader(benchmarks_dir: str | Path) -> BenchmarkLoader:
+    """Default loader: ``<benchmarks_dir>/<id>.jsonl``.
+
+    Benchmark ids are policy-provided, so the loader confines lookups to
+    ``benchmarks_dir`` — ids containing path separators, ``..``
+    components, or other unsafe characters return an empty series rather
+    than reading arbitrary files outside the directory.
+    """
+
+    base = Path(benchmarks_dir).resolve()
 
     def _load(benchmark_id: str) -> list[BenchmarkPoint]:
-        path = base / f"{benchmark_id}.jsonl"
-        if not path.exists():
+        if not _is_safe_benchmark_id(benchmark_id):
             return []
-        return load_benchmark_series(path)
+        candidate = (base / f"{benchmark_id}.jsonl").resolve()
+        try:
+            candidate.relative_to(base)
+        except ValueError:
+            return []
+        if not candidate.exists():
+            return []
+        return load_benchmark_series(candidate)
 
     return _load
 
