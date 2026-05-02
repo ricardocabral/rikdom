@@ -13,7 +13,7 @@ from importlib.resources import as_file, files as resource_files
 from pathlib import Path
 from typing import Any
 
-from .aggregate import aggregate_portfolio
+from .aggregate import aggregate_portfolio, compute_strategic_bucket_totals
 from .reconciliation.reports import (
     render_holding_trust_json,
     render_holding_trust_markdown,
@@ -72,6 +72,7 @@ from .benchmarks import make_dir_loader
 from .performance import (
     compute_performance,
     compute_performance_by_account,
+    compute_performance_by_strategic_bucket,
     external_cashflow_currencies,
     performance_period_bounds,
 )
@@ -461,6 +462,21 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         for err in result.errors:
             print(f"- {err}", file=sys.stderr)
         return 1
+
+    policy_path = getattr(args, "policy", None)
+    if policy_path:
+        try:
+            policy = load_json(policy_path)
+        except FileNotFoundError:
+            policy = None
+            result.warnings.append(
+                f"--policy file not found at {policy_path}; "
+                "by_strategic_bucket not stamped"
+            )
+        if policy:
+            result.by_strategic_bucket = compute_strategic_bucket_totals(
+                result, policy
+            )
     snap = snapshot_from_aggregate(result, timestamp=snapshot_timestamp)
     rotate_bytes = getattr(args, "rotate_bytes", 0) or 0
     if rotate_bytes > 0:
@@ -550,6 +566,39 @@ def cmd_performance(args: argparse.Namespace) -> int:
         ]
 
     by = getattr(args, "by", None)
+    if by == "strategic_bucket":
+        if policy is None:
+            output["warnings"] = list(output["warnings"]) + [
+                "--by strategic_bucket requires --policy"
+            ]
+        else:
+            per_bucket, top_warnings = compute_performance_by_strategic_bucket(
+                snapshots,
+                activities,
+                base_currency=base_currency,
+                portfolio=portfolio,
+                policy=policy,
+                fx_rates_to_base=fx_lock.get("rates_to_base")
+                if isinstance(fx_lock, dict)
+                else None,
+                since=getattr(args, "since", None),
+                until=getattr(args, "until", None),
+            )
+            output["by_strategic_bucket"] = [
+                {
+                    "bucket_key": bp.bucket_key,
+                    "start_value_base": bp.start_value_base,
+                    "end_value_base": bp.end_value_base,
+                    "net_external_cashflow_base": bp.net_external_cashflow_base,
+                    "twr_pct": bp.twr_pct,
+                    "mwr_pct": bp.mwr_pct,
+                    "cashflow_count": bp.cashflow_count,
+                    "warnings": bp.warnings,
+                }
+                for bp in per_bucket
+            ]
+            if top_warnings:
+                output["warnings"] = list(output["warnings"]) + top_warnings
     if by == "account":
         per_account, top_warnings = compute_performance_by_account(
             snapshots,
@@ -1889,6 +1938,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="Rotate --snapshots before appending if it exceeds this size (0 disables)",
     )
+    p_snapshot.add_argument(
+        "--policy",
+        default=None,
+        help="Path to policy.json; when supplied, totals.by_strategic_bucket "
+        "is stamped onto the snapshot using the policy's strategic_allocation targets",
+    )
     _add_workspace_options(
         p_snapshot, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
@@ -1923,10 +1978,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_performance.add_argument(
         "--by",
-        choices=("portfolio", "account"),
+        choices=("portfolio", "account", "strategic_bucket"),
         default="portfolio",
-        help="Slice the output by 'account' to add per-account TWR/MWR (requires "
-        "snapshots with totals.by_account)",
+        help="Slice the output: 'account' adds per-account TWR/MWR (requires "
+        "snapshots with totals.by_account); 'strategic_bucket' adds per-bucket "
+        "TWR/MWR (requires --policy and snapshots with totals.by_strategic_bucket)",
     )
     _add_workspace_options(
         p_performance, with_out_root=True, with_portfolio_name=True, with_registry=True

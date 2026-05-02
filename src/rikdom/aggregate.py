@@ -25,13 +25,86 @@ class AggregateResult:
     by_duration: dict[str, float] = field(default_factory=dict)
     by_liquidity_tier: dict[str, float] = field(default_factory=dict)
     by_account: dict[str, float] = field(default_factory=dict)
+    by_strategic_bucket: dict[str, float] = field(default_factory=dict)
     findings: list[Finding] = field(default_factory=list)
     trust_records: list[HoldingTrustRecord] = field(default_factory=list)
 
 
 UNCLASSIFIED = "__unclassified__"
 UNASSIGNED_ACCOUNT = "__unassigned__"
+UNALLOCATED_BUCKET = "__unallocated__"
 _LOOKTHROUGH_DIMENSIONS = ("region", "currency", "duration", "liquidity_tier")
+_STRATEGIC_DIMENSIONS = (
+    "asset_class",
+    "region",
+    "currency",
+    "duration",
+    "liquidity_tier",
+)
+
+
+def strategic_bucket_key(dimension: str, bucket: str) -> str:
+    """Stable composite key for a policy strategic_allocation target."""
+
+    return f"{dimension}:{bucket}"
+
+
+def compute_strategic_bucket_totals(
+    aggregate: "AggregateResult", policy: dict[str, Any] | None
+) -> dict[str, float]:
+    """Reduce per-dimension aggregate breakdowns to the policy's targets.
+
+    Returns a flat map keyed by ``"<dimension>:<bucket>"`` plus an
+    ``__unallocated__`` entry for portfolio value not covered by any
+    target. Dimensions outside the supported set
+    (asset_class/region/currency/duration/liquidity_tier) are skipped.
+    """
+
+    if not isinstance(policy, dict):
+        return {}
+    strat = policy.get("strategic_allocation")
+    if not isinstance(strat, dict):
+        return {}
+    targets = strat.get("targets") or []
+
+    dim_breakdowns: dict[str, dict[str, float]] = {
+        "asset_class": aggregate.by_asset_class,
+        "region": aggregate.by_region,
+        "currency": aggregate.by_currency,
+        "duration": aggregate.by_duration,
+        "liquidity_tier": aggregate.by_liquidity_tier,
+    }
+
+    out: dict[str, float] = {}
+    allocated_by_dim: dict[str, float] = {}
+    seen_dims: set[str] = set()
+    for tgt in targets:
+        if not isinstance(tgt, dict):
+            continue
+        dim = tgt.get("dimension")
+        bucket = tgt.get("bucket")
+        if not isinstance(dim, str) or dim not in _STRATEGIC_DIMENSIONS:
+            continue
+        if not isinstance(bucket, str) or not bucket:
+            continue
+        breakdown = dim_breakdowns.get(dim) or {}
+        value = breakdown.get(bucket, 0.0)
+        out[strategic_bucket_key(dim, bucket)] = round(float(value), 2)
+        allocated_by_dim[dim] = allocated_by_dim.get(dim, 0.0) + float(value)
+        seen_dims.add(dim)
+
+    # __unallocated__ uses the breakdown of the dominant dimension to
+    # avoid double-counting when multiple dimensions are targeted.
+    if seen_dims:
+        dominant = max(
+            seen_dims,
+            key=lambda d: sum((dim_breakdowns.get(d) or {}).values()),
+        )
+        total_in_dim = sum((dim_breakdowns.get(dominant) or {}).values())
+        leftover = total_in_dim - allocated_by_dim.get(dominant, 0.0)
+        if abs(leftover) > 0.005:
+            out[UNALLOCATED_BUCKET] = round(leftover, 2)
+    return out
 
 
 _IDENTIFIER_FIELDS = ("isin", "ticker", "wallet", "provider_account_id", "id")

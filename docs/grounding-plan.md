@@ -252,14 +252,20 @@ doing?" question.
   `strategic_allocation.targets[]`. Sample benchmark JSONLs ship under
   `data-sample/benchmarks/` and are seeded by `make bootstrap`.
 
-**Snapshot schema substrate (partially landed).**
+**Snapshot schema substrate (landed).**
 
 - `schema/snapshot.schema.json` now accepts optional
-  `totals.by_account` (map of policy `account_id` → base-currency
-  value). Additive; `snapshot_from_aggregate` emits it whenever
-  `AggregateResult.by_account` is populated.
-- `data-sample/snapshots.jsonl` carries `by_account` per row so
-  bookend lookups have per-account values to consume.
+  `totals.by_account` (map of policy `account_id` →
+  base-currency value) and `totals.by_strategic_bucket` (map keyed
+  `<dimension>:<bucket>`, with `__unallocated__` capturing value
+  not covered by any policy target). Both additive;
+  `snapshot_from_aggregate` emits them whenever the aggregate
+  result populates `by_account` / `by_strategic_bucket`.
+- `compute_strategic_bucket_totals(result, policy)` reduces
+  per-dimension aggregate breakdowns to policy
+  `strategic_allocation.targets`. Wired into `cmd_snapshot` via a
+  new `--policy` flag.
+- `data-sample/snapshots.jsonl` carries both maps per row.
 
 **Per-account TWR/MWR (landed).**
 
@@ -277,13 +283,27 @@ doing?" question.
   `start_value=0` and a per-account warning so the result is still
   meaningful for funded-from-zero buckets.
 
+**Per-strategic-bucket TWR/MWR (landed).**
+
+- `compute_performance_by_strategic_bucket()` reads
+  `totals.by_strategic_bucket` from the bookend snapshots,
+  attributes external cashflows by resolving
+  `activity.holding_id` → `holding.asset_type_id` →
+  `asset_class` against the policy's asset_class targets.
+  Activities without a `holding_id`, or whose holding is not
+  covered by any asset_class target, fall under
+  `__unallocated__` with a warning.
+- CLI: `rikdom performance --by strategic_bucket --policy ...`
+  adds a `by_strategic_bucket[]` block. Cashflow attribution is
+  intentionally limited to asset_class targets — splitting a
+  single buy/sell across look-through dimensions
+  (region/currency/duration) is left to a future slice.
+
 **Deferred to follow-up slices.**
 
-- `totals.by_strategic_bucket` (next snapshot-side slice; same
-  pattern as `by_account`).
-- Per-strategic-bucket TWR (needs the bucket-side snapshot field
-  plus a richer cashflow attribution taxonomy that distinguishes
-  external vs. cross-slice flows).
+- Cashflow attribution for non-asset_class strategic targets
+  (region/currency/duration/liquidity_tier). Needs a
+  fractional-flow taxonomy or per-target exposure look-up.
 - FX translation of foreign-currency benchmark series into base
   currency (today reported in native currency with `excess_pct=null`).
   Needs a per-date FX history hookup.
@@ -403,9 +423,9 @@ X in 2025-Q3 because Y."
 - 5 and 7 should land together if possible; performance numbers
   without FX provenance are misleading on multi-currency portfolios.
   Step 7 MVP has landed; benchmark attribution (5) has landed in
-  native currency. The remaining 5 follow-up — per-account /
-  per-bucket TWR — needs the snapshot schema bump that was kept
-  out of the no-schema-bump shortcut.
+  native currency, and per-account / per-bucket TWR consume the
+  new `totals.by_account` and `totals.by_strategic_bucket`
+  snapshot fields.
 - 8 (enrichment) is independent and unblocks better risk decomposition.
 - 6 (funded ratio) is independent of all others but reads more
   fields, so save for after 5+7 to avoid rework.

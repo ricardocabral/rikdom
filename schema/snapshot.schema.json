@@ -54,6 +54,11 @@
           "type": "object",
           "description": "Base-currency value per policy account_id; '__unassigned__' bucket holds holdings without an account_id.",
           "additionalProperties": { "type": "number" }
+        },
+        "by_strategic_bucket": {
+          "type": "object",
+          "description": "Base-currency value per policy strategic_allocation target, keyed '<dimension>:<bucket>' (e.g. 'asset_class:stocks'). '__unallocated__' holds value not covered by any policy target.",
+          "additionalProperties": { "type": "number" }
         }
       }
     },

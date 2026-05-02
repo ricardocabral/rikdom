@@ -476,6 +476,274 @@ class AccountPerformance:
     warnings: list[str] = field(default_factory=list)
 
 
+def _snap_by_strategic_bucket(snap: dict[str, Any]) -> dict[str, float]:
+    totals = snap.get("totals")
+    if not isinstance(totals, dict):
+        return {}
+    by_bucket = totals.get("by_strategic_bucket")
+    if not isinstance(by_bucket, dict):
+        return {}
+    out: dict[str, float] = {}
+    for k, v in by_bucket.items():
+        if not isinstance(k, str):
+            continue
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            out[k] = float(v)
+    return out
+
+
+def _build_holding_bucket_index(
+    portfolio: dict[str, Any] | None,
+    policy: dict[str, Any] | None,
+) -> dict[str, str]:
+    """Map ``holding_id`` → strategic bucket key (asset_class targets only).
+
+    Other dimensions (region/currency/...) are out of scope for cashflow
+    attribution — a single buy/sell rarely lands on a single look-through
+    bucket. Holdings whose asset_class isn't covered by any asset_class
+    target are mapped to ``__unallocated__``.
+    """
+
+    if not isinstance(portfolio, dict) or not isinstance(policy, dict):
+        return {}
+    catalog = portfolio.get("asset_type_catalog") or []
+    class_index: dict[str, str] = {}
+    for item in catalog:
+        if not isinstance(item, dict):
+            continue
+        tid = item.get("id")
+        cls = item.get("asset_class")
+        if isinstance(tid, str) and isinstance(cls, str):
+            class_index[tid] = cls
+
+    target_classes: set[str] = set()
+    strat = policy.get("strategic_allocation")
+    if isinstance(strat, dict):
+        for tgt in strat.get("targets") or []:
+            if not isinstance(tgt, dict):
+                continue
+            if tgt.get("dimension") != "asset_class":
+                continue
+            bucket = tgt.get("bucket")
+            if isinstance(bucket, str) and bucket:
+                target_classes.add(bucket)
+
+    holdings = portfolio.get("holdings") or []
+    out: dict[str, str] = {}
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        hid = h.get("id")
+        type_id = h.get("asset_type_id")
+        if not isinstance(hid, str) or not isinstance(type_id, str):
+            continue
+        cls = class_index.get(type_id)
+        if cls and cls in target_classes:
+            out[hid] = f"asset_class:{cls}"
+        else:
+            out[hid] = "__unallocated__"
+    return out
+
+
+def _attribute_external_cashflows_by_strategic_bucket(
+    activities: list[dict[str, Any]],
+    base_currency: str,
+    *,
+    fx_rates_to_base: dict[str, float] | None,
+    period_start: datetime,
+    period_end: datetime,
+    holding_to_bucket: dict[str, str],
+) -> tuple[dict[str, list[Cashflow]], list[str]]:
+    rates = _normalize_fx_rates(fx_rates_to_base)
+    buckets: dict[str, list[Cashflow]] = {}
+    warnings: list[str] = []
+    for act in activities:
+        if not isinstance(act, dict) or not _is_posted(act):
+            continue
+        event_type = str(act.get("event_type", "")).strip().lower()
+        sign = _EXTERNAL_FLOW_SIGNS.get(event_type)
+        if sign is None:
+            continue
+        money = act.get("money")
+        if not isinstance(money, dict):
+            continue
+        amount = money.get("amount")
+        currency = money.get("currency")
+        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+            continue
+        if not isinstance(currency, str) or not currency.strip():
+            continue
+        when_raw = act.get("effective_at")
+        if not isinstance(when_raw, str):
+            continue
+        try:
+            when = _parse_iso(when_raw)
+        except ValueError:
+            continue
+        if when < period_start or when > period_end:
+            continue
+        base_amount = _resolve_to_base(
+            abs(float(amount)),
+            currency,
+            base_currency,
+            metadata=act.get("metadata"),
+            fx_rates_to_base=rates,
+        )
+        if base_amount is None:
+            continue
+
+        hid = act.get("holding_id")
+        bucket_key: str
+        if isinstance(hid, str) and hid in holding_to_bucket:
+            bucket_key = holding_to_bucket[hid]
+        else:
+            bucket_key = "__unallocated__"
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has no holding_id "
+                "(or holding not found); attributed to '__unallocated__' "
+                "for per-bucket performance"
+            )
+        buckets.setdefault(bucket_key, []).append(
+            Cashflow(when=when, amount_base=sign * base_amount)
+        )
+    for flows in buckets.values():
+        flows.sort(key=lambda cf: cf.when)
+    return buckets, warnings
+
+
+@dataclass
+class StrategicBucketPerformance:
+    bucket_key: str
+    start_value_base: float
+    end_value_base: float
+    net_external_cashflow_base: float
+    twr_pct: float | None
+    mwr_pct: float | None
+    cashflow_count: int
+    warnings: list[str] = field(default_factory=list)
+
+
+def compute_performance_by_strategic_bucket(
+    snapshots: list[dict[str, Any]],
+    activities: list[dict[str, Any]],
+    *,
+    base_currency: str,
+    portfolio: dict[str, Any] | None = None,
+    policy: dict[str, Any] | None = None,
+    fx_rates_to_base: dict[str, float] | None = None,
+    since: str | datetime | None = None,
+    until: str | datetime | None = None,
+) -> tuple[list[StrategicBucketPerformance], list[str]]:
+    """Per-bucket TWR/MWR using ``totals.by_strategic_bucket`` bookends.
+
+    Cashflow attribution is restricted to asset_class targets (a single
+    buy/sell can't be cleanly split across look-through dimensions).
+    Activities without a ``holding_id`` — or whose holding is not covered
+    by any asset_class target — fall under ``__unallocated__``.
+    """
+
+    since_dt = _parse_iso(since) if isinstance(since, str) else since
+    until_dt = _parse_until_bound(until) if isinstance(until, str) else until
+
+    start_snap, end_snap = _select_bookend_snapshots(snapshots, since_dt, until_dt)
+    if start_snap is None or end_snap is None:
+        return [], ["No snapshots available for the requested window"]
+
+    start_ts = _parse_iso(start_snap["timestamp"])
+    end_ts = _parse_iso(end_snap["timestamp"])
+
+    start_buckets = _snap_by_strategic_bucket(start_snap)
+    end_buckets = _snap_by_strategic_bucket(end_snap)
+    top_warnings: list[str] = []
+    if not start_buckets:
+        top_warnings.append(
+            "Start snapshot is missing totals.by_strategic_bucket; "
+            "per-bucket TWR unavailable"
+        )
+    if not end_buckets:
+        top_warnings.append(
+            "End snapshot is missing totals.by_strategic_bucket; "
+            "per-bucket TWR unavailable"
+        )
+    if not start_buckets or not end_buckets:
+        return [], top_warnings
+
+    holding_to_bucket = _build_holding_bucket_index(portfolio, policy)
+    cashflows_by_bucket, attribution_warnings = (
+        _attribute_external_cashflows_by_strategic_bucket(
+            activities,
+            base_currency,
+            fx_rates_to_base=fx_rates_to_base,
+            period_start=start_ts,
+            period_end=end_ts,
+            holding_to_bucket=holding_to_bucket,
+        )
+    )
+    top_warnings.extend(attribution_warnings)
+
+    bucket_keys = sorted(
+        set(start_buckets) | set(end_buckets) | set(cashflows_by_bucket)
+    )
+
+    results: list[StrategicBucketPerformance] = []
+    for key in bucket_keys:
+        start_value = start_buckets.get(key, 0.0)
+        end_value = end_buckets.get(key, 0.0)
+        flows = cashflows_by_bucket.get(key, [])
+        bucket_warnings: list[str] = []
+        if key not in start_buckets:
+            bucket_warnings.append(
+                "Bucket not present in start snapshot; start_value treated as 0"
+            )
+        if key not in end_buckets:
+            bucket_warnings.append(
+                "Bucket not present in end snapshot; end_value treated as 0"
+            )
+        if (
+            key != "__unallocated__"
+            and not key.startswith("asset_class:")
+            and flows
+        ):
+            bucket_warnings.append(
+                "Cashflow attribution is only computed for asset_class targets"
+            )
+
+        twr_fraction = modified_dietz(
+            start_value, end_value, flows, start_ts, end_ts
+        )
+
+        if start_value > 0 or flows or end_value > 0:
+            xirr_series: list[Cashflow] = []
+            if start_value > 0:
+                xirr_series.append(
+                    Cashflow(when=start_ts, amount_base=-start_value)
+                )
+            for cf in flows:
+                xirr_series.append(
+                    Cashflow(when=cf.when, amount_base=-cf.amount_base)
+                )
+            if end_value != 0:
+                xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
+            mwr_fraction = xirr(xirr_series)
+        else:
+            mwr_fraction = None
+
+        net_flow = sum(cf.amount_base for cf in flows)
+        results.append(
+            StrategicBucketPerformance(
+                bucket_key=key,
+                start_value_base=round(start_value, 2),
+                end_value_base=round(end_value, 2),
+                net_external_cashflow_base=round(net_flow, 2),
+                twr_pct=None if twr_fraction is None else round(twr_fraction * 100, 6),
+                mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
+                cashflow_count=len(flows),
+                warnings=bucket_warnings,
+            )
+        )
+    return results, top_warnings
+
+
 def _attribute_external_cashflows_by_account(
     activities: list[dict[str, Any]],
     base_currency: str,

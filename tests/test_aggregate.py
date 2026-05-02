@@ -571,5 +571,52 @@ class LookthroughBreakdownTests(unittest.TestCase):
         self.assertEqual(result.by_region, {"US": 500.0})
 
 
+class StrategicBucketTotalsTests(unittest.TestCase):
+    def test_reduces_aggregate_to_policy_targets(self) -> None:
+        from rikdom.aggregate import (
+            AggregateResult,
+            compute_strategic_bucket_totals,
+        )
+
+        result = AggregateResult(
+            base_currency="BRL",
+            total_value_base=300.0,
+            by_asset_class={
+                "stocks": 100.0,
+                "debt": 80.0,
+                "cryptocurrencies": 120.0,
+            },
+            warnings=[],
+        )
+        policy = {
+            "strategic_allocation": {
+                "targets": [
+                    {"dimension": "asset_class", "bucket": "stocks", "weight_pct": 60},
+                    {"dimension": "asset_class", "bucket": "debt", "weight_pct": 40},
+                ]
+            }
+        }
+        out = compute_strategic_bucket_totals(result, policy)
+        self.assertEqual(out["asset_class:stocks"], 100.0)
+        self.assertEqual(out["asset_class:debt"], 80.0)
+        # cryptocurrencies isn't a target -> __unallocated__.
+        self.assertEqual(out["__unallocated__"], 120.0)
+
+    def test_returns_empty_without_policy(self) -> None:
+        from rikdom.aggregate import (
+            AggregateResult,
+            compute_strategic_bucket_totals,
+        )
+
+        result = AggregateResult(
+            base_currency="BRL",
+            total_value_base=100.0,
+            by_asset_class={"stocks": 100.0},
+            warnings=[],
+        )
+        self.assertEqual(compute_strategic_bucket_totals(result, None), {})
+        self.assertEqual(compute_strategic_bucket_totals(result, {}), {})
+
+
 if __name__ == "__main__":
     unittest.main()

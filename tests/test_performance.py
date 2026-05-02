@@ -15,6 +15,7 @@ from rikdom.performance import (
     PerformanceResult,
     compute_performance,
     compute_performance_by_account,
+    compute_performance_by_strategic_bucket,
     external_cashflow_currencies,
     extract_external_cashflows,
     modified_dietz,
@@ -494,6 +495,170 @@ class ComputePerformanceByAccountTests(unittest.TestCase):
         self.assertEqual(new_acc.start_value_base, 0.0)
         self.assertEqual(new_acc.end_value_base, 10_000.0)
         self.assertTrue(any("start snapshot" in w for w in new_acc.warnings))
+
+
+class ComputePerformanceByStrategicBucketTests(unittest.TestCase):
+    SNAPS = [
+        {
+            "timestamp": "2026-01-01T00:00:00Z",
+            "base_currency": "BRL",
+            "totals": {
+                "portfolio_value_base": 100_000,
+                "by_asset_class": {},
+                "by_strategic_bucket": {
+                    "asset_class:stocks": 60_000.0,
+                    "asset_class:debt": 30_000.0,
+                    "__unallocated__": 10_000.0,
+                },
+            },
+        },
+        {
+            "timestamp": "2026-12-31T00:00:00Z",
+            "base_currency": "BRL",
+            "totals": {
+                "portfolio_value_base": 121_000,
+                "by_asset_class": {},
+                "by_strategic_bucket": {
+                    "asset_class:stocks": 75_000.0,
+                    "asset_class:debt": 32_000.0,
+                    "__unallocated__": 14_000.0,
+                },
+            },
+        },
+    ]
+
+    POLICY = {
+        "strategic_allocation": {
+            "targets": [
+                {"dimension": "asset_class", "bucket": "stocks", "weight_pct": 60},
+                {"dimension": "asset_class", "bucket": "debt", "weight_pct": 40},
+            ]
+        }
+    }
+
+    PORTFOLIO = {
+        "asset_type_catalog": [
+            {"id": "stock", "asset_class": "stocks"},
+            {"id": "bond", "asset_class": "debt"},
+            {"id": "crypto", "asset_class": "cryptocurrencies"},
+        ],
+        "holdings": [
+            {"id": "h-stock", "asset_type_id": "stock"},
+            {"id": "h-bond", "asset_type_id": "bond"},
+            {"id": "h-crypto", "asset_type_id": "crypto"},
+        ],
+    }
+
+    def test_per_bucket_totals_match_bookends(self) -> None:
+        results, warnings = compute_performance_by_strategic_bucket(
+            self.SNAPS,
+            [],
+            base_currency="BRL",
+            portfolio=self.PORTFOLIO,
+            policy=self.POLICY,
+        )
+        by_key = {r.bucket_key: r for r in results}
+        self.assertEqual(
+            set(by_key),
+            {"asset_class:stocks", "asset_class:debt", "__unallocated__"},
+        )
+        self.assertEqual(by_key["asset_class:stocks"].start_value_base, 60_000.0)
+        self.assertEqual(by_key["asset_class:stocks"].end_value_base, 75_000.0)
+        assert by_key["asset_class:stocks"].twr_pct is not None
+        self.assertAlmostEqual(
+            by_key["asset_class:stocks"].twr_pct,
+            100.0 * (75_000 / 60_000 - 1),
+            places=4,
+        )
+        self.assertEqual(warnings, [])
+
+    def test_buy_attributed_to_holding_bucket(self) -> None:
+        activities = [
+            {
+                "id": "buy-stock",
+                "event_type": "transfer_in",
+                "status": "posted",
+                "effective_at": "2026-06-01T00:00:00Z",
+                "holding_id": "h-stock",
+                "money": {"amount": 5_000.0, "currency": "BRL"},
+            }
+        ]
+        results, _ = compute_performance_by_strategic_bucket(
+            self.SNAPS,
+            activities,
+            base_currency="BRL",
+            portfolio=self.PORTFOLIO,
+            policy=self.POLICY,
+        )
+        by_key = {r.bucket_key: r for r in results}
+        self.assertEqual(by_key["asset_class:stocks"].cashflow_count, 1)
+        self.assertEqual(
+            by_key["asset_class:stocks"].net_external_cashflow_base, 5_000.0
+        )
+        self.assertEqual(by_key["asset_class:debt"].cashflow_count, 0)
+
+    def test_holding_outside_targets_falls_to_unallocated(self) -> None:
+        activities = [
+            {
+                "id": "buy-crypto",
+                "event_type": "transfer_in",
+                "status": "posted",
+                "effective_at": "2026-06-01T00:00:00Z",
+                "holding_id": "h-crypto",
+                "money": {"amount": 1_000.0, "currency": "BRL"},
+            }
+        ]
+        results, _ = compute_performance_by_strategic_bucket(
+            self.SNAPS,
+            activities,
+            base_currency="BRL",
+            portfolio=self.PORTFOLIO,
+            policy=self.POLICY,
+        )
+        by_key = {r.bucket_key: r for r in results}
+        self.assertEqual(by_key["__unallocated__"].cashflow_count, 1)
+
+    def test_activity_without_holding_id_warns(self) -> None:
+        activities = [
+            {
+                "id": "external-contrib",
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-06-01T00:00:00Z",
+                "money": {"amount": 1_000.0, "currency": "BRL"},
+            }
+        ]
+        _, warnings = compute_performance_by_strategic_bucket(
+            self.SNAPS,
+            activities,
+            base_currency="BRL",
+            portfolio=self.PORTFOLIO,
+            policy=self.POLICY,
+        )
+        self.assertTrue(any("__unallocated__" in w for w in warnings))
+
+    def test_missing_by_strategic_bucket_emits_warning(self) -> None:
+        snaps = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {"portfolio_value_base": 100_000, "by_asset_class": {}},
+            },
+            {
+                "timestamp": "2026-12-31T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {"portfolio_value_base": 110_000, "by_asset_class": {}},
+            },
+        ]
+        results, warnings = compute_performance_by_strategic_bucket(
+            snaps,
+            [],
+            base_currency="BRL",
+            portfolio=self.PORTFOLIO,
+            policy=self.POLICY,
+        )
+        self.assertEqual(results, [])
+        self.assertTrue(any("by_strategic_bucket" in w for w in warnings))
 
 
 class CliPerformanceTests(unittest.TestCase):
