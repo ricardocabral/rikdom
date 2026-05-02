@@ -14,6 +14,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 from typing import Any, Iterable
 
+from .benchmarks import (
+    BenchmarkComparison,
+    BenchmarkLoader,
+    resolve_benchmarks_for_targets,
+)
+
 # External cashflows = money/assets crossing the portfolio boundary.
 # Internal events (buy/sell/dividend/interest/fee/income/reimbursement/
 # tax_withheld/fx_conversion/split/merger) reshuffle value within the
@@ -44,6 +50,7 @@ class PerformanceResult:
     mwr_pct: float | None
     cashflow_count: int
     warnings: list[str] = field(default_factory=list)
+    benchmarks: list[BenchmarkComparison] = field(default_factory=list)
 
 
 def _parse_iso(value: str) -> datetime:
@@ -446,6 +453,8 @@ def compute_performance(
     fx_rates_to_base: dict[str, float] | None = None,
     since: str | datetime | None = None,
     until: str | datetime | None = None,
+    policy: dict[str, Any] | None = None,
+    benchmark_loader: BenchmarkLoader | None = None,
 ) -> PerformanceResult:
     since_dt = _parse_iso(since) if isinstance(since, str) else since
     until_dt = _parse_until_bound(until) if isinstance(until, str) else until
@@ -508,6 +517,20 @@ def compute_performance(
 
     net_flow = sum(cf.amount_base for cf in cashflows)
 
+    twr_pct = None if twr_fraction is None else round(twr_fraction * 100, 6)
+    benchmark_comparisons: list[BenchmarkComparison] = []
+    if policy is not None and benchmark_loader is not None:
+        benchmark_comparisons = resolve_benchmarks_for_targets(
+            policy,
+            benchmark_loader,
+            start_ts,
+            end_ts,
+            base_currency,
+            start_snap.get("timestamp", ""),
+            end_snap.get("timestamp", ""),
+            twr_pct,
+        )
+
     return PerformanceResult(
         base_currency=base_currency,
         period_start=start_snap.get("timestamp", ""),
@@ -515,8 +538,9 @@ def compute_performance(
         start_value_base=round(start_value, 2),
         end_value_base=round(end_value, 2),
         net_external_cashflow_base=round(net_flow, 2),
-        twr_pct=None if twr_fraction is None else round(twr_fraction * 100, 6),
+        twr_pct=twr_pct,
         mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
         cashflow_count=len(cashflows),
         warnings=warnings,
+        benchmarks=benchmark_comparisons,
     )

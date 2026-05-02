@@ -233,18 +233,50 @@ doing?" question.
   `aggregate_portfolio`; cashflows that cannot be converted are skipped
   with a warning rather than blocking the whole computation.
 
+**Benchmark attribution (landed).**
+
+- `data/benchmarks/<benchmark_id>.jsonl` rows with
+  `{as_of, level, currency, source?}` (free-form local-first format,
+  chosen over a thin plugin).
+- `src/rikdom/benchmarks.py` loads series, picks bookends at-or-before
+  the requested window, computes native-currency TWR, resolves
+  composite benchmarks as a weighted blend of component native TWRs,
+  and emits warnings for missing series, currency mismatches, and
+  composite cycles.
+- `compute_performance(..., policy=…, benchmark_loader=…)` returns a
+  `benchmarks` list with per-benchmark TWR, currency, excess return
+  (only when benchmark currency matches `base_currency`), and nested
+  components for composites.
+- CLI: `rikdom performance --policy data/policy.json --benchmarks-dir
+  data/benchmarks` resolves every benchmark referenced by
+  `strategic_allocation.targets[]`. Sample benchmark JSONLs ship under
+  `data-sample/benchmarks/` and are seeded by `make bootstrap`.
+
+**Snapshot schema substrate (partially landed).**
+
+- `schema/snapshot.schema.json` now accepts optional
+  `totals.by_account` (map of policy `account_id` → base-currency
+  value). Additive; `snapshot_from_aggregate` emits it whenever
+  `AggregateResult.by_account` is populated.
+- `data-sample/snapshots.jsonl` carries `by_account` per row so
+  bookend lookups have per-account values to consume once
+  attribution lands.
+
 **Deferred to follow-up slices.**
 
-- Per-account / per-strategic-bucket TWR (needs snapshot schema bump for
-  per-bucket values plus a richer cashflow attribution).
-- Benchmark series ingestion + attribution. Open decision (kept open):
-  thin plugin vs. free-form `data/benchmarks/<benchmark_id>.jsonl` with
-  `as_of`, `level`, `currency`. The latter is simpler and consistent
-  with the local-first ethos.
+- Per-account TWR/MWR consuming the new `totals.by_account` bookends
+  (cashflow attribution by `account_id` via `holding_id` →
+  `holdings[].account_id`).
+- `totals.by_strategic_bucket` (next snapshot-side slice; same
+  pattern as `by_account`).
+- Per-strategic-bucket TWR (needs the bucket-side snapshot field
+  plus a richer cashflow attribution taxonomy that distinguishes
+  external vs. cross-slice flows).
+- FX translation of foreign-currency benchmark series into base
+  currency (today reported in native currency with `excess_pct=null`).
+  Needs a per-date FX history hookup.
 - `cashflows[]` slice in `snapshot.schema.json`. Snapshot writer
   emitting daily/period `cashflow_total`.
-- Policy hookup: `rikdom performance --policy …` resolving
-  `benchmark_id` per bucket once attribution lands.
 
 ### Step 6 — Funded-ratio derived view
 
@@ -358,9 +390,10 @@ X in 2025-Q3 because Y."
 
 - 5 and 7 should land together if possible; performance numbers
   without FX provenance are misleading on multi-currency portfolios.
-  Step 7 MVP has landed; the next 5 follow-ups (per-account /
-  per-bucket TWR + benchmark attribution) can now build on
-  per-line-item FX refs.
+  Step 7 MVP has landed; benchmark attribution (5) has landed in
+  native currency. The remaining 5 follow-up — per-account /
+  per-bucket TWR — needs the snapshot schema bump that was kept
+  out of the no-schema-bump shortcut.
 - 8 (enrichment) is independent and unblocks better risk decomposition.
 - 6 (funded ratio) is independent of all others but reads more
   fields, so save for after 5+7 to avoid rework.

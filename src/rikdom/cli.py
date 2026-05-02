@@ -68,6 +68,7 @@ from .plugins import (
     merge_holdings,
     stamp_provenance,
 )
+from .benchmarks import make_dir_loader
 from .performance import (
     compute_performance,
     external_cashflow_currencies,
@@ -507,6 +508,15 @@ def cmd_performance(args: argparse.Namespace) -> int:
         ),
     )
 
+    policy: dict[str, Any] | None = None
+    policy_path = getattr(args, "policy", None)
+    if policy_path:
+        policy = load_json(policy_path)
+
+    benchmark_loader = None
+    if policy is not None:
+        benchmark_loader = make_dir_loader(args.benchmarks_dir)
+
     result = compute_performance(
         snapshots,
         activities,
@@ -516,10 +526,12 @@ def cmd_performance(args: argparse.Namespace) -> int:
         else None,
         since=getattr(args, "since", None),
         until=getattr(args, "until", None),
+        policy=policy,
+        benchmark_loader=benchmark_loader,
     )
     result.warnings.extend(fx_warnings)
 
-    output = {
+    output: dict[str, Any] = {
         "base_currency": result.base_currency,
         "period_start": result.period_start,
         "period_end": result.period_end,
@@ -531,8 +543,30 @@ def cmd_performance(args: argparse.Namespace) -> int:
         "cashflow_count": result.cashflow_count,
         "warnings": result.warnings,
     }
+    if result.benchmarks:
+        output["benchmarks"] = [
+            _benchmark_comparison_to_dict(b) for b in result.benchmarks
+        ]
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0
+
+
+def _benchmark_comparison_to_dict(comp: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "benchmark_id": comp.benchmark_id,
+        "label": comp.label,
+        "kind": comp.kind,
+        "currency": comp.currency,
+        "twr_pct": comp.twr_pct,
+        "excess_pct": comp.excess_pct,
+    }
+    if comp.warnings:
+        payload["warnings"] = list(comp.warnings)
+    if comp.components:
+        payload["components"] = [
+            _benchmark_comparison_to_dict(c) for c in comp.components
+        ]
+    return payload
 
 
 def cmd_viz(args: argparse.Namespace) -> int:
@@ -1846,6 +1880,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--until",
         default=None,
         help="Window end as ISO date or datetime (default: most recent snapshot)",
+    )
+    p_performance.add_argument(
+        "--policy",
+        default=None,
+        help="Path to policy.json; enables benchmark TWR resolution",
+    )
+    p_performance.add_argument(
+        "--benchmarks-dir",
+        default="data/benchmarks",
+        help="Directory containing <benchmark_id>.jsonl level series",
     )
     _add_workspace_options(
         p_performance, with_out_root=True, with_portfolio_name=True, with_registry=True

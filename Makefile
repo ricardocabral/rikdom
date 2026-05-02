@@ -38,9 +38,14 @@ sync:
 	uv sync --extra schema --extra dev
 
 bootstrap:
-	mkdir -p $(DATA_DIR)
+	mkdir -p $(DATA_DIR) $(DATA_DIR)/benchmarks
 	cp -n data-sample/portfolio.json $(DATA_DIR)/portfolio.json
 	cp -n data-sample/snapshots.jsonl $(DATA_DIR)/snapshots.jsonl
+	cp -n data-sample/policy.json $(DATA_DIR)/policy.json
+	for f in data-sample/benchmarks/*.jsonl; do \
+		[ -e "$$f" ] || continue; \
+		cp -n "$$f" $(DATA_DIR)/benchmarks/$$(basename "$$f"); \
+	done
 
 validate:
 	uv run rikdom validate $(WORKSPACE_ARGS)
@@ -58,7 +63,8 @@ snapshot:
 	uv run rikdom snapshot $(WORKSPACE_ARGS)
 
 performance:
-	uv run rikdom performance $(WORKSPACE_ARGS)
+	uv run rikdom performance $(WORKSPACE_ARGS) \
+		$$(test -f $(DATA_DIR)/policy.json && echo "--policy $(DATA_DIR)/policy.json --benchmarks-dir $(DATA_DIR)/benchmarks")
 
 viz:
 	uv run rikdom viz $(WORKSPACE_ARGS) --include-current
