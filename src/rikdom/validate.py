@@ -670,6 +670,18 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                                     f"activities[{i}].tax_lot_ids[{j}] '{ref}' not in tax_lots[].id"
                                 )
 
+                if "money" in activity:
+                    _validate_money(
+                        activity.get("money"),
+                        f"activities[{i}].money",
+                        errors,
+                    )
+                if "fees" in activity:
+                    _validate_money(
+                        activity.get("fees"),
+                        f"activities[{i}].fees",
+                        errors,
+                    )
                 if "withholding_tax" in activity:
                     _validate_money(
                         activity.get("withholding_tax"),
@@ -818,14 +830,16 @@ def validate_fx_provenance(portfolio: dict[str, Any]) -> list[str]:
             return
         if "fx_ref" in money:
             fx_ref = money.get("fx_ref")
-            if isinstance(fx_ref, dict):
+            if isinstance(fx_ref, dict) and fx_ref:
                 ref_base = fx_ref.get("base_currency")
                 if isinstance(ref_base, str) and ref_base.strip().upper() != base:
                     warnings.append(
                         f"{path}.fx_ref.base_currency '{ref_base}' does not match "
                         f"settings.base_currency '{base}'"
                     )
-            return
+                return
+            # Malformed fx_ref (non-dict or empty) doesn't suppress the
+            # missing-provenance warning — the audit trail is still absent.
         warnings.append(
             f"{path} is in {currency} but has no fx_ref; base-currency conversion "
             f"to {base} cannot be sourced to a specific fx_rates.jsonl row"

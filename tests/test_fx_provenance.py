@@ -87,6 +87,89 @@ class ValidateFxProvenanceTests(unittest.TestCase):
         self.assertEqual(validate_fx_provenance(portfolio), [])
         self.assertEqual(validate_portfolio(portfolio), [])
 
+    def test_malformed_activity_money_fx_ref_is_structural_error(self) -> None:
+        portfolio = _minimal_portfolio_v1_5_0(
+            {
+                "activities": [
+                    {
+                        "id": "a-1",
+                        "event_type": "buy",
+                        "status": "posted",
+                        "effective_at": "2026-04-19T12:00:00Z",
+                        "money": {
+                            "amount": 100.0,
+                            "currency": "USD",
+                            # malformed: required fields missing
+                            "fx_ref": {"as_of_date": "not-a-date"},
+                        },
+                    }
+                ]
+            }
+        )
+        errors = validate_portfolio(portfolio)
+        self.assertTrue(
+            any("activities[0].money.fx_ref" in e for e in errors),
+            f"expected fx_ref structural error, got: {errors}",
+        )
+
+    def test_malformed_activity_money_fx_ref_does_not_suppress_provenance_warning(
+        self,
+    ) -> None:
+        portfolio = _minimal_portfolio_v1_5_0(
+            {
+                "activities": [
+                    {
+                        "id": "a-1",
+                        "event_type": "buy",
+                        "status": "posted",
+                        "effective_at": "2026-04-19T12:00:00Z",
+                        # fx_ref present but not a dict — must NOT suppress the
+                        # missing-provenance warning, since the audit trail
+                        # is still absent.
+                        "money": {
+                            "amount": 100.0,
+                            "currency": "USD",
+                            "fx_ref": "stamped-elsewhere",
+                        },
+                    }
+                ]
+            }
+        )
+        warnings = validate_fx_provenance(portfolio)
+        self.assertTrue(
+            any("activities[0].money" in w and "no fx_ref" in w for w in warnings),
+            f"expected missing-provenance warning, got: {warnings}",
+        )
+
+    def test_malformed_activity_fees_fx_ref_is_structural_error(self) -> None:
+        portfolio = _minimal_portfolio_v1_5_0(
+            {
+                "activities": [
+                    {
+                        "id": "a-1",
+                        "event_type": "buy",
+                        "status": "posted",
+                        "effective_at": "2026-04-19T12:00:00Z",
+                        "fees": {
+                            "amount": 0.5,
+                            "currency": "USD",
+                            "fx_ref": {
+                                "as_of_date": "2026-04-19",
+                                "base_currency": "BRL",
+                                # quote_currency intentionally missing
+                                "rate_to_base": 5.25,
+                            },
+                        },
+                    }
+                ]
+            }
+        )
+        errors = validate_portfolio(portfolio)
+        self.assertTrue(
+            any("activities[0].fees.fx_ref" in e for e in errors),
+            f"expected fx_ref structural error on fees, got: {errors}",
+        )
+
     def test_warns_when_fx_ref_base_does_not_match_settings(self) -> None:
         portfolio = _minimal_portfolio_v1_5_0(
             {
