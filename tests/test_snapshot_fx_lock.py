@@ -28,6 +28,34 @@ class SnapshotFxLockTests(unittest.TestCase):
         self.assertIn("fx_lock", snapshot["metadata"])
         self.assertEqual(snapshot["metadata"]["fx_lock"]["rates_to_base"]["USD"], 5.2)
 
+    def test_snapshot_emits_by_account_when_present(self) -> None:
+        result = AggregateResult(
+            base_currency="BRL",
+            total_value_base=300.0,
+            by_asset_class={"stocks": 200.0, "cash_equivalents": 100.0},
+            warnings=[],
+            by_account={"br-taxable-main": 200.0, "br-pgbl": 100.0},
+        )
+
+        snapshot = snapshot_from_aggregate(result, timestamp="2026-05-01T00:00:00Z")
+
+        self.assertEqual(
+            snapshot["totals"]["by_account"],
+            {"br-taxable-main": 200.0, "br-pgbl": 100.0},
+        )
+
+    def test_snapshot_omits_by_account_when_empty(self) -> None:
+        result = AggregateResult(
+            base_currency="BRL",
+            total_value_base=0.0,
+            by_asset_class={},
+            warnings=[],
+        )
+
+        snapshot = snapshot_from_aggregate(result, timestamp="2026-05-01T00:00:00Z")
+
+        self.assertNotIn("by_account", snapshot["totals"])
+
 
 if __name__ == "__main__":
     unittest.main()

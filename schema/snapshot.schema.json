@@ -49,6 +49,11 @@
         "by_liquidity_tier": {
           "type": "object",
           "additionalProperties": { "type": "number" }
+        },
+        "by_account": {
+          "type": "object",
+          "description": "Base-currency value per policy account_id; '__unassigned__' bucket holds holdings without an account_id.",
+          "additionalProperties": { "type": "number" }
         }
       }
     },

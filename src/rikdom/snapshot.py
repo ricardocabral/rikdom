@@ -21,6 +21,7 @@ def snapshot_from_aggregate(result: AggregateResult, timestamp: str | None = Non
         ("by_currency", result.by_currency),
         ("by_duration", result.by_duration),
         ("by_liquidity_tier", result.by_liquidity_tier),
+        ("by_account", result.by_account),
     ):
         if value:
             totals[key] = value
