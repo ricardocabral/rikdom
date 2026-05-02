@@ -445,6 +445,217 @@ def _snap_value(snap: dict[str, Any]) -> float | None:
     return None
 
 
+def _snap_by_account(snap: dict[str, Any]) -> dict[str, float]:
+    totals = snap.get("totals")
+    if not isinstance(totals, dict):
+        return {}
+    by_account = totals.get("by_account")
+    if not isinstance(by_account, dict):
+        return {}
+    out: dict[str, float] = {}
+    for k, v in by_account.items():
+        if not isinstance(k, str):
+            continue
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            out[k] = float(v)
+    return out
+
+
+UNASSIGNED_ACCOUNT = "__unassigned__"
+
+
+@dataclass
+class AccountPerformance:
+    account_id: str
+    start_value_base: float
+    end_value_base: float
+    net_external_cashflow_base: float
+    twr_pct: float | None
+    mwr_pct: float | None
+    cashflow_count: int
+    warnings: list[str] = field(default_factory=list)
+
+
+def _attribute_external_cashflows_by_account(
+    activities: list[dict[str, Any]],
+    base_currency: str,
+    *,
+    fx_rates_to_base: dict[str, float] | None,
+    period_start: datetime,
+    period_end: datetime,
+) -> tuple[dict[str, list[Cashflow]], list[str]]:
+    """Bucket external cashflows by ``activity.account_id``.
+
+    Activities without an ``account_id`` land under ``UNASSIGNED_ACCOUNT``
+    so the attribution is conservative — callers can warn on that bucket
+    if the policy implies every flow should belong to an account.
+    """
+
+    rates = _normalize_fx_rates(fx_rates_to_base)
+    buckets: dict[str, list[Cashflow]] = {}
+    warnings: list[str] = []
+    for act in activities:
+        if not isinstance(act, dict) or not _is_posted(act):
+            continue
+        event_type = str(act.get("event_type", "")).strip().lower()
+        sign = _EXTERNAL_FLOW_SIGNS.get(event_type)
+        if sign is None:
+            continue
+        money = act.get("money")
+        if not isinstance(money, dict):
+            continue
+        amount = money.get("amount")
+        currency = money.get("currency")
+        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+            continue
+        if not isinstance(currency, str) or not currency.strip():
+            continue
+        when_raw = act.get("effective_at")
+        if not isinstance(when_raw, str):
+            continue
+        try:
+            when = _parse_iso(when_raw)
+        except ValueError:
+            continue
+        if when < period_start or when > period_end:
+            continue
+        base_amount = _resolve_to_base(
+            abs(float(amount)),
+            currency,
+            base_currency,
+            metadata=act.get("metadata"),
+            fx_rates_to_base=rates,
+        )
+        if base_amount is None:
+            continue
+
+        raw_account = act.get("account_id")
+        account_key = (
+            raw_account.strip()
+            if isinstance(raw_account, str) and raw_account.strip()
+            else UNASSIGNED_ACCOUNT
+        )
+        if account_key == UNASSIGNED_ACCOUNT:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has no account_id; "
+                "attributed to '__unassigned__' for per-account performance"
+            )
+        buckets.setdefault(account_key, []).append(
+            Cashflow(when=when, amount_base=sign * base_amount)
+        )
+    for flows in buckets.values():
+        flows.sort(key=lambda cf: cf.when)
+    return buckets, warnings
+
+
+def compute_performance_by_account(
+    snapshots: list[dict[str, Any]],
+    activities: list[dict[str, Any]],
+    *,
+    base_currency: str,
+    fx_rates_to_base: dict[str, float] | None = None,
+    since: str | datetime | None = None,
+    until: str | datetime | None = None,
+) -> tuple[list[AccountPerformance], list[str]]:
+    """Per-account TWR/MWR using ``totals.by_account`` bookend values.
+
+    Returns a list of ``AccountPerformance`` (one per account observed in
+    either bookend snapshot or in attributed activities) plus a list of
+    top-level warnings (e.g. snapshots missing ``by_account``).
+    """
+
+    since_dt = _parse_iso(since) if isinstance(since, str) else since
+    until_dt = _parse_until_bound(until) if isinstance(until, str) else until
+
+    start_snap, end_snap = _select_bookend_snapshots(snapshots, since_dt, until_dt)
+    if start_snap is None or end_snap is None:
+        return [], ["No snapshots available for the requested window"]
+
+    start_ts = _parse_iso(start_snap["timestamp"])
+    end_ts = _parse_iso(end_snap["timestamp"])
+
+    start_by_account = _snap_by_account(start_snap)
+    end_by_account = _snap_by_account(end_snap)
+    top_warnings: list[str] = []
+    if not start_by_account:
+        top_warnings.append(
+            "Start snapshot is missing totals.by_account; per-account TWR unavailable"
+        )
+    if not end_by_account:
+        top_warnings.append(
+            "End snapshot is missing totals.by_account; per-account TWR unavailable"
+        )
+    if not start_by_account or not end_by_account:
+        return [], top_warnings
+
+    cashflows_by_account, attribution_warnings = (
+        _attribute_external_cashflows_by_account(
+            activities,
+            base_currency,
+            fx_rates_to_base=fx_rates_to_base,
+            period_start=start_ts,
+            period_end=end_ts,
+        )
+    )
+    top_warnings.extend(attribution_warnings)
+
+    account_ids = sorted(
+        set(start_by_account)
+        | set(end_by_account)
+        | set(cashflows_by_account)
+    )
+
+    results: list[AccountPerformance] = []
+    for aid in account_ids:
+        start_value = start_by_account.get(aid, 0.0)
+        end_value = end_by_account.get(aid, 0.0)
+        flows = cashflows_by_account.get(aid, [])
+        warnings: list[str] = []
+        if aid not in start_by_account:
+            warnings.append(
+                "Account not present in start snapshot; start_value treated as 0"
+            )
+        if aid not in end_by_account:
+            warnings.append(
+                "Account not present in end snapshot; end_value treated as 0"
+            )
+
+        twr_fraction = modified_dietz(
+            start_value, end_value, flows, start_ts, end_ts
+        )
+
+        if start_value > 0 or flows or end_value > 0:
+            xirr_series: list[Cashflow] = []
+            if start_value > 0:
+                xirr_series.append(
+                    Cashflow(when=start_ts, amount_base=-start_value)
+                )
+            for cf in flows:
+                xirr_series.append(
+                    Cashflow(when=cf.when, amount_base=-cf.amount_base)
+                )
+            if end_value != 0:
+                xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
+            mwr_fraction = xirr(xirr_series)
+        else:
+            mwr_fraction = None
+
+        net_flow = sum(cf.amount_base for cf in flows)
+        results.append(
+            AccountPerformance(
+                account_id=aid,
+                start_value_base=round(start_value, 2),
+                end_value_base=round(end_value, 2),
+                net_external_cashflow_base=round(net_flow, 2),
+                twr_pct=None if twr_fraction is None else round(twr_fraction * 100, 6),
+                mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
+                cashflow_count=len(flows),
+                warnings=warnings,
+            )
+        )
+    return results, top_warnings
+
+
 def compute_performance(
     snapshots: list[dict[str, Any]],
     activities: list[dict[str, Any]],

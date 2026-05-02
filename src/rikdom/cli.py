@@ -71,6 +71,7 @@ from .plugins import (
 from .benchmarks import make_dir_loader
 from .performance import (
     compute_performance,
+    compute_performance_by_account,
     external_cashflow_currencies,
     performance_period_bounds,
 )
@@ -547,6 +548,35 @@ def cmd_performance(args: argparse.Namespace) -> int:
         output["benchmarks"] = [
             _benchmark_comparison_to_dict(b) for b in result.benchmarks
         ]
+
+    by = getattr(args, "by", None)
+    if by == "account":
+        per_account, top_warnings = compute_performance_by_account(
+            snapshots,
+            activities,
+            base_currency=base_currency,
+            fx_rates_to_base=fx_lock.get("rates_to_base")
+            if isinstance(fx_lock, dict)
+            else None,
+            since=getattr(args, "since", None),
+            until=getattr(args, "until", None),
+        )
+        output["by_account"] = [
+            {
+                "account_id": ap.account_id,
+                "start_value_base": ap.start_value_base,
+                "end_value_base": ap.end_value_base,
+                "net_external_cashflow_base": ap.net_external_cashflow_base,
+                "twr_pct": ap.twr_pct,
+                "mwr_pct": ap.mwr_pct,
+                "cashflow_count": ap.cashflow_count,
+                "warnings": ap.warnings,
+            }
+            for ap in per_account
+        ]
+        if top_warnings:
+            output["warnings"] = list(output["warnings"]) + top_warnings
+
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0
 
@@ -1890,6 +1920,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--benchmarks-dir",
         default="data/benchmarks",
         help="Directory containing <benchmark_id>.jsonl level series",
+    )
+    p_performance.add_argument(
+        "--by",
+        choices=("portfolio", "account"),
+        default="portfolio",
+        help="Slice the output by 'account' to add per-account TWR/MWR (requires "
+        "snapshots with totals.by_account)",
     )
     _add_workspace_options(
         p_performance, with_out_root=True, with_portfolio_name=True, with_registry=True

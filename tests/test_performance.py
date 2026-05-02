@@ -14,6 +14,7 @@ from rikdom.performance import (
     Cashflow,
     PerformanceResult,
     compute_performance,
+    compute_performance_by_account,
     external_cashflow_currencies,
     extract_external_cashflows,
     modified_dietz,
@@ -355,6 +356,144 @@ class ComputePerformanceTests(unittest.TestCase):
         self.assertEqual(result.end_value_base, 110_000.0)
         self.assertEqual(result.cashflow_count, 1)
         self.assertAlmostEqual(result.net_external_cashflow_base, -1_000.0)
+
+
+class ComputePerformanceByAccountTests(unittest.TestCase):
+    SNAPS_WITH_BY_ACCOUNT = [
+        {
+            "timestamp": "2026-01-01T00:00:00Z",
+            "base_currency": "BRL",
+            "totals": {
+                "portfolio_value_base": 100_000,
+                "by_asset_class": {},
+                "by_account": {"acc-a": 70_000.0, "acc-b": 30_000.0},
+            },
+        },
+        {
+            "timestamp": "2026-12-31T00:00:00Z",
+            "base_currency": "BRL",
+            "totals": {
+                "portfolio_value_base": 121_000,
+                "by_asset_class": {},
+                "by_account": {"acc-a": 80_000.0, "acc-b": 41_000.0},
+            },
+        },
+    ]
+
+    def test_per_account_totals_match_brute_force(self) -> None:
+        results, warnings = compute_performance_by_account(
+            self.SNAPS_WITH_BY_ACCOUNT, [], base_currency="BRL"
+        )
+        by_id = {r.account_id: r for r in results}
+        self.assertEqual(set(by_id), {"acc-a", "acc-b"})
+        self.assertEqual(by_id["acc-a"].start_value_base, 70_000.0)
+        self.assertEqual(by_id["acc-a"].end_value_base, 80_000.0)
+        # No external flows -> TWR is the simple ratio.
+        assert by_id["acc-a"].twr_pct is not None
+        self.assertAlmostEqual(by_id["acc-a"].twr_pct, 100.0 * (80_000 / 70_000 - 1), places=4)
+        self.assertEqual(warnings, [])
+
+    def test_cashflow_attributed_to_named_account(self) -> None:
+        activities = [
+            {
+                "id": "contrib-a",
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-06-01T00:00:00Z",
+                "account_id": "acc-a",
+                "money": {"amount": 5_000.0, "currency": "BRL"},
+            }
+        ]
+        results, warnings = compute_performance_by_account(
+            self.SNAPS_WITH_BY_ACCOUNT, activities, base_currency="BRL"
+        )
+        by_id = {r.account_id: r for r in results}
+        self.assertEqual(by_id["acc-a"].cashflow_count, 1)
+        self.assertEqual(by_id["acc-a"].net_external_cashflow_base, 5_000.0)
+        self.assertEqual(by_id["acc-b"].cashflow_count, 0)
+        # No top-level warnings (every activity has an account_id).
+        self.assertNotIn(
+            "attributed to '__unassigned__'", " ".join(warnings)
+        )
+
+    def test_unattributed_activity_goes_to_unassigned_with_warning(self) -> None:
+        activities = [
+            {
+                "id": "contrib-x",
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-06-01T00:00:00Z",
+                "money": {"amount": 1_000.0, "currency": "BRL"},
+            }
+        ]
+        results, warnings = compute_performance_by_account(
+            self.SNAPS_WITH_BY_ACCOUNT, activities, base_currency="BRL"
+        )
+        ids = {r.account_id for r in results}
+        self.assertIn("__unassigned__", ids)
+        self.assertTrue(
+            any("__unassigned__" in w for w in warnings),
+            f"expected unassigned warning, got: {warnings}",
+        )
+
+    def test_missing_by_account_in_snapshot_emits_warning(self) -> None:
+        snapshots_no_by_account = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {"portfolio_value_base": 100_000, "by_asset_class": {}},
+            },
+            {
+                "timestamp": "2026-12-31T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {"portfolio_value_base": 110_000, "by_asset_class": {}},
+            },
+        ]
+        results, warnings = compute_performance_by_account(
+            snapshots_no_by_account, [], base_currency="BRL"
+        )
+        self.assertEqual(results, [])
+        self.assertTrue(any("by_account" in w for w in warnings))
+
+    def test_account_only_in_end_snapshot_treats_start_as_zero(self) -> None:
+        snapshots = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {
+                    "portfolio_value_base": 100_000,
+                    "by_asset_class": {},
+                    "by_account": {"acc-a": 100_000.0},
+                },
+            },
+            {
+                "timestamp": "2026-12-31T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {
+                    "portfolio_value_base": 115_000,
+                    "by_asset_class": {},
+                    "by_account": {"acc-a": 105_000.0, "acc-new": 10_000.0},
+                },
+            },
+        ]
+        activities = [
+            {
+                "id": "fund-new",
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-09-01T00:00:00Z",
+                "account_id": "acc-new",
+                "money": {"amount": 10_000.0, "currency": "BRL"},
+            }
+        ]
+        results, _ = compute_performance_by_account(
+            snapshots, activities, base_currency="BRL"
+        )
+        by_id = {r.account_id: r for r in results}
+        new_acc = by_id["acc-new"]
+        self.assertEqual(new_acc.start_value_base, 0.0)
+        self.assertEqual(new_acc.end_value_base, 10_000.0)
+        self.assertTrue(any("start snapshot" in w for w in new_acc.warnings))
 
 
 class CliPerformanceTests(unittest.TestCase):

@@ -259,14 +259,26 @@ doing?" question.
   value). Additive; `snapshot_from_aggregate` emits it whenever
   `AggregateResult.by_account` is populated.
 - `data-sample/snapshots.jsonl` carries `by_account` per row so
-  bookend lookups have per-account values to consume once
-  attribution lands.
+  bookend lookups have per-account values to consume.
+
+**Per-account TWR/MWR (landed).**
+
+- `compute_performance_by_account()` reads
+  `totals.by_account` from the bookend snapshots, attributes
+  external cashflows to each account via `activity.account_id`
+  (unattributed flows land under `__unassigned__` with a warning),
+  and emits `AccountPerformance{start_value_base, end_value_base,
+  net_external_cashflow_base, twr_pct, mwr_pct, cashflow_count,
+  warnings}` per account.
+- CLI: `rikdom performance --by account` adds a `by_account[]`
+  block to the output; default `--by portfolio` keeps the previous
+  shape.
+- New accounts (only in end snapshot) are handled with
+  `start_value=0` and a per-account warning so the result is still
+  meaningful for funded-from-zero buckets.
 
 **Deferred to follow-up slices.**
 
-- Per-account TWR/MWR consuming the new `totals.by_account` bookends
-  (cashflow attribution by `account_id` via `holding_id` →
-  `holdings[].account_id`).
 - `totals.by_strategic_bucket` (next snapshot-side slice; same
   pattern as `by_account`).
 - Per-strategic-bucket TWR (needs the bucket-side snapshot field
