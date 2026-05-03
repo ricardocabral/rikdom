@@ -1,0 +1,255 @@
+{
+  "base_currency": "BRL",
+  "generated_at": "2026-04-15T10:00:00Z",
+  "holdings": [
+    {
+      "asset_type_id": "cash_equivalent",
+      "id": "irpf-2026-00001",
+      "identifiers": {
+        "cnpj": "00.000.000/0001-91"
+      },
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "CONTA CORRENTE BANCO TESTE",
+      "market_value": {
+        "amount": 2500.0,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "account": {
+          "account_number": "12345-6",
+          "bank_code": "077",
+          "branch": "0001"
+        },
+        "irpf": {
+          "codigo": "01",
+          "country_code": "105",
+          "country_label": "105 - Brasil",
+          "discriminacao": "CONTA CORRENTE BANCO TESTE",
+          "exercicio": 2026,
+          "grupo": "06",
+          "indice": "00001"
+        },
+        "value_current_year_end": {
+          "amount": 2500.0,
+          "currency": "BRL"
+        },
+        "value_prior_year_end": {
+          "amount": 1000.0,
+          "currency": "BRL"
+        }
+      }
+    },
+    {
+      "asset_type_id": "acao",
+      "id": "irpf-2026-00002",
+      "identifiers": {
+        "cnpj": "11.111.111/0001-11",
+        "ticker": "TESTE3"
+      },
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "TESTE3 - 100 ACOES ADQUIRIDAS EM 10/05/2025",
+      "market_value": {
+        "amount": 3500.0,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "irpf": {
+          "codigo": "01",
+          "country_code": "105",
+          "country_label": "105 - Brasil",
+          "discriminacao": "TESTE3 - 100 ACOES ADQUIRIDAS EM 10/05/2025",
+          "exercicio": 2026,
+          "grupo": "03",
+          "indice": "00002"
+        },
+        "value_current_year_end": {
+          "amount": 3500.0,
+          "currency": "BRL"
+        },
+        "value_prior_year_end": {
+          "amount": 0.0,
+          "currency": "BRL"
+        }
+      }
+    },
+    {
+      "asset_type_id": "fii",
+      "id": "irpf-2026-00003",
+      "identifiers": {
+        "cnpj": "22.222.222/0001-22",
+        "ticker": "DEMO11"
+      },
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "DEMO11 - 50 COTAS FII DEMONSTRACAO",
+      "market_value": {
+        "amount": 5500.0,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "irpf": {
+          "codigo": "03",
+          "country_code": "105",
+          "country_label": "105 - Brasil",
+          "discriminacao": "DEMO11 - 50 COTAS FII DEMONSTRACAO",
+          "exercicio": 2026,
+          "grupo": "07",
+          "indice": "00003"
+        },
+        "value_current_year_end": {
+          "amount": 5500.0,
+          "currency": "BRL"
+        },
+        "value_prior_year_end": {
+          "amount": 5000.0,
+          "currency": "BRL"
+        }
+      }
+    },
+    {
+      "asset_type_id": "tesouro_direto",
+      "id": "irpf-2026-00004",
+      "identifiers": {
+        "cnpj": "33.333.333/0001-33"
+      },
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "TESOURO IPCA+ 2035",
+      "market_value": {
+        "amount": 11250.0,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "irpf": {
+          "codigo": "03",
+          "country_code": "105",
+          "country_label": "105 - Brasil",
+          "discriminacao": "TESOURO IPCA+ 2035",
+          "exercicio": 2026,
+          "grupo": "04",
+          "indice": "00004"
+        },
+        "value_current_year_end": {
+          "amount": 11250.0,
+          "currency": "BRL"
+        },
+        "value_prior_year_end": {
+          "amount": 10000.0,
+          "currency": "BRL"
+        }
+      }
+    },
+    {
+      "asset_type_id": "debenture_infra",
+      "id": "irpf-2026-00005",
+      "identifiers": {
+        "cnpj": "44.444.444/0001-44"
+      },
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "DEBENT INFRA: EMISSORA TESTE S.A.",
+      "market_value": {
+        "amount": 21000.0,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "irpf": {
+          "codigo": "03",
+          "country_code": "105",
+          "country_label": "105 - Brasil",
+          "discriminacao": "DEBENT INFRA: EMISSORA TESTE S.A.",
+          "exercicio": 2026,
+          "grupo": "04",
+          "indice": "00005"
+        },
+        "value_current_year_end": {
+          "amount": 21000.0,
+          "currency": "BRL"
+        },
+        "value_prior_year_end": {
+          "amount": 20000.0,
+          "currency": "BRL"
+        }
+      }
+    },
+    {
+      "asset_type_id": "fundo_investimento",
+      "id": "irpf-2026-00006",
+      "identifiers": {
+        "cnpj": "55.555.555/0001-55"
+      },
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "FUNDO TESTE FIC FIM",
+      "market_value": {
+        "amount": 0.0,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "irpf": {
+          "codigo": "01",
+          "country_code": "105",
+          "country_label": "105 - Brasil",
+          "discriminacao": "FUNDO TESTE FIC FIM",
+          "exercicio": 2026,
+          "grupo": "07",
+          "indice": "00006"
+        },
+        "value_current_year_end": {
+          "amount": 0.0,
+          "currency": "BRL"
+        },
+        "value_prior_year_end": {
+          "amount": 50000.0,
+          "currency": "BRL"
+        }
+      }
+    },
+    {
+      "asset_type_id": "real_estate",
+      "id": "irpf-2026-00007",
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "label": "APARTAMENTO TESTE - LOGRADOURO FICTICIO",
+      "market_value": {
+        "amount": 300000.0,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "irpf": {
+          "codigo": "11",
+          "country_code": "105",
+          "country_label": "105 - Brasil",
+          "discriminacao": "APARTAMENTO TESTE - LOGRADOURO FICTICIO",
+          "exercicio": 2026,
+          "grupo": "01",
+          "indice": "00007"
+        },
+        "value_current_year_end": {
+          "amount": 300000.0,
+          "currency": "BRL"
+        },
+        "value_prior_year_end": {
+          "amount": 300000.0,
+          "currency": "BRL"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "current_year_end": "2025-12-31",
+    "irpf_exercicio": 2026,
+    "prior_year_end": "2024-12-31",
+    "source_file": "input.xml"
+  },
+  "provider": "irpf-xml"
+}
