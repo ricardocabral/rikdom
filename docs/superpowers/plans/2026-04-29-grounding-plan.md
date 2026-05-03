@@ -97,7 +97,7 @@ link sells to the tax lots they consumed.
 - `data-sample/portfolio.json`: extend with an example dividend (with
   withholding), sell (with `tax_lot_ids` + `realized_gain`), and
   fx_conversion. Keep totals self-consistent.
-- `docs/migrations.md`: append a row in the migration table (if any).
+- `docs/reference/migrations.md`: append a row in the migration table (if any).
 - `tests/`: round-trip migration test + validator unit tests for each new
   event_type and the new semantic checks.
 
@@ -144,7 +144,7 @@ migration — it introduces a small policy migration framework.
     a sibling `migrate-policy` subcommand mirroring `migrate`'s flags).
 - `data-sample/policy.json`: declare a couple of benchmarks (CDI, IBOV,
   S&P 500, ACWI ex-US) and link a few targets to them.
-- `docs/migrations.md`: document the policy track.
+- `docs/reference/migrations.md`: document the policy track.
 - `.claude/skills/define-policy/SKILL.md`: append a small section asking
   the user for benchmarks during the strategic-allocation interview.
 - `tests/`: planner contiguity, round-trip, validator tests for unknown
@@ -168,7 +168,7 @@ plus effective-date windows.
   - New top-level optional `tax_rules: TaxRule[]`. Each `TaxRule` has
     `id`, `label`, `jurisdiction` (ISO-2), `applies_to`
     (`{tax_account_types?, asset_classes?, holding_period_days_min?,
-    holding_period_days_max?, event_kinds?}`), `rate_pct`, optional
+holding_period_days_max?, event_kinds?}`), `rate_pct`, optional
     `flat_amount` Money, `effective_from`, `effective_to`,
     `notes`, `source_url`. `event_kinds` enum mirrors the activity
     event_type enum where it makes sense (`sell`, `dividend`, `interest`,
@@ -176,7 +176,7 @@ plus effective-date windows.
   - Optional `exemptions: TaxExemption[]` (e.g., BR R$20k/month stock
     sales) with structured threshold, period, scope.
 - `src/rikdom/policy.py`: semantic checks — `effective_from <=
-  effective_to`; non-overlapping rules per same key (warning, not error);
+effective_to`; non-overlapping rules per same key (warning, not error);
   `applies_to.tax_account_types` resolves against `accounts[].tax_account_type`.
 - `src/rikdom/migrations/policy/v0_2_0_to_v0_3_0.py`: version bump only.
 - `data-sample/policy.json`: a small but realistic tax-rule set
@@ -227,7 +227,7 @@ doing?" question.
   `transfer_out` (other event_types are internal).
 - `rikdom performance --portfolio … --snapshots … [--since … --until …]`
   emits `{period_start, period_end, start_value_base, end_value_base,
-  net_external_cashflow_base, twr_pct, mwr_pct, cashflow_count, warnings}`.
+net_external_cashflow_base, twr_pct, mwr_pct, cashflow_count, warnings}`.
 - FX of foreign-currency cashflows uses the same
   `fx_rates_to_base` + `metadata.fx_rate_to_base` fallback as
   `aggregate_portfolio`; cashflows that cannot be converted are skipped
@@ -248,7 +248,7 @@ doing?" question.
   (only when benchmark currency matches `base_currency`), and nested
   components for composites.
 - CLI: `rikdom performance --policy data/policy.json --benchmarks-dir
-  data/benchmarks` resolves every benchmark referenced by
+data/benchmarks` resolves every benchmark referenced by
   `strategic_allocation.targets[]`. Sample benchmark JSONLs ship under
   `data-sample/benchmarks/` and are seeded by `make bootstrap`.
 
@@ -274,8 +274,8 @@ doing?" question.
   external cashflows to each account via `activity.account_id`
   (unattributed flows land under `__unassigned__` with a warning),
   and emits `AccountPerformance{start_value_base, end_value_base,
-  net_external_cashflow_base, twr_pct, mwr_pct, cashflow_count,
-  warnings}` per account.
+net_external_cashflow_base, twr_pct, mwr_pct, cashflow_count,
+warnings}` per account.
 - CLI: `rikdom performance --by account` adds a `by_account[]`
   block to the output; default `--by portfolio` keeps the previous
   shape.
@@ -315,18 +315,25 @@ doing?" question.
 **Goal.** Single derived snapshot answering "am I on track to fund
 my objectives?" Inputs are already in policy and portfolio.
 
-**Touch points.**
+**MVP landed (deterministic projection).**
 
-- `src/rikdom/funded_ratio.py` (new). Combines `objectives[]`,
-  current portfolio value, expected contributions
-  (`cashflow_policy.contributions[]`), CMA expected returns, and
-  `spending_plan` to project terminal wealth and a funded-ratio per
-  objective.
-- New CLI: `rikdom funded-ratio --portfolio … --policy …` emitting
-  `{objective_id, target_amount_today, projected_value, ratio,
-  shortfall, monte_carlo_p10/p50/p90?}`.
-- Stretch: pluggable Monte Carlo engine (deterministic seed) using
-  CMA volatilities and correlations. Skip if scope creeps.
+- `src/rikdom/funded_ratio.py` combines `objectives[]`, current
+  aggregate portfolio value, per-account funding filters,
+  `cashflow_policy.contributions[]` / `withdrawals[]`, retirement
+  spending assumptions, and real return assumptions to project a
+  funded ratio per objective.
+- CLI: `rikdom funded-ratio --portfolio … --policy … [--as-of …]`
+  emits per-objective `target_amount_today_base`,
+  `projected_value_base`, `ratio`, `shortfall_base`, current value,
+  annual net contribution, expected real return, and warnings.
+- `make funded-ratio` and CLI reference docs are wired.
+
+**Deferred.**
+
+- Pluggable Monte Carlo engine (deterministic seed) using CMA
+  volatilities and correlations.
+- Richer goal-specific funding allocation when multiple objectives
+  share the same account and contributions.
 
 ### Step 7 — FX provenance per valuation
 
@@ -375,8 +382,8 @@ cite.
   ratio for funds; duration/maturity/coupon/credit_rating for bonds;
   custody type for crypto).
 - `asset_type_catalog[].instrument_attributes` already supports
-  free-form typed attributes — the new block is the *resolved* and
-  *sourced* counterpart, not a per-asset-type schema definition.
+  free-form typed attributes — the new block is the _resolved_ and
+  _sourced_ counterpart, not a per-asset-type schema definition.
 - Importers should populate it when statements carry the data; LLM
   enrichment is allowed but must record `source: "llm_assisted"`
   and a confidence level so reconciliation can flag low-confidence

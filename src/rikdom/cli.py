@@ -27,6 +27,7 @@ from .export_bundle import (
     read_verified_payloads,
     verify_export_bundle,
 )
+from .funded_ratio import compute_funded_ratios
 from .fx import ensure_snapshot_fx_lock
 from .journal import (
     DEFAULT_POLICY,
@@ -475,9 +476,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
                 "by_strategic_bucket not stamped"
             )
         if policy:
-            result.by_strategic_bucket = compute_strategic_bucket_totals(
-                result, policy
-            )
+            result.by_strategic_bucket = compute_strategic_bucket_totals(result, policy)
     snap = snapshot_from_aggregate(result, timestamp=snapshot_timestamp)
     rotate_bytes = getattr(args, "rotate_bytes", 0) or 0
     if rotate_bytes > 0:
@@ -627,6 +626,76 @@ def cmd_performance(args: argparse.Namespace) -> int:
         if top_warnings:
             output["warnings"] = list(output["warnings"]) + top_warnings
 
+    print(json.dumps(output, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_funded_ratio(args: argparse.Namespace) -> int:
+    portfolio = load_json(args.portfolio)
+    policy = load_json(args.policy)
+    policy_errors = validate_policy(policy)
+    if policy_errors:
+        print("Policy validation failed:", file=sys.stderr)
+        for err in policy_errors:
+            print(f"- {err}", file=sys.stderr)
+        return 1
+
+    as_of = getattr(args, "as_of", None) or _now_iso()[:10]
+    fx_lock, fx_warnings = ensure_snapshot_fx_lock(
+        portfolio,
+        fx_history_path=args.fx_history,
+        snapshot_timestamp=f"{as_of}T00:00:00Z" if len(as_of) == 10 else as_of,
+        auto_ingest=False,
+    )
+    aggregate = aggregate_portfolio(
+        portfolio,
+        strict=bool(getattr(args, "strict_quality", False)),
+        fx_rates_to_base=fx_lock.get("rates_to_base")
+        if isinstance(fx_lock, dict)
+        else None,
+    )
+    if aggregate.errors:
+        print("Data quality check failed in strict mode:", file=sys.stderr)
+        for err in aggregate.errors:
+            print(f"- {err}", file=sys.stderr)
+        return 1
+
+    result = compute_funded_ratios(
+        aggregate.total_value_base,
+        policy,
+        by_account=aggregate.by_account,
+        base_currency=aggregate.base_currency,
+        fx_rates_to_base=fx_lock.get("rates_to_base")
+        if isinstance(fx_lock, dict)
+        else None,
+        as_of=as_of,
+    )
+    warnings = list(aggregate.warnings) + list(fx_warnings) + list(result.warnings)
+    output = {
+        "base_currency": result.base_currency,
+        "as_of": result.as_of,
+        "portfolio_value_base": result.portfolio_value_base,
+        "warnings": warnings,
+        "objectives": [
+            {
+                "objective_id": item.objective_id,
+                "label": item.label,
+                "kind": item.kind,
+                "priority": item.priority,
+                "target_date": item.target_date,
+                "horizon_years": item.horizon_years,
+                "target_amount_today_base": item.target_amount_today_base,
+                "projected_value_base": item.projected_value_base,
+                "ratio": item.ratio,
+                "shortfall_base": item.shortfall_base,
+                "current_value_base": item.current_value_base,
+                "net_annual_contribution_base": item.net_annual_contribution_base,
+                "expected_real_return_pct": item.expected_real_return_pct,
+                "warnings": item.warnings,
+            }
+            for item in result.results
+        ],
+    }
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0
 
@@ -2001,6 +2070,31 @@ def build_parser() -> argparse.ArgumentParser:
         p_performance, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
     p_performance.set_defaults(func=cmd_performance)
+
+    p_funded_ratio = sub.add_parser(
+        "funded-ratio",
+        help="Compute deterministic funded-ratio projections for policy objectives",
+    )
+    p_funded_ratio.add_argument("--portfolio", default=None)
+    p_funded_ratio.add_argument("--policy", required=True)
+    p_funded_ratio.add_argument("--fx-history", default=None)
+    p_funded_ratio.add_argument(
+        "--as-of",
+        default=None,
+        help="Projection start date as YYYY-MM-DD (default: today)",
+    )
+    p_funded_ratio.add_argument(
+        "--strict-quality",
+        action="store_true",
+        help="Treat missing FX conversion warnings as hard errors",
+    )
+    _add_workspace_options(
+        p_funded_ratio,
+        with_out_root=True,
+        with_portfolio_name=True,
+        with_registry=True,
+    )
+    p_funded_ratio.set_defaults(func=cmd_funded_ratio)
 
     p_compact = sub.add_parser(
         "compact", help="Compact and/or rotate a snapshots journal"

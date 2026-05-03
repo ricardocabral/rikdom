@@ -1,5 +1,5 @@
 .PHONY: help sync bootstrap validate validate-fixture aggregate reconcile snapshot viz \
-	visualize render-report performance \
+	visualize render-report performance funded-ratio \
 	plugins-list import-sample storage-sync migrate-dry-run \
 	migrate-dry-run-policy validate-with-policy \
 	test lint check
@@ -23,6 +23,7 @@ help:
 	@echo "  make aggregate        - Aggregate holdings by asset class"
 	@echo "  make snapshot         - Append a historical snapshot"
 	@echo "  make performance      - Compute portfolio TWR and MWR"
+	@echo "  make funded-ratio     - Compute policy objective funded ratios"
 	@echo "  make viz              - Generate quickview + deep-dive via quarto plugin"
 	@echo "  make plugins-list     - List plugins in plugins/"
 	@echo "  make import-sample    - Import sample statement using csv-generic"
@@ -65,6 +66,10 @@ snapshot:
 performance:
 	uv run rikdom performance $(WORKSPACE_ARGS) \
 		$$(test -f $(DATA_DIR)/policy.json && echo "--policy $(DATA_DIR)/policy.json --benchmarks-dir $(DATA_DIR)/benchmarks")
+
+funded-ratio:
+	uv run rikdom funded-ratio $(WORKSPACE_ARGS) \
+		--policy $(DATA_DIR)/policy.json
 
 viz:
 	uv run rikdom viz $(WORKSPACE_ARGS) --include-current

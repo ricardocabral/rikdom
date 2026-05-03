@@ -14,20 +14,20 @@ Most commands accept these workspace flags:
 
 ## Workspace setup
 
-| Command | Make shortcut | Purpose |
-| --- | --- | --- |
-| `rikdom workspace init --data-dir data` | — | Initialize a multi-portfolio registry with isolated data paths. |
-| `rikdom workspace list --data-dir data` | — | List registered portfolios. |
-| `rikdom workspace rollup --data-dir data` | — | Cross-portfolio rollup. |
+| Command                                   | Make shortcut | Purpose                                                         |
+| ----------------------------------------- | ------------- | --------------------------------------------------------------- |
+| `rikdom workspace init --data-dir data`   | —             | Initialize a multi-portfolio registry with isolated data paths. |
+| `rikdom workspace list --data-dir data`   | —             | List registered portfolios.                                     |
+| `rikdom workspace rollup --data-dir data` | —             | Cross-portfolio rollup.                                         |
 
 ## Validate, aggregate, snapshot
 
-| Command | Make shortcut | Purpose |
-| --- | --- | --- |
-| `rikdom validate --data-dir data --out-root out` | `make validate` | Schema + structural validation + reconciliation. |
-| `rikdom validate --portfolio <path>` | `make validate-fixture` | Validate a specific portfolio file. |
-| `rikdom aggregate --data-dir data --out-root out` | `make aggregate` | Aggregate by asset class. |
-| `rikdom snapshot --data-dir data --out-root out` | `make snapshot` | Append a historical snapshot with FX lock. See [FX snapshot fields](fx-snapshot-fields.md). |
+| Command                                           | Make shortcut           | Purpose                                                                                     |
+| ------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------- |
+| `rikdom validate --data-dir data --out-root out`  | `make validate`         | Schema + structural validation + reconciliation.                                            |
+| `rikdom validate --portfolio <path>`              | `make validate-fixture` | Validate a specific portfolio file.                                                         |
+| `rikdom aggregate --data-dir data --out-root out` | `make aggregate`        | Aggregate by asset class.                                                                   |
+| `rikdom snapshot --data-dir data --out-root out`  | `make snapshot`         | Append a historical snapshot with FX lock. See [FX snapshot fields](fx-snapshot-fields.md). |
 
 `snapshot` flags:
 
@@ -37,59 +37,64 @@ Most commands accept these workspace flags:
 
 ## Performance
 
-| Command | Make shortcut | Purpose |
-| --- | --- | --- |
-| `rikdom performance --since <date> --until <date>` | `make performance` | Modified-Dietz TWR + XIRR MWR over the window. See [performance output](performance-output.md). |
+| Command                                                                         | Make shortcut       | Purpose                                                                                         |
+| ------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
+| `rikdom performance --since <date> --until <date>`                              | `make performance`  | Modified-Dietz TWR + XIRR MWR over the window. See [performance output](performance-output.md). |
+| `rikdom funded-ratio --portfolio data/portfolio.json --policy data/policy.json` | `make funded-ratio` | Deterministic funded-ratio projections for policy objectives.                                   |
 
 Defaults: `--since` falls back to the earliest snapshot, `--until` to the
 most recent.
 
+`funded-ratio` uses the current portfolio aggregate, `policy.objectives[]`,
+`cashflow_policy.contributions[]`, retirement spending assumptions, and real
+return assumptions. Pass `--as-of YYYY-MM-DD` to pin the projection start date.
+
 ## Visualization
 
-| Command | Make shortcut | Purpose |
-| --- | --- | --- |
+| Command                                                             | Make shortcut                 | Purpose                                                    |
+| ------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------- |
 | `rikdom visualize --data-dir data --out-root out --include-current` | `make visualize` / `make viz` | Render `out/dashboard.html` + `out/portfolio-report.html`. |
 
 ## Plugins
 
-| Command | Make shortcut | Purpose |
-| --- | --- | --- |
-| `rikdom plugins list --plugins-dir plugins` | `make plugins-list` | Discover installed plugins. |
-| `rikdom plugin init <name> --dest plugins` | — | Scaffold a new plugin from the bundled SDK template. See [first plugin tutorial](../tutorials/first-plugin.md). |
-| `rikdom import-statement --plugin <name> --input <file> --dry-run` | — | Preview an import. |
-| `rikdom import-statement --plugin <name> --input <file> --write` | `make import-sample` | Import a statement and write to `data/portfolio.json`. |
-| `rikdom render-report --plugin quarto-portfolio-report` | `make render-report` | Render a report through an `output` plugin. |
-| `rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins` | `make storage-sync` | Mirror canonical state to a `state/storage` backend. |
+| Command                                                             | Make shortcut        | Purpose                                                                                                         |
+| ------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `rikdom plugins list --plugins-dir plugins`                         | `make plugins-list`  | Discover installed plugins.                                                                                     |
+| `rikdom plugin init <name> --dest plugins`                          | —                    | Scaffold a new plugin from the bundled SDK template. See [first plugin tutorial](../tutorials/first-plugin.md). |
+| `rikdom import-statement --plugin <name> --input <file> --dry-run`  | —                    | Preview an import.                                                                                              |
+| `rikdom import-statement --plugin <name> --input <file> --write`    | `make import-sample` | Import a statement and write to `data/portfolio.json`.                                                          |
+| `rikdom render-report --plugin quarto-portfolio-report`             | `make render-report` | Render a report through an `output` plugin.                                                                     |
+| `rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins` | `make storage-sync`  | Mirror canonical state to a `state/storage` backend.                                                            |
 
 ## Migrations
 
-| Command | Make shortcut | Purpose |
-| --- | --- | --- |
-| `rikdom migrate --portfolio data/portfolio.json --dry-run` | `make migrate-dry-run` | Preview portfolio migration plan. |
-| `rikdom migrate --portfolio data/portfolio.json` | — | Migrate in place with sibling backup. |
-| `rikdom migrate-policy --policy data/policy.json --dry-run` | `make migrate-dry-run-policy` | Preview policy migration plan. |
-| `rikdom migrate-policy --policy data/policy.json` | — | Migrate policy in place. |
+| Command                                                     | Make shortcut                 | Purpose                               |
+| ----------------------------------------------------------- | ----------------------------- | ------------------------------------- |
+| `rikdom migrate --portfolio data/portfolio.json --dry-run`  | `make migrate-dry-run`        | Preview portfolio migration plan.     |
+| `rikdom migrate --portfolio data/portfolio.json`            | —                             | Migrate in place with sibling backup. |
+| `rikdom migrate-policy --policy data/policy.json --dry-run` | `make migrate-dry-run-policy` | Preview policy migration plan.        |
+| `rikdom migrate-policy --policy data/policy.json`           | —                             | Migrate policy in place.              |
 
 Migration flags: `--to <version>`, `--output <path>`, `--no-backup`. See
 [run a migration](../how-to/run-a-migration.md).
 
 ## Export / import bundles
 
-| Command | Make shortcut | Purpose |
-| --- | --- | --- |
-| `rikdom export --output out/rikdom-export.zip` | — | Build a `rikdom-export` ZIP bundle. |
-| `rikdom verify-export --bundle <zip>` | — | Verify checksums without applying. |
-| `rikdom import-export --bundle <zip>` | — | Import a verified bundle. |
+| Command                                        | Make shortcut | Purpose                             |
+| ---------------------------------------------- | ------------- | ----------------------------------- |
+| `rikdom export --output out/rikdom-export.zip` | —             | Build a `rikdom-export` ZIP bundle. |
+| `rikdom verify-export --bundle <zip>`          | —             | Verify checksums without applying.  |
+| `rikdom import-export --bundle <zip>`          | —             | Import a verified bundle.           |
 
 Bundle layout and checksum manifest: [export format reference](export-format.md).
 
 ## Compaction
 
-| Command | Purpose |
-| --- | --- |
-| `rikdom compact --snapshots data/snapshots.jsonl --dry-run` | Plan a compaction (no write). |
-| `rikdom compact --snapshots data/snapshots.jsonl` | Apply with `<journal>.bak` safety net. |
-| `rikdom compact --rotate --rotate-bytes <N>` | Rotate aside, then compact the new active file. |
+| Command                                                     | Purpose                                         |
+| ----------------------------------------------------------- | ----------------------------------------------- |
+| `rikdom compact --snapshots data/snapshots.jsonl --dry-run` | Plan a compaction (no write).                   |
+| `rikdom compact --snapshots data/snapshots.jsonl`           | Apply with `<journal>.bak` safety net.          |
+| `rikdom compact --rotate --rotate-bytes <N>`                | Rotate aside, then compact the new active file. |
 
 Default retention: keep all rows < 30 days, weekly buckets 30 days–1 year,
 monthly buckets > 1 year. See [storage durability](../explanation/storage-durability.md).
