@@ -445,13 +445,13 @@ def _snap_value(snap: dict[str, Any]) -> float | None:
     return None
 
 
-def _snap_by_account(snap: dict[str, Any]) -> dict[str, float]:
+def _snap_by_account(snap: dict[str, Any]) -> dict[str, float] | None:
     totals = snap.get("totals")
     if not isinstance(totals, dict):
-        return {}
+        return None
     by_account = totals.get("by_account")
     if not isinstance(by_account, dict):
-        return {}
+        return None
     out: dict[str, float] = {}
     for k, v in by_account.items():
         if not isinstance(k, str):
@@ -784,6 +784,9 @@ def _attribute_external_cashflows_by_account(
         try:
             when = _parse_iso(when_raw)
         except ValueError:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has unparsable effective_at; skipped"
+            )
             continue
         if when < period_start or when > period_end:
             continue
@@ -795,6 +798,10 @@ def _attribute_external_cashflows_by_account(
             fx_rates_to_base=rates,
         )
         if base_amount is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
+                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
+            )
             continue
 
         raw_account = act.get("account_id")
@@ -845,15 +852,15 @@ def compute_performance_by_account(
     start_by_account = _snap_by_account(start_snap)
     end_by_account = _snap_by_account(end_snap)
     top_warnings: list[str] = []
-    if not start_by_account:
+    if start_by_account is None:
         top_warnings.append(
             "Start snapshot is missing totals.by_account; per-account TWR unavailable"
         )
-    if not end_by_account:
+    if end_by_account is None:
         top_warnings.append(
             "End snapshot is missing totals.by_account; per-account TWR unavailable"
         )
-    if not start_by_account or not end_by_account:
+    if start_by_account is None or end_by_account is None:
         return [], top_warnings
 
     cashflows_by_account, attribution_warnings = (

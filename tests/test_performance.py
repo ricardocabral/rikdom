@@ -496,6 +496,108 @@ class ComputePerformanceByAccountTests(unittest.TestCase):
         self.assertEqual(new_acc.end_value_base, 10_000.0)
         self.assertTrue(any("start snapshot" in w for w in new_acc.warnings))
 
+    def test_empty_account_bookends_are_valid_zero_bookends(self) -> None:
+        funded_snapshots = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {"portfolio_value_base": 0, "by_account": {}},
+            },
+            {
+                "timestamp": "2026-12-31T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {
+                    "portfolio_value_base": 10_000,
+                    "by_account": {"acc-new": 10_000.0},
+                },
+            },
+        ]
+        funded_results, funded_warnings = compute_performance_by_account(
+            funded_snapshots,
+            [
+                {
+                    "id": "fund-new",
+                    "event_type": "contribution",
+                    "status": "posted",
+                    "effective_at": "2026-06-01T00:00:00Z",
+                    "account_id": "acc-new",
+                    "money": {"amount": 10_000.0, "currency": "BRL"},
+                }
+            ],
+            base_currency="BRL",
+        )
+        self.assertEqual(funded_warnings, [])
+        funded_by_id = {r.account_id: r for r in funded_results}
+        self.assertEqual(funded_by_id["acc-new"].start_value_base, 0.0)
+        self.assertEqual(funded_by_id["acc-new"].end_value_base, 10_000.0)
+        self.assertEqual(
+            funded_by_id["acc-new"].net_external_cashflow_base, 10_000.0
+        )
+
+        closed_snapshots = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {
+                    "portfolio_value_base": 10_000,
+                    "by_account": {"acc-closed": 10_000.0},
+                },
+            },
+            {
+                "timestamp": "2026-12-31T00:00:00Z",
+                "base_currency": "BRL",
+                "totals": {"portfolio_value_base": 0, "by_account": {}},
+            },
+        ]
+        closed_results, closed_warnings = compute_performance_by_account(
+            closed_snapshots,
+            [
+                {
+                    "id": "close-account",
+                    "event_type": "withdrawal",
+                    "status": "posted",
+                    "effective_at": "2026-06-01T00:00:00Z",
+                    "account_id": "acc-closed",
+                    "money": {"amount": 10_000.0, "currency": "BRL"},
+                }
+            ],
+            base_currency="BRL",
+        )
+        self.assertEqual(closed_warnings, [])
+        closed_by_id = {r.account_id: r for r in closed_results}
+        self.assertEqual(closed_by_id["acc-closed"].start_value_base, 10_000.0)
+        self.assertEqual(closed_by_id["acc-closed"].end_value_base, 0.0)
+        self.assertEqual(
+            closed_by_id["acc-closed"].net_external_cashflow_base, -10_000.0
+        )
+
+    def test_per_account_cashflow_skips_emit_warnings(self) -> None:
+        activities = [
+            {
+                "id": "bad-date",
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "not-a-date",
+                "account_id": "acc-a",
+                "money": {"amount": 100.0, "currency": "BRL"},
+            },
+            {
+                "id": "missing-fx",
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-06-01T00:00:00Z",
+                "account_id": "acc-a",
+                "money": {"amount": 100.0, "currency": "USD"},
+            },
+        ]
+        results, warnings = compute_performance_by_account(
+            self.SNAPS_WITH_BY_ACCOUNT, activities, base_currency="BRL"
+        )
+        by_id = {r.account_id: r for r in results}
+        self.assertEqual(by_id["acc-a"].cashflow_count, 0)
+        self.assertTrue(any("bad-date" in w and "effective_at" in w for w in warnings))
+        self.assertTrue(any("missing-fx" in w and "USD" in w for w in warnings))
+
 
 class ComputePerformanceByStrategicBucketTests(unittest.TestCase):
     SNAPS = [
