@@ -495,17 +495,18 @@ def _snap_by_strategic_bucket(snap: dict[str, Any]) -> dict[str, float]:
 def _build_holding_bucket_index(
     portfolio: dict[str, Any] | None,
     policy: dict[str, Any] | None,
-) -> dict[str, str]:
+) -> tuple[dict[str, str], dict[str, str]]:
     """Map ``holding_id`` → strategic bucket key (asset_class targets only).
 
     Other dimensions (region/currency/...) are out of scope for cashflow
     attribution — a single buy/sell rarely lands on a single look-through
     bucket. Holdings whose asset_class isn't covered by any asset_class
-    target are mapped to ``__unallocated__``.
+    target are mapped to ``__unallocated__`` and returned as warning metadata
+    in the second return value (``holding_id`` → ``asset_class``).
     """
 
     if not isinstance(portfolio, dict) or not isinstance(policy, dict):
-        return {}
+        return {}, {}
     catalog = portfolio.get("asset_type_catalog") or []
     class_index: dict[str, str] = {}
     for item in catalog:
@@ -530,6 +531,7 @@ def _build_holding_bucket_index(
 
     holdings = portfolio.get("holdings") or []
     out: dict[str, str] = {}
+    unallocated_classes: dict[str, str] = {}
     for h in holdings:
         if not isinstance(h, dict):
             continue
@@ -542,7 +544,9 @@ def _build_holding_bucket_index(
             out[hid] = f"asset_class:{cls}"
         else:
             out[hid] = "__unallocated__"
-    return out
+            if cls:
+                unallocated_classes[hid] = cls
+    return out, unallocated_classes
 
 
 def _attribute_external_cashflows_by_strategic_bucket(
@@ -553,6 +557,7 @@ def _attribute_external_cashflows_by_strategic_bucket(
     period_start: datetime,
     period_end: datetime,
     holding_to_bucket: dict[str, str],
+    unallocated_holding_classes: dict[str, str],
 ) -> tuple[dict[str, list[Cashflow]], list[str]]:
     rates = _normalize_fx_rates(fx_rates_to_base)
     buckets: dict[str, list[Cashflow]] = {}
@@ -579,6 +584,9 @@ def _attribute_external_cashflows_by_strategic_bucket(
         try:
             when = _parse_iso(when_raw)
         except ValueError:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has unparsable effective_at; skipped"
+            )
             continue
         if when < period_start or when > period_end:
             continue
@@ -590,12 +598,23 @@ def _attribute_external_cashflows_by_strategic_bucket(
             fx_rates_to_base=rates,
         )
         if base_amount is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
+                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
+            )
             continue
 
         hid = act.get("holding_id")
         bucket_key: str
         if isinstance(hid, str) and hid in holding_to_bucket:
             bucket_key = holding_to_bucket[hid]
+            if bucket_key == "__unallocated__" and hid in unallocated_holding_classes:
+                warnings.append(
+                    f"Activity '{act.get('id', 'unknown')}' holding '{hid}' "
+                    f"asset_class {unallocated_holding_classes[hid]!r} is not covered "
+                    "by any asset_class target; attributed to '__unallocated__' "
+                    "for per-bucket performance"
+                )
         else:
             bucket_key = "__unallocated__"
             warnings.append(
@@ -668,7 +687,9 @@ def compute_performance_by_strategic_bucket(
     if not start_buckets or not end_buckets:
         return [], top_warnings
 
-    holding_to_bucket = _build_holding_bucket_index(portfolio, policy)
+    holding_to_bucket, unallocated_holding_classes = _build_holding_bucket_index(
+        portfolio, policy
+    )
     cashflows_by_bucket, attribution_warnings = (
         _attribute_external_cashflows_by_strategic_bucket(
             activities,
@@ -677,6 +698,7 @@ def compute_performance_by_strategic_bucket(
             period_start=start_ts,
             period_end=end_ts,
             holding_to_bucket=holding_to_bucket,
+            unallocated_holding_classes=unallocated_holding_classes,
         )
     )
     top_warnings.extend(attribution_warnings)
@@ -699,29 +721,19 @@ def compute_performance_by_strategic_bucket(
             bucket_warnings.append(
                 "Bucket not present in end snapshot; end_value treated as 0"
             )
-        if (
-            key != "__unallocated__"
-            and not key.startswith("asset_class:")
-            and flows
-        ):
+        if key != "__unallocated__" and not key.startswith("asset_class:") and flows:
             bucket_warnings.append(
                 "Cashflow attribution is only computed for asset_class targets"
             )
 
-        twr_fraction = modified_dietz(
-            start_value, end_value, flows, start_ts, end_ts
-        )
+        twr_fraction = modified_dietz(start_value, end_value, flows, start_ts, end_ts)
 
         if start_value > 0 or flows or end_value > 0:
             xirr_series: list[Cashflow] = []
             if start_value > 0:
-                xirr_series.append(
-                    Cashflow(when=start_ts, amount_base=-start_value)
-                )
+                xirr_series.append(Cashflow(when=start_ts, amount_base=-start_value))
             for cf in flows:
-                xirr_series.append(
-                    Cashflow(when=cf.when, amount_base=-cf.amount_base)
-                )
+                xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
             if end_value != 0:
                 xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
             mwr_fraction = xirr(xirr_series)
@@ -875,9 +887,7 @@ def compute_performance_by_account(
     top_warnings.extend(attribution_warnings)
 
     account_ids = sorted(
-        set(start_by_account)
-        | set(end_by_account)
-        | set(cashflows_by_account)
+        set(start_by_account) | set(end_by_account) | set(cashflows_by_account)
     )
 
     results: list[AccountPerformance] = []
@@ -895,20 +905,14 @@ def compute_performance_by_account(
                 "Account not present in end snapshot; end_value treated as 0"
             )
 
-        twr_fraction = modified_dietz(
-            start_value, end_value, flows, start_ts, end_ts
-        )
+        twr_fraction = modified_dietz(start_value, end_value, flows, start_ts, end_ts)
 
         if start_value > 0 or flows or end_value > 0:
             xirr_series: list[Cashflow] = []
             if start_value > 0:
-                xirr_series.append(
-                    Cashflow(when=start_ts, amount_base=-start_value)
-                )
+                xirr_series.append(Cashflow(when=start_ts, amount_base=-start_value))
             for cf in flows:
-                xirr_series.append(
-                    Cashflow(when=cf.when, amount_base=-cf.amount_base)
-                )
+                xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
             if end_value != 0:
                 xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
             mwr_fraction = xirr(xirr_series)

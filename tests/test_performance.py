@@ -391,7 +391,9 @@ class ComputePerformanceByAccountTests(unittest.TestCase):
         self.assertEqual(by_id["acc-a"].end_value_base, 80_000.0)
         # No external flows -> TWR is the simple ratio.
         assert by_id["acc-a"].twr_pct is not None
-        self.assertAlmostEqual(by_id["acc-a"].twr_pct, 100.0 * (80_000 / 70_000 - 1), places=4)
+        self.assertAlmostEqual(
+            by_id["acc-a"].twr_pct, 100.0 * (80_000 / 70_000 - 1), places=4
+        )
         self.assertEqual(warnings, [])
 
     def test_cashflow_attributed_to_named_account(self) -> None:
@@ -413,9 +415,7 @@ class ComputePerformanceByAccountTests(unittest.TestCase):
         self.assertEqual(by_id["acc-a"].net_external_cashflow_base, 5_000.0)
         self.assertEqual(by_id["acc-b"].cashflow_count, 0)
         # No top-level warnings (every activity has an account_id).
-        self.assertNotIn(
-            "attributed to '__unassigned__'", " ".join(warnings)
-        )
+        self.assertNotIn("attributed to '__unassigned__'", " ".join(warnings))
 
     def test_unattributed_activity_goes_to_unassigned_with_warning(self) -> None:
         activities = [
@@ -530,9 +530,7 @@ class ComputePerformanceByAccountTests(unittest.TestCase):
         funded_by_id = {r.account_id: r for r in funded_results}
         self.assertEqual(funded_by_id["acc-new"].start_value_base, 0.0)
         self.assertEqual(funded_by_id["acc-new"].end_value_base, 10_000.0)
-        self.assertEqual(
-            funded_by_id["acc-new"].net_external_cashflow_base, 10_000.0
-        )
+        self.assertEqual(funded_by_id["acc-new"].net_external_cashflow_base, 10_000.0)
 
         closed_snapshots = [
             {
@@ -710,7 +708,7 @@ class ComputePerformanceByStrategicBucketTests(unittest.TestCase):
                 "money": {"amount": 1_000.0, "currency": "BRL"},
             }
         ]
-        results, _ = compute_performance_by_strategic_bucket(
+        results, warnings = compute_performance_by_strategic_bucket(
             self.SNAPS,
             activities,
             base_currency="BRL",
@@ -719,6 +717,41 @@ class ComputePerformanceByStrategicBucketTests(unittest.TestCase):
         )
         by_key = {r.bucket_key: r for r in results}
         self.assertEqual(by_key["__unallocated__"].cashflow_count, 1)
+        self.assertTrue(
+            any("buy-crypto" in w and "cryptocurrencies" in w for w in warnings),
+            f"expected outside-target warning, got: {warnings}",
+        )
+
+    def test_per_bucket_cashflow_skips_emit_warnings(self) -> None:
+        activities = [
+            {
+                "id": "bad-date",
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "not-a-date",
+                "holding_id": "h-stock",
+                "money": {"amount": 100.0, "currency": "BRL"},
+            },
+            {
+                "id": "missing-fx",
+                "event_type": "contribution",
+                "status": "posted",
+                "effective_at": "2026-06-01T00:00:00Z",
+                "holding_id": "h-stock",
+                "money": {"amount": 100.0, "currency": "USD"},
+            },
+        ]
+        results, warnings = compute_performance_by_strategic_bucket(
+            self.SNAPS,
+            activities,
+            base_currency="BRL",
+            portfolio=self.PORTFOLIO,
+            policy=self.POLICY,
+        )
+        by_key = {r.bucket_key: r for r in results}
+        self.assertEqual(by_key["asset_class:stocks"].cashflow_count, 0)
+        self.assertTrue(any("bad-date" in w and "effective_at" in w for w in warnings))
+        self.assertTrue(any("missing-fx" in w and "USD" in w for w in warnings))
 
     def test_activity_without_holding_id_warns(self) -> None:
         activities = [
