@@ -40,6 +40,27 @@ class TestIrpfXmlPlugin(unittest.TestCase):
         self.assertEqual(fii["identifiers"]["cnpj"], "22.222.222/0001-22")
         self.assertEqual(fii["identifiers"]["ticker"], "DEMO11")
 
+    def test_ids_are_year_agnostic_and_unique(self) -> None:
+        payload = importer_impl.parse_statement(FIXTURE)
+        ids = [h["id"] for h in payload["holdings"]]
+        self.assertEqual(len(ids), len(set(ids)), "holding ids must be unique within a declaration")
+        # The exercicio (declaration year) must NOT appear in the id, so
+        # cross-year imports of the same asset land on the same holding.
+        for hid in ids:
+            self.assertNotIn("2026", hid, f"id leaked declaration year: {hid}")
+            self.assertNotIn("2025", hid, f"id leaked declaration year: {hid}")
+
+    def test_id_strategies_match_input(self) -> None:
+        payload = importer_impl.parse_statement(FIXTURE)
+        by_index = {h["metadata"]["irpf"]["indice"]: h for h in payload["holdings"]}
+        self.assertEqual(by_index["00001"]["metadata"]["irpf"]["id_strategy"], "bank_account")
+        self.assertEqual(by_index["00002"]["metadata"]["irpf"]["id_strategy"], "ticker")
+        self.assertEqual(by_index["00003"]["metadata"]["irpf"]["id_strategy"], "ticker")
+        # 04.03 (broker-held debt) — no ticker, broker CNPJ, falls back to hash
+        self.assertEqual(by_index["00004"]["metadata"]["irpf"]["id_strategy"], "discriminacao_hash")
+        # 07.01 mutual fund with CNPJ
+        self.assertEqual(by_index["00006"]["metadata"]["irpf"]["id_strategy"], "issuer_cnpj")
+
     def test_hook_returns_payload(self) -> None:
         plugin = Plugin()
         payload = plugin.source_input(ctx=None, input_path=FIXTURE)

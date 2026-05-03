@@ -73,6 +73,51 @@ uv run python -m unittest tests.test_plugin
 The contract suite (`tests.test_plugin_contracts`) also exercises this
 plugin via `fixtures/sample/`.
 
+## Holding IDs and cross-year dedup
+
+The plugin mints **year-agnostic stable holding ids** so that importing
+multiple consecutive declarations (e.g., IRPF2025 then IRPF2026) merges
+into a single holding per asset rather than creating duplicates. Rikdom's
+merge pass keys off the top-level `id`, so getting the id derivation right
+is what makes cross-year imports idempotent.
+
+Each id is `irpf-{grupo}{codigo}-<tag>-...` where `<tag>` records which
+field was used to derive the id (also stored as `metadata.irpf.id_strategy`):
+
+| Tag | Strategy | Used when |
+| --- | --- | --- |
+| `tk` | `ticker` | `codigoNegociacao` is set (acao, fii, etf, bdr) |
+| `alt` / `stb` | `altcoin_code` / `stablecoin_code` | crypto entries with explicit codes |
+| `cnpj` | `issuer_cnpj` | mutual funds (group 07.*) — fund CNPJ uniquely identifies the fund |
+| `acct` | `bank_account` | cash deposits (group 06.*) — `cnpj + banco/agencia/conta + short discriminacao hash` |
+| `h` | `discriminacao_hash` | everything else (real estate, vehicles, broker-held debt, JCP receivables) — deterministic blake2s of `(grupo, codigo, cnpj, normalized discriminacao)` |
+
+Why the prefix includes both `grupo` and `codigo`: the same legal entity
+can appear in multiple IRPF buckets (e.g., ITUB4 stock in `03.01` and a
+JCP-receivable on the same CNPJ in `99.07`). Without the bucket prefix
+they would collide.
+
+### Caveats
+
+- The `discriminacao_hash` fallback is **brittle against text edits**.
+  If you edit the free-text `discriminacao` between years (e.g., adjust
+  acquisition-history notes), the id changes and the plugin can no longer
+  match the prior year's holding. Affected groups: `01.*` (real estate),
+  `02.*` (vehicles), `04.03` (broker-held public/private debt), `99.07`
+  (JCP receivables). For these, prefer a transactional source plugin if
+  available.
+- The plugin emits **point-in-time holdings** for the most recent year.
+  Importing IRPF2026 after IRPF2025 will overwrite the holding's
+  `market_value` and `metadata.value_*_year_end` with 2026 figures. Use
+  `snapshots.jsonl` (a different stream) if you need preserved
+  historical year-end values.
+- Mixing this importer with a transactional source (CSV / B3) will not
+  cross-dedup automatically — those importers mint their own ids. Use
+  IRPF as a year-end bootstrap and switch to the transactional source for
+  ongoing tracking, or write a downstream `enrichment`/`transform`
+  plugin that collapses by `(asset_type_id, identifiers.cnpj,
+  identifiers.ticker)`.
+
 ## Notes / caveats
 
 - IRPF reports all values in BRL (year-end FX); the plugin emits BRL.

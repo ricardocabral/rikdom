@@ -4,7 +4,7 @@
   "holdings": [
     {
       "asset_type_id": "cash_equivalent",
-      "id": "irpf-2026-00001",
+      "id": "irpf-0601-acct-00000000000191-077-0001-12345-16968e",
       "identifiers": {
         "cnpj": "00.000.000/0001-91"
       },
@@ -29,6 +29,7 @@
           "discriminacao": "CONTA CORRENTE BANCO TESTE",
           "exercicio": 2026,
           "grupo": "06",
+          "id_strategy": "bank_account",
           "indice": "00001"
         },
         "value_current_year_end": {
@@ -43,7 +44,7 @@
     },
     {
       "asset_type_id": "acao",
-      "id": "irpf-2026-00002",
+      "id": "irpf-0301-tk-teste3",
       "identifiers": {
         "cnpj": "11.111.111/0001-11",
         "ticker": "TESTE3"
@@ -64,6 +65,7 @@
           "discriminacao": "TESTE3 - 100 ACOES ADQUIRIDAS EM 10/05/2025",
           "exercicio": 2026,
           "grupo": "03",
+          "id_strategy": "ticker",
           "indice": "00002"
         },
         "value_current_year_end": {
@@ -78,7 +80,7 @@
     },
     {
       "asset_type_id": "fii",
-      "id": "irpf-2026-00003",
+      "id": "irpf-0703-tk-demo11",
       "identifiers": {
         "cnpj": "22.222.222/0001-22",
         "ticker": "DEMO11"
@@ -99,6 +101,7 @@
           "discriminacao": "DEMO11 - 50 COTAS FII DEMONSTRACAO",
           "exercicio": 2026,
           "grupo": "07",
+          "id_strategy": "ticker",
           "indice": "00003"
         },
         "value_current_year_end": {
@@ -113,7 +116,7 @@
     },
     {
       "asset_type_id": "tesouro_direto",
-      "id": "irpf-2026-00004",
+      "id": "irpf-0403-h-6de3f8dd485b0b1a",
       "identifiers": {
         "cnpj": "33.333.333/0001-33"
       },
@@ -133,6 +136,7 @@
           "discriminacao": "TESOURO IPCA+ 2035",
           "exercicio": 2026,
           "grupo": "04",
+          "id_strategy": "discriminacao_hash",
           "indice": "00004"
         },
         "value_current_year_end": {
@@ -147,7 +151,7 @@
     },
     {
       "asset_type_id": "debenture_infra",
-      "id": "irpf-2026-00005",
+      "id": "irpf-0403-h-94f7ae1bce100a14",
       "identifiers": {
         "cnpj": "44.444.444/0001-44"
       },
@@ -167,6 +171,7 @@
           "discriminacao": "DEBENT INFRA: EMISSORA TESTE S.A.",
           "exercicio": 2026,
           "grupo": "04",
+          "id_strategy": "discriminacao_hash",
           "indice": "00005"
         },
         "value_current_year_end": {
@@ -181,7 +186,7 @@
     },
     {
       "asset_type_id": "fundo_investimento",
-      "id": "irpf-2026-00006",
+      "id": "irpf-0701-cnpj-55555555000155",
       "identifiers": {
         "cnpj": "55.555.555/0001-55"
       },
@@ -201,6 +206,7 @@
           "discriminacao": "FUNDO TESTE FIC FIM",
           "exercicio": 2026,
           "grupo": "07",
+          "id_strategy": "issuer_cnpj",
           "indice": "00006"
         },
         "value_current_year_end": {
@@ -215,7 +221,7 @@
     },
     {
       "asset_type_id": "real_estate",
-      "id": "irpf-2026-00007",
+      "id": "irpf-0111-h-805dcdccb89b27d2",
       "jurisdiction": {
         "country": "BR"
       },
@@ -232,6 +238,7 @@
           "discriminacao": "APARTAMENTO TESTE - LOGRADOURO FICTICIO",
           "exercicio": 2026,
           "grupo": "01",
+          "id_strategy": "discriminacao_hash",
           "indice": "00007"
         },
         "value_current_year_end": {

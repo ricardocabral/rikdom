@@ -10,6 +10,7 @@ https://www.gov.br/receitafederal/  (Tabela de Bens e Direitos)
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -135,9 +136,100 @@ def _classify(grupo: str, codigo: str, discriminacao: str, ticker: str) -> str:
     return "other"
 
 
-def _holding_id(indice: str, exercicio: int) -> str:
-    safe = re.sub(r"\D", "", indice or "").lstrip("0") or "0"
-    return f"irpf-{exercicio}-{int(safe):05d}"
+def _norm_text(text: str | None) -> str:
+    """Uppercase, collapse whitespace, strip punctuation noise.
+
+    Used as a last-resort fingerprint of `discriminacao` when nothing more
+    structured is available. Not strong against user edits, but keeps re-runs
+    of the same declaration deterministic and survives small whitespace
+    differences.
+    """
+    if not text:
+        return ""
+    s = re.sub(r"\s+", " ", text.strip().upper())
+    return re.sub(r"[^A-Z0-9 /.\-]", "", s)
+
+
+def _stable_holding_id(item: ET.Element, *, grupo: str, codigo: str) -> str:
+    """Year-agnostic stable id so cross-year imports dedup correctly.
+
+    Priority of identifiers (most stable first):
+
+    1. `codigoNegociacao` (B3 ticker) — invariant for stocks/FIIs/ETFs/BDRs.
+    2. `codigoAltcoin` / `codigoStablecoin` — crypto unique codes.
+    3. Fund CNPJ (groups 07.* and 04.02) — identifies the fund itself.
+    4. Bank coordinates `banco/agencia/conta` (group 06) — stable per account.
+    5. Pension provider CNPJ + plan label hash (group 99.06).
+    6. Fallback: blake2s digest of `(grupo, codigo, cnpj, normalized
+       discriminacao prefix)`. Brittle against `discriminacao` edits but
+       deterministic within a declaration.
+
+    The id is always prefixed with `irpf-{grupo}{codigo}-` so that:
+    - Holdings sharing a CNPJ but living in different IRPF buckets (e.g.,
+      `acao` ITUB4 in 03.01 and JCP-receivable in 99.07) do NOT collide.
+    - Across years, the same `(grupo, codigo, identifier)` yields the same
+      id, so `merge_holdings` updates rather than duplicates.
+    """
+    bucket = f"{grupo}{codigo}"
+
+    ticker = (item.get("codigoNegociacao") or "").strip().upper()
+    if ticker:
+        return f"irpf-{bucket}-tk-{ticker.lower()}"
+
+    altcoin = (item.get("codigoAltcoin") or "").strip()
+    if altcoin:
+        return f"irpf-{bucket}-alt-{altcoin.lower()}"
+    stable = (item.get("codigoStablecoin") or "").strip()
+    if stable:
+        return f"irpf-{bucket}-stb-{stable.lower()}"
+
+    cnpj_digits = re.sub(r"\D", "", item.get("niEmpresa") or "")
+
+    # True mutual fund holdings (group 07.*) — CNPJ uniquely identifies the
+    # fund itself. Group 04.02 (Fundos sujeitos à tributação periódica) is
+    # excluded here because users frequently file CDB/Tesouro/etc. with the
+    # broker custodian CNPJ in 04.02, so multiple distinct securities share
+    # one CNPJ — those need a discriminacao-derived suffix to disambiguate.
+    if grupo == "07" and cnpj_digits:
+        return f"irpf-{bucket}-cnpj-{cnpj_digits}"
+
+    # Cash account. Combine CNPJ (issuer), bank coordinates and a short
+    # discriminacao hash. The hash disambiguates multiple products that share
+    # the same agência/conta (e.g. checking + a payment-account product
+    # riding on the same account number with the same issuer CNPJ). It also
+    # keeps the id stable across years as long as the user does not edit the
+    # discriminacao text materially.
+    if grupo == "06":
+        banco = re.sub(r"\D", "", item.get("banco") or "")
+        agencia = re.sub(r"\D", "", item.get("agencia") or "")
+        conta = re.sub(r"\D", "", item.get("conta") or "")
+        disc_hash = hashlib.blake2s(
+            _norm_text(item.get("discriminacao")).encode("utf-8"),
+            digest_size=3,
+        ).hexdigest()
+        if banco and conta:
+            cnpj_part = cnpj_digits or "0"
+            return f"irpf-{bucket}-acct-{cnpj_part}-{banco}-{agencia or '0'}-{conta}-{disc_hash}"
+        if cnpj_digits:
+            # Foreign or non-Brazilian bank with no banco code.
+            return f"irpf-{bucket}-cnpj-{cnpj_digits}-{disc_hash}"
+
+    # Pension (99.06): plan provider CNPJ + product hash from discriminacao
+    if grupo == "99" and codigo == "06" and cnpj_digits:
+        disc_hash = hashlib.blake2s(
+            _norm_text(item.get("discriminacao")).encode("utf-8"),
+            digest_size=4,
+        ).hexdigest()
+        return f"irpf-{bucket}-cnpj-{cnpj_digits}-{disc_hash}"
+
+    # Fallback: deterministic content hash. Used for real-estate, vehicles,
+    # private equity, broker-held fixed income (04.03), and JCP receivables
+    # where the asset has no structured key. Brittle against discriminacao
+    # edits — flag this in metadata so users know.
+    norm_disc = _norm_text(item.get("discriminacao"))
+    fingerprint = f"{grupo}|{codigo}|{cnpj_digits}|{norm_disc}".encode("utf-8")
+    digest = hashlib.blake2s(fingerprint, digest_size=8).hexdigest()
+    return f"irpf-{bucket}-h-{digest}"
 
 
 def _shorten_label(text: str, *, limit: int = 80) -> str:
@@ -198,7 +290,7 @@ def _build_holding(item: ET.Element, *, exercicio: int) -> dict | None:
     asset_type_id = _classify(grupo, codigo, discriminacao, ticker)
 
     holding: dict = {
-        "id": _holding_id(indice, exercicio),
+        "id": _stable_holding_id(item, grupo=grupo, codigo=codigo),
         "asset_type_id": asset_type_id,
         "label": _shorten_label(discriminacao) or f"IRPF {grupo}/{codigo} #{indice}",
         "market_value": {
@@ -249,8 +341,28 @@ def _build_holding(item: ET.Element, *, exercicio: int) -> dict | None:
     if account:
         metadata["account"] = account
 
+    metadata["irpf"]["id_strategy"] = _id_strategy(holding["id"])
     holding["metadata"] = metadata
     return holding
+
+
+def _id_strategy(holding_id: str) -> str:
+    """Reverse-look the id-derivation tag baked into the id.
+
+    `irpf-<grupo><codigo>-<tag>-...` where tag is one of:
+    `tk`, `alt`, `stb`, `cnpj`, `acct`, `h` (fallback hash).
+    """
+    parts = holding_id.split("-", 3)
+    if len(parts) >= 3 and parts[0] == "irpf":
+        return {
+            "tk": "ticker",
+            "alt": "altcoin_code",
+            "stb": "stablecoin_code",
+            "cnpj": "issuer_cnpj",
+            "acct": "bank_account",
+            "h": "discriminacao_hash",
+        }.get(parts[2], "unknown")
+    return "unknown"
 
 
 def parse_statement(path: Path) -> dict:
