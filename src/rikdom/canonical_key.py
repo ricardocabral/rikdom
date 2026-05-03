@@ -21,6 +21,15 @@ from typing import Any
 _TICKER_KINDS_BR = {"acao", "fii", "etf", "bdr"}
 _TICKER_KINDS_US = {"stock", "etf", "fund"}
 
+# Some importers use generic/non-BR taxonomy labels for Brazilian securities.
+# Canonical keys should describe the underlying asset, not the importer's local
+# type name, so B3 ``stock`` rows collapse with IRPF ``acao`` rows for the same
+# ticker.
+_BR_TICKER_KIND_ALIASES = {
+    "stock": "acao",
+    "reit": "fii",
+}
+
 _CNPJ_DIGIT_RE = re.compile(r"\D+")
 
 
@@ -74,6 +83,10 @@ def derive_canonical_key(holding: dict[str, Any]) -> str | None:
     # Brazilian exchange-listed security types — ticker is the canonical id.
     if asset_type in _TICKER_KINDS_BR and ticker and ticker != "cash":
         return f"br:{asset_type}:{ticker}"
+    if country == "br" and ticker and ticker != "cash":
+        aliased_type = _BR_TICKER_KIND_ALIASES.get(asset_type)
+        if aliased_type:
+            return f"br:{aliased_type}:{ticker}"
 
     # Brazilian funds and pension products — issuer CNPJ is canonical.
     _BR_FUND_KINDS = {

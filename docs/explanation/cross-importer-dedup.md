@@ -22,19 +22,19 @@ Every importer is responsible for minting its own holding ids.
 Each importer chooses its own id namespace. A few examples shipped in
 this repo:
 
-| Importer | Sample id | Stable across | Notes |
-| --- | --- | --- | --- |
-| `csv-generic` | `new-aapl` (user-supplied) | whatever the user chooses | the CSV is the source of truth |
-| `charles-schwab` | `schwab:abcd-1234:pos:vti` | account + ticker | brokerage-account scoped |
-| `b3-consolidado-mensal` | `b3:btg-pactual:12345:posi-o-a-es:brpetracnpr6` | broker + account + ISIN | broker-account scoped |
-| `irpf-xml` | `irpf-0301-tk-bbdc4` | year-agnostic, ticker / CNPJ / bank-acct / hash | declaration-scoped |
+| Importer                | Sample id                                       | Stable across                                   | Notes                          |
+| ----------------------- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------ |
+| `csv-generic`           | `new-aapl` (user-supplied)                      | whatever the user chooses                       | the CSV is the source of truth |
+| `charles-schwab`        | `schwab:abcd-1234:pos:vti`                      | account + ticker                                | brokerage-account scoped       |
+| `b3-consolidado-mensal` | `b3:btg-pactual:12345:posi-o-a-es:brpetracnpr6` | broker + account + ISIN                         | broker-account scoped          |
+| `irpf-xml`              | `irpf-0301-tk-bbdc4`                            | year-agnostic, ticker / CNPJ / bank-acct / hash | declaration-scoped             |
 
 These id schemes do not collide with each other (the namespace prefix
 keeps them apart), and that is deliberate: each importer can re-run
 idempotently against its own historical output.
 
 But the same underlying asset — say, BBDC4 held at the BTG account that
-shows up in *both* a B3 monthly export *and* an IRPF declaration — will
+shows up in _both_ a B3 monthly export _and_ an IRPF declaration — will
 land in `portfolio.json` twice, once with id
 `b3:btg-pactual:12345:posi-o-a-es:brbbdcacnpr8` and once with
 `irpf-0301-tk-bbdc4`. The merge pass has no way to know they are the
@@ -42,7 +42,7 @@ same thing.
 
 ## What is wired in today
 
-`rikdom` ships **option A combined with option C**, opt-in:
+`rikdom` ships **option A with a C-style merge fallback**, opt-in:
 
 1. Every imported holding gets a `metadata.canonical_key` (e.g.
    `br:acao:bbdc4`, `us:stock:vti`, `cash:brl`). The key is derived
@@ -136,13 +136,13 @@ canonical id chosen by the user. A post-import pass collapses holdings
 according to the map.
 
 - **Pros:** zero magic, fully explicit, trivial to audit; works around
-  any tricky case (e.g. holdings that *shouldn't* collapse despite
+  any tricky case (e.g. holdings that _shouldn't_ collapse despite
   matching tickers, like separately-tracked tax lots).
 - **Cons:** entirely manual; no help for users with hundreds of
   positions.
 - **Effort:** low.
 
-## Why A + C
+## Why A plus a C-style merge fallback
 
 The shipped path preserves importer autonomy (each one keeps its own id
 namespace), doesn't force a destructive migration, and lets users keep
@@ -150,9 +150,13 @@ separately-scoped views (e.g. holdings per brokerage account) when that
 is what they want — `--collapse-canonical` is opt-in per import, and
 holdings without a canonical key are unaffected.
 
+The fallback is based on `metadata.canonical_key`, not
+`provenance.idempotency_key`: the latter stays importer-scoped for
+repeatability of individual sources.
+
 Option E (user-curated alias map) remains a sensible follow-up for the
 long tail of cases that need manual override (e.g. holdings that
-*shouldn't* collapse despite matching tickers).
+_shouldn't_ collapse despite matching tickers).
 
 ## Recipe: collapsing a B3 holding into an IRPF import
 

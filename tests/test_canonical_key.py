@@ -19,6 +19,14 @@ class DeriveCanonicalKeyTests(unittest.TestCase):
         }
         self.assertEqual(derive_canonical_key(holding), "br:acao:bbdc4")
 
+    def test_br_generic_stock_aliases_to_acao(self) -> None:
+        holding = {
+            "asset_type_id": "stock",
+            "identifiers": {"ticker": "BBDC4"},
+            "jurisdiction": {"country": "BR"},
+        }
+        self.assertEqual(derive_canonical_key(holding), "br:acao:bbdc4")
+
     def test_br_fii_and_etf_and_bdr(self) -> None:
         for kind in ("fii", "etf", "bdr"):
             holding = {
@@ -26,9 +34,7 @@ class DeriveCanonicalKeyTests(unittest.TestCase):
                 "identifiers": {"ticker": f"AAA{kind.upper()}"},
                 "jurisdiction": {"country": "BR"},
             }
-            self.assertEqual(
-                derive_canonical_key(holding), f"br:{kind}:aaa{kind}"
-            )
+            self.assertEqual(derive_canonical_key(holding), f"br:{kind}:aaa{kind}")
 
     def test_br_fund_uses_cnpj(self) -> None:
         holding = {
@@ -112,7 +118,11 @@ class MergeHoldingsCollapseTests(unittest.TestCase):
     def test_collapse_disabled_inserts_duplicate(self) -> None:
         existing = self._holding("b3:acct:bbdc4", "BBDC4", amount=1000, label="B3")
         portfolio = {"holdings": [existing]}
-        incoming = {"holdings": [self._holding("irpf-0301-tk-bbdc4", "BBDC4", amount=1100, label="IRPF")]}
+        incoming = {
+            "holdings": [
+                self._holding("irpf-0301-tk-bbdc4", "BBDC4", amount=1100, label="IRPF")
+            ]
+        }
 
         merged, counts = merge_holdings(portfolio, incoming)
         self.assertEqual(counts.inserted, 1)
@@ -122,7 +132,11 @@ class MergeHoldingsCollapseTests(unittest.TestCase):
     def test_collapse_enabled_collapses_via_canonical_key(self) -> None:
         existing = self._holding("b3:acct:bbdc4", "BBDC4", amount=1000, label="B3")
         portfolio = {"holdings": [existing]}
-        incoming = {"holdings": [self._holding("irpf-0301-tk-bbdc4", "BBDC4", amount=1100, label="IRPF")]}
+        incoming = {
+            "holdings": [
+                self._holding("irpf-0301-tk-bbdc4", "BBDC4", amount=1100, label="IRPF")
+            ]
+        }
 
         merged, counts = merge_holdings(portfolio, incoming, collapse_canonical=True)
 
@@ -141,7 +155,9 @@ class MergeHoldingsCollapseTests(unittest.TestCase):
         existing = self._holding("b3:acct:bbdc4", "BBDC4", amount=1000, label="B3")
         portfolio = {"holdings": [existing]}
         incoming = {
-            "holdings": [self._holding("irpf-0301-tk-itub4", "ITUB4", amount=900, label="IRPF")]
+            "holdings": [
+                self._holding("irpf-0301-tk-itub4", "ITUB4", amount=900, label="IRPF")
+            ]
         }
         merged, counts = merge_holdings(portfolio, incoming, collapse_canonical=True)
         self.assertEqual(counts.inserted, 1)

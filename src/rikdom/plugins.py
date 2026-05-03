@@ -64,7 +64,9 @@ def _strip_run_scoped_fields(value: Any) -> Any:
     return value
 
 
-def _field_changes(before: Any, after: Any, *, prefix: str = "") -> list[dict[str, Any]]:
+def _field_changes(
+    before: Any, after: Any, *, prefix: str = ""
+) -> list[dict[str, Any]]:
     if isinstance(before, dict) and isinstance(after, dict):
         changes: list[dict[str, Any]] = []
         keys = sorted(set(before.keys()) | set(after.keys()))
@@ -114,7 +116,9 @@ def stamp_provenance(
             continue
         prov = dict(_holding_provenance(entry))
         prov.setdefault("source_system", source_system)
-        prov.setdefault("idempotency_key", _idempotency_key_for_holding(entry, source_system))
+        prov.setdefault(
+            "idempotency_key", _idempotency_key_for_holding(entry, source_system)
+        )
         prov["import_run_id"] = import_run_id
         prov["ingested_at"] = ingested_at
         entry["provenance"] = prov
@@ -123,7 +127,9 @@ def stamp_provenance(
         if not isinstance(entry, dict):
             continue
         entry.setdefault("source_system", source_system)
-        entry.setdefault("idempotency_key", _idempotency_key_for_activity(entry, source_system))
+        entry.setdefault(
+            "idempotency_key", _idempotency_key_for_activity(entry, source_system)
+        )
         entry["import_run_id"] = import_run_id
         entry["ingested_at"] = ingested_at
 
@@ -172,11 +178,15 @@ def merge_holdings(
 
         if target_pos is not None:
             existing = holdings[target_pos]
-            if isinstance(existing, dict) and _holding_content_hash(existing) == _holding_content_hash(entry):
+            if isinstance(existing, dict) and _holding_content_hash(
+                existing
+            ) == _holding_content_hash(entry):
                 counts.skipped += 1
                 continue
             merged = dict(entry)
-            existing_prov = _holding_provenance(existing) if isinstance(existing, dict) else {}
+            existing_prov = (
+                _holding_provenance(existing) if isinstance(existing, dict) else {}
+            )
             new_prov = dict(_holding_provenance(entry))
             if "ingested_at" in existing_prov and "ingested_at" not in new_prov:
                 new_prov["ingested_at"] = existing_prov["ingested_at"]
@@ -185,7 +195,9 @@ def merge_holdings(
             if collapsed_via_key:
                 # Preserve the existing slot's id so downstream references
                 # don't break, and record the collapse in metadata.
-                old_id = str(existing.get("id") or "") if isinstance(existing, dict) else ""
+                old_id = (
+                    str(existing.get("id") or "") if isinstance(existing, dict) else ""
+                )
                 merged["id"] = old_id or hid
                 meta = dict(merged.get("metadata") or {})
                 collapsed_from = list(meta.get("collapsed_from") or [])
@@ -197,7 +209,11 @@ def merge_holdings(
                 merged["metadata"] = meta
                 counts.collapsed += 1
                 counts.collapses.append(
-                    {"canonical_key": collapsed_via_key, "from_id": hid, "into_id": merged["id"]}
+                    {
+                        "canonical_key": collapsed_via_key,
+                        "from_id": hid,
+                        "into_id": merged["id"],
+                    }
                 )
             holdings[target_pos] = merged
             current_index[str(merged.get("id") or hid)] = target_pos
@@ -225,7 +241,6 @@ def _as_text(value: Any) -> str:
 
 
 def _activity_keys(entry: dict[str, Any]) -> list[str]:
-
     keys: list[str] = []
     idem = _as_text(entry.get("idempotency_key"))
     if idem:
@@ -267,7 +282,9 @@ def _validate_activity_entry(entry: dict[str, Any], idx: int) -> None:
 
     if missing:
         rendered = ", ".join(missing)
-        raise ValueError(f"Invalid imported activity at index {idx}: missing {rendered}")
+        raise ValueError(
+            f"Invalid imported activity at index {idx}: missing {rendered}"
+        )
     if invalid_types:
         rendered = ", ".join(invalid_types)
         raise ValueError(
@@ -275,7 +292,9 @@ def _validate_activity_entry(entry: dict[str, Any], idx: int) -> None:
         )
 
 
-def _normalize_activity_for_compare(entry: dict[str, Any], existing: dict[str, Any] | None = None) -> dict[str, Any]:
+def _normalize_activity_for_compare(
+    entry: dict[str, Any], existing: dict[str, Any] | None = None
+) -> dict[str, Any]:
     normalized = dict(entry)
     normalized.setdefault("status", "posted")
     if existing:
@@ -301,7 +320,9 @@ def build_import_diff(
     activities_counts = DiffCounts()
 
     holdings = portfolio.get("holdings")
-    existing_holdings: list[dict[str, Any]] = holdings if isinstance(holdings, list) else []
+    existing_holdings: list[dict[str, Any]] = (
+        holdings if isinstance(holdings, list) else []
+    )
     holding_index: dict[str, dict[str, Any]] = {}
     canonical_index: dict[str, dict[str, Any]] = {}
     for item in existing_holdings:
@@ -328,14 +349,43 @@ def build_import_diff(
                 existing = canonical_index[ckey]
                 collapsed_via_key = ckey
         if existing is None:
-            rows.append({"entity_type": "holding", "id": hid, "operation": "create", "changes": []})
+            rows.append(
+                {
+                    "entity_type": "holding",
+                    "id": hid,
+                    "operation": "create",
+                    "changes": [],
+                }
+            )
             holdings_counts.create += 1
             continue
 
+        incoming_for_changes = entry
+        if collapsed_via_key:
+            # Mirror merge_holdings collapse semantics in the dry-run diff:
+            # the existing slot id is preserved and collapsed_from is recorded.
+            incoming_for_changes = dict(entry)
+            incoming_for_changes["id"] = _as_text(existing.get("id")) or hid
+            meta = dict(incoming_for_changes.get("metadata") or {})
+            collapsed_from = list(meta.get("collapsed_from") or [])
+            if hid and hid != incoming_for_changes["id"] and hid not in collapsed_from:
+                collapsed_from.append(hid)
+            if collapsed_from:
+                meta["collapsed_from"] = collapsed_from
+            meta["canonical_key"] = collapsed_via_key
+            incoming_for_changes["metadata"] = meta
+
         existing_norm = _strip_run_scoped_fields(existing)
-        incoming_norm = _strip_run_scoped_fields(entry)
+        incoming_norm = _strip_run_scoped_fields(incoming_for_changes)
         if _holding_content_hash(existing) == _holding_content_hash(entry):
-            rows.append({"entity_type": "holding", "id": hid, "operation": "noop", "changes": []})
+            rows.append(
+                {
+                    "entity_type": "holding",
+                    "id": hid,
+                    "operation": "noop",
+                    "changes": [],
+                }
+            )
             holdings_counts.noop += 1
             continue
 
@@ -352,7 +402,9 @@ def build_import_diff(
         holdings_counts.update += 1
 
     activities = portfolio.get("activities")
-    existing_activities: list[dict[str, Any]] = activities if isinstance(activities, list) else []
+    existing_activities: list[dict[str, Any]] = (
+        activities if isinstance(activities, list) else []
+    )
     current_index: dict[str, int] = {}
     id_index: dict[str, int] = {}
     idem_index: dict[str, int] = {}
@@ -380,12 +432,19 @@ def build_import_diff(
         if matched_pos is None and idem and idem in idem_index:
             matched_pos = idem_index[idem]
         if matched_pos is None:
-            matched_pos = next((current_index[k] for k in keys if k in current_index), None)
+            matched_pos = next(
+                (current_index[k] for k in keys if k in current_index), None
+            )
 
         entity_id = aid or idem or f"row-{len(rows)}"
         if matched_pos is None:
             rows.append(
-                {"entity_type": "activity", "id": entity_id, "operation": "create", "changes": []}
+                {
+                    "entity_type": "activity",
+                    "id": entity_id,
+                    "operation": "create",
+                    "changes": [],
+                }
             )
             activities_counts.create += 1
             continue
@@ -395,9 +454,16 @@ def build_import_diff(
         existing_norm.setdefault("status", "posted")
         incoming_norm = _normalize_activity_for_compare(entry, existing_norm)
 
-        if _activity_content_hash(existing_norm) == _activity_content_hash(incoming_norm):
+        if _activity_content_hash(existing_norm) == _activity_content_hash(
+            incoming_norm
+        ):
             rows.append(
-                {"entity_type": "activity", "id": entity_id, "operation": "noop", "changes": []}
+                {
+                    "entity_type": "activity",
+                    "id": entity_id,
+                    "operation": "noop",
+                    "changes": [],
+                }
             )
             activities_counts.noop += 1
             continue
@@ -433,7 +499,9 @@ def merge_activities(
             _validate_activity_entry(entry, idx)
 
     current_activities = portfolio.get("activities")
-    activities = list(current_activities) if isinstance(current_activities, list) else []
+    activities = (
+        list(current_activities) if isinstance(current_activities, list) else []
+    )
 
     current_index: dict[str, int] = {}
     id_index: dict[str, int] = {}
@@ -469,7 +537,9 @@ def merge_activities(
         if matched_pos is None and idem and idem in idem_index:
             matched_pos = idem_index[idem]
         if matched_pos is None:
-            matched_pos = next((current_index[k] for k in keys if k in current_index), None)
+            matched_pos = next(
+                (current_index[k] for k in keys if k in current_index), None
+            )
         if matched_pos is not None:
             existing = activities[matched_pos]
             existing_norm = dict(existing) if isinstance(existing, dict) else {}
@@ -477,7 +547,9 @@ def merge_activities(
             if isinstance(existing, dict):
                 normalized = _normalize_activity_for_compare(normalized, existing)
             normalized_id, normalized_idem = _activity_identity(normalized)
-            if _activity_content_hash(existing_norm) == _activity_content_hash(normalized):
+            if _activity_content_hash(existing_norm) == _activity_content_hash(
+                normalized
+            ):
                 if normalized_id:
                     id_index[normalized_id] = matched_pos
                     current_index[f"id::{normalized_id}"] = matched_pos
@@ -486,7 +558,11 @@ def merge_activities(
                     current_index[f"idem::{normalized_idem}"] = matched_pos
                 counts.skipped += 1
                 continue
-            if isinstance(existing, dict) and existing.get("ingested_at") and not normalized.get("ingested_at"):
+            if (
+                isinstance(existing, dict)
+                and existing.get("ingested_at")
+                and not normalized.get("ingested_at")
+            ):
                 normalized["ingested_at"] = existing["ingested_at"]
             activities[matched_pos] = normalized
             normalized_id, normalized_idem = _activity_identity(normalized)
