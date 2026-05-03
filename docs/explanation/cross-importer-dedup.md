@@ -40,11 +40,37 @@ land in `portfolio.json` twice, once with id
 `irpf-0301-tk-bbdc4`. The merge pass has no way to know they are the
 same thing.
 
-## Options
+## What is wired in today
+
+`rikdom` ships **option A combined with option C**, opt-in:
+
+1. Every imported holding gets a `metadata.canonical_key` (e.g.
+   `br:acao:bbdc4`, `us:stock:vti`, `cash:brl`). The key is derived
+   centrally in `src/rikdom/canonical_key.py:assign_canonical_keys` from
+   `(asset_type_id, identifiers, jurisdiction)`, so importers do not
+   need to be modified one by one. An importer can still override by
+   emitting its own `metadata.canonical_key`.
+2. `merge_holdings` accepts `collapse_canonical=True`. When set, an
+   incoming holding whose `id` does not match anything existing falls
+   back to a canonical-key lookup; if a match is found, the existing
+   slot is updated in place (the existing id is preserved so external
+   refs do not break) and the import run records a `collapsed_from` list
+   in `metadata`.
+3. The CLI exposes this via `import-statement --collapse-canonical`. The
+   default behavior is unchanged: without the flag, ids are still the
+   only dedup key and importer outputs do not collide silently.
+4. Dry runs surface the decisions: each row in `dry_run_diff.rows` that
+   collapses includes `collapsed_canonical_key` and `collapsed_into_id`,
+   and the merge log records a `collapses` list under `holdings`.
+
+Holdings without a derivable canonical key (free-text labels, opaque
+positions like `tesouro_direto` rows that lack a stable identifier) are
+left untouched and continue to dedup by id only.
+
+## Options considered
 
 The five options below trade off blast radius, manual effort, and
-historical compatibility differently. None of them is wired in today —
-this page is a design discussion to inform a follow-up implementation.
+historical compatibility differently.
 
 ### A. Canonical-key metadata + downstream collapse pass
 
@@ -116,28 +142,37 @@ according to the map.
   positions.
 - **Effort:** low.
 
-## Recommendation
+## Why A + C
 
-For this codebase, **A + C in combination** is the most defensible path:
+The shipped path preserves importer autonomy (each one keeps its own id
+namespace), doesn't force a destructive migration, and lets users keep
+separately-scoped views (e.g. holdings per brokerage account) when that
+is what they want — `--collapse-canonical` is opt-in per import, and
+holdings without a canonical key are unaffected.
 
-1. Add `metadata.canonical_key` to every importer (cheap, additive,
-   no schema changes needed since `metadata` is open).
-2. Teach `merge_holdings` to fall back to `canonical_key` (or
-   `provenance.idempotency_key`) when ids do not match. Existing
-   portfolios keep working; new imports start to collapse.
-3. Surface decisions in the import dry-run: "would merge `irpf-…` into
-   existing `b3-…` (canonical_key=`br:acao:bbdc4`)" — opt-in via
-   `--collapse-canonical` until the behavior is well understood.
-4. Optionally add E (alias map) for the long tail of cases that need
-   manual override.
+Option E (user-curated alias map) remains a sensible follow-up for the
+long tail of cases that need manual override (e.g. holdings that
+*shouldn't* collapse despite matching tickers).
 
-This preserves importer autonomy, doesn't force a destructive
-migration, and lets users keep separately-scoped views (e.g. holdings
-per brokerage account) when that's what they want.
+## Recipe: collapsing a B3 holding into an IRPF import
 
-## Today's workaround
+```bash
+uv run rikdom import-statement \
+  --portfolio data/portfolio.json \
+  --plugin irpf-xml \
+  --input ~/Downloads/IRPF-A-2025.xml \
+  --plugins-dir plugins \
+  --collapse-canonical \
+  --dry-run
+```
 
-Until any of the above lands, two pragmatic patterns work:
+Look for `dry_run_diff.rows[*].collapsed_canonical_key` in the output to
+confirm the proposed merges before re-running with `--write`.
+
+## Fallback workarounds
+
+If you don't want to opt in to `--collapse-canonical`, two pragmatic
+patterns still work:
 
 - **Pick one importer per asset class** — e.g., use `b3-consolidado-mensal`
   as the ongoing source for B3-listed positions and treat `irpf-xml`

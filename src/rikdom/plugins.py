@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+from .canonical_key import holding_canonical_key
 
 
 _RUN_SCOPED_FIELDS = ("import_run_id", "ingested_at")
@@ -14,6 +16,8 @@ class MergeCounts:
     inserted: int = 0
     updated: int = 0
     skipped: int = 0
+    collapsed: int = 0
+    collapses: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -127,7 +131,10 @@ def stamp_provenance(
 
 
 def merge_holdings(
-    portfolio: dict[str, Any], imported: dict[str, Any]
+    portfolio: dict[str, Any],
+    imported: dict[str, Any],
+    *,
+    collapse_canonical: bool = False,
 ) -> tuple[dict[str, Any], MergeCounts]:
     holdings = portfolio.get("holdings")
     if not isinstance(holdings, list):
@@ -135,9 +142,15 @@ def merge_holdings(
         portfolio["holdings"] = holdings
 
     current_index: dict[str, int] = {}
+    canonical_index: dict[str, int] = {}
     for i, item in enumerate(holdings):
-        if isinstance(item, dict) and item.get("id"):
+        if not isinstance(item, dict):
+            continue
+        if item.get("id"):
             current_index[str(item["id"])] = i
+        ckey = holding_canonical_key(item)
+        if ckey:
+            canonical_index.setdefault(ckey, i)
 
     counts = MergeCounts()
     for entry in imported.get("holdings", []) or []:
@@ -149,8 +162,16 @@ def merge_holdings(
             counts.skipped += 1
             continue
 
-        if hid in current_index:
-            existing = holdings[current_index[hid]]
+        target_pos = current_index.get(hid)
+        collapsed_via_key: str | None = None
+        if target_pos is None and collapse_canonical:
+            ckey = holding_canonical_key(entry)
+            if ckey and ckey in canonical_index:
+                target_pos = canonical_index[ckey]
+                collapsed_via_key = ckey
+
+        if target_pos is not None:
+            existing = holdings[target_pos]
             if isinstance(existing, dict) and _holding_content_hash(existing) == _holding_content_hash(entry):
                 counts.skipped += 1
                 continue
@@ -161,11 +182,37 @@ def merge_holdings(
                 new_prov["ingested_at"] = existing_prov["ingested_at"]
             if new_prov:
                 merged["provenance"] = new_prov
-            holdings[current_index[hid]] = merged
-            counts.updated += 1
+            if collapsed_via_key:
+                # Preserve the existing slot's id so downstream references
+                # don't break, and record the collapse in metadata.
+                old_id = str(existing.get("id") or "") if isinstance(existing, dict) else ""
+                merged["id"] = old_id or hid
+                meta = dict(merged.get("metadata") or {})
+                collapsed_from = list(meta.get("collapsed_from") or [])
+                if hid and hid != merged["id"] and hid not in collapsed_from:
+                    collapsed_from.append(hid)
+                if collapsed_from:
+                    meta["collapsed_from"] = collapsed_from
+                meta["canonical_key"] = collapsed_via_key
+                merged["metadata"] = meta
+                counts.collapsed += 1
+                counts.collapses.append(
+                    {"canonical_key": collapsed_via_key, "from_id": hid, "into_id": merged["id"]}
+                )
+            holdings[target_pos] = merged
+            current_index[str(merged.get("id") or hid)] = target_pos
+            ckey_after = holding_canonical_key(merged)
+            if ckey_after:
+                canonical_index[ckey_after] = target_pos
+            if not collapsed_via_key:
+                counts.updated += 1
         else:
             holdings.append(entry)
-            current_index[hid] = len(holdings) - 1
+            new_pos = len(holdings) - 1
+            current_index[hid] = new_pos
+            ckey_after = holding_canonical_key(entry)
+            if ckey_after:
+                canonical_index.setdefault(ckey_after, new_pos)
             counts.inserted += 1
 
     return portfolio, counts
@@ -243,7 +290,12 @@ def _counts_diff_dict(counts: DiffCounts) -> dict[str, int]:
     return {"create": counts.create, "update": counts.update, "noop": counts.noop}
 
 
-def build_import_diff(portfolio: dict[str, Any], imported: dict[str, Any]) -> dict[str, Any]:
+def build_import_diff(
+    portfolio: dict[str, Any],
+    imported: dict[str, Any],
+    *,
+    collapse_canonical: bool = False,
+) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     holdings_counts = DiffCounts()
     activities_counts = DiffCounts()
@@ -251,11 +303,16 @@ def build_import_diff(portfolio: dict[str, Any], imported: dict[str, Any]) -> di
     holdings = portfolio.get("holdings")
     existing_holdings: list[dict[str, Any]] = holdings if isinstance(holdings, list) else []
     holding_index: dict[str, dict[str, Any]] = {}
+    canonical_index: dict[str, dict[str, Any]] = {}
     for item in existing_holdings:
-        if isinstance(item, dict):
-            hid = _as_text(item.get("id"))
-            if hid and hid not in holding_index:
-                holding_index[hid] = item
+        if not isinstance(item, dict):
+            continue
+        hid = _as_text(item.get("id"))
+        if hid and hid not in holding_index:
+            holding_index[hid] = item
+        ckey = holding_canonical_key(item)
+        if ckey and ckey not in canonical_index:
+            canonical_index[ckey] = item
 
     for entry in imported.get("holdings", []) or []:
         if not isinstance(entry, dict):
@@ -264,6 +321,12 @@ def build_import_diff(portfolio: dict[str, Any], imported: dict[str, Any]) -> di
         if not hid:
             continue
         existing = holding_index.get(hid)
+        collapsed_via_key: str | None = None
+        if existing is None and collapse_canonical:
+            ckey = holding_canonical_key(entry)
+            if ckey and ckey in canonical_index:
+                existing = canonical_index[ckey]
+                collapsed_via_key = ckey
         if existing is None:
             rows.append({"entity_type": "holding", "id": hid, "operation": "create", "changes": []})
             holdings_counts.create += 1
@@ -276,14 +339,16 @@ def build_import_diff(portfolio: dict[str, Any], imported: dict[str, Any]) -> di
             holdings_counts.noop += 1
             continue
 
-        rows.append(
-            {
-                "entity_type": "holding",
-                "id": hid,
-                "operation": "update",
-                "changes": _field_changes(existing_norm, incoming_norm),
-            }
-        )
+        row: dict[str, Any] = {
+            "entity_type": "holding",
+            "id": hid,
+            "operation": "update",
+            "changes": _field_changes(existing_norm, incoming_norm),
+        }
+        if collapsed_via_key:
+            row["collapsed_canonical_key"] = collapsed_via_key
+            row["collapsed_into_id"] = _as_text(existing.get("id"))
+        rows.append(row)
         holdings_counts.update += 1
 
     activities = portfolio.get("activities")

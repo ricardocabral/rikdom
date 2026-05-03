@@ -68,6 +68,7 @@ from .plugins import (
     merge_holdings,
     stamp_provenance,
 )
+from .canonical_key import assign_canonical_keys
 from .benchmarks import make_dir_loader
 from .performance import (
     compute_performance,
@@ -719,12 +720,16 @@ def cmd_viz(args: argparse.Namespace) -> int:
     return 0
 
 
-def _counts_dict(counts: MergeCounts) -> dict[str, int]:
-    return {
+def _counts_dict(counts: MergeCounts) -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "inserted": counts.inserted,
         "updated": counts.updated,
         "skipped": counts.skipped,
     }
+    if counts.collapsed:
+        payload["collapsed"] = counts.collapsed
+        payload["collapses"] = list(counts.collapses)
+    return payload
 
 
 def _sync_asset_type_catalog_from_plugins(
@@ -786,9 +791,13 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         import_run_id=import_run_id,
         ingested_at=ingested_at,
     )
+    assign_canonical_keys(imported)
 
+    collapse_canonical = bool(getattr(args, "collapse_canonical", False))
     preflight_report = build_preflight_report(portfolio, imported)
-    dry_run_diff = build_import_diff(portfolio, imported)
+    dry_run_diff = build_import_diff(
+        portfolio, imported, collapse_canonical=collapse_canonical
+    )
     dry_run = bool(getattr(args, "dry_run", False))
     write_requested = bool(args.write)
     write_applied = write_requested and not dry_run
@@ -807,6 +816,7 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
                     "write": False,
                     "write_requested": write_requested,
                     "dry_run": dry_run,
+                    "collapse_canonical": collapse_canonical,
                     "catalog_sync": catalog_sync,
                 },
                 indent=2,
@@ -823,7 +833,9 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        merged, h_counts = merge_holdings(portfolio, imported)
+        merged, h_counts = merge_holdings(
+            portfolio, imported, collapse_canonical=collapse_canonical
+        )
         merged, a_counts = merge_activities(merged, imported)
     except Exception as exc:
         print(f"Import failed: {exc}", file=sys.stderr)
@@ -844,6 +856,7 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         "write": bool(write_applied),
         "write_requested": write_requested,
         "dry_run": dry_run,
+        "collapse_canonical": collapse_canonical,
         "catalog_sync": catalog_sync,
     }
 
@@ -2086,6 +2099,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run preflight + merge diff without writing portfolio/import log",
     )
     p_import.add_argument("--import-log", default=None)
+    p_import.add_argument(
+        "--collapse-canonical",
+        action="store_true",
+        help=(
+            "When an incoming holding's id is new but its metadata.canonical_key "
+            "matches an existing holding, collapse the two into one slot "
+            "(preserves the existing id). Off by default."
+        ),
+    )
     p_import.add_argument(
         "--import-run-id",
         default=None,
