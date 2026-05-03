@@ -17,6 +17,7 @@ Statement importers shipped in this repo:
 - `ibkr_flex_xml` — Interactive Brokers Flex XML.
 - `charles-schwab` — Charles Schwab CSV exports.
 - `b3-consolidado-mensal` — B3 consolidated monthly XLSX.
+- `irpf-xml` — Brazilian IRPF declaration XML (year-end holdings).
 
 Each plugin's README documents its expected file format.
 
