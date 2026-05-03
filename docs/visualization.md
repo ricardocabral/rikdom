@@ -1,31 +1,7 @@
-# Visualization Module
+# Visualization
 
-## Scope
+Visualization documentation has moved into the
+[Diataxis-organized documentation](index.md).
 
-Visualization is plugin-driven through `quarto-portfolio-report`.
-
-It generates two linked HTML artifacts:
-
-- `dashboard.html` (quickview)
-- `portfolio-report.html` (deep-dive)
-
-## Input
-
-- Portfolio profile and base currency from local `data/portfolio.json`
-- Time series from local `data/snapshots.jsonl`
-- Optional current-state synthetic snapshot via `--include-current`
-
-## Output
-
-Using `rikdom viz`:
-
-- `out/dashboard.html` (quickview)
-- `out/portfolio-report.html` (deep dive)
-
-Both pages link to each other.
-
-## Generate
-
-```bash
-rikdom viz --out out/dashboard.html --include-current
-```
+- **How-to** — [Render a portfolio report](how-to/render-a-report.md)
+- **Reference** — [CLI: visualization](reference/cli.md#visualization)

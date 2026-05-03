@@ -46,6 +46,7 @@ If you generated into a custom directory, point `--plugins-dir` at it.
   `symbol,quantity,price,currency,as_of_date`.
 - Add activities to the returned payload if your source exposes them
   (see `plugins/csv-generic/` for a richer reference).
-- See `docs/plugin-system.md` for the full plugin authoring guide,
-  including hook semantics, manifest fields, and API v1 stability
-  guarantees.
+- See `docs/tutorials/first-plugin.md` for the full plugin authoring
+  walkthrough; `docs/reference/plugin-manifest.md` and
+  `docs/reference/plugin-hooks.md` for field-level contracts; and
+  `docs/explanation/plugin-compatibility.md` for API v1 stability guarantees.

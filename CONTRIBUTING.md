@@ -112,15 +112,15 @@ Changes under `schema/`, storage behavior, or activity/projection semantics must
 - Preserve backward compatibility when feasible.
 - Document incompatibilities and migration steps when not.
 - Update relevant docs:
-  - `docs/schema-design.md`
-  - `docs/storage.md`
+  - `docs/explanation/schema-design.md`
+  - `docs/reference/storage-layout.md`
 - Include validation/tests that cover the new constraints.
 
 ## Plugin contributions
 
 For plugin-related work:
 
-- Follow plugin contracts and manifest conventions in `docs/plugin-system.md`.
+- Follow plugin contracts and manifest conventions in `docs/reference/plugin-manifest.md` and `docs/reference/plugin-hooks.md`.
 - Keep plugin behavior explicit, idempotent, and auditable.
 - Add tests covering manifest validation and runtime behavior.
 - Document configuration and expected inputs/outputs.

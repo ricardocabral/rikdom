@@ -3,8 +3,10 @@
 This directory contains local plugins loaded by `rikdom`.
 
 Canonical docs:
-- [docs/plugin-system.md](../docs/plugin-system.md) (see [Authoring a plugin](../docs/plugin-system.md#authoring-a-plugin) for the `rikdom plugin init` walkthrough)
-- [docs/plugin-compatibility.md](../docs/plugin-compatibility.md) (semver policy and stability tiers)
+- [Plugin architecture](../docs/explanation/plugin-architecture.md) (lifecycle, taxonomy, dispatch)
+- [Author your first plugin](../docs/tutorials/first-plugin.md) (`rikdom plugin init` walkthrough)
+- [Plugin manifest reference](../docs/reference/plugin-manifest.md) and [plugin hooks reference](../docs/reference/plugin-hooks.md)
+- [Plugin compatibility & stability](../docs/explanation/plugin-compatibility.md) (semver policy and stability tiers)
 
 Plugin docs:
 - [csv-generic](csv-generic/README.md)

@@ -99,109 +99,34 @@ flowchart TD
 
 ## Quick Start
 
-### 1. Install uv
+1. Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/).
+2. Sync dependencies and bootstrap a sample workspace:
 
-Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for your platform.
+   ```bash
+   make sync
+   make bootstrap
+   ```
 
-### 2. Sync dependencies with uv
+3. Validate, snapshot, and visualize:
 
-```bash
-make sync
-```
+   ```bash
+   make validate
+   make snapshot
+   make viz
+   ```
 
-### 3. Bootstrap local workspace files (optional)
+   Open `out/dashboard.html` in a browser.
 
-The CLI auto-bootstraps `data/portfolio.json`, `data/snapshots.jsonl`, and `data/fx_rates.jsonl` from `data-sample/` on first run. To seed them manually:
+For a guided walkthrough see the [first portfolio tutorial](docs/tutorials/first-portfolio.md).
 
-```bash
-make bootstrap
-```
+## Documentation
 
-### 4. Validate portfolio data
+Full documentation is organized along the [Diataxis](https://diataxis.fr/) framework at [`docs/index.md`](docs/index.md):
 
-```bash
-make validate
-```
-
-### 5. Aggregate by asset class
-
-```bash
-make aggregate
-```
-
-### 6. Append a historical snapshot
-
-```bash
-make snapshot
-```
-
-`snapshot` now auto-ingests missing FX history for non-base holdings and locks the FX rates used into the snapshot row metadata (`metadata.fx_lock`) for deterministic valuation history.
-
-### 7. Compute portfolio TWR / MWR
-
-```bash
-make performance
-```
-
-Or pick a window directly:
-
-```bash
-uv run rikdom performance --since 2026-01-01 --until 2026-12-31
-```
-
-Emits a JSON block with Modified-Dietz TWR (period return) and XIRR-based MWR
-(annualized), plus the net external cashflow total and count over the window.
-See [`docs/performance.md`](docs/performance.md).
-
-### 8. Generate dashboard
-
-```bash
-make viz
-```
-
-### 9. Export or import a portable bundle
-
-```bash
-uv run rikdom export --output out/rikdom-export.zip
-uv run rikdom verify-export --bundle out/rikdom-export.zip
-uv run rikdom import-export --bundle out/rikdom-export.zip --dry-run
-```
-
-See [`docs/export-format.md`](docs/export-format.md) for the manifest and checksum format.
-
-### 10. Multi-portfolio workspace (optional)
-
-Initialize a registry with isolated data paths:
-
-```bash
-uv run rikdom workspace init --data-dir data
-```
-
-List registered portfolios:
-
-```bash
-uv run rikdom workspace list --data-dir data
-```
-
-Run commands against a specific portfolio:
-
-```bash
-uv run rikdom aggregate --data-dir data --portfolio-name retirement
-uv run rikdom viz --data-dir data --out-root out --portfolio-name retirement
-```
-
-Cross-portfolio rollup:
-
-```bash
-uv run rikdom workspace rollup --data-dir data
-```
-
-## User Guides
-
-- [Native Multi-Currency Engine guide](docs/native-multi-currency-engine.md)
-- [Performance module (TWR / MWR)](docs/performance.md)
-- [Visualization module](docs/visualization.md)
-- [Plugin system](docs/plugin-system.md)
+- **Tutorials** — [your first portfolio](docs/tutorials/first-portfolio.md), [author your first plugin](docs/tutorials/first-plugin.md).
+- **How-to guides** — [import a statement](docs/how-to/import-a-statement.md), [run a migration](docs/how-to/run-a-migration.md), [compute performance](docs/how-to/compute-performance.md), and more.
+- **Reference** — [CLI](docs/reference/cli.md), [schemas](docs/reference/schemas.md), [plugin manifest & hooks](docs/reference/plugin-manifest.md), [export bundle format](docs/reference/export-format.md).
+- **Explanation** — [schema design](docs/explanation/schema-design.md), [plugin architecture](docs/explanation/plugin-architecture.md), [calculation trust](docs/explanation/calculation-trust.md), [storage durability](docs/explanation/storage-durability.md).
 
 ## Common Dev Tasks
 
@@ -209,29 +134,7 @@ uv run rikdom workspace rollup --data-dir data
 make lint
 make test
 make check
-# Example: run against paper portfolio in alternate workspace root
-make validate DATA_DIR=workspace-data OUT_DIR=workspace-out PORTFOLIO_NAME=paper
 ```
-
-## Schema Docs
-
-- [Schema design](docs/schema-design.md)
-- [Storage model](docs/storage.md)
-- [Migrations](docs/migrations.md)
-- [Storage durability](docs/storage-durability.md)
-
-Quick migration command:
-
-```bash
-make migrate-dry-run
-```
-
-## Plugins
-
-- Canonical guide: [docs/plugin-system.md](docs/plugin-system.md)
-- Quickstart: [plugins/README.md](plugins/README.md)
-- Scaffold a new plugin: `uv run rikdom plugin init my-plugin --dest plugins`
-- Versioning and stability tiers: [docs/plugin-compatibility.md](docs/plugin-compatibility.md)
 
 ### Community plugin showcase
 

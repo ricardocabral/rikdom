@@ -12,7 +12,7 @@ You are working on a local-first wealth portfolio schema project.
 ## Read Order For Context
 
 1. `README.md`
-2. `docs/plugin-system.md`
+2. `docs/index.md` (Diataxis landing) and `docs/explanation/plugin-architecture.md`
 3. `plugins/README.md`
 4. `src/rikdom/cli.py`
 5. `src/rikdom/plugin_engine/*`
@@ -104,4 +104,4 @@ ruff check .
 uv run python -m unittest discover -s tests -v
 ```
 
-See `docs/migrations.md` for the migration authoring guide and backup strategy.
+See `docs/how-to/author-a-migration.md` and `docs/how-to/back-up-before-migration.md` for the migration authoring guide and backup strategy.
