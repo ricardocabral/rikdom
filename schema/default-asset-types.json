@@ -16,7 +16,39 @@
     "id": "fund",
     "label": "Investment Fund",
     "asset_class": "funds",
-    "availability": { "countries": ["US", "BR"] }
+    "availability": { "countries": ["US", "BR"] },
+    "instrument_attributes": [
+      {
+        "id": "expense_ratio_pct",
+        "label": "Expense Ratio (annual)",
+        "value_type": "number",
+        "required": false,
+        "unit": "percent_per_year",
+        "description": "All-in annual fee charged on AUM. Stored as a percentage (e.g., 1.5 for 1.5% a.a.). Regional synonyms: management fee, taxa de administração, OCF (UCITS)."
+      },
+      {
+        "id": "performance_fee_pct",
+        "label": "Performance Fee",
+        "value_type": "number",
+        "required": false,
+        "unit": "percent_of_excess_return",
+        "description": "Performance fee applied to returns above performance_benchmark/hurdle. Stored as a percentage (e.g., 20 for 20%). Zero or absent means no performance fee."
+      },
+      {
+        "id": "performance_benchmark",
+        "label": "Performance Fee Benchmark",
+        "value_type": "string",
+        "required": false,
+        "description": "Benchmark used to compute the performance fee (e.g., CDI, IPCA+, IBOVESPA, S&P 500). May differ from the strategy benchmark."
+      },
+      {
+        "id": "performance_hurdle",
+        "label": "Performance Fee Hurdle",
+        "value_type": "string",
+        "required": false,
+        "description": "Hurdle applied on top of performance_benchmark before the performance fee accrues (e.g., '100% of CDI', 'IPCA + 6%', 'high-water mark'). Free-form to capture regulamento/prospectus wording."
+      }
+    ]
   },
   {
     "id": "real_estate_property",
