@@ -646,6 +646,9 @@ def cmd_funded_ratio(args: argparse.Namespace) -> int:
         fx_history_path=args.fx_history,
         snapshot_timestamp=f"{as_of}T00:00:00Z" if len(as_of) == 10 else as_of,
         auto_ingest=False,
+        extra_quote_currencies=policy_money_currencies_for_funded_ratio(
+            policy, _portfolio_base_currency(portfolio)
+        ),
     )
     aggregate = aggregate_portfolio(
         portfolio,
@@ -698,6 +701,79 @@ def cmd_funded_ratio(args: argparse.Namespace) -> int:
     }
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0
+
+
+def _portfolio_base_currency(portfolio: dict[str, Any]) -> str:
+    settings = portfolio.get("settings") if isinstance(portfolio, dict) else None
+    if isinstance(settings, dict):
+        raw = settings.get("base_currency")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip().upper()
+    return "USD"
+
+
+def policy_money_currencies_for_funded_ratio(
+    policy: dict[str, Any], base_currency: str
+) -> list[str]:
+    """Return non-base Money currencies consumed by funded-ratio calculations."""
+
+    base = base_currency.strip().upper()
+    currencies: set[str] = set()
+
+    def add_money(money: Any) -> None:
+        if not isinstance(money, dict):
+            return
+        currency = money.get("currency")
+        amount = money.get("amount")
+        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+            return
+        if not isinstance(currency, str):
+            return
+        code = currency.strip().upper()
+        if len(code) == 3 and code != base:
+            currencies.add(code)
+
+    objectives = policy.get("objectives") if isinstance(policy, dict) else None
+    if isinstance(objectives, list):
+        for objective in objectives:
+            if isinstance(objective, dict):
+                add_money(objective.get("target_amount"))
+
+    cashflow_policy = policy.get("cashflow_policy") if isinstance(policy, dict) else None
+    if isinstance(cashflow_policy, dict):
+        for key in ("contributions", "withdrawals"):
+            items = cashflow_policy.get(key)
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, dict):
+                        add_money(item.get("amount"))
+
+    assumptions = policy.get("retirement_assumptions") if isinstance(policy, dict) else None
+    if isinstance(assumptions, dict):
+        add_money(assumptions.get("desired_annual_spending"))
+        pension = assumptions.get("social_security_or_pension")
+        if isinstance(pension, list):
+            for item in pension:
+                if isinstance(item, dict):
+                    add_money(item.get("expected_monthly"))
+
+    spending_plan = policy.get("spending_plan") if isinstance(policy, dict) else None
+    if isinstance(spending_plan, dict):
+        for key in ("essentials", "discretionary", "healthcare"):
+            line = spending_plan.get(key)
+            if isinstance(line, dict):
+                add_money(line.get("annual_amount"))
+
+    guardrails = policy.get("guardrails") if isinstance(policy, dict) else None
+    emergency = (
+        guardrails.get("emergency_fund_floor")
+        if isinstance(guardrails, dict)
+        else None
+    )
+    if isinstance(emergency, dict):
+        add_money(emergency.get("amount"))
+
+    return sorted(currencies)
 
 
 def _benchmark_comparison_to_dict(comp: Any) -> dict[str, Any]:

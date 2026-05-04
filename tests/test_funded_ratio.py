@@ -4,8 +4,11 @@ import contextlib
 import io
 import json
 import unittest
+from argparse import Namespace
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest import mock
 
 from rikdom.funded_ratio import compute_funded_ratios
 
@@ -98,8 +101,134 @@ class FundedRatioTests(unittest.TestCase):
         self.assertEqual(result.shortfall_base, 20_000)
         self.assertTrue(any("using 0% real return" in w for w in summary.warnings))
 
+    def test_retirement_assumptions_at_retirement_spending_is_deflated(self) -> None:
+        policy = {
+            "identity": {"policy_base_currency": "BRL"},
+            "objectives": [
+                {
+                    "id": "retirement",
+                    "kind": "retirement",
+                    "priority": "must_have",
+                    "target_date": "2036-01-01",
+                }
+            ],
+            "retirement_assumptions": {
+                "desired_annual_spending": {"amount": 121_000, "currency": "BRL"},
+                "spending_basis": "at_retirement",
+                "inflation_assumption_pct": 2.0,
+                "withdrawal_rule": {"method": "fixed_pct_swr", "initial_rate_pct": 4.0},
+                "target_real_return_pct": 0.0,
+            },
+        }
+
+        summary = compute_funded_ratios(0, policy, base_currency="BRL", as_of="2026-01-01")
+
+        years = 3652 / 365.25
+        expected_today = 121_000 / (1.02**years) / 0.04
+        self.assertAlmostEqual(
+            summary.results[0].target_amount_today_base or 0.0,
+            round(expected_today, 2),
+            places=2,
+        )
+
+    def test_spending_plan_at_retirement_spending_is_deflated(self) -> None:
+        policy = {
+            "identity": {"policy_base_currency": "BRL"},
+            "objectives": [
+                {
+                    "id": "retirement",
+                    "kind": "retirement",
+                    "priority": "must_have",
+                    "target_date": "2036-01-01",
+                }
+            ],
+            "spending_plan": {
+                "basis": "at_retirement",
+                "default_inflation_pct": 2.0,
+                "essentials": {"annual_amount": {"amount": 121_000, "currency": "BRL"}},
+            },
+            "retirement_assumptions": {
+                "withdrawal_rule": {"method": "fixed_pct_swr", "initial_rate_pct": 4.0},
+                "target_real_return_pct": 0.0,
+            },
+        }
+
+        summary = compute_funded_ratios(0, policy, base_currency="BRL", as_of="2026-01-01")
+
+        years = 3652 / 365.25
+        expected_today = 121_000 / (1.02**years) / 0.04
+        self.assertAlmostEqual(
+            summary.results[0].target_amount_today_base or 0.0,
+            round(expected_today, 2),
+            places=2,
+        )
+
 
 class FundedRatioCliTests(unittest.TestCase):
+    def test_funded_ratio_cli_requests_policy_only_fx_currencies(self) -> None:
+        from rikdom.cli import cmd_funded_ratio
+
+        portfolio = {
+            "settings": {"base_currency": "BRL"},
+            "holdings": [
+                {
+                    "id": "brl-cash",
+                    "asset_type_id": "cash",
+                    "market_value": {"amount": 10_000, "currency": "BRL"},
+                }
+            ],
+        }
+        policy = {
+            "identity": {"policy_base_currency": "BRL"},
+            "objectives": [
+                {
+                    "id": "education",
+                    "kind": "education",
+                    "priority": "important",
+                    "target_amount": {"amount": 10_000, "currency": "USD"},
+                    "target_date": "2026-01-01",
+                }
+            ],
+            "cashflow_policy": {
+                "contributions": [
+                    {
+                        "amount": {"amount": 100, "currency": "EUR"},
+                        "cadence": {"frequency": "monthly"},
+                    }
+                ]
+            },
+        }
+        lock = {
+            "base_currency": "BRL",
+            "rates_to_base": {"USD": 5.0, "EUR": 6.0},
+        }
+        aggregate = SimpleNamespace(
+            total_value_base=10_000,
+            base_currency="BRL",
+            by_account={},
+            warnings=[],
+            errors=[],
+        )
+        args = Namespace(
+            portfolio="portfolio.json",
+            policy="policy.json",
+            fx_history="fx.jsonl",
+            as_of="2026-01-01",
+            strict_quality=False,
+        )
+
+        with (
+            mock.patch("rikdom.cli.load_json", side_effect=[portfolio, policy]),
+            mock.patch("rikdom.cli.validate_policy", return_value=[]),
+            mock.patch("rikdom.cli.ensure_snapshot_fx_lock", return_value=(lock, [])) as mock_fx,
+            mock.patch("rikdom.cli.aggregate_portfolio", return_value=aggregate),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            rc = cmd_funded_ratio(args)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(mock_fx.call_args.kwargs["extra_quote_currencies"], ["EUR", "USD"])
+
     def test_cli_runs_against_sample(self) -> None:
         from rikdom.cli import main
 

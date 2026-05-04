@@ -101,6 +101,7 @@ def compute_funded_ratios(
             policy,
             base_currency=base_currency,
             fx_rates_to_base=fx_rates,
+            horizon_years=horizon_years,
             warnings=obj_warnings,
             path=f"objectives[{idx}]",
         )
@@ -351,6 +352,7 @@ def _objective_target_amount_today(
     *,
     base_currency: str,
     fx_rates_to_base: dict[str, float],
+    horizon_years: float,
     warnings: list[str],
     path: str,
 ) -> float | None:
@@ -389,6 +391,7 @@ def _objective_target_amount_today(
             policy,
             base_currency=base_currency,
             fx_rates_to_base=fx_rates_to_base,
+            horizon_years=horizon_years,
             warnings=warnings,
         )
         if annual_spending is None:
@@ -426,12 +429,14 @@ def _retirement_annual_spending_today(
     *,
     base_currency: str,
     fx_rates_to_base: dict[str, float],
+    horizon_years: float,
     warnings: list[str],
 ) -> float | None:
     spending_plan = policy.get("spending_plan")
     total: float | None = None
     if isinstance(spending_plan, dict):
         total = 0.0
+        basis = _basis_or_today(spending_plan.get("basis"))
         for key in ("essentials", "discretionary", "healthcare"):
             line = spending_plan.get(key)
             if not isinstance(line, dict) or "annual_amount" not in line:
@@ -443,8 +448,24 @@ def _retirement_annual_spending_today(
                 warnings=warnings,
                 path=f"spending_plan.{key}.annual_amount",
             )
-            if amount is not None:
-                total += amount
+            if amount is None:
+                continue
+            if basis == "at_retirement":
+                inflation_pct = _spending_line_inflation_pct(
+                    line,
+                    spending_plan=spending_plan,
+                    policy=policy,
+                    warnings=warnings,
+                    path=f"spending_plan.{key}",
+                )
+                if inflation_pct is None:
+                    return None
+                amount = _deflate_at_retirement_amount(
+                    amount,
+                    inflation_pct=inflation_pct,
+                    horizon_years=horizon_years,
+                )
+            total += amount
         multiplier = _retirement_phase_multiplier_pct(policy)
         if multiplier is not None:
             total *= multiplier / 100.0
@@ -467,6 +488,19 @@ def _retirement_annual_spending_today(
             path="retirement_assumptions.desired_annual_spending",
         )
         if amount is not None:
+            if _basis_or_today(assumptions.get("spending_basis")) == "at_retirement":
+                inflation_pct = _retirement_inflation_pct(
+                    policy,
+                    warnings=warnings,
+                    path="retirement_assumptions.inflation_assumption_pct",
+                )
+                if inflation_pct is None:
+                    return None
+                amount = _deflate_at_retirement_amount(
+                    amount,
+                    inflation_pct=inflation_pct,
+                    horizon_years=horizon_years,
+                )
             return _subtract_retirement_income(
                 amount,
                 policy,
@@ -477,6 +511,54 @@ def _retirement_annual_spending_today(
 
     warnings.append("retirement annual spending unavailable")
     return None
+
+
+def _basis_or_today(raw: Any) -> str:
+    return raw if raw == "at_retirement" else "today"
+
+
+def _deflate_at_retirement_amount(
+    amount: float, *, inflation_pct: float, horizon_years: float
+) -> float:
+    if horizon_years <= 0:
+        return amount
+    return amount / ((1.0 + inflation_pct / 100.0) ** horizon_years)
+
+
+def _retirement_inflation_pct(
+    policy: dict[str, Any], *, warnings: list[str], path: str
+) -> float | None:
+    assumptions = policy.get("retirement_assumptions")
+    value = (
+        assumptions.get("inflation_assumption_pct")
+        if isinstance(assumptions, dict)
+        else None
+    )
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    warnings.append(f"{path} is required for at_retirement spending basis")
+    return None
+
+
+def _spending_line_inflation_pct(
+    line: dict[str, Any],
+    *,
+    spending_plan: dict[str, Any],
+    policy: dict[str, Any],
+    warnings: list[str],
+    path: str,
+) -> float | None:
+    value = line.get("inflation_pct")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    value = spending_plan.get("default_inflation_pct")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    return _retirement_inflation_pct(
+        policy,
+        warnings=warnings,
+        path=f"{path}.inflation_pct or spending_plan.default_inflation_pct",
+    )
 
 
 def _subtract_retirement_income(
