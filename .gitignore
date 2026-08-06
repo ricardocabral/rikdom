@@ -24,6 +24,7 @@ data/
 
 # Local agent/tooling state
 .claude/worktrees/
+.worktrees/
 .codex/
 .pi-lens/
 
