@@ -27,6 +27,7 @@ data/
 .worktrees/
 .codex/
 .pi-lens/
+docs/superpowers/
 
 # OS/editor noise
 .DS_Store
