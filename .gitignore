@@ -24,8 +24,10 @@ data/
 
 # Local agent/tooling state
 .claude/worktrees/
+.worktrees/
 .codex/
 .pi-lens/
+docs/superpowers/
 
 # OS/editor noise
 .DS_Store
