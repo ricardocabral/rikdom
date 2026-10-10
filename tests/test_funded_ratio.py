@@ -121,7 +121,9 @@ class FundedRatioTests(unittest.TestCase):
             },
         }
 
-        summary = compute_funded_ratios(0, policy, base_currency="BRL", as_of="2026-01-01")
+        summary = compute_funded_ratios(
+            0, policy, base_currency="BRL", as_of="2026-01-01"
+        )
 
         years = 3652 / 365.25
         expected_today = 121_000 / (1.02**years) / 0.04
@@ -153,7 +155,9 @@ class FundedRatioTests(unittest.TestCase):
             },
         }
 
-        summary = compute_funded_ratios(0, policy, base_currency="BRL", as_of="2026-01-01")
+        summary = compute_funded_ratios(
+            0, policy, base_currency="BRL", as_of="2026-01-01"
+        )
 
         years = 3652 / 365.25
         expected_today = 121_000 / (1.02**years) / 0.04
@@ -220,14 +224,18 @@ class FundedRatioCliTests(unittest.TestCase):
         with (
             mock.patch("rikdom.cli.load_json", side_effect=[portfolio, policy]),
             mock.patch("rikdom.cli.validate_policy", return_value=[]),
-            mock.patch("rikdom.cli.ensure_snapshot_fx_lock", return_value=(lock, [])) as mock_fx,
+            mock.patch(
+                "rikdom.cli.ensure_snapshot_fx_lock", return_value=(lock, [])
+            ) as mock_fx,
             mock.patch("rikdom.cli.aggregate_portfolio", return_value=aggregate),
             contextlib.redirect_stdout(io.StringIO()),
         ):
             rc = cmd_funded_ratio(args)
 
         self.assertEqual(rc, 0)
-        self.assertEqual(mock_fx.call_args.kwargs["extra_quote_currencies"], ["EUR", "USD"])
+        self.assertEqual(
+            mock_fx.call_args.kwargs["extra_quote_currencies"], ["EUR", "USD"]
+        )
 
     def test_cli_runs_against_sample(self) -> None:
         from rikdom.cli import main

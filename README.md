@@ -30,7 +30,7 @@ With coding agents and LLMs, it is much easier to build your own asset managemen
 - Model recurring operations (monthly/yearly tasks) and keep an auditable "last done" history.
 - Extend asset types with country-specific classes, metadata, and typed instrument attributes.
 - Persist data in simple disk files (`JSON` + `JSONL`).
-- Archive or transfer data with checksum-verified [`rikdom-export`](docs/export-format.md) bundles.
+- Archive or transfer data with checksum-verified [`rikdom-export`](docs/reference/export-format.md) bundles.
 - Generate a minimal static dashboard for allocation and progress over time.
 - Ingest provider statements through community plugins.
 

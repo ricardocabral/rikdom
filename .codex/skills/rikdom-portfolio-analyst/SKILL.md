@@ -1,3 +1,8 @@
+---
+name: rikdom-portfolio-analyst
+description: Use when non-technical or less technical users want clear portfolio analysis from Rikdom data, including health checks, allocation, concentration, trends, reports, or statement imports.
+---
+
 # Skill: Rikdom Portfolio Analyst (Novice-Friendly)
 
 Use this skill for non-technical or less technical users who want clear portfolio analysis from rikdom data without needing plugin internals.

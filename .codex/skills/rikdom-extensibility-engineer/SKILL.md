@@ -1,3 +1,8 @@
+---
+name: rikdom-extensibility-engineer
+description: Use when advanced users are extending Rikdom through schema evolution, plugin development, plugin engine wiring, import pipelines, storage plugins, or report integrations.
+---
+
 # Skill: Rikdom Extensibility Engineer (Technical)
 
 Use this skill for advanced users extending rikdom: schema evolution, plugin development, plugin engine wiring, import pipelines, and storage/report integrations.

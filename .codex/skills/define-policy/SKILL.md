@@ -1,3 +1,8 @@
+---
+name: define-policy
+description: Use when the user wants to create, fill, define, review, or update a Rikdom investment policy, IPS, objectives, target allocation, glide path, rebalancing rules, constraints, or guardrails.
+---
+
 # Skill: Define Rikdom Investment Policy
 
 Use this skill when the user wants to create, fill, define, review, or update `data/policy.json`, an Investment Policy Statement (IPS), objectives, target allocation, glide path, rebalancing rules, retirement assumptions, constraints, or guardrails.
