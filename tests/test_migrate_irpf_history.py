@@ -9,6 +9,14 @@ from pathlib import Path
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "migrate_irpf_history.py"
 
+SAMPLE_IRPF_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<classe xmlns="http://www.receita.fazenda.gov.br/declaracao" dataHoraSalvamento="31/12/2025 12:00:00">
+  <bens>
+    <item grupo="03" codigo="01" indice="00001" codigoNegociacao="DEMO3" discriminacao="Acao sintetica" valorExercicioAnterior="100,00" valorExercicioAtual="120,00" />
+  </bens>
+</classe>
+"""
+
 
 def _load_module():
     spec = importlib.util.spec_from_file_location("migrate_irpf_history", SCRIPT_PATH)
@@ -42,13 +50,14 @@ class MigrateIrpfHistoryTests(unittest.TestCase):
     def test_dry_run_leaves_portfolio_and_archive_unchanged(self) -> None:
         """A preview must never write either the active portfolio or archive."""
         module = _load_module()
-        fixture = Path(__file__).resolve().parents[1] / "plugins" / "irpf-xml" / "fixtures" / "sample" / "input.xml"
         original = {"holdings": [{"id": "irpf-0301-tk-demo3", "market_value": {"amount": 0, "currency": "BRL"}}]}
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             portfolio_path = root / "portfolio.json"
             archive_path = root / "irpf-history.json"
+            fixture = root / "declaracao.xml"
             portfolio_path.write_text(json.dumps(original), encoding="utf-8")
+            fixture.write_text(SAMPLE_IRPF_XML, encoding="utf-8")
 
             result = module.run_migration(portfolio_path, fixture, archive_path, write=False)
 
