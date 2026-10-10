@@ -11,6 +11,32 @@ from rikdom.plugin_engine.pipeline import run_import_pipeline
 
 
 class BtgWmContaInternacionalPluginTests(unittest.TestCase):
+    def test_unresolved_wrapped_money_blocks_partial_statement_import(self):
+        segment = """
+ACTIVITY
+04/10/2024 04/11/2024 USD BUY TEST - SYNTHETIC ETF 40 25.00 (1,000.0
+04/11/2024 04/11/2024 USD DIV TEST - SYNTHETIC ETF 0 0.00 7.50
+"""
+        with self.assertRaisesRegex(ValueError, "Unresolved activity numeric cells"):
+            importer._parse_activity_table(segment, account_number="SYNTHETIC", source_block="activity", start_index=1)
+
+    def test_signed_sale_quantities_are_retained_including_repeated_fills(self):
+        segment = """
+ACTIVITY
+12/10/2025 12/11/2025 USD SELL SGOV - SYNTHETIC TREASURY ETF -1.00 100.50 100.50
+12/10/2025 12/11/2025 USD SELL SGOV - SYNTHETIC TREASURY ETF -1.00 100.50 100.50
+12/11/2025 12/12/2025 USD SELL BND - SYNTHETIC BOND ETF (2.50) 73.00 182.50
+"""
+        activities, next_index = importer._parse_activity_table(
+            segment, account_number="SYNTHETIC", source_block="activity",
+            start_index=1,
+        )
+        self.assertEqual(next_index, 4)
+        self.assertEqual([a["quantity"] for a in activities], [-1.0, -1.0, -2.5])
+        self.assertEqual([a["event_type"] for a in activities], ["sell"] * 3)
+        self.assertEqual([a["money"]["amount"] for a in activities], [100.5, 100.5, 182.5])
+        self.assertEqual(len({a["id"] for a in activities}), 3)
+
     def test_plugin_parses_sample_statement_fixture(self) -> None:
         payload = run_import_pipeline(
             plugin_name="btg_wm_conta_internacional",
@@ -21,6 +47,7 @@ class BtgWmContaInternacionalPluginTests(unittest.TestCase):
         self.assertEqual(payload["provider"], "btg_wm_conta_internacional")
         self.assertEqual(payload["base_currency"], "USD")
         self.assertEqual(len(payload["holdings"]), 8)
+        self.assertTrue(all(h.get("as_of") == payload["metadata"]["statement_period_end"] + "T00:00:00Z" for h in payload["holdings"]))
         # 12 real activities + 8 synthesized opening balances (one per holding)
         self.assertEqual(len(payload["activities"]), 20)
         opens = [
@@ -160,6 +187,23 @@ Trade Date Settle Date Currency Type Description Quantity Price Amount
 
 class OpeningBalanceSynthesisTests(unittest.TestCase):
     """Targeted coverage for branches added in 948ba3a."""
+
+    def test_broker_signed_trades_use_event_direction_when_reconstructing_opening(self):
+        holdings = [self._holding(ticker="DWBDS", asset_type_id="cash_equivalent", quantity=90, amount=90, currency="USD")]
+        activities = [
+            {"id": "buy", "event_type": "buy", "instrument": {"ticker": "DWBDS"}, "quantity": 20, "money": {"amount": -20, "currency": "USD"}},
+            {"id": "sell", "event_type": "sell", "instrument": {"ticker": "DWBDS"}, "quantity": -30, "money": {"amount": 30, "currency": "USD"}},
+        ]
+        opens = importer._synthesize_opening_balances(holdings, activities, account_number="SYNTHETIC", period_start="2025-12-01")
+        self.assertEqual(opens[0]["quantity"], 100)
+        self.assertEqual(opens[0]["money"]["amount"], 100)
+
+    def test_cash_equivalent_etf_opening_keeps_reported_market_value(self):
+        holdings = [self._holding(ticker="SGOV", asset_type_id="cash_equivalent", quantity=10, amount=1005)]
+        activities = [{"id": "buy", "event_type": "buy", "instrument": {"ticker": "SGOV"}, "quantity": 2, "money": {"amount": -200, "currency": "USD"}}]
+        opens = importer._synthesize_opening_balances(holdings, activities, account_number="SYNTHETIC", period_start="2025-12-01")
+        self.assertEqual(opens[0]["quantity"], 8)
+        self.assertEqual(opens[0]["money"]["amount"], 1005)
 
     @staticmethod
     def _holding(

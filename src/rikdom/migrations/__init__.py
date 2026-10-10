@@ -16,12 +16,20 @@ from .v1_3_0_to_v1_4_0 import migration as _m_1_3_0_to_1_4_0
 from .v1_4_0_to_v1_5_0 import migration as _m_1_4_0_to_1_5_0
 
 
+from .v1_5_0_to_v1_6_0 import migration as _m_1_5_0_to_1_6_0
+
+
+from .v1_6_0_to_v1_7_0 import migration as _m_1_6_0_to_1_7_0
+
+
 MIGRATIONS: list[Migration] = [
     _m_1_0_0_to_1_1_0,
     _m_1_1_0_to_1_2_0,
     _m_1_2_0_to_1_3_0,
     _m_1_3_0_to_1_4_0,
     _m_1_4_0_to_1_5_0,
+    _m_1_5_0_to_1_6_0,
+    _m_1_6_0_to_1_7_0,
 ]
 
 

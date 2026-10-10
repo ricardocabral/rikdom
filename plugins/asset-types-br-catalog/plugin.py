@@ -567,7 +567,22 @@ def _attrs_securitized() -> list[dict]:
 class Plugin:
     @hookimpl
     def asset_type_catalog(self, ctx):
-        return [
+        catalog = [
+            {
+                "id": "compromissada",
+                "label": "Operação Compromissada",
+                "asset_class": "debt",
+                "availability": {"countries": ["BR"]},
+                "instrument_attributes": [
+                    _attr("issuer_name", "Reported Counterparty Name", "string", required=False),
+                    _attr("underlying_code", "Collateral Instrument Code", "string", required=False),
+                    _attr("issue_date", "Issue Date", "string", required=False),
+                    _attr("maturity_date", "Maturity Date", "string", required=False),
+                    _attr("indexer", "Indexer", "string", required=False, enum=BRAZIL_INDEXER_ENUM),
+                    _attr("indexer_multiplier_pct", "Indexer Multiplier (%)", "number", required=False),
+                    _attr("reported_rate", "Reported Rate", "string", required=False),
+                ],
+            },
             {
                 "id": "fii",
                 "label": "FII",
@@ -944,3 +959,11 @@ class Plugin:
             *_fii_variants(),
             *_known_br_etfs(),
         ]
+        for asset_type in catalog:
+            if asset_type["id"] in {"tesouro_direto", "cdb", "lci", "lca", "lig", "lf", "cri", "cra", "debenture", "debenture_incentivada", "debenture_infra"}:
+                asset_type["instrument_attributes"].extend([
+                    _attr("issuer_name", "Reported Issuer Name", "string", required=False),
+                    _attr("indexer_multiplier_pct", "Indexer Multiplier (%)", "number", required=False),
+                    _attr("reported_rate", "Reported Rate", "string", required=False),
+                ])
+        return catalog

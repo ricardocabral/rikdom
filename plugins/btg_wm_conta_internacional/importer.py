@@ -248,9 +248,9 @@ _ACTIVITY_PREFIX_RE = re.compile(
 
 _ACTIVITY_TAIL_RE = re.compile(
     r"^(?P<description>.+?)\s+"
-    r"(?P<quantity>[\d,]+(?:\.\d+)?)\s+"
+    r"(?P<quantity>-?[\d,]+(?:\.\d+)?|\([\d,]+(?:\.\d+)?\))\s+"
     r"(?P<price>\(?[\d,]+\.\d+\)?)\s+"
-    r"(?P<amount>\(?[\d,]+\.\d+\)?)$"
+    r"(?P<amount>\([\d,]+\.\d{2}\)|-?[\d,]+\.\d{2})$"
 )
 
 
@@ -317,7 +317,11 @@ def _parse_activity_table(
     for row in _collect_activity_lines(segment):
         detail = _ACTIVITY_TAIL_RE.match(_collapse_spaces(row["tail"]))
         if not detail:
-            continue
+            raise ValueError(
+                "Unresolved activity numeric cells at "
+                f"{row['trade_date']} ({source_block}); recover the PDF row "
+                "before importing this statement"
+            )
 
         info = detail.groupdict()
         description = _collapse_spaces(info["description"])
@@ -441,8 +445,10 @@ def _period_deltas_for_ticker(
                 f"amount {money} under unsupported event_type {evt!r}; "
                 "cannot back-calculate opening balance"
             )
-        qty_delta += qty * (qty_sign or 0.0)
-        cash_delta += money * (cash_sign or 0.0)
+        # The broker signs sale quantities and debit amounts. Event types
+        # already encode direction, so apply that direction once.
+        qty_delta += abs(qty) * (qty_sign or 0.0)
+        cash_delta += abs(money) * (cash_sign or 0.0)
     return qty_delta, cash_delta
 
 
@@ -484,19 +490,20 @@ def _synthesize_opening_balances(
         ending_amount = float(market_value.get("amount") or 0.0)
         currency = market_value.get("currency") or "USD"
 
-        # For positions whose unit price is ~$1 (cash sweep / money market),
-        # opening cash mirrors opening quantity. For tradable instruments
-        # mark-to-market is post-period; we still emit ending market_value
-        # so the ledger has a representative basis, but only money for
-        # cash_equivalent holdings affects the cash drift check — and only
-        # for those holdings do we need full cash-sign coverage.
-        is_cash_like = h.get("asset_type_id") == "cash_equivalent"
-        period_qty_delta, period_cash_delta = _period_deltas_for_ticker(
+        # Unit cash deposits carry one dollar per unit. Their owned balance
+        # changes with sweep units, while the broker signs cash settlement in
+        # the opposite direction. ETFs classified as cash equivalents retain
+        # the reported mark; trade cash is not an adjustment to their quote.
+        is_cash_like = (
+            h.get("asset_type_id") == "cash_equivalent"
+            and abs(ending_amount - ending_qty) <= 0.01
+        )
+        period_qty_delta, _ = _period_deltas_for_ticker(
             activities, ticker, enforce_cash_sign=is_cash_like
         )
         opening_qty = ending_qty - period_qty_delta
         opening_amount = (
-            ending_amount - period_cash_delta if is_cash_like else ending_amount
+            ending_amount - period_qty_delta if is_cash_like else ending_amount
         )
 
         digest_source = "|".join(
@@ -568,6 +575,9 @@ def parse_statement(path: Path) -> dict[str, Any]:
     ending_account_value = _extract_ending_account_value(text)
 
     holdings = _parse_holdings(text, account_number)
+    if period_end:
+        for holding in holdings:
+            holding["as_of"] = f"{period_end}T00:00:00Z"
     statement_ref = hashlib.sha1(text.encode("utf-8")).hexdigest()[:14]
     activities = _parse_activities(text, account_number, statement_ref=statement_ref)
     opening_balances = _synthesize_opening_balances(

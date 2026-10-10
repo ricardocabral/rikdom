@@ -151,6 +151,8 @@ def _write_irpf_bbdc4_xml(path: Path) -> None:
 
 class CrossImporterDedupE2ETests(unittest.TestCase):
     def _run_cli(self, argv: list[str]) -> dict:
+        portfolio = Path(argv[argv.index("--portfolio") + 1])
+        argv = [*argv, "--import-log", str(portfolio.parent / "import_log.jsonl")]
         stdout = io.StringIO()
         stderr = io.StringIO()
         with redirect_stdout(stdout), redirect_stderr(stderr):

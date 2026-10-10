@@ -1,0 +1,405 @@
+{
+  "provider": "btg-investment-pdf",
+  "generated_at": "2026-10-09T21:09:00-03:00",
+  "base_currency": "BRL",
+  "holdings": [
+    {
+      "id": "btg:123456:12345678000195",
+      "asset_type_id": "fundo_investimento",
+      "label": "FUNDO EXEMPLO",
+      "market_value": {
+        "amount": 20.0,
+        "currency": "BRL"
+      },
+      "as_of": "2026-10-08T00:00:00-03:00",
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "identifiers": {
+        "provider_account_id": "123456",
+        "cnpj": "12345678000195"
+      },
+      "metadata": {
+        "provider": "btg-investment-pdf",
+        "institution": "BANCO BTG PACTUAL S/A",
+        "statement_position_code": "12345678000195",
+        "statement_section": "Fundo de Investimento - Posição - Portfólio de fundos",
+        "statement_category": "Fundos de Investimento",
+        "statement_as_of": "2026-10-09",
+        "statement_account_id": "123456",
+        "source_ref": "plugins/btg-investment-pdf/fixtures/default/input.txt#page=1",
+        "previous_net_value": {
+          "amount": 0.0,
+          "currency": "BRL"
+        },
+        "nominal_variation": {
+          "amount": 0.0,
+          "currency": "BRL"
+        }
+      },
+      "quantity": 10.0,
+      "valuation": {
+        "unit_price": {
+          "amount": 2.0,
+          "currency": "BRL"
+        },
+        "net_value": {
+          "amount": 18.0,
+          "currency": "BRL"
+        },
+        "tax_provisions": [
+          {
+            "tax_type": "IR",
+            "money": {
+              "amount": 2.0,
+              "currency": "BRL"
+            }
+          }
+        ],
+        "price_as_of": "2026-10-08T00:00:00-03:00"
+      }
+    },
+    {
+      "id": "btg:123456:cdbexample",
+      "asset_type_id": "cdb",
+      "label": "CDB-CDBEXAMPLE - BANCO EXEMPLO",
+      "market_value": {
+        "amount": 100.0,
+        "currency": "BRL"
+      },
+      "as_of": "2026-10-09T00:00:00-03:00",
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "identifiers": {
+        "provider_account_id": "123456",
+        "statement_position_code": "CDBEXAMPLE"
+      },
+      "metadata": {
+        "provider": "btg-investment-pdf",
+        "institution": "BANCO BTG PACTUAL S/A",
+        "statement_position_code": "CDBEXAMPLE",
+        "statement_section": "Renda fixa - Posição - CDB",
+        "statement_category": "Renda Fixa",
+        "statement_as_of": "2026-10-09",
+        "statement_account_id": "123456",
+        "source_ref": "plugins/btg-investment-pdf/fixtures/default/input.txt#page=1",
+        "issuer": "BANCO EXEMPLO",
+        "maturity_date": "2028-01-01",
+        "issue_date": "2026-01-01",
+        "raw_instrument_code": "CDB-CDBEXAMPLE",
+        "source_page": 1
+      },
+      "quantity": 100.0,
+      "valuation": {
+        "unit_price": {
+          "amount": 1.0,
+          "currency": "BRL"
+        },
+        "net_value": {
+          "amount": 99.0,
+          "currency": "BRL"
+        },
+        "tax_provisions": [
+          {
+            "tax_type": "IR",
+            "money": {
+              "amount": 1.0,
+              "currency": "BRL"
+            }
+          }
+        ]
+      },
+      "fixed_income_profile": {
+        "maturity_date": "2028-01-01",
+        "coupon": {
+          "reported_rate": "102,00% do CDI",
+          "rate_scope": "weighted_average",
+          "indexer": "CDI_DI_OVER",
+          "coupon_type": "FLOATING",
+          "indexer_multiplier_pct": 102.0
+        }
+      }
+    },
+    {
+      "id": "btg:123456:abcd12",
+      "asset_type_id": "reit",
+      "label": "ABCD12 - DIREITO EXEMPLO  FII",
+      "market_value": {
+        "amount": 50.0,
+        "currency": "BRL"
+      },
+      "as_of": "2026-10-09T00:00:00-03:00",
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "identifiers": {
+        "provider_account_id": "123456",
+        "ticker": "ABCD12"
+      },
+      "metadata": {
+        "provider": "btg-investment-pdf",
+        "institution": "BANCO BTG PACTUAL S/A",
+        "statement_position_code": "ABCD12",
+        "statement_section": "Renda variável - Posição - Fundos Listados",
+        "statement_category": "Renda Variável",
+        "statement_as_of": "2026-10-09",
+        "statement_account_id": "123456",
+        "source_ref": "plugins/btg-investment-pdf/fixtures/default/input.txt#page=1",
+        "average_price": 0.0,
+        "instrument_type": "Fundos Listados"
+      },
+      "quantity": 100.0,
+      "valuation": {
+        "unit_price": {
+          "amount": 0.5,
+          "currency": "BRL"
+        },
+        "net_value": {
+          "amount": 50.0,
+          "currency": "BRL"
+        },
+        "tax_provisions": []
+      }
+    },
+    {
+      "id": "btg:123456:cash",
+      "asset_type_id": "cash_equivalent",
+      "label": "BTG Conta Corrente",
+      "market_value": {
+        "amount": 10.0,
+        "currency": "BRL"
+      },
+      "as_of": "2026-10-09T00:00:00-03:00",
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "identifiers": {
+        "provider_account_id": "123456"
+      },
+      "metadata": {
+        "provider": "btg-investment-pdf",
+        "institution": "BANCO BTG PACTUAL S/A",
+        "statement_position_code": "cash",
+        "statement_section": "Conta corrente - Posição",
+        "statement_category": "Conta Corrente",
+        "statement_as_of": "2026-10-09",
+        "statement_account_id": "123456",
+        "source_ref": "plugins/btg-investment-pdf/fixtures/default/input.txt#page=1"
+      },
+      "valuation": {
+        "unit_price": {
+          "amount": 1.0,
+          "currency": "BRL"
+        },
+        "net_value": {
+          "amount": 10.0,
+          "currency": "BRL"
+        },
+        "tax_provisions": []
+      }
+    },
+    {
+      "id": "btg:123456:receivables",
+      "asset_type_id": "cash_equivalent",
+      "label": "BTG Valores em Trânsito - Renda Variável",
+      "market_value": {
+        "amount": 5.0,
+        "currency": "BRL"
+      },
+      "as_of": "2026-10-09T00:00:00-03:00",
+      "jurisdiction": {
+        "country": "BR"
+      },
+      "identifiers": {
+        "provider_account_id": "123456"
+      },
+      "metadata": {
+        "provider": "btg-investment-pdf",
+        "institution": "BANCO BTG PACTUAL S/A",
+        "statement_position_code": "receivables",
+        "statement_section": "Valores em trânsito - Renda Variável",
+        "statement_category": "Valores em Trânsito",
+        "statement_as_of": "2026-10-09",
+        "statement_account_id": "123456",
+        "source_ref": "plugins/btg-investment-pdf/fixtures/default/input.txt#page=1",
+        "receivables": [
+          {
+            "settlement_date": "2026-10-14",
+            "description": "RENDIMENTO - EXEMPLO",
+            "money": {
+              "amount": 5.0,
+              "currency": "BRL"
+            },
+            "raw": "14/10/26  RENDIMENTO - EXEMPLO  5,00"
+          }
+        ]
+      },
+      "valuation": {
+        "unit_price": {
+          "amount": 1.0,
+          "currency": "BRL"
+        },
+        "net_value": {
+          "amount": 5.0,
+          "currency": "BRL"
+        },
+        "tax_provisions": []
+      }
+    }
+  ],
+  "activities": [],
+  "statement_observations": [
+    {
+      "id": "btg-statement:123456:2026-10-01:2026-10-09:a77358cd7599a2c9",
+      "provider": "btg-investment-pdf",
+      "provider_account_id": "123456",
+      "period_start": "2026-10-01",
+      "period_end": "2026-10-09",
+      "issued_at": "2026-10-09T21:09:00-03:00",
+      "currency": "BRL",
+      "source": {
+        "path": "plugins/btg-investment-pdf/fixtures/default/input.txt",
+        "sha256": "a77358cd7599a2c9a14233f332db498c7286197cf0612eb4a0405d0ecc914b60",
+        "page_count": 1
+      },
+      "balances": [
+        {
+          "label": "Renda Variável",
+          "as_of": "2026-10-09",
+          "gross_value": {
+            "amount": 50.0,
+            "currency": "BRL"
+          },
+          "net_value": {
+            "amount": 50.0,
+            "currency": "BRL"
+          }
+        },
+        {
+          "label": "Renda Fixa",
+          "as_of": "2026-10-09",
+          "gross_value": {
+            "amount": 100.0,
+            "currency": "BRL"
+          },
+          "net_value": {
+            "amount": 99.0,
+            "currency": "BRL"
+          }
+        },
+        {
+          "label": "Fundos de Investimento",
+          "as_of": "2026-10-09",
+          "gross_value": {
+            "amount": 20.0,
+            "currency": "BRL"
+          },
+          "net_value": {
+            "amount": 18.0,
+            "currency": "BRL"
+          }
+        },
+        {
+          "label": "Valores em Trânsito",
+          "as_of": "2026-10-09",
+          "gross_value": {
+            "amount": 5.0,
+            "currency": "BRL"
+          },
+          "net_value": {
+            "amount": 5.0,
+            "currency": "BRL"
+          }
+        },
+        {
+          "label": "Conta Corrente",
+          "as_of": "2026-10-09",
+          "gross_value": {
+            "amount": 10.0,
+            "currency": "BRL"
+          },
+          "net_value": {
+            "amount": 10.0,
+            "currency": "BRL"
+          }
+        },
+        {
+          "label": "Total",
+          "as_of": "2026-10-09",
+          "gross_value": {
+            "amount": 185.0,
+            "currency": "BRL"
+          },
+          "net_value": {
+            "amount": 182.0,
+            "currency": "BRL"
+          }
+        }
+      ],
+      "sections": [
+        {
+          "name": "Fundo de Investimento - Posição - Portfólio de fundos",
+          "page": 1,
+          "text": "Fundo de Investimento - Posição - Portfólio de fundos\nFUNDO EXEMPLO - Classe CNPJ: 12.345.678/0001-95*\n08/10/26  0,00  10,00000000  2,00000000  20,00  2,00  -  18,00  0,00\n",
+          "rows": []
+        },
+        {
+          "name": "Renda fixa - Posição - CDB",
+          "page": 1,
+          "text": "Renda fixa - Posição - CDB\nEmissor :\nBANCO EXEMPLO\nAtivo :  Emissão :  Vencimento :\nCDB-CDBEXAMPLE  01/01/26  01/01/28  Sim\nTaxa Média Ponderada  Quantidade :  Preço R$ :  Saldo Bruto R$ :  IR R$ :  IOF R$ :\n:  100,0  1,000000  100,00  1,00  -\n102,00% do CDI\nSaldo Líquido R$ :\n99,00\n",
+          "rows": []
+        },
+        {
+          "name": "Renda variável - Posição - Fundos Listados",
+          "page": 1,
+          "text": "Renda variável - Posição - Fundos Listados\nABCD12*  DIREITO EXEMPLO  FII  100  0,50  -  50,00\n",
+          "rows": [
+            {
+              "ticker": "ABCD12",
+              "quantity": 100.0,
+              "gross_value": {
+                "amount": 50.0,
+                "currency": "BRL"
+              },
+              "raw": "ABCD12*  DIREITO EXEMPLO  FII  100  0,50  -  50,00"
+            }
+          ]
+        },
+        {
+          "name": "Conta corrente - Posição",
+          "page": 1,
+          "text": "Conta corrente - Posição\n09/10/26  10,00\n",
+          "rows": []
+        },
+        {
+          "name": "Valores em trânsito - Renda Variável",
+          "page": 1,
+          "text": "Valores em trânsito - Renda Variável\n14/10/26  RENDIMENTO - EXEMPLO  5,00\nTotal  5,00\n",
+          "rows": [
+            {
+              "settlement_date": "2026-10-14",
+              "description": "RENDIMENTO - EXEMPLO",
+              "money": {
+                "amount": 5.0,
+                "currency": "BRL"
+              },
+              "raw": "14/10/26  RENDIMENTO - EXEMPLO  5,00"
+            }
+          ]
+        }
+      ],
+      "metadata": {
+        "format": "full_labels",
+        "category_totals_reconciled": true
+      }
+    }
+  ],
+  "metadata": {
+    "statement_account_id": "123456",
+    "statement_period": "2026-10-01/2026-10-09",
+    "statement_as_of": "2026-10-09",
+    "ending_account_value": 185.0,
+    "coverage": "complete_positions"
+  }
+}

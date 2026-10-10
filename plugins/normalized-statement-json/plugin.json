@@ -1,0 +1,9 @@
+{
+  "name": "normalized-statement-json",
+  "version": "0.1.0",
+  "api_version": "1.0",
+  "plugin_types": ["source/input"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Import a schema-validated normalized JSON statement with holdings, activities and tax lots"
+}

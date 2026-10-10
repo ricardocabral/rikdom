@@ -67,6 +67,8 @@ from .plugins import (
     build_import_diff,
     merge_activities,
     merge_holdings,
+    merge_statement_observations,
+    merge_tax_lots,
     stamp_provenance,
 )
 from .canonical_key import assign_canonical_keys
@@ -494,6 +496,11 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
 
 def cmd_performance(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
+    if getattr(args, "by", None) == "instrument":
+        return cmd_instrument_performance(args, portfolio)
+    if getattr(args, "instrument", None) or getattr(args, "terminal_value", None) is not None:
+        print("--instrument and --terminal-value require --by instrument", file=sys.stderr)
+        return 1
     snapshots = load_jsonl(args.snapshots)
     settings = portfolio.get("settings") or {}
     base_currency = "USD"
@@ -630,6 +637,68 @@ def cmd_performance(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_instrument_performance(args: argparse.Namespace, portfolio: dict[str, Any]) -> int:
+    from .instrument_performance import compute_instrument_performance
+
+    instrument = getattr(args, "instrument", None)
+    terminal_value = getattr(args, "terminal_value", None)
+    until = getattr(args, "until", None)
+    if getattr(args, "since", None):
+        print("--by instrument measures return since acquisition; --since is unsupported", file=sys.stderr)
+        return 1
+    if terminal_value is not None and (not instrument or not until):
+        print("--terminal-value requires --instrument and --until", file=sys.stderr)
+        return 1
+
+    holdings = [h for h in portfolio.get("holdings", []) if isinstance(h, dict)]
+    if instrument:
+        matches = [h for h in holdings if h.get("id") == instrument]
+        if not matches:
+            matches = [
+                h for h in holdings
+                if str((h.get("identifiers") or {}).get("ticker", "")).upper() == instrument.upper()
+            ]
+            if len(matches) > 1:
+                active = [h for h in matches if (h.get("quantity") or 0) > 0]
+                if len(active) == 1:
+                    matches = active
+        if len(matches) != 1:
+            print(
+                f"Instrument '{instrument}' matched {len(matches)} holdings; use a unique holding id",
+                file=sys.stderr,
+            )
+            return 1
+        holdings = matches
+    else:
+        event_holding_ids = {
+            a.get("holding_id") for a in portfolio.get("activities", [])
+            if isinstance(a, dict)
+        }
+        holdings = [
+            h for h in holdings
+            if (h.get("quantity") or 0) > 0
+            or ((h.get("market_value") or {}).get("amount") or 0) > 0
+            or h.get("id") in event_holding_ids
+        ]
+
+    try:
+        results = [
+            compute_instrument_performance(
+                portfolio, h["id"], until=until,
+                terminal_value=terminal_value, terminal_at=until if terminal_value is not None else None,
+            )
+            for h in holdings
+        ]
+    except (ValueError, KeyError) as exc:
+        print(f"Instrument performance failed: {exc}", file=sys.stderr)
+        return 1
+    warnings = []
+    if getattr(args, "policy", None):
+        warnings.append("Portfolio policy benchmarks are not applied to per-instrument cashflows")
+    print(json.dumps({"by_instrument": results, "warnings": warnings}, indent=2, ensure_ascii=False))
+    return 0
+
+
 def cmd_funded_ratio(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
     policy = load_json(args.policy)
@@ -739,7 +808,9 @@ def policy_money_currencies_for_funded_ratio(
             if isinstance(objective, dict):
                 add_money(objective.get("target_amount"))
 
-    cashflow_policy = policy.get("cashflow_policy") if isinstance(policy, dict) else None
+    cashflow_policy = (
+        policy.get("cashflow_policy") if isinstance(policy, dict) else None
+    )
     if isinstance(cashflow_policy, dict):
         for key in ("contributions", "withdrawals"):
             items = cashflow_policy.get(key)
@@ -748,7 +819,9 @@ def policy_money_currencies_for_funded_ratio(
                     if isinstance(item, dict):
                         add_money(item.get("amount"))
 
-    assumptions = policy.get("retirement_assumptions") if isinstance(policy, dict) else None
+    assumptions = (
+        policy.get("retirement_assumptions") if isinstance(policy, dict) else None
+    )
     if isinstance(assumptions, dict):
         add_money(assumptions.get("desired_annual_spending"))
         pension = assumptions.get("social_security_or_pension")
@@ -766,9 +839,7 @@ def policy_money_currencies_for_funded_ratio(
 
     guardrails = policy.get("guardrails") if isinstance(policy, dict) else None
     emergency = (
-        guardrails.get("emergency_fund_floor")
-        if isinstance(guardrails, dict)
-        else None
+        guardrails.get("emergency_fund_floor") if isinstance(guardrails, dict) else None
     )
     if isinstance(emergency, dict):
         add_money(emergency.get("amount"))
@@ -982,6 +1053,8 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
             portfolio, imported, collapse_canonical=collapse_canonical
         )
         merged, a_counts = merge_activities(merged, imported)
+        merged, lot_counts = merge_tax_lots(merged, imported)
+        merged, observation_counts = merge_statement_observations(merged, imported)
     except Exception as exc:
         print(f"Import failed: {exc}", file=sys.stderr)
         return 1
@@ -1004,6 +1077,10 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         "collapse_canonical": collapse_canonical,
         "catalog_sync": catalog_sync,
     }
+    if "tax_lots" in imported:
+        log_entry["tax_lots"] = _counts_dict(lot_counts)
+    if "statement_observations" in imported:
+        log_entry["statement_observations"] = _counts_dict(observation_counts)
 
     if args.import_log and write_applied:
         append_jsonl(args.import_log, log_entry)
@@ -2136,11 +2213,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_performance.add_argument(
         "--by",
-        choices=("portfolio", "account", "strategic_bucket"),
+        choices=("portfolio", "account", "strategic_bucket", "instrument"),
         default="portfolio",
         help="Slice the output: 'account' adds per-account TWR/MWR (requires "
         "snapshots with totals.by_account); 'strategic_bucket' adds per-bucket "
-        "TWR/MWR (requires --policy and snapshots with totals.by_strategic_bucket)",
+        "TWR/MWR (requires --policy and snapshots with totals.by_strategic_bucket); "
+        "'instrument' measures return since acquisition from dated activities",
+    )
+    p_performance.add_argument(
+        "--instrument", default=None,
+        help="Ticker or holding id to select with --by instrument (default: all invested holdings)",
+    )
+    p_performance.add_argument(
+        "--terminal-value", type=float, default=None,
+        help="Explicit terminal proceeds in the instrument currency; requires --instrument and --until",
     )
     _add_workspace_options(
         p_performance, with_out_root=True, with_portfolio_name=True, with_registry=True

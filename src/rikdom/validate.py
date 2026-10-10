@@ -19,7 +19,7 @@ VALID_INSTRUMENT_VALUE_TYPES = {"string", "integer", "number", "boolean"}
 
 
 CANONICAL_SCHEMA_URI = "https://example.org/rikdom/schema/portfolio.schema.json"
-CURRENT_SCHEMA_VERSION = (1, 5, 0)
+CURRENT_SCHEMA_VERSION = (1, 7, 0)
 MIN_COMPATIBLE_SCHEMA_VERSION = (1, 0, 0)
 
 
@@ -47,6 +47,7 @@ TAX_LOT_ACQUISITION_KINDS = {
 }
 
 ACTIVITY_EVENT_TYPES = {
+    "amortization",
     "buy",
     "sell",
     "dividend",
@@ -496,6 +497,304 @@ def _validate_tax_lots(
             errors.append(f"{prefix}.disposal_activity_id set without disposed_at")
 
 
+def _validate_date_range(
+    value: dict[str, Any], path: str, errors: list[str], *, required: bool = False
+) -> None:
+    valid = {}
+    for key in ("from", "through"):
+        if key not in value and not required:
+            continue
+        raw = value.get(key)
+        try:
+            if not isinstance(raw, str) or not _DATE_RE.fullmatch(raw):
+                raise ValueError
+            valid[key] = datetime.strptime(raw, "%Y-%m-%d")
+        except ValueError:
+            errors.append(f"{path}.{key} must be a valid YYYY-MM-DD date")
+    if len(valid) == 2 and valid["from"] > valid["through"]:
+        errors.append(f"{path}.from must not be after through")
+
+
+def _validate_instrument_history(value: Any, path: str, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object")
+        return
+    if value.get("status") not in ("complete", "partial", "unknown"):
+        errors.append(f"{path}.status must be complete, partial or unknown")
+    _validate_date_range(
+        value, path, errors, required=value.get("status") == "complete"
+    )
+    if "notes" in value and (
+        not isinstance(value["notes"], list)
+        or any(not isinstance(note, str) for note in value["notes"])
+    ):
+        errors.append(f"{path}.notes must be an array of strings")
+    periods = value.get("missing_periods", [])
+    if not isinstance(periods, list):
+        errors.append(f"{path}.missing_periods must be an array")
+        return
+    for i, period in enumerate(periods):
+        prefix = f"{path}.missing_periods[{i}]"
+        if not isinstance(period, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        _validate_date_range(period, prefix, errors, required=True)
+        if period.get("kind") not in (
+            "transactions",
+            "distributions",
+            "corporate_actions",
+            "all",
+        ):
+            errors.append(f"{prefix}.kind is invalid")
+
+
+def _validate_corporate_action(
+    value: Any,
+    path: str,
+    holding_ids: set[str],
+    tax_lot_ids: set[str],
+    errors: list[str],
+) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object")
+        return
+    if value.get("kind") not in (
+        "split",
+        "reverse_split",
+        "ticker_change",
+        "merger",
+        "subscription_conversion",
+        "rights_issue",
+    ):
+        errors.append(f"{path}.kind is invalid")
+    ratio = value.get("exchange_ratio")
+    if "exchange_ratio" in value and (
+        not _is_typed_value(ratio, "number") or ratio <= 0
+    ):
+        errors.append(f"{path}.exchange_ratio must be a positive number")
+    legs = value.get("legs")
+    if not isinstance(legs, list) or not legs:
+        errors.append(f"{path}.legs must be a non-empty array")
+        return
+    for i, leg in enumerate(legs):
+        prefix = f"{path}.legs[{i}]"
+        if not isinstance(leg, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        hid = leg.get("holding_id")
+        if not isinstance(hid, str) or not hid or hid not in holding_ids:
+            errors.append(f"{prefix}.holding_id '{hid}' not in holdings")
+        if not _is_typed_value(leg.get("quantity_delta"), "number"):
+            errors.append(f"{prefix}.quantity_delta must be numeric")
+        if "cost_basis_delta" in leg:
+            _validate_money(
+                leg["cost_basis_delta"], f"{prefix}.cost_basis_delta", errors
+            )
+        refs = leg.get("tax_lot_ids", [])
+        if not isinstance(refs, list):
+            errors.append(f"{prefix}.tax_lot_ids must be an array")
+        else:
+            for j, ref in enumerate(refs):
+                if not isinstance(ref, str) or not ref or ref not in tax_lot_ids:
+                    errors.append(
+                        f"{prefix}.tax_lot_ids[{j}] '{ref}' not in tax_lots[].id"
+                    )
+
+
+def _validate_valuation(value: Any, path: str, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object")
+        return
+    for field in ("unit_price", "net_value"):
+        if field in value:
+            _validate_money(value[field], f"{path}.{field}", errors)
+    if "price_as_of" in value:
+        _validate_iso_datetime_field(
+            value["price_as_of"], f"{path}.price_as_of", errors, required=True
+        )
+    if "tax_provisions" in value:
+        provisions = value["tax_provisions"]
+        if not isinstance(provisions, list):
+            errors.append(f"{path}.tax_provisions must be an array")
+        else:
+            for i, provision in enumerate(provisions):
+                prefix = f"{path}.tax_provisions[{i}]"
+                if not isinstance(provision, dict):
+                    errors.append(f"{prefix} must be an object")
+                    continue
+                if (
+                    not isinstance(provision.get("tax_type"), str)
+                    or not provision["tax_type"]
+                ):
+                    errors.append(f"{prefix}.tax_type must be a nonempty string")
+                _validate_money(provision.get("money"), f"{prefix}.money", errors)
+
+
+def _validate_holding_observations(
+    holding: dict[str, Any], path: str, errors: list[str]
+) -> None:
+    profile = holding.get("fixed_income_profile")
+    coupon = profile.get("coupon") if isinstance(profile, dict) else None
+    if isinstance(coupon, dict):
+        coupon_path = f"{path}.fixed_income_profile.coupon"
+        if "indexer_multiplier_pct" in coupon:
+            multiplier = coupon["indexer_multiplier_pct"]
+            if isinstance(multiplier, bool) or not isinstance(multiplier, (int, float)):
+                errors.append(f"{coupon_path}.indexer_multiplier_pct must be numeric")
+        if "reported_rate" in coupon and not isinstance(coupon["reported_rate"], str):
+            errors.append(f"{coupon_path}.reported_rate must be a string")
+        if "rate_scope" in coupon and coupon["rate_scope"] not in {
+            "purchase",
+            "weighted_average",
+        }:
+            errors.append(f"{coupon_path}.rate_scope is invalid")
+    if "valuation" in holding:
+        _validate_valuation(holding["valuation"], f"{path}.valuation", errors)
+    if "acquisition_observations" not in holding:
+        return
+    observations = holding["acquisition_observations"]
+    if not isinstance(observations, list):
+        errors.append(f"{path}.acquisition_observations must be an array")
+        return
+    for i, observation in enumerate(observations):
+        prefix = f"{path}.acquisition_observations[{i}]"
+        if not isinstance(observation, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        for field in ("acquired_at", "observed_at"):
+            _validate_iso_datetime_field(
+                observation.get(field), f"{prefix}.{field}", errors, required=True
+            )
+        quantity = observation.get("quantity")
+        if isinstance(quantity, bool) or not isinstance(quantity, (int, float)):
+            errors.append(f"{prefix}.quantity must be numeric")
+        if observation.get("cost_basis_kind") not in {
+            "reported_purchase_value",
+            "broker_adjusted_purchase_value",
+            "unknown",
+        }:
+            errors.append(f"{prefix}.cost_basis_kind is invalid")
+        for field in ("unit_price", "reported_purchase_value", "market_value"):
+            if field in observation:
+                _validate_money(observation[field], f"{prefix}.{field}", errors)
+        if "valuation" in observation:
+            _validate_valuation(observation["valuation"], f"{prefix}.valuation", errors)
+        for field in ("source_ref",):
+            if field in observation and not isinstance(observation[field], str):
+                errors.append(f"{prefix}.{field} must be a string")
+        if "metadata" in observation and not isinstance(observation["metadata"], dict):
+            errors.append(f"{prefix}.metadata must be an object")
+
+
+def _validate_observation_date(value: Any, path: str, errors: list[str]) -> None:
+    try:
+        if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            raise ValueError
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        errors.append(f"{path} must be a valid YYYY-MM-DD date")
+
+
+def _validate_statement_observations(value: Any, errors: list[str]) -> None:
+    if not isinstance(value, list):
+        errors.append("statement_observations must be an array")
+        return
+    ids: set[str] = set()
+    for i, observation in enumerate(value):
+        prefix = f"statement_observations[{i}]"
+        if not isinstance(observation, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        for field in ("id", "provider"):
+            if not isinstance(observation.get(field), str) or not observation[field]:
+                errors.append(f"{prefix}.{field} must be a nonempty string")
+        oid = observation.get("id")
+        if isinstance(oid, str):
+            if oid in ids:
+                errors.append(f"{prefix}.id is duplicated")
+            ids.add(oid)
+        for field in ("period_start", "period_end"):
+            _validate_observation_date(
+                observation.get(field), f"{prefix}.{field}", errors
+            )
+        start, end = observation.get("period_start"), observation.get("period_end")
+        if isinstance(start, str) and isinstance(end, str) and start > end:
+            errors.append(f"{prefix}.period_end precedes period_start")
+        if "issued_at" in observation:
+            _validate_iso_datetime_field(
+                observation["issued_at"], f"{prefix}.issued_at", errors, required=True
+            )
+        if "currency" in observation and (
+            not isinstance(observation["currency"], str)
+            or not re.fullmatch(r"[A-Z]{3}", observation["currency"])
+        ):
+            errors.append(f"{prefix}.currency must be ISO-4217")
+        source = observation.get("source")
+        if not isinstance(source, dict):
+            errors.append(f"{prefix}.source must be an object")
+        else:
+            if not isinstance(source.get("path"), str) or not source["path"]:
+                errors.append(f"{prefix}.source.path must be a nonempty string")
+            digest = source.get("sha256")
+            if not isinstance(digest, str) or not re.fullmatch(
+                r"[a-fA-F0-9]{64}", digest
+            ):
+                errors.append(
+                    f"{prefix}.source.sha256 must be 64 hexadecimal characters"
+                )
+            count = source.get("page_count")
+            if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+                errors.append(f"{prefix}.source.page_count must be a positive integer")
+        for collection in ("balances", "sections"):
+            if collection not in observation:
+                continue
+            rows = observation[collection]
+            if not isinstance(rows, list):
+                errors.append(f"{prefix}.{collection} must be an array")
+                continue
+            for j, row in enumerate(rows):
+                row_path = f"{prefix}.{collection}[{j}]"
+                if not isinstance(row, dict):
+                    errors.append(f"{row_path} must be an object")
+                    continue
+                if collection == "balances":
+                    if not isinstance(row.get("label"), str):
+                        errors.append(f"{row_path}.label must be a string")
+                    _validate_observation_date(
+                        row.get("as_of"), f"{row_path}.as_of", errors
+                    )
+                    _validate_money(
+                        row.get("gross_value"), f"{row_path}.gross_value", errors
+                    )
+                    if "net_value" in row:
+                        _validate_money(
+                            row["net_value"], f"{row_path}.net_value", errors
+                        )
+                else:
+                    for field in ("name", "text"):
+                        if not isinstance(row.get(field), str):
+                            errors.append(f"{row_path}.{field} must be a string")
+                    page = row.get("page")
+                    if isinstance(page, bool) or not isinstance(page, int) or page < 1:
+                        errors.append(f"{row_path}.page must be a positive integer")
+                    elif (
+                        isinstance(source, dict)
+                        and isinstance(source.get("page_count"), int)
+                        and page > source["page_count"]
+                    ):
+                        errors.append(f"{row_path}.page exceeds source.page_count")
+                    if "rows" in row and (
+                        not isinstance(row["rows"], list)
+                        or any(not isinstance(r, dict) for r in row["rows"])
+                    ):
+                        errors.append(f"{row_path}.rows must be an array of objects")
+        for field in ("provider_account_id",):
+            if field in observation and not isinstance(observation[field], str):
+                errors.append(f"{prefix}.{field} must be a string")
+        if "metadata" in observation and not isinstance(observation["metadata"], dict):
+            errors.append(f"{prefix}.metadata must be an object")
+
+
 def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
@@ -628,6 +927,19 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                     errors,
                 )
 
+            extensions = holding.get("extensions")
+            if (
+                isinstance(extensions, dict)
+                and "rikdom_instrument_history" in extensions
+            ):
+                _validate_instrument_history(
+                    extensions["rikdom_instrument_history"],
+                    f"holdings[{i}].extensions.rikdom_instrument_history",
+                    errors,
+                )
+
+            _validate_holding_observations(holding, f"holdings[{i}]", errors)
+
             market_value = holding.get("market_value")
             if not isinstance(market_value, dict):
                 errors.append(
@@ -649,6 +961,9 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                         errors,
                     )
 
+    if "statement_observations" in portfolio:
+        _validate_statement_observations(portfolio["statement_observations"], errors)
+
     activities = portfolio.get("activities", [])
     tax_lot_ids: set[str] = set()
     raw_tax_lots = portfolio.get("tax_lots")
@@ -669,6 +984,29 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
                 for k in ("id", "event_type", "status", "effective_at"):
                     if not activity.get(k):
                         errors.append(f"activities[{i}].{k} is required")
+
+                for field in ("trade_at", "settled_at"):
+                    if field in activity:
+                        _validate_iso_datetime_field(
+                            activity[field],
+                            f"activities[{i}].{field}",
+                            errors,
+                            required=True,
+                        )
+                if "cost_basis_adjustment" in activity:
+                    _validate_money(
+                        activity["cost_basis_adjustment"],
+                        f"activities[{i}].cost_basis_adjustment",
+                        errors,
+                    )
+                if "corporate_action" in activity:
+                    _validate_corporate_action(
+                        activity["corporate_action"],
+                        f"activities[{i}].corporate_action",
+                        holding_ids,
+                        tax_lot_ids,
+                        errors,
+                    )
 
                 event_type = activity.get("event_type")
                 if (
@@ -939,9 +1277,7 @@ def _collect_holding_account_ids(holdings: Any) -> list[tuple[str, str]]:
     return out
 
 
-def _collect_attr_account_ids(
-    items: Any, parent: str
-) -> list[tuple[str, str]]:
+def _collect_attr_account_ids(items: Any, parent: str) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     if not isinstance(items, list):
         return out

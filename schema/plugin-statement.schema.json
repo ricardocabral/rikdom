@@ -3,11 +3,32 @@
   "$id": "https://example.org/rikdom/schema/plugin-statement.schema.json",
   "title": "Rikdom Plugin Import Statement",
   "type": "object",
-  "required": ["provider", "generated_at"],
+  "required": [
+    "provider",
+    "generated_at"
+  ],
   "additionalProperties": false,
   "anyOf": [
-    { "required": ["holdings"] },
-    { "required": ["activities"] }
+    {
+      "required": [
+        "holdings"
+      ]
+    },
+    {
+      "required": [
+        "activities"
+      ]
+    },
+    {
+      "required": [
+        "tax_lots"
+      ]
+    },
+    {
+      "required": [
+        "statement_observations"
+      ]
+    }
   ],
   "properties": {
     "provider": {
@@ -25,19 +46,38 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "asset_type_id", "label", "market_value"],
+        "required": [
+          "id",
+          "asset_type_id",
+          "label",
+          "market_value"
+        ],
         "additionalProperties": true,
         "properties": {
-          "id": { "type": "string" },
-          "asset_type_id": { "type": "string" },
-          "label": { "type": "string" },
-          "quantity": { "type": "number" },
+          "id": {
+            "type": "string"
+          },
+          "asset_type_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": ["number", "null"],
+            "description": "Null denotes an unknown holding quantity; no units are inferred."
+          },
           "market_value": {
             "type": "object",
-            "required": ["amount", "currency"],
+            "required": [
+              "amount",
+              "currency"
+            ],
             "additionalProperties": false,
             "properties": {
-              "amount": { "type": "number" },
+              "amount": {
+                "type": "number"
+              },
               "currency": {
                 "type": "string",
                 "pattern": "^[A-Z]{3}$"
@@ -48,12 +88,43 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "source_system": { "type": "string" },
-              "source_ref": { "type": "string" },
-              "import_run_id": { "type": "string" },
-              "idempotency_key": { "type": "string" },
-              "ingested_at": { "type": "string", "format": "date-time" },
-              "raw_payload_ref": { "type": "string" }
+              "source_system": {
+                "type": "string"
+              },
+              "source_ref": {
+                "type": "string"
+              },
+              "import_run_id": {
+                "type": "string"
+              },
+              "idempotency_key": {
+                "type": "string"
+              },
+              "ingested_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "raw_payload_ref": {
+                "type": "string"
+              }
+            }
+          },
+          "extensions": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "rikdom_instrument_history": {
+                "$ref": "#/$defs/InstrumentHistory"
+              }
+            }
+          },
+          "valuation": {
+            "$ref": "#/$defs/Valuation"
+          },
+          "acquisition_observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/AcquisitionObservation"
             }
           }
         }
@@ -64,10 +135,16 @@
       "description": "Event-level records (dividends, interest, fees, refunds, buys/sells, transfers). Importers may emit activities without holdings when a statement only reports cash events (e.g. US dividend notices, Brazilian proventos, reimbursements).",
       "items": {
         "type": "object",
-        "required": ["id", "event_type", "effective_at"],
+        "required": [
+          "id",
+          "event_type",
+          "effective_at"
+        ],
         "additionalProperties": true,
         "properties": {
-          "id": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
           "event_type": {
             "type": "string",
             "enum": [
@@ -79,15 +156,27 @@
               "transfer_in",
               "transfer_out",
               "split",
+              "merger",
               "income",
               "reimbursement",
+              "contribution",
+              "withdrawal",
+              "tax_withheld",
+              "fx_conversion",
+              "amortization",
               "other"
             ]
           },
-          "subtype": { "type": "string" },
+          "subtype": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
-            "enum": ["pending", "posted", "cancelled"]
+            "enum": [
+              "pending",
+              "posted",
+              "cancelled"
+            ]
           },
           "effective_at": {
             "type": "string",
@@ -99,49 +188,91 @@
           },
           "instrument": {
             "type": "object",
-            "additionalProperties": true,
-            "properties": {
-              "ticker": { "type": "string" },
-              "isin": { "type": "string" },
-              "country": {
-                "type": "string",
-                "pattern": "^[A-Z]{2}$"
-              }
-            }
+            "additionalProperties": true
           },
-          "quantity": { "type": "number" },
+          "quantity": {
+            "type": "number"
+          },
           "money": {
-            "type": "object",
-            "required": ["amount", "currency"],
-            "additionalProperties": false,
-            "properties": {
-              "amount": { "type": "number" },
-              "currency": {
-                "type": "string",
-                "pattern": "^[A-Z]{3}$"
-              }
-            }
+            "$ref": "#/$defs/Money"
           },
           "fees": {
-            "type": "object",
-            "required": ["amount", "currency"],
-            "additionalProperties": false,
-            "properties": {
-              "amount": { "type": "number" },
-              "currency": {
-                "type": "string",
-                "pattern": "^[A-Z]{3}$"
-              }
-            }
+            "$ref": "#/$defs/Money"
           },
-          "source_system": { "type": "string" },
-          "source_ref": { "type": "string" },
-          "import_run_id": { "type": "string" },
-          "idempotency_key": { "type": "string" },
-          "ingested_at": { "type": "string", "format": "date-time" },
+          "source_system": {
+            "type": "string"
+          },
+          "source_ref": {
+            "type": "string"
+          },
+          "import_run_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "ingested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
           "metadata": {
             "type": "object",
             "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "account_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_\\-]+$",
+            "description": "Optional soft reference to policy.accounts[].account_id."
+          },
+          "holding_id": {
+            "type": "string",
+            "description": "Optional soft reference to holdings[].id when the activity targets a single holding (buy/sell/dividend/interest/split/merger)."
+          },
+          "tax_lot_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional list of tax_lots[].id consumed (sell) or transferred (transfer_out) by this activity. Validated against the tax_lots ledger when present."
+          },
+          "withholding_tax": {
+            "$ref": "#/$defs/Money",
+            "description": "Tax withheld at source for dividend/interest/withdrawal events; net cash to the investor is money - withholding_tax."
+          },
+          "realized_gain": {
+            "$ref": "#/$defs/Money",
+            "description": "Realized gain/loss for sell events. Positive = gain, negative = loss. Agents may compute it from tax_lot_ids; importers may also assert the broker-reported number."
+          },
+          "fx_rate": {
+            "type": "number",
+            "description": "Quote rate for fx_conversion events (units of counter_money.currency per 1 money.currency)."
+          },
+          "counter_money": {
+            "$ref": "#/$defs/Money",
+            "description": "Counter leg of an fx_conversion (e.g., money is BRL sold, counter_money is USD bought)."
+          },
+          "extensions": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "trade_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "settled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cost_basis_adjustment": {
+            "$ref": "#/$defs/Money",
+            "description": "Asserted signed cost-basis delta; no inferred adjustment."
+          },
+          "corporate_action": {
+            "$ref": "#/$defs/CorporateAction"
           }
         }
       }
@@ -149,6 +280,545 @@
     "metadata": {
       "type": "object",
       "additionalProperties": true
+    },
+    "tax_lots": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TaxLot"
+      }
+    },
+    "statement_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StatementObservation"
+      }
+    }
+  },
+  "$defs": {
+    "Money": {
+      "type": "object",
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "scale": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional decimal scale used by importer source."
+        },
+        "precision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional significant precision marker from importer source."
+        },
+        "fx_ref": {
+          "$ref": "#/$defs/FxRef",
+          "description": "Optional pointer to the FX history row used to convert this Money into the portfolio's base_currency. Used for line-item FX provenance so base-currency totals are reconstructible."
+        }
+      }
+    },
+    "FxRef": {
+      "type": "object",
+      "description": "Reference to a row in fx_rates.jsonl identifying the FX rate used to convert an enclosing Money into the portfolio base currency. Keyed by (as_of_date, base_currency, quote_currency); rate_to_base is embedded for self-containment.",
+      "required": [
+        "as_of_date",
+        "base_currency",
+        "quote_currency",
+        "rate_to_base"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "as_of_date": {
+          "type": "string",
+          "format": "date",
+          "description": "FX history row date (YYYY-MM-DD). Must be on or before the snapshot's as-of date."
+        },
+        "base_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Portfolio base currency the rate converts into."
+        },
+        "quote_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Source currency of the enclosing Money. Must match the enclosing Money.currency."
+        },
+        "rate_to_base": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Units of base_currency per 1 unit of quote_currency."
+        },
+        "source": {
+          "type": "string",
+          "description": "How the rate was sourced (e.g., 'fx_lock', 'history', 'auto_ingest', 'manual')."
+        }
+      }
+    },
+    "TaxLot": {
+      "type": "object",
+      "required": [
+        "id",
+        "holding_id",
+        "acquired_at",
+        "quantity",
+        "cost_basis"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "holding_id": {
+          "type": "string",
+          "description": "Reference to holdings[].id."
+        },
+        "account_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_\\-]+$",
+          "description": "Optional soft reference to policy.accounts[].account_id; useful when a holding spans multiple accounts."
+        },
+        "acquired_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "acquisition_kind": {
+          "type": "string",
+          "enum": [
+            "buy",
+            "transfer_in",
+            "dividend_reinvest",
+            "split",
+            "grant_vest",
+            "gift",
+            "inheritance",
+            "other"
+          ]
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "cost_basis": {
+          "$ref": "#/$defs/Money",
+          "description": "Total cost basis for this lot (price * quantity + fees attributed to the lot), in the lot's transaction currency."
+        },
+        "unit_cost": {
+          "$ref": "#/$defs/Money",
+          "description": "Optional per-unit cost; when both cost_basis and unit_cost are present they should be consistent with quantity."
+        },
+        "acquisition_activity_id": {
+          "type": "string",
+          "description": "Reference to activities[].id that created the lot."
+        },
+        "disposed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Set when the lot has been fully disposed; partial disposals are modeled as a new lot with reduced quantity plus a sibling lot for the disposed portion."
+        },
+        "disposal_activity_id": {
+          "type": "string"
+        },
+        "realized_gain": {
+          "$ref": "#/$defs/Money",
+          "description": "Optional realized gain/loss snapshot computed at disposal time, in the lot's transaction currency."
+        },
+        "holding_period": {
+          "type": "string",
+          "enum": [
+            "short_term",
+            "long_term",
+            "exempt",
+            "unknown"
+          ],
+          "description": "Tax-treatment classification at acquisition or disposal time. Jurisdiction-specific; agents should not infer."
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source_system": {
+              "type": "string"
+            },
+            "source_ref": {
+              "type": "string"
+            },
+            "import_run_id": {
+              "type": "string"
+            },
+            "idempotency_key": {
+              "type": "string"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "raw_payload_ref": {
+              "type": "string"
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "CorporateAction": {
+      "type": "object",
+      "required": [
+        "kind",
+        "legs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "split",
+            "reverse_split",
+            "ticker_change",
+            "merger",
+            "subscription_conversion",
+            "rights_issue"
+          ]
+        },
+        "exchange_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "legs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/CorporateActionLeg"
+          }
+        }
+      }
+    },
+    "CorporateActionLeg": {
+      "type": "object",
+      "required": [
+        "holding_id",
+        "quantity_delta"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "holding_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity_delta": {
+          "type": "number"
+        },
+        "cost_basis_delta": {
+          "$ref": "#/$defs/Money"
+        },
+        "tax_lot_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "InstrumentHistory": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "from": {
+          "type": "string",
+          "format": "date"
+        },
+        "through": {
+          "type": "string",
+          "format": "date"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_periods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "from",
+              "through",
+              "kind"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "through": {
+                "type": "string",
+                "format": "date"
+              },
+              "kind": {
+                "enum": [
+                  "transactions",
+                  "distributions",
+                  "corporate_actions",
+                  "all"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "complete"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "from",
+              "through"
+            ]
+          }
+        }
+      ]
+    },
+    "Valuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit_price": {
+          "$ref": "#/$defs/Money"
+        },
+        "net_value": {
+          "$ref": "#/$defs/Money"
+        },
+        "tax_provisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tax_type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "money": {
+                "$ref": "#/$defs/Money"
+              }
+            },
+            "required": [
+              "tax_type",
+              "money"
+            ]
+          }
+        },
+        "price_as_of": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "AcquisitionObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "acquired_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "unit_price": {
+          "$ref": "#/$defs/Money"
+        },
+        "reported_purchase_value": {
+          "$ref": "#/$defs/Money"
+        },
+        "cost_basis_kind": {
+          "type": "string",
+          "enum": [
+            "reported_purchase_value",
+            "broker_adjusted_purchase_value",
+            "unknown"
+          ]
+        },
+        "valuation": {
+          "$ref": "#/$defs/Valuation"
+        },
+        "market_value": {
+          "$ref": "#/$defs/Money"
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "acquired_at",
+        "observed_at",
+        "quantity",
+        "cost_basis_kind"
+      ]
+    },
+    "StatementObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_account_id": {
+          "type": "string"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{64}$"
+            },
+            "page_count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "page_count"
+          ]
+        },
+        "balances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "as_of": {
+                "type": "string",
+                "format": "date"
+              },
+              "gross_value": {
+                "$ref": "#/$defs/Money"
+              },
+              "net_value": {
+                "$ref": "#/$defs/Money"
+              }
+            },
+            "required": [
+              "label",
+              "as_of",
+              "gross_value"
+            ]
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "text": {
+                "type": "string"
+              },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": [
+              "name",
+              "page",
+              "text"
+            ]
+          }
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "provider",
+        "period_start",
+        "period_end",
+        "source"
+      ]
     }
   }
 }

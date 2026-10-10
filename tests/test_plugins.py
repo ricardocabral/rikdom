@@ -398,3 +398,103 @@ class PluginTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TaxLotImportTests(unittest.TestCase):
+    def test_merge_preserves_history_and_provenance_on_repeat(self):
+        from rikdom import plugins
+        imported = {'tax_lots': [{'id': 'lot', 'holding_id': 'h', 'acquired_at': '2025-01-01T00:00:00Z', 'quantity': 10, 'cost_basis': {'amount': 90, 'currency': 'BRL'}, 'extensions': {'history': ['acquired']}}]}
+        plugins.stamp_provenance(imported, source_system='broker', import_run_id='one', ingested_at='2026-01-01T00:00:00Z')
+        p, counts = plugins.merge_tax_lots({'holdings': [{'id': 'h'}]}, imported)
+        self.assertEqual(counts.inserted, 1)
+        first = copy.deepcopy(p)
+        plugins.stamp_provenance(imported, source_system='broker', import_run_id='two', ingested_at='2026-01-02T00:00:00Z')
+        p, counts = plugins.merge_tax_lots(p, imported)
+        self.assertEqual(counts.skipped, 1)
+        self.assertEqual(p, first)
+        self.assertEqual(p['tax_lots'][0]['provenance']['source_system'], 'broker')
+        self.assertEqual(plugins.build_import_diff(p, imported)['summary']['tax_lots']['noop'], 1)
+
+    def test_tax_lot_identity_preserved_when_broker_changes_row_id(self):
+        from rikdom import plugins
+        old = {'id': 'original', 'holding_id': 'h', 'acquired_at': '2025-01-01T00:00:00Z', 'quantity': 10, 'cost_basis': {'amount': 90, 'currency': 'BRL'}, 'provenance': {'idempotency_key': 'stable'}, 'metadata': {'audit': 'keep'}}
+        incoming = dict(old, id='new-row', quantity=5)
+        incoming.pop('metadata')
+        p, counts = plugins.merge_tax_lots({'holdings': [{'id': 'h'}], 'tax_lots': [old]}, {'tax_lots': [incoming]})
+        self.assertEqual(counts.updated, 1)
+        self.assertEqual(len(p['tax_lots']), 1)
+        self.assertEqual(p['tax_lots'][0]['id'], 'original')
+        self.assertEqual(p['tax_lots'][0]['metadata'], {'audit': 'keep'})
+
+    def test_invalid_tax_lot_references_rejected_without_partial_merge(self):
+        from rikdom import plugins
+        p = {'holdings': [{'id': 'h'}], 'tax_lots': []}
+        lot = {'id': 'lot', 'holding_id': 'missing', 'acquired_at': '2025-01-01T00:00:00Z', 'quantity': 10, 'cost_basis': {'amount': 90, 'currency': 'BRL'}}
+        with self.assertRaises(ValueError):
+            plugins.merge_tax_lots(p, {'tax_lots': [lot]})
+        self.assertEqual(p['tax_lots'], [])
+
+    def test_holding_value_update_preserves_declared_instrument_history(self):
+        history = {'status': 'partial', 'from': '2025-01-01', 'through': '2026-01-01', 'notes': ['missing early trades']}
+        h = {'id': 'h', 'asset_type_id': 'fii', 'label': 'Fund', 'market_value': {'amount': 90, 'currency': 'BRL'}, 'extensions': {'rikdom_instrument_history': history, 'custom': True}, 'provenance': {'source_ref': 'original-statement'}}
+        incoming = {'id': 'h', 'asset_type_id': 'fii', 'label': 'Fund', 'market_value': {'amount': 100, 'currency': 'BRL'}}
+        p, counts = merge_holdings({'holdings': [h]}, {'holdings': [incoming]})
+        self.assertEqual(counts.updated, 1)
+        self.assertEqual(p['holdings'][0]['extensions'], {'rikdom_instrument_history': history, 'custom': True})
+        self.assertEqual(p['holdings'][0]['provenance']['source_ref'], 'original-statement')
+
+        p, repeat = merge_holdings(p, {"holdings": [incoming]})
+        self.assertEqual(repeat.skipped, 1)
+        self.assertEqual(repeat.updated, 0)
+
+    def test_holding_metadata_aliases_survive_valuation_import_and_repeat(self):
+        holding = {'id': 'h', 'asset_type_id': 'fii', 'label': 'Fund', 'market_value': {'amount': 90, 'currency': 'BRL'}, 'metadata': {'instrument_aliases': ['OLD11'], 'user_note': 'keep'}}
+        incoming = {'id': 'h', 'asset_type_id': 'fii', 'label': 'Fund', 'market_value': {'amount': 100, 'currency': 'BRL'}, 'metadata': {'broker_note': 'new'}}
+        p = {'holdings': [holding]}
+        diff = build_import_diff(p, {'holdings': [incoming]})
+        self.assertFalse(any(change['field'] in ('metadata.instrument_aliases', 'metadata.user_note') for change in diff['rows'][0]['changes']))
+        p, counts = merge_holdings(p, {'holdings': [incoming]})
+        self.assertEqual(counts.updated, 1)
+        self.assertEqual(p['holdings'][0]['metadata'], {'instrument_aliases': ['OLD11'], 'user_note': 'keep', 'broker_note': 'new'})
+        self.assertEqual(build_import_diff(p, {'holdings': [incoming]})['summary']['holdings'], {'create': 0, 'update': 0, 'noop': 1})
+        p, counts = merge_holdings(p, {'holdings': [incoming]})
+        self.assertEqual(counts.skipped, 1)
+
+    def test_tax_lot_conflicting_id_and_idempotency_key_rejected_atomically(self):
+        from rikdom.plugins import merge_tax_lots
+        first = {'id': 'one', 'holding_id': 'h', 'acquired_at': '2025-01-01T00:00:00Z', 'quantity': 1, 'cost_basis': {'amount': 90, 'currency': 'BRL'}, 'provenance': {'idempotency_key': 'key-one'}}
+        second = dict(first, id='two', provenance={'idempotency_key': 'key-two'})
+        portfolio = {'holdings': [{'id': 'h'}], 'tax_lots': [first, second]}
+        before = copy.deepcopy(portfolio)
+        incoming = {'tax_lots': [dict(first, id='three', provenance={'idempotency_key': 'key-three'}), dict(first, provenance={'idempotency_key': 'key-two'})]}
+        with self.assertRaisesRegex(ValueError, 'Conflicting tax lot identity'):
+            merge_tax_lots(portfolio, incoming)
+        self.assertEqual(portfolio, before)
+        with self.assertRaisesRegex(ValueError, 'Conflicting tax lot identity'):
+            build_import_diff(portfolio, incoming)
+
+    def test_renamed_lot_references_rejected_before_mutation(self):
+        from rikdom.plugins import merge_tax_lots
+        from rikdom.import_preflight import build_preflight_report
+        old = {'id': 'stable-lot', 'holding_id': 'h', 'acquired_at': '2025-01-01T00:00:00Z', 'quantity': 1, 'cost_basis': {'amount': 90, 'currency': 'BRL'}, 'provenance': {'idempotency_key': 'broker-lot'}}
+        for corporate in (False, True):
+            with self.subTest(corporate=corporate):
+                activity = {'id': 'sale', 'event_type': 'sell', 'effective_at': '2026-01-01T00:00:00Z', 'tax_lot_ids': ['incoming-lot']}
+                if corporate:
+                    activity.pop('tax_lot_ids')
+                    activity['corporate_action'] = {'kind': 'merger', 'legs': [{'holding_id': 'h', 'quantity_delta': -1, 'tax_lot_ids': ['incoming-lot']}]}
+                imported = {'tax_lots': [dict(old, id='incoming-lot')], 'activities': [activity]}
+                p = {'holdings': [{'id': 'h'}], 'tax_lots': [copy.deepcopy(old)]}
+                before = copy.deepcopy(p)
+                report = build_preflight_report(p, imported)
+                self.assertFalse(report['ok'])
+                self.assertTrue(any('stable-lot' in issue['message'] and 'incoming-lot' in issue['message'] for issue in report['issues']))
+                with self.assertRaisesRegex(ValueError, 'incoming-lot'):
+                    merge_tax_lots(p, imported)
+                self.assertEqual(p, before)
+                refs = activity['corporate_action']['legs'][0]['tax_lot_ids'] if corporate else activity['tax_lot_ids']
+                refs[:] = ['stable-lot']
+                self.assertTrue(build_preflight_report(p, imported)['ok'])
+                merged, counts = merge_tax_lots(p, imported)
+                self.assertEqual(merged['tax_lots'][0]['id'], 'stable-lot')
+                self.assertEqual(counts.skipped, 1)

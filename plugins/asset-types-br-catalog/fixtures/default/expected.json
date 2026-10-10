@@ -1,5 +1,65 @@
 [
   {
+    "asset_class": "debt",
+    "availability": {
+      "countries": [
+        "BR"
+      ]
+    },
+    "id": "compromissada",
+    "instrument_attributes": [
+      {
+        "id": "issuer_name",
+        "label": "Reported Counterparty Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "underlying_code",
+        "label": "Collateral Instrument Code",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issue_date",
+        "label": "Issue Date",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "maturity_date",
+        "label": "Maturity Date",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "enum": [
+          "CDI_DI_OVER",
+          "IPCA",
+          "SELIC",
+          "PREFIXADO"
+        ],
+        "id": "indexer",
+        "label": "Indexer",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
+      }
+    ],
+    "label": "Operação Compromissada"
+  },
+  {
     "asset_class": "real_estate",
     "availability": {
       "countries": [
@@ -134,6 +194,24 @@
         "label": "Tax Profile: IR PF Treatment",
         "required": true,
         "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
       }
     ],
     "label": "Tesouro Direto"
@@ -244,6 +322,24 @@
         "label": "Minimum Holding Period (months)",
         "required": false,
         "value_type": "integer"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
       }
     ],
     "label": "LCI"
@@ -354,6 +450,24 @@
         "label": "Minimum Holding Period (months)",
         "required": false,
         "value_type": "integer"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
       }
     ],
     "label": "LCA"
@@ -475,6 +589,24 @@
         "label": "Liquidity Type",
         "required": false,
         "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
       }
     ],
     "label": "CDB"
@@ -577,6 +709,24 @@
       {
         "id": "tax_profile.source_rule_ref",
         "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
         "required": false,
         "value_type": "string"
       }
@@ -683,6 +833,24 @@
         "label": "Tax Profile: Source Rule Reference",
         "required": false,
         "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
       }
     ],
     "label": "Letra Financeira"
@@ -787,6 +955,24 @@
         "label": "Tax Profile: Source Rule Reference",
         "required": false,
         "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
       }
     ],
     "label": "CRI"
@@ -889,6 +1075,24 @@
       {
         "id": "tax_profile.source_rule_ref",
         "label": "Tax Profile: Source Rule Reference",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
         "required": false,
         "value_type": "string"
       }
@@ -1004,6 +1208,24 @@
         "label": "Tax Benefit Regime",
         "required": false,
         "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
       }
     ],
     "label": "Debenture"
@@ -1117,6 +1339,24 @@
         "label": "Tax Benefit Regime",
         "required": true,
         "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
+        "value_type": "string"
       }
     ],
     "label": "Debenture Incentivada (Lei 12.431)"
@@ -1229,6 +1469,24 @@
         "id": "tax_benefit_regime",
         "label": "Tax Benefit Regime",
         "required": true,
+        "value_type": "string"
+      },
+      {
+        "id": "issuer_name",
+        "label": "Reported Issuer Name",
+        "required": false,
+        "value_type": "string"
+      },
+      {
+        "id": "indexer_multiplier_pct",
+        "label": "Indexer Multiplier (%)",
+        "required": false,
+        "value_type": "number"
+      },
+      {
+        "id": "reported_rate",
+        "label": "Reported Rate",
+        "required": false,
         "value_type": "string"
       }
     ],
@@ -1641,7 +1899,7 @@
         "value_type": "string"
       }
     ],
-    "label": "A\u00e7\u00e3o"
+    "label": "Ação"
   },
   {
     "asset_class": "funds",
@@ -1861,7 +2119,7 @@
         "value_type": "string"
       }
     ],
-    "label": "Previd\u00eancia Privada"
+    "label": "Previdência Privada"
   },
   {
     "asset_class": "real_estate",
@@ -1943,7 +2201,7 @@
         "value_type": "string"
       }
     ],
-    "label": "FII Tijolo (im\u00f3veis f\u00edsicos)"
+    "label": "FII Tijolo (imóveis físicos)"
   },
   {
     "asset_class": "real_estate",
@@ -2120,7 +2378,7 @@
         "value_type": "string"
       }
     ],
-    "label": "FII H\u00edbrido (tijolo + papel)"
+    "label": "FII Híbrido (tijolo + papel)"
   },
   {
     "asset_class": "funds",
@@ -2581,7 +2839,7 @@
         "value_type": "string"
       }
     ],
-    "label": "ETF IMAB11 (Renda Fixa IMA-B infla\u00e7\u00e3o)"
+    "label": "ETF IMAB11 (Renda Fixa IMA-B inflação)"
   },
   {
     "asset_class": "funds",

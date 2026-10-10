@@ -1,0 +1,5 @@
+{
+  "hook": "source_input",
+  "input": "input.json",
+  "validate_schema": "plugin-statement"
+}

@@ -37,6 +37,9 @@ class MigrateCliTests(unittest.TestCase):
 
     def test_noop_when_already_at_current(self) -> None:
         portfolio_path = self._stage(CURRENT_FIXTURE)
+        current = load_json(portfolio_path)
+        current["schema_version"] = "1.7.0"
+        portfolio_path.write_text(json.dumps(current), encoding="utf-8")
         before = portfolio_path.stat().st_mtime_ns
 
         code, stdout, _ = _run(["migrate", "--portfolio", str(portfolio_path)])
@@ -58,8 +61,8 @@ class MigrateCliTests(unittest.TestCase):
         payload = json.loads(stdout)
         self.assertEqual(payload["status"], "planned")
         self.assertEqual(payload["from"], "1.0.0")
-        self.assertEqual(payload["to"], "1.5.0")
-        self.assertEqual(len(payload["steps"]), 5)
+        self.assertEqual(payload["to"], "1.7.0")
+        self.assertEqual(len(payload["steps"]), 7)
         self.assertEqual(portfolio_path.read_bytes(), before_bytes)
         self.assertEqual(list(self.tmp.glob("*.bak-*")), [])
 
@@ -74,7 +77,7 @@ class MigrateCliTests(unittest.TestCase):
         self.assertEqual(payload["status"], "written")
 
         migrated = load_json(portfolio_path)
-        self.assertEqual(migrated["schema_version"], "1.5.0")
+        self.assertEqual(migrated["schema_version"], "1.7.0")
         self.assertEqual(migrated["schema_uri"], CANONICAL_SCHEMA_URI)
         self.assertEqual(migrated["extensions"], {"com.example.custom": {"flavor": "legacy", "keep_me": True}})
 
@@ -109,7 +112,7 @@ class MigrateCliTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertEqual(portfolio_path.read_bytes(), original_bytes)
-        self.assertEqual(load_json(out_path)["schema_version"], "1.5.0")
+        self.assertEqual(load_json(out_path)["schema_version"], "1.7.0")
         self.assertEqual(list(self.tmp.glob("*.bak-*")), [])
 
     def test_output_same_as_portfolio_keeps_backup_behavior(self) -> None:

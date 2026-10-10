@@ -1,0 +1,30 @@
+Conta investimento 000123456
+Período de 01/10/26 a 09/10/26
+Emitido em 09/10/26 21:09
+Sumário - Distribuição em 09/10/26
+Renda Variável*  0,00  0,00  50,00  50,00
+Renda Fixa*  0,00  0,00  100,00  99,00
+Fundos de Investimento*  0,00  0,00  20,00  18,00
+Valores em Trânsito  0,00  0,00  5,00  5,00
+Conta Corrente  0,00  0,00  10,00  10,00
+Total  0,00  0,00  185,00  182,00
+Fundo de Investimento - Posição - Portfólio de fundos
+FUNDO EXEMPLO - Classe CNPJ: 12.345.678/0001-95*
+08/10/26  0,00  10,00000000  2,00000000  20,00  2,00  -  18,00  0,00
+Renda fixa - Posição - CDB
+Emissor :
+BANCO EXEMPLO
+Ativo :  Emissão :  Vencimento :
+CDB-CDBEXAMPLE  01/01/26  01/01/28  Sim
+Taxa Média Ponderada  Quantidade :  Preço R$ :  Saldo Bruto R$ :  IR R$ :  IOF R$ :
+:  100,0  1,000000  100,00  1,00  -
+102,00% do CDI
+Saldo Líquido R$ :
+99,00
+Renda variável - Posição - Fundos Listados
+ABCD12*  DIREITO EXEMPLO  FII  100  0,50  -  50,00
+Conta corrente - Posição
+09/10/26  10,00
+Valores em trânsito - Renda Variável
+14/10/26  RENDIMENTO - EXEMPLO  5,00
+Total  5,00

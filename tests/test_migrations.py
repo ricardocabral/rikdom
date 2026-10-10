@@ -23,7 +23,7 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan_migrations((1, 5, 0), (1, 5, 0)), [])
 
     def test_full_chain_1_0_0_to_current(self) -> None:
-        steps = plan_migrations((1, 0, 0), (1, 5, 0))
+        steps = plan_migrations((1, 0, 0), (1, 6, 0))
         self.assertEqual(
             [(s.from_version, s.to_version) for s in steps],
             [
@@ -32,6 +32,7 @@ class PlannerTests(unittest.TestCase):
                 ((1, 2, 0), (1, 3, 0)),
                 ((1, 3, 0), (1, 4, 0)),
                 ((1, 4, 0), (1, 5, 0)),
+                ((1, 5, 0), (1, 6, 0)),
             ],
         )
 
@@ -56,13 +57,13 @@ class PlannerTests(unittest.TestCase):
 class ApplyTests(unittest.TestCase):
     def test_upgrade_produces_valid_current_portfolio(self) -> None:
         portfolio = load_json(FIXTURE_PATH)
-        steps = plan_migrations(parse_version(portfolio["schema_version"]), (1, 5, 0))
+        steps = plan_migrations(parse_version(portfolio["schema_version"]), (1, 6, 0))
         result, applied = apply_migrations(portfolio, steps)
 
-        self.assertEqual(result["schema_version"], "1.5.0")
+        self.assertEqual(result["schema_version"], "1.6.0")
         self.assertEqual(result["schema_uri"], CANONICAL_SCHEMA_URI)
         self.assertEqual(validate_portfolio(result), [])
-        self.assertEqual(len(applied), 5)
+        self.assertEqual(len(applied), 6)
         self.assertTrue(any("activities" in c for c in applied[0].changes))
 
     def test_preserves_unknown_extensions_and_metadata(self) -> None:

@@ -83,6 +83,41 @@ If neither resolves, the cashflow is **skipped with a warning** rather than
 blocking the whole computation; the resulting TWR/MWR is still emitted but
 flagged as approximate via `warnings[]`.
 
+## Per-instrument output
+
+`--by instrument` emits `by_instrument`, an array in each holding's native
+transaction currency. It uses purchases and distributions as cashflows across
+the instrument boundary; portfolio-level external flow rules remain unchanged.
+
+| Field | Meaning |
+| --- | --- |
+| `holding_id`, `ticker`, `currency` | Instrument identity and transaction currency. |
+| `status` | `complete` or `incomplete_history`. |
+| `period_start` | First valid acquisition cashflow. |
+| `period_end`, `terminal_value` | Dated valuation or explicit proceeds supplied by the caller. |
+| `valuation_basis` | `gross_market_value` or `explicit_terminal_value`; taxes are not inferred. |
+| `observed_buy_outflows` | Recorded purchases including attached fees and taxes. |
+| `observed_sell_inflows` | Recorded sales after attached fees and taxes. |
+| `observed_distributions` | Recorded dividend, interest, income, amortization and reimbursement receipts after attached costs. |
+| `observed_fees`, `observed_taxes` | Costs recorded in supported events, including attached costs. |
+| `observed_net_cashflow` | Recorded investor cashflows, excluding terminal value. |
+| `profit_amount` | Terminal value plus net cashflows; `null` for incomplete history. |
+| `xirr_pct` | Annualized investor return in percent; `null` for incomplete or unsolvable histories. |
+| `cashflows` | Auditable dated investor cashflows, including the terminal value when available. |
+| `warnings` | Missing coverage, stale valuations, ambiguous identities, unsupported movements or inconsistent amounts. |
+
+Observed totals summarize the records present; they are not complete lifetime
+totals unless the history has been reconciled. Pending and cancelled activities
+are excluded. Signed corporate-action quantity deltas carry no investment cash
+by themselves. Unhandled cash components prevent a complete return.
+
+Full returns require the declared coverage to include the first acquisition
+through valuation, without declared gaps or inconsistent quantities. Explicit
+cash settlement dates take precedence. Tax lots help audit cost basis but do not
+substitute for missing acquisition cashflows. The calculator uses no implicit
+FX conversion and does not calculate Brazilian monthly capital gains tax or
+fixed-income redemption taxes.
+
 ## Scope and limits
 
 MVP is portfolio-level. Per-account, per-strategic-bucket, and benchmark

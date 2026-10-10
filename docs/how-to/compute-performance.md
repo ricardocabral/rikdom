@@ -52,6 +52,52 @@ print(result.twr_pct, result.mwr_pct)
 `modified_dietz`, `xirr`, and `extract_external_cashflows` are also exported
 for callers that already have base-converted cashflows.
 
+## Return since an instrument's acquisitions
+
+Use the dated activity ledger to include purchases, sales, distributions,
+amortizations, reported fees and taxes for one holding:
+
+```bash
+uv run rikdom performance --data-dir data --by instrument --instrument AAAA11
+```
+
+`--instrument` accepts a ticker or a holding ID. When several active holdings
+share a ticker, select their individual IDs. Omit it to inspect invested and
+activity-bearing holdings. This mode does not require portfolio snapshots or
+apply today's FX rate to historical transactions.
+
+The calculation uses `settled_at` when reported, otherwise `effective_at`.
+It requires an explicit complete-history declaration under
+`holding.extensions.rikdom_instrument_history`, including coverage dates.
+Unknown, partial, inconsistent or ambiguous history produces
+`status: incomplete_history`, with `profit_amount` and `xirr_pct` set to
+`null`. Observed receipts and costs remain available for reconciliation.
+Do not declare completeness from a current position or annual income total.
+
+The default terminal value is the holding's market value at its actual
+`as_of` timestamp. To supply a separately calculated liquidation value:
+
+```bash
+uv run rikdom performance --data-dir data --by instrument --instrument AAAA11 \
+  --until 2025-12-31 --terminal-value 1000.00
+```
+
+Replace the example ticker, date and amount with your instrument's values.
+The amount is illustrative, in the instrument's transaction currency. Supply
+net proceeds only after separately determining sale costs and taxes. The
+calculator does not infer them. A stale position value is never relabeled as
+today's value. `--since` is unsupported in instrument mode because an arbitrary
+start date needs a historical opening valuation.
+
+Portfolio policy benchmark returns are not applied in this mode. An actual
+Tesouro IPCA+ or CDB comparison requires a separate product simulation using
+the same investment dates, a selected maturity, historical prices or contracted
+rates, cash withdrawal/reinvestment assumptions, fees and applicable taxes.
+An index-level return is not that product simulation.
+
+See [FII history conventions](../reference/fii-history.md) for imports,
+corporate actions and benchmark input storage.
+
 ## See also
 
 - [Performance output reference](../reference/performance-output.md)

@@ -16,6 +16,7 @@ Pluggy `asset-type/catalog` plugin with Brazilian asset-type definitions for fix
 - `lf`
 - `cri`
 - `cra`
+- `compromissada`
 - `debenture`
 - `debenture_incentivada` (Lei 12.431, investor IR isento)
 - `debenture_infra` (Lei 14.801, issuer benefit, investor IR regressivo)
@@ -28,7 +29,7 @@ Pluggy `asset-type/catalog` plugin with Brazilian asset-type definitions for fix
 ## Asset Classes Used
 
 - `real_estate`: `fii`
-- `debt`: `tesouro_direto`, `cdb`, `lci`, `lca`, `lig`, `lf`, `cri`, `cra`, `debenture`, `debenture_incentivada`, `debenture_infra`
+- `debt`: `tesouro_direto`, `cdb`, `lci`, `lca`, `lig`, `lf`, `cri`, `cra`, `compromissada`, `debenture`, `debenture_incentivada`, `debenture_infra`
 - `stocks`: `acao`, `bdr`
 - `other`: `coe`
 - `funds`: `etf`, `fundo_investimento`, `fidc_cota`, `fiagro_cota`, `previdencia_privada`
@@ -36,6 +37,12 @@ Pluggy `asset-type/catalog` plugin with Brazilian asset-type definitions for fix
 ## Validations Encoded In Catalog Definitions
 
 These validations are provided by the catalog metadata and are consumed by `rikdom` validation rules for declared instrument attributes.
+
+Fixed-income types optionally retain the reported issuer name, index multiplier
+and original rate label. `indexer_multiplier_pct` records a percentage of an
+index, separately from an additive spread. `compromissada` also retains its
+underlying collateral code and issue/maturity dates. Its attributes are optional:
+an issuer CNPJ is not inferred from a name or required when absent in the source.
 
 - Required instrument attributes per asset type (for example `issuer_cnpj`, `indexer`, `maturity_date` where applicable)
 - Value type constraints (`string`, `integer`, `number`, `boolean`)

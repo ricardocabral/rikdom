@@ -67,7 +67,8 @@
           }
         ],
         "notes": "Approximate MSCI ACWI regional split; refresh periodically."
-      }
+      },
+      "as_of": "2026-04-30T00:00:00Z"
     },
     {
       "id": "btgwm:btgp-001-rndx412921:bnd",
@@ -110,7 +111,8 @@
           }
         ],
         "notes": "Vanguard Total Bond Market. Broker files as stock; economically US investment-grade aggregate debt."
-      }
+      },
+      "as_of": "2026-04-30T00:00:00Z"
     },
     {
       "id": "btgwm:btgp-001-rndx412921:gld",
@@ -152,7 +154,8 @@
           }
         ],
         "notes": "SPDR Gold Shares. Physically-backed gold."
-      }
+      },
+      "as_of": "2026-04-30T00:00:00Z"
     },
     {
       "id": "btgwm:btgp-001-rndx412921:schh",
@@ -194,7 +197,8 @@
           }
         ],
         "notes": "Schwab US REIT ETF. Economically US listed real estate."
-      }
+      },
+      "as_of": "2026-04-30T00:00:00Z"
     },
     {
       "id": "btgwm:btgp-001-rndx412921:schp",
@@ -237,7 +241,8 @@
           }
         ],
         "notes": "Schwab US TIPS ETF. Economically US Treasury inflation-protected debt."
-      }
+      },
+      "as_of": "2026-04-30T00:00:00Z"
     },
     {
       "id": "btgwm:btgp-001-rndx412921:sgov",
@@ -280,7 +285,8 @@
           }
         ],
         "notes": "iShares 0-3 Month Treasury. Economically US T-bills, cash-like."
-      }
+      },
+      "as_of": "2026-04-30T00:00:00Z"
     },
     {
       "id": "btgwm:btgp-001-rndx412921:voo",
@@ -321,7 +327,8 @@
             "liquidity_tier": "t1"
           }
         ]
-      }
+      },
+      "as_of": "2026-04-30T00:00:00Z"
     },
     {
       "id": "btgwm:btgp-001-rndx412921:dwbds",
@@ -363,7 +370,8 @@
           }
         ],
         "notes": "DriveWealth Bank Sweep (FDIC-insured deposit)."
-      }
+      },
+      "as_of": "2026-04-30T00:00:00Z"
     }
   ],
   "activities": [
@@ -504,7 +512,7 @@
       "status": "posted",
       "effective_at": "2026-04-01T00:00:00Z",
       "money": {
-        "amount": 52345.69,
+        "amount": 52468.12,
         "currency": "USD"
       },
       "quantity": 520.0,
