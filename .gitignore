@@ -21,11 +21,14 @@ venv/
 # Local/generated project outputs
 out/
 data/
+output/
+.artifact_work/
 
 # Local agent/tooling state
 .claude/worktrees/
 .worktrees/
 .codex/
+.pi/
 .pi-lens/
 docs/superpowers/
 
