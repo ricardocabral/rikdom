@@ -31,6 +31,7 @@ output/
 .pi/
 .pi-lens/
 docs/superpowers/
+docs/product/
 
 # OS/editor noise
 .DS_Store
