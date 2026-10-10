@@ -30,6 +30,16 @@ class TestIrpfXmlPlugin(unittest.TestCase):
         self.assertEqual(by_index["00006"]["asset_type_id"], "fundo_investimento")
         self.assertEqual(by_index["00007"]["asset_type_id"], "real_estate")
 
+    def test_classifies_explicit_fixed_income_in_group_0402(self) -> None:
+        classify = importer_impl._classify
+        self.assertEqual(classify("04", "02", "CDB BANCO TESTE", ""), "cdb")
+        self.assertEqual(classify("04", "02", "SALDO EM RDB", ""), "debt_instrument")
+        self.assertEqual(
+            classify("04", "02", "TESOURO DIRETO SELIC LFT", ""),
+            "tesouro_direto",
+        )
+        self.assertEqual(classify("04", "02", "FUNDO RF", ""), "fundo_investimento")
+
     def test_preserves_prior_and_current_year_values(self) -> None:
         payload = importer_impl.parse_statement(FIXTURE)
         fii = next(h for h in payload["holdings"] if h["metadata"]["irpf"]["indice"] == "00003")

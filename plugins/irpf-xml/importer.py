@@ -85,6 +85,17 @@ def _classify(grupo: str, codigo: str, discriminacao: str, ticker: str) -> str:
         if codigo == "01":
             return "savings_account"
         if codigo == "02":
+            # Group 04.02 normally represents funds subject to periodic
+            # taxation, but declarations sometimes use it for explicitly
+            # named CDB/RDB and Tesouro Direto positions. Keep those generic
+            # types: their statement text is decisive while the strict fund
+            # attributes cannot be inferred from this IRPF row.
+            if "TESOURO" in d or "LFT" in d or "NTN-B" in d or "LTN" in d:
+                return "tesouro_direto"
+            if re.search(r"\bCDB\b", d):
+                return "cdb"
+            if re.search(r"\bRDB\b", d):
+                return "debt_instrument"
             return "fundo_investimento"
         if codigo == "03":
             if "TESOURO" in d or "LFT" in d or "NTN-B" in d or "LTN" in d:
