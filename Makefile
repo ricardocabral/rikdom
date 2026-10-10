@@ -101,6 +101,11 @@ migrate-dry-run-policy:
 validate-with-policy:
 	uv run rikdom validate --portfolio data-sample/portfolio.json --policy data-sample/policy.json
 
+classify-fiis:
+	uv run python scripts/apply_fii_classification.py \
+		--portfolio $(DATA_DIR)/portfolio.json \
+		--mapping $(DATA_DIR)/fii_classification.json
+
 test:
 	uv run python -m unittest discover -s tests -v
 

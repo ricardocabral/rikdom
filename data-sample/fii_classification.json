@@ -1,0 +1,10 @@
+{
+  "schema": "rikdom.fii_classification/1",
+  "description": "Sample FII classification mapping. Copy to data/fii_classification.json and edit. Apply with: make classify-fiis (or uv run python scripts/apply_fii_classification.py).",
+  "updated": "2026-06-10",
+  "classifications": {
+    "AAAA11": {"fii_type": "TIJOLO", "segment": "Logistica"},
+    "BBBB11": {"fii_type": "PAPEL", "segment": "CRI CDI high grade"},
+    "CCCC11": {"fii_type": "HIBRIDO", "segment": "Multiestrategia (CRI + FII + tijolo)"}
+  }
+}
