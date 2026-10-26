@@ -87,5 +87,33 @@
       "subtype": "pp:steuern"
     }
   ],
-  "provider": "portfolio_performance_csv"
+  "provider": "portfolio_performance_csv",
+  "metadata": {
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "portfolio_performance_csv:statement",
+          "status": "partial",
+          "event_types": [
+            "buy",
+            "dividend",
+            "transfer_in"
+          ],
+          "reasons": [
+            "unsupported_source_events"
+          ]
+        }
+      ],
+      "unsupported_events": [
+        {
+          "source_ref": "portfolio_performance_csv#pp-79eba726b7e242d6",
+          "source_event": "pp:steuern",
+          "reason": "source_event_has_no_supported_taxonomy_mapping",
+          "affects_quantity": false,
+          "affects_cash": true
+        }
+      ]
+    }
+  }
 }

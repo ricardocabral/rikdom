@@ -67,3 +67,16 @@ result handling, and how another REST or MCP provider fits this boundary.
 - Treat plugin code as trusted local code: Pluggy plugins execute arbitrary Python in-process.
 - Never commit secrets or credentials inside plugin files.
 - Keep plugins deterministic and idempotent for repeatable runs.
+
+## Explicit sources and trust
+
+All first-party source plugins emit history-coverage and unsupported-event
+[diagnostics](../docs/reference/import-diagnostics.md). A positions-only importer
+cannot establish transaction history. Regional identity and parsing conventions
+belong to the source/catalog plugins; core preserves their opaque canonical keys.
+
+[Frankfurter](frankfurter/README.md) is an optional FX connector. Snapshot acquisition
+requires `--fx-provider frankfurter`; core diagnostics/report flows remain local.
+Manual entry and immutable corrections use the existing
+[normalized JSON importer](normalized-statement-json/README.md) and
+[correction workflow](../docs/how-to/enter-and-correct-activities.md).

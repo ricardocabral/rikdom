@@ -21,6 +21,31 @@ HEADING = re.compile(
 )
 
 
+def _assign_canonical_key(holding: dict) -> None:
+    """Use this source's explicit Brazilian identifiers; never guess a country."""
+    metadata = holding.setdefault("metadata", {})
+    if "canonical_key" in metadata:
+        return
+    identifiers = holding.get("identifiers", {})
+    kind = holding.get("asset_type_id")
+    ticker = str(identifiers.get("ticker") or "").strip().lower()
+    if holding.get("jurisdiction", {}).get("country") == "BR":
+        ticker_kind = {"stock": "acao", "reit": "fii"}.get(kind, kind)
+        if ticker_kind in {"acao", "fii", "etf", "bdr"} and ticker and ticker != "cash":
+            metadata["canonical_key"] = f"br:{ticker_kind}:{ticker}"
+            return
+        cnpj = re.sub(r"\D", "", str(identifiers.get("cnpj") or ""))
+        if len(cnpj) == 14 and cnpj != "0" * 14:
+            if kind in {"fund", "fundo_investimento", "fundo_imobiliario_fechado", "fundo_multimercado", "fundo_renda_fixa", "fundo_acoes"}:
+                metadata["canonical_key"] = f"br:fund:{cnpj}"
+                return
+    if kind == "cash_equivalent" and metadata.get("statement_section") == "Conta corrente - Posição":
+        currency = holding.get("market_value", {}).get("currency", "").lower()
+        if re.fullmatch(r"[a-z]{3}", currency):
+            metadata["canonical_key"] = f"cash:{currency}"
+
+
+
 def _decimal(value):
     return (
         Decimal(0)
@@ -199,6 +224,7 @@ def parse_statement(text: str, source_path: str | Path) -> dict:
             h["valuation"] = valuation
         if extra:
             h["metadata"].update(extra)
+        _assign_canonical_key(h)
         holdings.append(h)
         by_key[key] = h
         return h

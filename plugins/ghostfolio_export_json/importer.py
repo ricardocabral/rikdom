@@ -5,10 +5,15 @@ import hashlib
 import json
 import sys
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime, parse_decimal
+from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime as _normalize_datetime, parse_decimal as _parse_decimal
+
+# This export dialect uses ISO dates and UTC for dates without a zone.
+normalize_datetime = partial(_normalize_datetime, naive_timezone=timezone.utc)
+parse_decimal = partial(_parse_decimal, decimal_separator=".", grouping_separator=None)
 
 PROVIDER = "ghostfolio_export_json"
 
@@ -133,6 +138,9 @@ def _normalize_activity(item: dict[str, Any]) -> dict[str, Any]:
         },
     }
 
+    if event_type == "other":
+        activity["subtype"] = "ghostfolio:" + (activity["metadata"]["raw_type"] or "unknown")
+
     quantity = parse_decimal(_pick(item, "quantity", "shares", "units"))
     if quantity is not None:
         activity["quantity"] = quantity
@@ -206,6 +214,9 @@ def _normalize_holding(item: dict[str, Any]) -> dict[str, Any]:
     source_ref = as_text(_pick(item, "sourceRef", "accountId", "account.name"))
     if source_ref:
         holding["provenance"] = {"source_ref": source_ref}
+
+    if isinstance(item.get("metadata"), dict):
+        holding["metadata"] = dict(item["metadata"])
 
     return holding
 

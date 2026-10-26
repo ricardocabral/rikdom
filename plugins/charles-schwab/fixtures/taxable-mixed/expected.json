@@ -9,7 +9,27 @@
         "currency": "USD",
         "account_name": "Individual Brokerage"
       }
-    ]
+    ],
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "charles-schwab:statement",
+          "status": "unknown",
+          "event_types": [
+            "buy",
+            "dividend",
+            "fee",
+            "interest",
+            "sell"
+          ],
+          "reasons": [
+            "source_does_not_declare_complete_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
   },
   "holdings": [
     {
@@ -29,7 +49,8 @@
         "country": "US"
       },
       "metadata": {
-        "security_type": "Equity"
+        "security_type": "Equity",
+        "canonical_key": "us:stock:msft"
       }
     },
     {
@@ -49,7 +70,8 @@
         "country": "US"
       },
       "metadata": {
-        "security_type": "ETF"
+        "security_type": "ETF",
+        "canonical_key": "us:fund:vti"
       }
     },
     {
@@ -66,6 +88,9 @@
       },
       "jurisdiction": {
         "country": "US"
+      },
+      "metadata": {
+        "canonical_key": "cash:usd"
       }
     }
   ],

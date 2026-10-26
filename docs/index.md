@@ -15,6 +15,7 @@ Hands-on lessons for newcomers. Start here.
 Goal-oriented recipes for users who already know the basics.
 
 - [Import a broker statement](how-to/import-a-statement.md)
+- [Enter and correct activities](how-to/enter-and-correct-activities.md)
 - [Query external data through a connector](how-to/query-external-data.md)
 - [Render a portfolio report](how-to/render-a-report.md)
 - [Run a schema migration](how-to/run-a-migration.md)
@@ -36,6 +37,7 @@ Information-oriented descriptions of the machinery.
 - [Bundled plugin catalog](../plugins/README.md) — importers, connectors, reports, and storage.
 - [Migration version history](reference/migrations.md)
 - [Reconciliation issue codes](reference/reconciliation-codes.md)
+- [Import diagnostics and identity recovery](reference/import-diagnostics.md)
 - [Performance output](reference/performance-output.md)
 - [FX snapshot fields](reference/fx-snapshot-fields.md)
 - [Export bundle format](reference/export-format.md)

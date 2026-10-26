@@ -7,10 +7,14 @@ import io
 import json
 import sys
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime, parse_decimal
+from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime as _normalize_datetime, parse_decimal as _parse_decimal
+
+# This export dialect uses ISO dates and UTC for dates without a zone.
+normalize_datetime = partial(_normalize_datetime, naive_timezone=timezone.utc)
 
 PROVIDER = "portfolio_performance_csv"
 
@@ -115,7 +119,7 @@ def _detect_delimiter(sample: str) -> str:
     return delimiter
 
 
-def _read_rows(path: Path) -> list[dict[str, str]]:
+def _read_rows(path: Path) -> tuple[list[dict[str, str]], str]:
     raw = path.read_text(encoding="utf-8-sig")
     if not raw.strip():
         raise ValueError("Portfolio Performance CSV input is empty")
@@ -141,7 +145,7 @@ def _read_rows(path: Path) -> list[dict[str, str]]:
             normalized[key] = text
         if normalized:
             rows.append(normalized)
-    return rows
+    return rows, ("," if delimiter == ";" else ".")
 
 
 def _stable_id(row: dict[str, str]) -> str:
@@ -191,7 +195,7 @@ def _signed_amount(event_type: str, magnitude: float, raw_value: float | None) -
     return abs(magnitude)
 
 
-def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
+def _normalize_row(row: dict[str, str], *, decimal_separator: str) -> dict[str, Any]:
     raw_type = row.get("type", "")
     if not raw_type:
         raise ValueError("Portfolio Performance row is missing required Type column")
@@ -208,8 +212,8 @@ def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
             f"Portfolio Performance row '{row_id}' is missing transaction currency"
         )
 
-    raw_value = parse_decimal(row.get("value"))
-    gross_amount = parse_decimal(row.get("gross_amount"))
+    raw_value = _parse_decimal(row.get("value"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
+    gross_amount = _parse_decimal(row.get("gross_amount"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
     magnitude = (
         abs(raw_value) if raw_value is not None
         else abs(gross_amount) if gross_amount is not None
@@ -240,16 +244,16 @@ def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
     if event_type == "other" and raw_type:
         activity["subtype"] = f"pp:{raw_type.strip().lower()}"
 
-    quantity = parse_decimal(row.get("shares"))
+    quantity = _parse_decimal(row.get("shares"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
     if quantity is not None:
         activity["quantity"] = abs(quantity)
 
-    fees = parse_decimal(row.get("fees"))
+    fees = _parse_decimal(row.get("fees"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
     if fees is not None and fees != 0:
         fees_currency = normalize_currency(row.get("fees_currency")) or currency
         activity["fees"] = {"amount": abs(fees), "currency": fees_currency}
 
-    taxes = parse_decimal(row.get("taxes"))
+    taxes = _parse_decimal(row.get("taxes"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
     if taxes is not None and taxes != 0:
         taxes_currency = normalize_currency(row.get("taxes_currency")) or currency
         activity.setdefault("metadata", {})["taxes"] = {
@@ -277,14 +281,14 @@ def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
 
 
 def parse_export(path: Path) -> dict[str, Any]:
-    rows = _read_rows(path)
+    rows, decimal_separator = _read_rows(path)
     if not rows:
         raise ValueError("Portfolio Performance CSV did not contain any data rows")
 
     activities: list[dict[str, Any]] = []
     seen: set[str] = set()
     for row in rows:
-        activity = _normalize_row(row)
+        activity = _normalize_row(row, decimal_separator=decimal_separator)
         aid = activity["id"]
         if aid in seen:
             continue

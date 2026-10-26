@@ -1,0 +1,15 @@
+{
+  "contractVersion": "1.0",
+  "readOnly": true,
+  "provider": "frankfurter",
+  "transport": "REST",
+  "baseUrl": "https://api.frankfurter.app",
+  "operations": {
+    "daily-rates": {
+      "path": "/{as_of_date}",
+      "parameters": ["base_currency", "quote_currencies", "as_of_date"],
+      "requiredParameters": ["base_currency", "quote_currencies", "as_of_date"],
+      "result": "Currency-keyed rate_to_base, as_of_date, source objects"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "frankfurter",
+  "version": "0.1.0",
+  "api_version": "1.1",
+  "plugin_types": ["external/connector"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Acquire daily FX rates with Frankfurter effective dates and provenance"
+}

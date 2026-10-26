@@ -8,6 +8,7 @@ import json
 import re
 import sys
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any
 from xml.etree.ElementTree import Element, ParseError
@@ -17,9 +18,37 @@ from defusedxml.common import DefusedXmlException
 
 from rikdom.import_normalization import (
     normalize_currency,
-    normalize_datetime,
-    parse_decimal,
+    normalize_datetime as _normalize_datetime,
+    parse_decimal as _parse_decimal,
 )
+
+# This export dialect uses ISO dates and UTC for dates without a zone.
+normalize_datetime = partial(_normalize_datetime, naive_timezone=timezone.utc)
+
+
+def _assign_canonical_key(holding: dict) -> None:
+    """Identify instruments in this provider's US statement dialect."""
+    metadata = holding.setdefault("metadata", {})
+    if "canonical_key" in metadata:
+        return
+    kind = holding.get("asset_type_id")
+    if kind == "cash_equivalent" and holding.get("identifiers", {}).get("ticker", "").upper() == "CASH":
+        currency = holding.get("market_value", {}).get("currency", "").lower()
+        if re.fullmatch(r"[a-z]{3}", currency):
+            metadata["canonical_key"] = f"cash:{currency}"
+    elif kind in {"stock", "etf", "fund"}:
+        ticker = str(holding.get("identifiers", {}).get("ticker") or "").strip().lower()
+        if ticker and ticker not in {"cash", "unknown"} and holding.get("jurisdiction", {}).get("country") == "US":
+            metadata["canonical_key"] = f"us:{kind}:{ticker}"
+
+
+
+def parse_decimal(value: Any) -> float | None:
+    # These broker CSV exports use dot decimals, comma groups and dollar labels.
+    if isinstance(value, str):
+        value = value.strip().removeprefix("$").strip()
+    return _parse_decimal(value, decimal_separator=".", grouping_separator=",")
+
 
 PROVIDER = "vanguard"
 _DEFAULT_CURRENCY = "USD"
@@ -744,7 +773,7 @@ def _parse_ofx_expense_activity(
     }
 
 
-def _parse_ofx_statement(path: Path) -> dict[str, Any]:
+def _parse_ofx_statement(path: Path, *, unsupported_events: list[dict[str, Any]]) -> dict[str, Any]:
     root = _load_ofx_root(path)
 
     account_number = _first_text(root, "ACCTID") or "unknown-account"
@@ -843,6 +872,32 @@ def _parse_ofx_statement(path: Path) -> dict[str, Any]:
         activities.append(activity)
         seen_activity_ids.add(aid)
 
+    supported_tags = {"BUYMF", "BUYSTOCK", "BUYOTHER", "SELLMF", "SELLSTOCK", "SELLOTHER", "INCOME", "INVEXPENSE"}
+    emitted_refs = {a.get("source_ref") for a in activities}
+    for transaction_list in _iter_elements(root, "INVTRANLIST"):
+        for transaction in transaction_list:
+            tag = _local_name(transaction.tag).upper()
+            if tag in {"DTSTART", "DTEND"}:
+                continue
+            fitid = _first_text(transaction, "FITID")
+            source_ref = f"vanguard:{account_number}#ofx:{fitid}" if fitid else f"vanguard:{account_number}#ofx:{tag}"
+            if tag not in supported_tags:
+                unsupported_events.append({
+                    "source_ref": source_ref,
+                    "source_event": tag,
+                    "reason": "ofx_transaction_type_has_no_supported_mapping",
+                    "affects_quantity": bool(_first_text(transaction, "UNITS")),
+                    "affects_cash": bool(_first_text(transaction, "TOTAL")),
+                })
+            elif not fitid or f"vanguard:{account_number}#txn:{fitid}" not in emitted_refs:
+                unsupported_events.append({
+                    "source_ref": source_ref,
+                    "source_event": tag,
+                    "reason": "ofx_transaction_missing_required_cells",
+                    "affects_quantity": bool(_first_text(transaction, "UNITS")),
+                    "affects_cash": bool(_first_text(transaction, "TOTAL")),
+                })
+
     if not holdings and not activities:
         raise ValueError("Vanguard OFX did not contain usable holdings or activities")
 
@@ -859,6 +914,8 @@ def _parse_ofx_statement(path: Path) -> dict[str, Any]:
         ],
     }
 
+    for holding in holdings:
+        _assign_canonical_key(holding)
     return {
         "provider": PROVIDER,
         "generated_at": generated_at,
@@ -941,6 +998,8 @@ def _parse_csv_statement(path: Path) -> dict[str, Any]:
     }
 
     generated_at = max(generated_candidates) if generated_candidates else _now_iso()
+    for holding in holdings:
+        _assign_canonical_key(holding)
     return {
         "provider": PROVIDER,
         "generated_at": generated_at,
@@ -951,13 +1010,15 @@ def _parse_csv_statement(path: Path) -> dict[str, Any]:
     }
 
 
-def parse_statement(path: Path) -> dict[str, Any]:
+def parse_statement(path: Path, *, unsupported_events: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    if unsupported_events is None:
+        unsupported_events = []
     if not path.exists():
         raise ValueError(f"input file does not exist: {path}")
 
     suffix = path.suffix.lower()
     if suffix in {".ofx", ".qfx"}:
-        return _parse_ofx_statement(path)
+        return _parse_ofx_statement(path, unsupported_events=unsupported_events)
     return _parse_csv_statement(path)
 
 

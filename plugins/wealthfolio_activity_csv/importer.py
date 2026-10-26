@@ -7,10 +7,14 @@ import io
 import json
 import sys
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from rikdom.import_normalization import normalize_currency, normalize_datetime, parse_decimal
+from rikdom.import_normalization import normalize_currency, normalize_datetime as _normalize_datetime, parse_decimal as _parse_decimal
+
+# This export dialect uses ISO dates and UTC for dates without a zone.
+normalize_datetime = partial(_normalize_datetime, naive_timezone=timezone.utc)
 
 PROVIDER = "wealthfolio_activity_csv"
 
@@ -87,7 +91,7 @@ def _detect_delimiter(sample: str) -> str:
     return delimiter
 
 
-def _read_rows(path: Path) -> list[dict[str, str]]:
+def _read_rows(path: Path) -> tuple[list[dict[str, str]], str]:
     raw = path.read_text(encoding="utf-8-sig")
     if not raw.strip():
         raise ValueError("Wealthfolio activity CSV input is empty")
@@ -112,7 +116,7 @@ def _read_rows(path: Path) -> list[dict[str, str]]:
             normalized[key] = text
         if normalized:
             rows.append(normalized)
-    return rows
+    return rows, ("," if delimiter == ";" else ".")
 
 
 def _stable_id(row: dict[str, str]) -> str:
@@ -145,7 +149,7 @@ def _parse_date(row: dict[str, str], row_id: str) -> str:
     )
 
 
-def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
+def _normalize_row(row: dict[str, str], *, decimal_separator: str) -> dict[str, Any]:
     activity_id = row.get("id") or _stable_id(row)
     raw_type = row.get("activity_type") or ""
     if not raw_type:
@@ -161,10 +165,10 @@ def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
             f"Wealthfolio activity CSV row '{activity_id}' is missing currency"
         )
 
-    quantity = parse_decimal(row.get("quantity"))
-    unit_price = parse_decimal(row.get("unit_price"))
-    explicit_amount = parse_decimal(row.get("amount"))
-    fee_amount = parse_decimal(row.get("fee"))
+    quantity = _parse_decimal(row.get("quantity"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
+    unit_price = _parse_decimal(row.get("unit_price"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
+    explicit_amount = _parse_decimal(row.get("amount"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
+    fee_amount = _parse_decimal(row.get("fee"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
 
     if explicit_amount is not None:
         magnitude = abs(explicit_amount)
@@ -235,14 +239,14 @@ def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
 
 
 def parse_activity_csv(path: Path) -> dict[str, Any]:
-    rows = _read_rows(path)
+    rows, decimal_separator = _read_rows(path)
     if not rows:
         raise ValueError("Wealthfolio activity CSV did not contain any data rows")
 
     activities: list[dict[str, Any]] = []
     seen: set[str] = set()
     for row in rows:
-        activity = _normalize_row(row)
+        activity = _normalize_row(row, decimal_separator=decimal_separator)
         aid = activity["id"]
         if aid in seen:
             continue

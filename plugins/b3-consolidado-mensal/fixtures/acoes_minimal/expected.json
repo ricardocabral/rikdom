@@ -28,7 +28,21 @@
     "parsed_position_sheets": [
       "Posição - Ações"
     ],
-    "source_file": "input.xlsx"
+    "source_file": "input.xlsx",
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "b3-consolidado-mensal:statement",
+          "status": "unknown",
+          "event_types": [],
+          "reasons": [
+            "positions_only_source_does_not_supply_activity_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
   },
   "provider": "b3-consolidado-mensal"
 }

@@ -213,3 +213,23 @@ CI runs the same command in a dedicated job.
 
 - [Plugin manifest reference](plugin-manifest.md)
 - [Plugin architecture](../explanation/plugin-architecture.md)
+
+## Source evidence and shared calculations
+
+First-party source hooks return explicit diagnostics in statement metadata;
+third-party hooks without these fields retain unknown history coverage. See
+[import diagnostics and identity recovery](import-diagnostics.md) for the versioned
+shape, anonymous occurrence identity, and reviewed-overlap workflow. Source hooks
+continue receiving only `ctx` and `input_path`; core compares their normalized
+facts against prior stored events.
+
+Source plugins must provide explicit canonical instrument keys when they can prove
+identity. Core reads them as opaque values; it does not derive country-specific
+keys. Optional same-instrument collapse also needs an explicit matching account.
+Brazilian regex/indexer constants live with `asset-types-br-catalog`, not the engine.
+New source code must specify parser separators/formats/timezones explicitly.
+
+Report plugins should consume `AggregateResult` and holding trust records rather
+than recalculate conversions or exclusions. `build_trust_reports` and
+`write_trust_reports` in `rikdom.reconciliation.reports` expose the same artifacts
+used by the CLI. They do not acquire market data.

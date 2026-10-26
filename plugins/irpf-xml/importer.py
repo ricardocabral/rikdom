@@ -24,6 +24,31 @@ NS = "{http://www.receita.fazenda.gov.br/declaracao}"
 _IRPF_BRAZIL_CODE = "105"
 
 
+def _assign_canonical_key(holding: dict) -> None:
+    """Use this source's explicit Brazilian identifiers; never guess a country."""
+    metadata = holding.setdefault("metadata", {})
+    if "canonical_key" in metadata:
+        return
+    identifiers = holding.get("identifiers", {})
+    kind = holding.get("asset_type_id")
+    ticker = str(identifiers.get("ticker") or "").strip().lower()
+    if holding.get("jurisdiction", {}).get("country") == "BR":
+        ticker_kind = {"stock": "acao", "reit": "fii"}.get(kind, kind)
+        if ticker_kind in {"acao", "fii", "etf", "bdr"} and ticker and ticker != "cash":
+            metadata["canonical_key"] = f"br:{ticker_kind}:{ticker}"
+            return
+        cnpj = re.sub(r"\D", "", str(identifiers.get("cnpj") or ""))
+        if len(cnpj) == 14 and cnpj != "0" * 14:
+            if kind in {"fund", "fundo_investimento", "fundo_imobiliario_fechado", "fundo_multimercado", "fundo_renda_fixa", "fundo_acoes"}:
+                metadata["canonical_key"] = f"br:fund:{cnpj}"
+                return
+    for field, key_kind in (("altcoin_code", "altcoin"), ("stablecoin_code", "stablecoin")):
+        code = str(identifiers.get(field) or "").strip().lower()
+        if code:
+            metadata["canonical_key"] = f"crypto:{key_kind}:{code}"
+            return
+
+
 def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -354,6 +379,7 @@ def _build_holding(item: ET.Element, *, exercicio: int) -> dict | None:
 
     metadata["irpf"]["id_strategy"] = _id_strategy(holding["id"])
     holding["metadata"] = metadata
+    _assign_canonical_key(holding)
     return holding
 
 

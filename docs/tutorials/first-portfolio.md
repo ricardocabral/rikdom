@@ -71,7 +71,7 @@ re-run this to catch shape errors early.
 make snapshot
 ```
 
-Rikdom resolves FX, computes the aggregated base-currency total, and
+Using local FX history, Rikdom computes the aggregated base-currency total, and
 **appends** a new row to `data/snapshots.jsonl` with a locked-in FX context
 under `metadata.fx_lock`. The file is append-only — old history is never
 rewritten.
@@ -87,6 +87,16 @@ make viz
 This produces `out/dashboard.html` and `out/portfolio-report.html`. Open
 `out/dashboard.html` in a browser to see allocation, totals, and the
 snapshot history you just appended.
+
+## 6. Inspect the evidence
+
+```bash
+uv run rikdom reconcile --data-dir data --out-root out
+```
+
+Open `out/reports/holding_trust.md` to see source amounts, FX and exclusions,
+and `out/reports/reconciliation.md` for findings. Unknown history is not a clean
+quantity reconciliation. No account, paid API, or AI service is needed.
 
 ## What you have learned
 

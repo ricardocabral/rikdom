@@ -247,7 +247,7 @@ def backfill_cashflows(
             period_months,
             first_coupon,
         )
-        periodic_amount = round(face * (float(rate) / 100.0) * (period_months / 12.0), 2)
+        periodic_amount = (face * (float(rate) / 100.0) * (period_months / 12.0))
 
         legs: list[dict[str, Any]] = []
         for d in coupon_dates:
@@ -267,7 +267,7 @@ def backfill_cashflows(
             {
                 "date": maturity.isoformat(),
                 "kind": "PRINCIPAL",
-                "amount": {"amount": round(face, 2), "currency": currency},
+                "amount": {"amount": (face), "currency": currency},
                 "status": "PROJECTED",
                 "notes": f"synthesized:face={source}",
             }

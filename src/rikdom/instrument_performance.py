@@ -14,6 +14,7 @@ import math
 from typing import Any
 
 from .performance import Cashflow, xirr
+from .activities import check_financial_contract, effective_activities
 
 
 _DISTRIBUTIONS = {"dividend", "interest", "income", "amortization", "reimbursement"}
@@ -133,6 +134,7 @@ def compute_instrument_performance(
     is usable only at ``holding.as_of``. Invalid explicit inputs and unknown
     holding IDs raise ValueError; ledger defects produce incomplete diagnostics.
     """
+    check_financial_contract(portfolio)
     holdings = [h for h in portfolio.get("holdings", []) if isinstance(h, dict)]
     matches = [h for h in holdings if h.get("id") == holding_id]
     if len(matches) != 1:
@@ -218,7 +220,7 @@ def compute_instrument_performance(
     quantity_after_cutoff_on_valuation_day = False
     seen: dict[str, dict] = {}
     seen_imports: dict[str, dict] = {}
-    for activity in portfolio.get("activities", []):
+    for activity in effective_activities(portfolio.get("activities") or []):
         if not isinstance(activity, dict):
             continue
         status = activity.get("status", "posted")

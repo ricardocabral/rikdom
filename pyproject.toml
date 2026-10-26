@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rikdom"
-version = "0.1.0"
+version = "0.2.0"
 description = "Portable long-term JSON portfolio schema and local storage toolkit"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -42,6 +42,8 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "rikdom._resources" = [
+  "portfolio.schema.json",
+  "plugin-statement.schema.json",
   "plugin.manifest.schema.json",
   "policy.schema.json",
   "template-plugin/**/*",

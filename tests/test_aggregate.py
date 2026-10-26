@@ -69,7 +69,7 @@ class AggregateTests(unittest.TestCase):
         self.assertEqual(result.total_value_base, 0.0)
         self.assertTrue(any("missing base conversion" in err for err in result.errors))
 
-    def test_quantity_consistency_warning_for_holding_vs_activity_ledger(self) -> None:
+    def test_quantity_without_declared_history_is_not_computable(self) -> None:
         portfolio = {
             "settings": {"base_currency": "BRL"},
             "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
@@ -105,9 +105,8 @@ class AggregateTests(unittest.TestCase):
             ],
         }
         result = aggregate_portfolio(portfolio)
-        self.assertTrue(
-            any("Quantity drift for holding" in warning for warning in result.warnings)
-        )
+        self.assertEqual(result.quantity_reconciliation[0]["status"], "not_computable")
+        self.assertFalse(any("Quantity drift" in w for w in result.warnings))
 
     def test_cash_drift_warning_for_cash_equivalent_ledger_gap(self) -> None:
         portfolio = {
@@ -422,7 +421,7 @@ class AggregateTests(unittest.TestCase):
             )
         )
 
-    def test_base_currency_defaults_to_usd_for_empty_or_non_string_values(self) -> None:
+    def test_base_currency_rejects_empty_or_non_string_values(self) -> None:
         for raw_base_currency in ("", 123):
             with self.subTest(raw_base_currency=raw_base_currency):
                 portfolio = {
@@ -437,9 +436,8 @@ class AggregateTests(unittest.TestCase):
                         }
                     ],
                 }
-                result = aggregate_portfolio(portfolio)
-                self.assertEqual(result.base_currency, "USD")
-                self.assertAlmostEqual(result.total_value_base, 100.0)
+                with self.assertRaisesRegex(ValueError, "base_currency"):
+                    aggregate_portfolio(portfolio)
 
 
 class LookthroughBreakdownTests(unittest.TestCase):

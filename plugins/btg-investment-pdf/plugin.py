@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import subprocess
 
+from rikdom.import_normalization import with_import_diagnostics
 from rikdom.plugin_engine.hookspecs import hookimpl
 
 spec = importlib.util.spec_from_file_location(
@@ -28,4 +29,14 @@ class Plugin:
             if path.suffix.lower() == ".pdf"
             else path.read_text()
         )
-        return parser.parse_statement(text, path)
+        payload = parser.parse_statement(text, path)
+        return with_import_diagnostics(
+            payload,
+            history_coverage=[{
+                "scope": "btg-investment-pdf:statement",
+                "status": "unknown",
+                "event_types": [],
+                "reasons": ["positions_only_source_does_not_supply_activity_history"],
+            }],
+            unsupported_events=[],
+        )

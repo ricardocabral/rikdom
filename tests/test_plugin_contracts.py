@@ -76,6 +76,26 @@ class PluginContractTests(unittest.TestCase):
             with self.subTest(plugin=case.plugin_name, case=case.case_name, hook=case.hook):
                 self._run_fixture(case)
 
+    def test_source_fixtures_declare_import_diagnostics(self) -> None:
+        for case in self.cases:
+            if case.hook != "source_input" or case.expected_error or missing_requirements(case):
+                continue
+            with self.subTest(plugin=case.plugin_name, case=case.case_name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    result = run_case(case, PLUGINS_DIR, Path(tmp))
+                if result.error:
+                    raise result.error
+                diagnostics = result.payload.get("metadata", {}).get("rikdom_import_diagnostics")
+                self.assertIsInstance(diagnostics, dict)
+                self.assertEqual(diagnostics["version"], 1)
+                self.assertTrue(diagnostics["history_coverage"])
+                for coverage in diagnostics["history_coverage"]:
+                    self.assertIn(coverage["status"], {"complete", "partial", "unknown"})
+                    self.assertTrue(coverage["scope"])
+                    self.assertIsInstance(coverage["event_types"], list)
+                    self.assertIsInstance(coverage["reasons"], list)
+                self.assertIsInstance(diagnostics["unsupported_events"], list)
+
     def _run_fixture(self, case: FixtureCase) -> None:
         missing = missing_requirements(case)
         if missing:

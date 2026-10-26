@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
-from unittest.mock import patch
-
-from rikdom.fx import ensure_snapshot_fx_lock, fetch_daily_fx_rates_from_frankfurter
+from rikdom.fx import ensure_snapshot_fx_lock
 from rikdom.storage import append_jsonl, load_jsonl
 
 
@@ -55,7 +54,7 @@ class FxTests(unittest.TestCase):
             self.assertEqual(warnings, [])
             self.assertEqual(lock["base_currency"], "BRL")
             self.assertEqual(lock["rates_to_base"], {"USD": 5.3, "EUR": 6.2})
-            self.assertEqual(lock["sources"], {"USD": "history", "EUR": "auto_ingest"})
+            self.assertEqual(lock["sources"], {"USD": "seed", "EUR": "auto_ingest"})
             self.assertEqual(
                 lock["rate_dates"], {"USD": "2026-04-20", "EUR": "2026-04-21"}
             )
@@ -95,7 +94,7 @@ class FxTests(unittest.TestCase):
             self.assertEqual(warnings, [])
             self.assertEqual(lock["rates_to_base"], {"EUR": 6.1})
             self.assertEqual(lock["rate_dates"], {"EUR": "2026-04-20"})
-            self.assertEqual(lock["sources"], {"EUR": "history"})
+            self.assertEqual(lock["sources"], {"EUR": "seed"})
 
     def test_ensure_snapshot_fx_lock_rejects_invalid_timestamp(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -155,31 +154,125 @@ class FxTests(unittest.TestCase):
             self.assertEqual(rows[0]["quote_currency"], "USD")
             self.assertEqual(rows[0]["rate_to_base"], 5.5)
 
-    def test_fetch_daily_fx_rates_from_frankfurter_sets_request_headers(self) -> None:
-        import io
-        import json as _json
+    def test_acquisition_is_disabled_by_default_even_with_a_fetcher(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "fx_rates.jsonl"
+            calls = []
 
-        captured_requests: list = []
+            def fetcher(**kwargs):
+                calls.append(kwargs)
+                return {"USD": 5.0}
 
-        def _fake_urlopen(request, timeout=10):  # noqa: ARG001
-            captured_requests.append(request)
-            body = _json.dumps({"rates": {"BRL": 5.25}}).encode("utf-8")
-            return io.BytesIO(body)
-
-        with patch("rikdom.fx.urlopen", side_effect=_fake_urlopen):
-            rates = fetch_daily_fx_rates_from_frankfurter(
-                base_currency="BRL",
-                quote_currencies=["USD"],
-                as_of_date="2026-04-21",
+            lock, warnings = ensure_snapshot_fx_lock(
+                {"settings": {"base_currency": "BRL"}},
+                fx_history_path=path,
+                snapshot_timestamp="2026-04-21T12:00:00Z",
+                extra_quote_currencies=["USD"],
+                fetcher=fetcher,
             )
+            self.assertEqual(calls, [])
+            self.assertEqual(lock["rates_to_base"], {})
+            self.assertEqual(load_jsonl(path), [])
+            self.assertTrue(any("Missing FX rate USD->BRL" in w for w in warnings))
 
-        self.assertEqual(rates, {"USD": 5.25})
-        self.assertEqual(len(captured_requests), 1)
-        request = captured_requests[0]
-        self.assertIn("frankfurter.app/2026-04-21", request.full_url)
-        headers = {k.lower(): v for k, v in request.header_items()}
-        self.assertIn("rikdom", headers["user-agent"])
-        self.assertEqual(headers["accept"], "application/json")
+    @unittest.mock.patch("urllib.request.OpenerDirector.open", side_effect=AssertionError("network forbidden"))
+    def test_opt_in_without_fetcher_remains_offline(self, _network) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "fx_rates.jsonl"
+            lock, warnings = ensure_snapshot_fx_lock(
+                {"settings": {"base_currency": "BRL"}},
+                fx_history_path=path,
+                snapshot_timestamp="2026-04-21T12:00:00Z",
+                auto_ingest=True,
+                extra_quote_currencies=["USD"],
+            )
+            _network.assert_not_called()
+            self.assertEqual(lock["rates_to_base"], {})
+            self.assertEqual(load_jsonl(path), [])
+            self.assertEqual(warnings, ["Missing FX rate USD->BRL as of 2026-04-21"])
+
+    def test_injected_rates_keep_effective_date_and_provider_through_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "fx_rates.jsonl"
+            portfolio = {"settings": {"base_currency": "BRL"}}
+
+            def fetcher(**kwargs):
+                self.assertEqual(kwargs, {
+                    "base_currency": "BRL", "quote_currencies": ["USD"],
+                    "as_of_date": "2026-04-19",
+                })
+                return {"USD": {
+                    "rate_to_base": 5.2, "as_of_date": "2026-04-17",
+                    "source": "custom-bank",
+                }}
+
+            lock, warnings = ensure_snapshot_fx_lock(
+                portfolio, fx_history_path=path,
+                snapshot_timestamp="2026-04-19T12:00:00Z",
+                extra_quote_currencies=["USD"], auto_ingest=True, fetcher=fetcher,
+            )
+            self.assertEqual(warnings, [])
+            self.assertEqual(lock["rates_to_base"], {"USD": 5.2})
+            self.assertEqual(lock["rate_dates"], {"USD": "2026-04-17"})
+            self.assertEqual(lock["sources"], {"USD": "custom-bank"})
+            row = load_jsonl(path)[0]
+            self.assertEqual(row["as_of_date"], "2026-04-17")
+            self.assertEqual(row["source"], "custom-bank")
+            cached, warnings = ensure_snapshot_fx_lock(
+                portfolio, fx_history_path=path,
+                snapshot_timestamp="2026-04-19T12:00:00Z",
+                extra_quote_currencies=["USD"],
+            )
+            self.assertEqual(cached, lock)
+            self.assertEqual(warnings, [])
+
+    def test_legacy_fetcher_never_receives_a_provider_attribution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "fx_rates.jsonl"
+            lock, warnings = ensure_snapshot_fx_lock(
+                {"settings": {"base_currency": "BRL"}},
+                fx_history_path=path, snapshot_timestamp="2026-04-21T12:00:00Z",
+                extra_quote_currencies=["USD"], auto_ingest=True,
+                fetcher=lambda **kwargs: {"USD": 5.2},
+            )
+            self.assertEqual(warnings, [])
+            self.assertEqual(lock["sources"], {"USD": "auto_ingest"})
+            self.assertEqual(load_jsonl(path)[0]["source"], "auto_ingest")
+
+    def test_invalid_acquired_rates_do_not_enter_history(self) -> None:
+        invalid = [
+            {"rate_to_base": 5.2, "as_of_date": "2026-04-22", "source": "bank"},
+            {"rate_to_base": 5.2, "as_of_date": "2026-02-30", "source": "bank"},
+            {"rate_to_base": 5.2, "source": "bank"},
+            {"rate_to_base": True, "as_of_date": "2026-04-20", "source": "bank"},
+            {"rate_to_base": float("inf"), "as_of_date": "2026-04-20", "source": "bank"},
+            {"rate_to_base": float("nan"), "as_of_date": "2026-04-20", "source": "bank"},
+        ]
+        for entry in invalid:
+            with self.subTest(entry=entry), tempfile.TemporaryDirectory() as tmp_dir:
+                path = Path(tmp_dir) / "fx_rates.jsonl"
+                lock, warnings = ensure_snapshot_fx_lock(
+                    {"settings": {"base_currency": "BRL"}},
+                    fx_history_path=path, snapshot_timestamp="2026-04-21T12:00:00Z",
+                    extra_quote_currencies=["USD"], auto_ingest=True,
+                    fetcher=lambda **kwargs: {"USD": entry},
+                )
+                self.assertEqual(lock["rates_to_base"], {})
+                self.assertEqual(load_jsonl(path), [])
+                self.assertTrue(any("Missing FX rate USD->BRL" in w for w in warnings))
+
+    def test_history_without_source_remains_compatible(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "fx_rates.jsonl"
+            append_jsonl(path, {"base_currency": "BRL", "quote_currency": "USD",
+                                "rate_to_base": 5.0, "as_of_date": "2026-04-20"})
+            lock, warnings = ensure_snapshot_fx_lock(
+                {"settings": {"base_currency": "BRL"}},
+                fx_history_path=path, snapshot_timestamp="2026-04-21T12:00:00Z",
+                extra_quote_currencies=["USD"],
+            )
+            self.assertEqual(warnings, [])
+            self.assertEqual(lock["sources"], {"USD": "history"})
 
 
 if __name__ == "__main__":

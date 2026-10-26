@@ -7,14 +7,43 @@ import json
 import re
 import sys
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 from rikdom.import_normalization import (
     normalize_currency,
-    normalize_datetime,
-    parse_decimal,
+    normalize_datetime as _normalize_datetime,
+    parse_decimal as _parse_decimal,
 )
+
+# This export dialect uses ISO dates and UTC for dates without a zone.
+normalize_datetime = partial(_normalize_datetime, naive_timezone=timezone.utc)
+
+
+def _assign_canonical_key(holding: dict) -> None:
+    """Identify instruments in this provider's US statement dialect."""
+    metadata = holding.setdefault("metadata", {})
+    if "canonical_key" in metadata:
+        return
+    kind = holding.get("asset_type_id")
+    if kind == "cash_equivalent" and holding.get("identifiers", {}).get("ticker", "").upper() == "CASH":
+        currency = holding.get("market_value", {}).get("currency", "").lower()
+        if re.fullmatch(r"[a-z]{3}", currency):
+            metadata["canonical_key"] = f"cash:{currency}"
+    elif kind in {"stock", "etf", "fund"}:
+        ticker = str(holding.get("identifiers", {}).get("ticker") or "").strip().lower()
+        if ticker and ticker not in {"cash", "unknown"} and holding.get("jurisdiction", {}).get("country") == "US":
+            metadata["canonical_key"] = f"us:{kind}:{ticker}"
+
+
+
+def parse_decimal(value: Any) -> float | None:
+    # These broker CSV exports use dot decimals, comma groups and dollar labels.
+    if isinstance(value, str):
+        value = value.strip().removeprefix("$").strip()
+    return _parse_decimal(value, decimal_separator=".", grouping_separator=",")
+
 
 PROVIDER = "charles-schwab"
 _DEFAULT_CURRENCY = "USD"
@@ -359,6 +388,8 @@ def parse_statement(path: Path) -> dict[str, Any]:
     }
 
     generated_at = max(generated_candidates) if generated_candidates else _now_iso()
+    for holding in holdings:
+        _assign_canonical_key(holding)
     return {
         "provider": PROVIDER,
         "generated_at": generated_at,

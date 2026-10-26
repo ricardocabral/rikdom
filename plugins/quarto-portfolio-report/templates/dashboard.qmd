@@ -119,12 +119,13 @@ format:
 
   <div class="grid">
     <section class="panel">
-      <div class="eyebrow">Current total</div>
+      <div class="eyebrow">Current valuation</div>
       <div class="metric" id="total">—</div>
-      <div class="muted">Based on latest snapshot</div>
+      <div class="muted">Current holdings with the supplied FX context</div>
+      <div class="muted" id="historical-context"></div>
     </section>
     <section class="panel">
-      <div class="eyebrow" style="margin-bottom:10px;">Progress over time</div>
+      <div class="eyebrow" style="margin-bottom:10px;">Historical snapshots</div>
       <svg id="line" viewBox="0 0 700 240" preserveAspectRatio="none"></svg>
     </section>
   </div>
@@ -147,6 +148,7 @@ format:
       <div class="muted warn" id="currency-warning" style="margin-top:12px;"></div>
     </section>
   </div>
+  <section class="panel" id="data-quality" style="margin-top:20px;"></section>
 </div>
 
 <script>
@@ -154,6 +156,8 @@ format:
     const payload = window.RIKDOM_REPORT_DATA || {};
     const sections = payload.sections || {};
     const quick = sections.quickview || {};
+    const valuation = sections.current_valuation || {};
+    const quality = sections.data_quality || {};
     // Chart palette pulled from CSS vars so it adapts to light/dark themes.
     const cssVar = (name, fallback) => {
       const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -203,9 +207,24 @@ format:
 
     document.getElementById('subtitle').textContent = `${profileName} · base ${baseCurrency}`;
     document.getElementById('base-ccy').textContent = baseCurrency;
-    if (latest && typeof latest.portfolio_value_base === 'number') {
-      document.getElementById('total').textContent = fmt(latest.portfolio_value_base, baseCurrency);
+    if (typeof valuation.total_value_base === 'number') {
+      document.getElementById('total').textContent = fmt(valuation.total_value_base, baseCurrency);
     }
+    document.getElementById('historical-context').textContent = latest
+      ? `Historical snapshot: ${fmt(latest.portfolio_value_base, baseCurrency)} on ${latest.timestamp || 'unknown date'}`
+      : 'Historical snapshot: none available';
+    const coverage = quality.coverage || {};
+    const quantity = quality.quantity || {};
+    const qualityWarnings = Array.isArray(quality.warnings) ? quality.warnings : [];
+    const excluded = Array.isArray(quality.excluded_holding_ids) ? quality.excluded_holding_ids : [];
+    document.getElementById('data-quality').innerHTML = `
+      <div class="eyebrow">Data quality</div>
+      <p>History coverage: ${escapeHtml(coverage.status || 'unknown')} (${escapeHtml(JSON.stringify(coverage.by_status || {}))}). Zero findings do not prove complete history.</p>
+      <p>Quantity: ${Number(quantity.matched || 0)} matched, ${Number(quantity.mismatched || 0)} mismatched, ${Number(quantity.not_computable || 0)} not computable. Unsupported events: ${Number(coverage.unsupported_event_count || 0)}.</p>
+      <p>Excluded holdings: ${escapeHtml(excluded.join(', ') || 'none')}.</p>
+      <ul>${qualityWarnings.slice(0, 4).map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
+      ${qualityWarnings.length > 4 ? `<p>${qualityWarnings.length - 4} more warnings in the trust artifacts.</p>` : ''}
+      <p>${(quality.artifacts || []).map(a => `<a class="link" href="${escapeHtml(a.href)}">${escapeHtml(a.label)}</a>`).join(' · ')}</p>`;
 
     function renderLineChart(points) {
       const svg = document.getElementById('line');
@@ -267,7 +286,7 @@ format:
       `).join('');
     }
 
-    const assetClass = Object.entries(latest?.by_asset_class || quick.latest_by_asset_class || {})
+    const assetClass = Object.entries(valuation.by_asset_class || {})
       .map(([label, value]) => ({ label, value: Number(value) || 0 }))
       .filter(row => row.value > 0)
       .sort((a, b) => b.value - a.value);

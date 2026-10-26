@@ -3,12 +3,15 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from rikdom.plugin_engine.contracts import BRAZIL_CNPJ_REGEX, BRAZIL_INDEXER_ENUM
 from rikdom.plugin_engine.loader import discover_plugins
 from rikdom.plugin_engine.pipeline import (
     build_asset_type_catalog,
     build_asset_type_catalog_with_warnings,
 )
+
+
+BRAZIL_CNPJ_REGEX = r"^\d{14}$"
+BRAZIL_INDEXER_ENUM = ["CDI_DI_OVER", "IPCA", "SELIC", "PREFIXADO"]
 
 
 class AssetTypeCatalogPluginTests(unittest.TestCase):

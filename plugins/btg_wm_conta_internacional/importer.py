@@ -11,6 +11,23 @@ from pathlib import Path
 from typing import Any
 
 
+def _assign_canonical_key(holding: dict) -> None:
+    """Identify instruments in this provider's US statement dialect."""
+    metadata = holding.setdefault("metadata", {})
+    if "canonical_key" in metadata:
+        return
+    kind = holding.get("asset_type_id")
+    if kind == "cash_equivalent" and holding.get("identifiers", {}).get("ticker", "").upper() == "CASH":
+        currency = holding.get("market_value", {}).get("currency", "").lower()
+        if re.fullmatch(r"[a-z]{3}", currency):
+            metadata["canonical_key"] = f"cash:{currency}"
+    elif kind in {"stock", "etf", "fund"}:
+        ticker = str(holding.get("identifiers", {}).get("ticker") or "").strip().lower()
+        if ticker and ticker not in {"cash", "unknown"} and holding.get("jurisdiction", {}).get("country") == "US":
+            metadata["canonical_key"] = f"us:{kind}:{ticker}"
+
+
+
 def _load_known_tickers_enricher():
     import importlib.util as _iu
     from pathlib import Path as _Path
@@ -626,6 +643,8 @@ def parse_statement(path: Path) -> dict[str, Any]:
         payload["holdings"] = holdings
     if activities:
         payload["activities"] = activities
+    for holding in holdings:
+        _assign_canonical_key(holding)
     return payload
 
 

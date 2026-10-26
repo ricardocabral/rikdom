@@ -3,20 +3,22 @@
     "id": "stock",
     "label": "Stock",
     "asset_class": "stocks",
-    "availability": { "countries": ["US", "BR"] },
-    "metadata": { "example_tickers": ["AAPL", "PETR4"] }
+    "metadata": {
+      "example_tickers": [
+        "AAPL",
+        "PETR4"
+      ]
+    }
   },
   {
     "id": "reit",
     "label": "REIT",
-    "asset_class": "reits",
-    "availability": { "countries": ["US", "BR"] }
+    "asset_class": "reits"
   },
   {
     "id": "fund",
     "label": "Investment Fund",
     "asset_class": "funds",
-    "availability": { "countries": ["US", "BR"] },
     "instrument_attributes": [
       {
         "id": "expense_ratio_pct",
@@ -53,43 +55,36 @@
   {
     "id": "real_estate_property",
     "label": "Direct Real Estate",
-    "asset_class": "real_estate",
-    "availability": { "countries": ["US", "BR"] }
+    "asset_class": "real_estate"
   },
   {
     "id": "cash_equivalent",
     "label": "Cash Equivalent",
-    "asset_class": "cash_equivalents",
-    "availability": { "countries": ["US", "BR"] }
+    "asset_class": "cash_equivalents"
   },
   {
     "id": "digital_asset",
     "label": "Digital Asset",
-    "asset_class": "digital_assets",
-    "availability": { "countries": ["US", "BR"] }
+    "asset_class": "digital_assets"
   },
   {
     "id": "cryptocurrency",
     "label": "Cryptocurrency",
-    "asset_class": "cryptocurrencies",
-    "availability": { "countries": ["US", "BR"] }
+    "asset_class": "cryptocurrencies"
   },
   {
     "id": "debt_instrument",
     "label": "Debt Instrument",
-    "asset_class": "debt",
-    "availability": { "countries": ["US", "BR"] }
+    "asset_class": "debt"
   },
   {
     "id": "private_equity_fund",
     "label": "Private Equity Fund",
-    "asset_class": "private_equity",
-    "availability": { "countries": ["US", "BR"] }
+    "asset_class": "private_equity"
   },
   {
     "id": "other_asset",
     "label": "Other Asset",
-    "asset_class": "other",
-    "availability": { "countries": ["US", "BR"] }
+    "asset_class": "other"
   }
 ]

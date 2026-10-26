@@ -35,7 +35,8 @@
         "nominal_variation": {
           "amount": 0.0,
           "currency": "BRL"
-        }
+        },
+        "canonical_key": "br:fund:12345678000195"
       },
       "quantity": 10.0,
       "valuation": {
@@ -147,7 +148,8 @@
         "statement_account_id": "123456",
         "source_ref": "plugins/btg-investment-pdf/fixtures/default/input.txt#page=1",
         "average_price": 0.0,
-        "instrument_type": "Fundos Listados"
+        "instrument_type": "Fundos Listados",
+        "canonical_key": "br:fii:abcd12"
       },
       "quantity": 100.0,
       "valuation": {
@@ -185,7 +187,8 @@
         "statement_category": "Conta Corrente",
         "statement_as_of": "2026-10-09",
         "statement_account_id": "123456",
-        "source_ref": "plugins/btg-investment-pdf/fixtures/default/input.txt#page=1"
+        "source_ref": "plugins/btg-investment-pdf/fixtures/default/input.txt#page=1",
+        "canonical_key": "cash:brl"
       },
       "valuation": {
         "unit_price": {
@@ -400,6 +403,20 @@
     "statement_period": "2026-10-01/2026-10-09",
     "statement_as_of": "2026-10-09",
     "ending_account_value": 185.0,
-    "coverage": "complete_positions"
+    "coverage": "complete_positions",
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "btg-investment-pdf:statement",
+          "status": "unknown",
+          "event_types": [],
+          "reasons": [
+            "positions_only_source_does_not_supply_activity_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
   }
 }

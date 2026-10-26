@@ -16,9 +16,10 @@ CSV exported by Wealthfolio (`Activities → Export CSV`) with header columns su
 - `fee`
 - `account_id`, `comment`, `is_draft`, `id`
 
-The delimiter is auto-detected (`,`, `;`, tab, or `|`). Decimal numbers may use
-`.` or `,` as the decimal separator; both are normalized via
-`rikdom.import_normalization.parse_decimal`.
+The delimiter is detected from the header. The semicolon dialect uses comma
+decimals and dot grouping; the comma, tab and pipe dialects use dot decimals
+and comma grouping. Numeric values never select their own locale. Dates use
+ISO 8601; dates without a timezone use UTC.
 
 ## CLI Example
 

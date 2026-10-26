@@ -197,6 +197,21 @@ Portfolio view plugin (`quarto-portfolio-report`) preview:
 ![Rikdom portfolio view plugin preview 1](docs/assets/portfolio-view-plugin-1.png)
 ![Rikdom portfolio view plugin preview 2](docs/assets/portfolio-view-plugin-2.png)
 
+## Trust, source boundaries, and manual corrections
+
+Imports preview changes, history coverage, and quality findings before writing.
+Add `--reconcile` to a successful import for JSON/Markdown trust artifacts.
+[Manual events and immutable corrections](docs/how-to/enter-and-correct-activities.md)
+work through validated local JSON. Correction-bearing portfolios use schema 2.0.0;
+uncorrected 1.x remains readable. Older raw-ledger calculators are not supported
+for corrected data.
+
+Core calculations require an explicit reporting currency and consume normalized
+source facts. Plugins own provider operations, regional identifiers and catalog
+rules, parsing conventions, and report presentation. Cached FX is the default;
+acquisition requires an explicitly selected connector, for example
+`rikdom snapshot --fx-provider frankfurter`.
+
 ## AI Agent Skills
 
 - `.codex/SKILL.md`

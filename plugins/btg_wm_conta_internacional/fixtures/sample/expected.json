@@ -8,7 +8,26 @@
     "statement_period_start": "2026-04-01",
     "statement_period_end": "2026-04-30",
     "ending_account_value": 1845914.9,
-    "parsed_holdings_total": 1845914.9
+    "parsed_holdings_total": 1845914.9,
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "btg_wm_conta_internacional:statement",
+          "status": "unknown",
+          "event_types": [
+            "buy",
+            "dividend",
+            "fee",
+            "transfer_in"
+          ],
+          "reasons": [
+            "source_does_not_declare_complete_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
   },
   "holdings": [
     {
@@ -34,7 +53,8 @@
         "total_cost": 564081.39,
         "market_price": 152.28,
         "gain_loss": 48264.28,
-        "account_type": "M"
+        "account_type": "M",
+        "canonical_key": "us:stock:acwi"
       },
       "economic_exposure": {
         "classification_source": "issuer_prospectus",
@@ -137,7 +157,8 @@
         "total_cost": 89144.69,
         "market_price": 422.41,
         "gain_loss": 9620.74,
-        "account_type": "M"
+        "account_type": "M",
+        "canonical_key": "us:stock:gld"
       },
       "economic_exposure": {
         "classification_source": "issuer_prospectus",
@@ -180,7 +201,8 @@
         "total_cost": 157034.08,
         "market_price": 22.17,
         "gain_loss": -1601.98,
-        "account_type": "M"
+        "account_type": "M",
+        "canonical_key": "us:stock:schh"
       },
       "economic_exposure": {
         "classification_source": "issuer_prospectus",
@@ -311,7 +333,8 @@
         "total_cost": 391673.03,
         "market_price": 613.89,
         "gain_loss": 26217.31,
-        "account_type": "M"
+        "account_type": "M",
+        "canonical_key": "us:stock:voo"
       },
       "economic_exposure": {
         "classification_source": "issuer_prospectus",

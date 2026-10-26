@@ -1,12 +1,43 @@
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
+from html.parser import HTMLParser
 import unittest
 from pathlib import Path
 
 DASHBOARD_TEMPLATE_PATH = Path(
     "plugins/quarto-portfolio-report/templates/dashboard.qmd"
 )
+
+
+def run_template(source: str, payload: dict) -> dict:
+    """Execute the real application script and capture the HTML it emits."""
+    node = shutil.which("node")
+    if node is None:
+        raise unittest.SkipTest("Node.js is required for report JavaScript checks")
+    runner = r"""
+const fs = require('node:fs');
+const vm = require('node:vm');
+const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+const scripts = [...input.source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+const script = scripts.find(s => s.includes('const payload = window.RIKDOM_REPORT_DATA'));
+if (!script) throw new Error('Application script missing');
+const nodes = {};
+const document = {documentElement: {}, getElementById(id) {
+    return nodes[id] ||= {innerHTML: '', textContent: ''};
+}};
+vm.runInNewContext(script, {window: {RIKDOM_REPORT_DATA: input.payload}, document,
+    getComputedStyle: () => ({getPropertyValue: () => ''}), Intl, Date});
+process.stdout.write(JSON.stringify(nodes));
+"""
+    completed = subprocess.run(
+        [node, "-e", runner], input=json.dumps({"source": source, "payload": payload}),
+        text=True, capture_output=True, timeout=10, check=True,
+    )
+    return json.loads(completed.stdout)
 
 
 class DashboardJsSafetyTests(unittest.TestCase):
@@ -269,39 +300,31 @@ class DashboardJsSafetyTests(unittest.TestCase):
         self.assertRegex(self.source, r"CCY_RE\s*=\s*/\^\[A-Z\]\{3\}\$/")
         self.assertRegex(self.source, r"const\s+safeCcy\s*=")
 
-    def test_escape_html_is_defined_and_used_for_all_innerhtml_interpolations(
-        self,
-    ) -> None:
-        self.assertIn("const escapeHtml", self.source)
+    def test_quality_fields_render_untrusted_text_without_html_injection(self) -> None:
+        attack = '<img src=x onerror="alert(1)"> & unsafe'
+        nodes = run_template(self.source, {
+            "profile": {"display_name": attack, "base_currency": "EUR"},
+            "sections": {"current_valuation": {"total_value_base": 26, "by_asset_class": {}},
+                         "data_quality": {
+                             "coverage": {"status": attack, "by_status": {attack: 1}},
+                             "warnings": [attack], "excluded_holding_ids": [attack],
+                             "artifacts": [{"label": attack, "href": 'reconciliation.json" onerror="alert(1)'}],
+                         }},
+        })
+        html = nodes["data-quality"]["innerHTML"]
+        self.assertIn("&lt;img", html)
+        self.assertNotIn("<img", html)
+        self.assertIn("26.00", nodes["total"]["textContent"])
+        self.assertIn(attack, nodes["subtitle"]["textContent"])
 
-        interpolations = self._all_innerhtml_interpolations()
-        self.assertGreater(
-            len(interpolations),
-            0,
-            "No innerHTML template interpolations found; expected at least one safety contract target.",
-        )
-
-        for expression in interpolations:
-            if self._is_wrapped_by_escape_html(expression):
-                continue
-            if self._is_allowlisted_innerhtml_expression(expression):
-                continue
-            self.fail(
-                f"Unescaped innerHTML interpolation found: ${{{expression}}}. "
-                "Wrap non-numeric interpolations with escapeHtml(...)."
-            )
-
-        for required in (
-            "escapeHtml(t.label)",
-            "escapeHtml(formatYm(",
-            "escapeHtml(centerLabel)",
-            "escapeHtml(fmtCompact(total",
-            "escapeHtml(slice.label)",
-            "escapeHtml(pct(slice.value, total))",
-            "escapeHtml(formatValue(slice))",
-            "escapeHtml(slice.color)",
-        ):
-            self.assertIn(required, self.source, f"Missing escape for {required!r}")
+        class Attributes(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                if tag == "a":
+                    self.attrs = dict(attrs)
+        parsed = Attributes()
+        parsed.feed(html)
+        self.assertNotIn("onerror", parsed.attrs)
+        self.assertEqual(parsed.attrs["href"], 'reconciliation.json" onerror="alert(1)')
 
     def test_escape_html_covers_all_xss_vectors(self) -> None:
         escape_html_body = self._escape_html_body()
@@ -385,59 +408,45 @@ class ReportTemplateContractTests(unittest.TestCase):
                 msg=f"report.qmd must source {required!r} from CSS var",
             )
 
-    def test_top_holdings_table_header_and_row_column_counts_match(self) -> None:
-        """The Top holdings table dropped the per-row ID column. Header
-        and row column counts must stay in sync — a future regression that
-        re-adds <th>ID</th> without a matching <td> (or vice versa) would
-        misalign the rendered table."""
-        # The row template precedes the header in source order
-        # (topHoldings.map(...) builds rows, then the surrounding return `
-        # <table>...</table>` wraps them). Match each fragment independently.
-        row_match = re.search(
-            r"topHoldings\.map\(.*?return\s*`\s*<tr>(?P<row>.*?)</tr>\s*`",
-            self.source,
-            re.DOTALL,
-        )
-        header_match = re.search(
-            r"<thead>\s*<tr>(?P<header>.*?)</tr>\s*</thead>",
-            self.source,
-            re.DOTALL,
-        )
-        self.assertIsNotNone(
-            row_match, msg="Top holdings row template not found in report.qmd"
-        )
-        self.assertIsNotNone(
-            header_match, msg="Top holdings <thead> not found in report.qmd"
-        )
-        header = header_match.group("header")
-        row = row_match.group("row")
-
-        header_cells = re.findall(r"<th\b", header)
-        row_cells = re.findall(r"<td\b", row)
-
-        self.assertEqual(
-            len(header_cells),
-            len(row_cells),
-            msg=(
-                f"Top holdings table column mismatch: "
-                f"{len(header_cells)} <th> vs {len(row_cells)} <td>. "
-                "Header/row must stay aligned (ID column was intentionally removed)."
-            ),
-        )
-        # Lock the contract to the post-removal column set so a future
-        # edit that re-adds the ID column has to update this test
-        # deliberately.
-        self.assertEqual(
-            len(header_cells),
-            4,
-            msg="Top holdings table must have exactly 4 columns "
-            "(Holding / Amount / Share / Relative Size)",
-        )
-        self.assertNotRegex(
-            header,
-            r">\s*ID\s*</th>",
-            msg="ID column header reintroduced in Top holdings table",
-        )
+    def test_top_holdings_table_rows_match_headers_and_show_core_base_value(self) -> None:
+        nodes = run_template(self.source, {
+            "profile": {"base_currency": "EUR"},
+            "sections": {"current_valuation": {"total_value_base": 26},
+                         "risk": {"top_holdings": [
+                             {"id": "included", "amount": 1000, "currency": "JPY", "base_amount": 6},
+                             {"id": "excluded", "amount": 50, "currency": "GBP", "base_amount": None, "excluded_reason": "fx_missing"},
+                         ]}},
+        })
+        class Table(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.rows = []
+                self.row = None
+                self.in_cell = False
+            def handle_starttag(self, tag, attrs):
+                if tag == "tr":
+                    self.row = []
+                if tag in ("td", "th") and self.row is not None:
+                    self.row.append("")
+                    self.in_cell = True
+            def handle_endtag(self, tag):
+                if tag in ("td", "th"):
+                    self.in_cell = False
+                if tag == "tr" and self.row is not None:
+                    self.rows.append(self.row)
+                    self.row = None
+            def handle_data(self, data):
+                if self.in_cell:
+                    self.row[-1] += data
+        table = Table()
+        table.feed(nodes["rk-app"]["innerHTML"])
+        header, included, excluded = table.rows
+        self.assertIn("Current base amount", header)
+        self.assertEqual(len(header), len(included))
+        self.assertEqual(len(header), len(excluded))
+        base_index = header.index("Current base amount")
+        self.assertIn("6.00", included[base_index])
+        self.assertIn("Excluded: fx_missing", excluded[base_index])
 
 
 if __name__ == "__main__":

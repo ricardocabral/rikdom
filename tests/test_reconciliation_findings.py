@@ -160,11 +160,14 @@ class AggregateFindingsShimTests(unittest.TestCase):
                 }
             ],
         }
+        from test_quantity_coverage import portfolio as declared_portfolio
+        portfolio = declared_portfolio()
+        portfolio["holdings"][0]["quantity"] = 3
         result = aggregate_portfolio(portfolio)
         codes = [f.code for f in result.findings]
         self.assertIn("RECON_QTY_LEDGER_MISMATCH", codes)
         f = next(x for x in result.findings if x.code == "RECON_QTY_LEDGER_MISMATCH")
-        self.assertEqual(f.refs.get("holding_id"), "h-petr4")
+        self.assertEqual(f.refs.get("holding_id"), "h")
         self.assertIn("holding_quantity", f.observed)
 
 

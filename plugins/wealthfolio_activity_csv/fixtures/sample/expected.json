@@ -95,5 +95,33 @@
       "status": "pending"
     }
   ],
-  "provider": "wealthfolio_activity_csv"
+  "provider": "wealthfolio_activity_csv",
+  "metadata": {
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "wealthfolio_activity_csv:statement",
+          "status": "partial",
+          "event_types": [
+            "buy",
+            "dividend",
+            "transfer_in"
+          ],
+          "reasons": [
+            "unsupported_source_events"
+          ]
+        }
+      ],
+      "unsupported_events": [
+        {
+          "source_ref": "account-main",
+          "source_event": "wealthfolio:tax",
+          "reason": "source_event_has_no_supported_taxonomy_mapping",
+          "affects_quantity": false,
+          "affects_cash": true
+        }
+      ]
+    }
+  }
 }

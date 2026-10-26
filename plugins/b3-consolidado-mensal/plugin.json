@@ -1,9 +1,9 @@
 {
   "name": "b3-consolidado-mensal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "api_version": "1.0",
   "plugin_types": ["source/input"],
   "module": "plugin",
   "class_name": "Plugin",
-  "description": "Import holdings from B3 consolidated monthly XLSX reports"
+  "description": "Import B3 monthly holdings or Movimentação XLSX history with source coverage diagnostics"
 }

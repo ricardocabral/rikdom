@@ -12,8 +12,8 @@ for the rationale see
 | Field | Type | Description |
 | --- | --- | --- |
 | `rates_to_base` | `{currency: number}` | Rate used to convert each foreign currency to `base_currency`. |
-| `rate_dates` | `{currency: ISO-8601 date}` | Date the rate was observed in `fx_rates.jsonl`. |
-| `sources` | `{currency: string}` | Provenance label for each rate (e.g. provider name). |
+| `rate_dates` | `{currency: ISO-8601 date}` | Actual effective date of the selected rate in `fx_rates.jsonl`. |
+| `sources` | `{currency: string}` | Original history or acquisition source (e.g. provider name); `history` for legacy cached rows without a source. |
 
 ## FX history file
 
@@ -25,6 +25,32 @@ for the rationale see
 
 The same shape is referenced by `Money.fx_ref` (schema 1.5.0+) for
 line-item FX provenance on activities and holdings.
+
+## Acquisition boundary
+
+Core selects the latest cached rate on or before the snapshot date. It does not
+select a provider or make HTTP requests. `ensure_snapshot_fx_lock` defaults to
+`auto_ingest=False`; acquisition requires both `auto_ingest=True` and an
+explicitly injected fetcher.
+
+The fetcher receives keyword arguments `base_currency`, `quote_currencies`, and
+`as_of_date`, and returns entries keyed by quote currency:
+
+```json
+{"USD":{"rate_to_base":5.21,"as_of_date":"2026-04-30","source":"custom-provider"}}
+```
+
+Core retains the supplied effective date and source in both history and the
+snapshot lock. A response without a valid effective date, or with a future date
+or nonpositive/nonfinite rate, is ignored and produces a missing-rate warning.
+Legacy numeric entries such as `{"USD":5.21}` remain supported for injected
+fetchers; their date is the requested date and their source is the generic
+`auto_ingest`. New integrations should supply dated entries.
+
+The optional [Frankfurter connector](../../plugins/frankfurter/README.md)
+implements this dated contract through the existing `daily-rates` query operation.
+It preserves the provider's actual effective date, including weekends and
+holidays, rather than labeling it with the requested date.
 
 ## Resolution order
 

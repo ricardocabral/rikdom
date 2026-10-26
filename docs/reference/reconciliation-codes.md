@@ -25,7 +25,7 @@ For the broader Calculation Trust design, see
 | `RECON_INVALID_MONEY` | warning | holding/activity | A money object (e.g. `market_value`, `money`, `fees`) is missing, has a non-object shape, or has a malformed `amount`/`currency`. | Ensure money objects follow `{amount: number, currency: ISO-4217 code}`. |
 | `RECON_MALFORMED_HOLDING` | warning | portfolio | A holding entry is not a JSON object and was skipped. | Ensure each holding entry is an object with the expected fields. |
 | `RECON_LOOKTHROUGH_NON_POSITIVE_WEIGHT` | warning | holding | A holding's look-through `economic_exposure.breakdown` weights sum to zero or less; the exposure was assigned to `__unclassified__`. | Set `weight_pct` values that sum to a positive total. |
-| `RECON_QTY_LEDGER_MISMATCH` | warning | holding | The declared holding quantity does not match the activity-ledger replay (`buy + transfer_in − sell − transfer_out`). | Reconcile activities against the holding: fix missing buy/sell/transfer/split events or correct the holding quantity. |
+| `RECON_QTY_LEDGER_MISMATCH` | warning | holding | An explicitly covered, account-scoped dated trade-basis position differs from the effective quantity ledger, including supported corporate-action legs. | Reconcile activities against the holding: fix missing buy/sell/transfer/split events or correct the holding quantity. |
 | `RECON_CASH_DRIFT` | warning | portfolio | Total cash declared by `cash_equivalents` holdings does not match the cash activity ledger within the configured tolerance. | Verify cash holdings against the activity ledger; add missing deposit/withdrawal/dividend events or correct the cash holding amount. |
 
 ## Programmatic access
@@ -51,3 +51,11 @@ mutate it raise `TypeError`.
 ## See also
 
 - [Calculation trust](../explanation/calculation-trust.md)
+
+## Quantity comparison status
+
+The reconciliation report's `quantity_reconciliation` entries distinguish
+`matched`, `mismatched`, and `not_computable`. Missing/expired/incompatible evidence
+produces the last state, not a clean result. `quantity_summary` counts each status;
+`coverage_summary` exposes declarations and unsupported events. Preflight blocking
+codes are documented in [import diagnostics](import-diagnostics.md).

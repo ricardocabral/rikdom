@@ -9,7 +9,25 @@
         "currency": "USD",
         "account_name": "Roth IRA"
       }
-    ]
+    ],
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "charles-schwab:statement",
+          "status": "unknown",
+          "event_types": [
+            "dividend",
+            "transfer_in",
+            "transfer_out"
+          ],
+          "reasons": [
+            "source_does_not_declare_complete_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
   },
   "holdings": [
     {
@@ -29,7 +47,8 @@
         "country": "US"
       },
       "metadata": {
-        "security_type": "Mutual Fund"
+        "security_type": "Mutual Fund",
+        "canonical_key": "us:fund:swppx"
       }
     },
     {
@@ -46,6 +65,9 @@
       },
       "jurisdiction": {
         "country": "US"
+      },
+      "metadata": {
+        "canonical_key": "cash:usd"
       }
     }
   ],

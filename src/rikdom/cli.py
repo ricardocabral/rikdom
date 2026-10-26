@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
 import re
 import shutil
@@ -14,11 +16,10 @@ from pathlib import Path
 from typing import Any
 
 from .aggregate import aggregate_portfolio, compute_strategic_bucket_totals
+from .activities import CORRECTION_SCHEMA_VERSION, check_financial_contract, correction, effective_activities
 from .reconciliation.reports import (
-    render_holding_trust_json,
-    render_holding_trust_markdown,
-    render_reconciliation_json,
-    render_reconciliation_markdown,
+    build_trust_reports,
+    write_trust_reports,
 )
 from .backfill import backfill_cashflows, backfill_exposure
 from .export_bundle import (
@@ -63,7 +64,7 @@ from .plugin_engine.pipeline import (
     run_output_pipeline,
     run_storage_sync_pipeline,
 )
-from .import_preflight import build_preflight_report
+from .import_preflight import build_preflight_report, import_diagnostics
 from .plugins import (
     MergeCounts,
     build_import_diff,
@@ -71,9 +72,9 @@ from .plugins import (
     merge_holdings,
     merge_statement_observations,
     merge_tax_lots,
+    merge_import_diagnostics,
     stamp_provenance,
 )
-from .canonical_key import assign_canonical_keys
 from .benchmarks import make_dir_loader
 from .performance import (
     compute_performance,
@@ -419,36 +420,11 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     out_dir = Path(getattr(args, "out_dir", None) or Path(args.out_root) / "reports")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    fmt = getattr(args, "format", "both")
-    write_json = fmt in ("both", "json")
-    write_md = fmt in ("both", "md")
-
-    trust_json = render_holding_trust_json(
-        result, portfolio_id=pid, generated_at=generated_at
-    )
-    recon_json = render_reconciliation_json(
-        result, portfolio_id=pid, generated_at=generated_at
-    )
-
-    written: list[str] = []
-    if write_json:
-        trust_json_path = out_dir / "holding_trust.json"
-        save_json(str(trust_json_path), trust_json)
-        written.append(str(trust_json_path))
-        recon_json_path = out_dir / "reconciliation.json"
-        save_json(str(recon_json_path), recon_json)
-        written.append(str(recon_json_path))
-    if write_md:
-        trust_md_path = out_dir / "holding_trust.md"
-        trust_md_path.write_text(
-            render_holding_trust_markdown(trust_json), encoding="utf-8"
-        )
-        written.append(str(trust_md_path))
-        recon_md_path = out_dir / "reconciliation.md"
-        recon_md_path.write_text(
-            render_reconciliation_markdown(recon_json), encoding="utf-8"
-        )
-        written.append(str(recon_md_path))
+    result.fx_lock = fx_lock
+    reports = build_trust_reports(result, portfolio_id=pid, generated_at=generated_at)
+    artifacts = write_trust_reports(reports, out_dir, format=getattr(args, "format", "both"))
+    written = [artifact["path"] for artifact in artifacts]
+    recon_json = reports["reconciliation"]
 
     summary = recon_json["summary"]
     print(
@@ -468,12 +444,19 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
 
 def cmd_snapshot(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
+    check_financial_contract(portfolio)
     snapshot_timestamp = args.timestamp or _now_iso()
+    provider = getattr(args, "fx_provider", None)
+    fetcher = None
+    if provider and not getattr(args, "no_fx_auto_ingest", False):
+        def fetcher(**params):
+            return run_connector_query_pipeline(provider, getattr(args, "plugins_dir", "plugins"), "daily-rates", params)["data"]
     fx_lock, fx_warnings = ensure_snapshot_fx_lock(
         portfolio,
         fx_history_path=args.fx_history,
         snapshot_timestamp=snapshot_timestamp,
-        auto_ingest=not bool(args.no_fx_auto_ingest),
+        auto_ingest=fetcher is not None,
+        fetcher=fetcher,
     )
     result = aggregate_portfolio(
         portfolio,
@@ -517,20 +500,16 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
 
 def cmd_performance(args: argparse.Namespace) -> int:
     portfolio = load_json(args.portfolio)
+    check_financial_contract(portfolio)
     if getattr(args, "by", None) == "instrument":
         return cmd_instrument_performance(args, portfolio)
     if getattr(args, "instrument", None) or getattr(args, "terminal_value", None) is not None:
         print("--instrument and --terminal-value require --by instrument", file=sys.stderr)
         return 1
     snapshots = load_jsonl(args.snapshots)
-    settings = portfolio.get("settings") or {}
-    base_currency = "USD"
-    if isinstance(settings, dict):
-        raw = settings.get("base_currency")
-        if isinstance(raw, str) and raw.strip():
-            base_currency = raw.strip().upper()
+    base_currency = _portfolio_base_currency(portfolio)
 
-    activities = portfolio.get("activities") or []
+    activities = effective_activities(portfolio.get("activities") or [])
     if not isinstance(activities, list):
         activities = []
 
@@ -799,7 +778,7 @@ def _portfolio_base_currency(portfolio: dict[str, Any]) -> str:
         raw = settings.get("base_currency")
         if isinstance(raw, str) and raw.strip():
             return raw.strip().upper()
-    return "USD"
+    raise ValueError("settings.base_currency is required")
 
 
 def policy_money_currencies_for_funded_ratio(
@@ -1007,7 +986,8 @@ def _sync_asset_type_catalog_from_plugins(
 
 
 def cmd_import_statement(args: argparse.Namespace) -> int:
-    portfolio = load_json(args.portfolio)
+    portfolio = copy.deepcopy(load_json(args.portfolio))
+    check_financial_contract(portfolio)
     catalog_sync = _sync_asset_type_catalog_from_plugins(portfolio, args.plugins_dir)
     try:
         imported = run_import_pipeline(args.plugin, args.plugins_dir, args.input)
@@ -1018,9 +998,26 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         print(f"Import failed: {exc}", file=sys.stderr)
         return 1
 
+    return _apply_statement(args, portfolio, imported, catalog_sync)
+
+
+def _apply_statement(args: argparse.Namespace, portfolio: dict[str, Any], imported: dict[str, Any], catalog_sync: dict[str, Any]) -> int:
+    previous_schema_version = portfolio.get("schema_version")
     import_run_id = args.import_run_id or f"run-{uuid.uuid4().hex[:16]}"
     ingested_at = args.ingested_at or _now_iso()
     source_system = imported.get("provider") or args.plugin
+
+    diagnostics = import_diagnostics(imported)
+    if isinstance(diagnostics, dict):
+        diagnostics = copy.deepcopy(diagnostics)
+        path = Path(args.input)
+        if "document_fingerprint" not in diagnostics and path.is_file():
+            digest = hashlib.sha256()
+            with path.open("rb") as stream:
+                for block in iter(lambda: stream.read(65536), b""):
+                    digest.update(block)
+            diagnostics["document_fingerprint"] = digest.hexdigest()
+        imported.setdefault("metadata", {})["rikdom_import_diagnostics"] = diagnostics
 
     stamp_provenance(
         imported,
@@ -1028,7 +1025,6 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         import_run_id=import_run_id,
         ingested_at=ingested_at,
     )
-    assign_canonical_keys(imported)
 
     collapse_canonical = bool(getattr(args, "collapse_canonical", False))
     preflight_report = build_preflight_report(portfolio, imported)
@@ -1076,11 +1072,26 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         merged, a_counts = merge_activities(merged, imported)
         merged, lot_counts = merge_tax_lots(merged, imported)
         merged, observation_counts = merge_statement_observations(merged, imported)
+        merge_import_diagnostics(merged, imported)
+        if any(correction(a) for a in merged.get("activities", []) if isinstance(a, dict)):
+            merged["schema_version"] = CORRECTION_SCHEMA_VERSION
+        check_financial_contract(merged)
     except Exception as exc:
         print(f"Import failed: {exc}", file=sys.stderr)
         return 1
+    reconciliation: dict[str, Any] = {"status": "unavailable", "reason": "settings.base_currency is required for valuation"}
+    reports = None
+    if (merged.get("settings") or {}).get("base_currency"):
+        fx_lock, fx_warnings = ensure_snapshot_fx_lock(merged, fx_history_path=getattr(args, "fx_history", None) or str(Path(args.portfolio).parent / "fx_rates.jsonl"), snapshot_timestamp=ingested_at, auto_ingest=False)
+        result = aggregate_portfolio(merged, fx_rates_to_base=fx_lock["rates_to_base"])
+        result.fx_lock = fx_lock
+        result.warnings.extend(fx_warnings)
+        reports = build_trust_reports(result, portfolio_id=_portfolio_id(merged), generated_at=ingested_at)
+        reconciliation = {"status": "computed", "summary": reports["reconciliation"]["summary"], "coverage_summary": reports["reconciliation"]["coverage_summary"], "quantity_summary": reports["reconciliation"]["quantity_summary"], "total_value_base": result.total_value_base, "warnings": result.warnings, "invariant": reports["holding_trust"]["invariant"], "artifacts": []}
     if write_applied:
         save_json(args.portfolio, merged)
+        if getattr(args, "reconcile", False) and reports is not None:
+            reconciliation["artifacts"] = write_trust_reports(reports, Path(getattr(args, "out_root", None) or "out") / "reports")
 
     log_entry = {
         "import_run_id": import_run_id,
@@ -1097,7 +1108,11 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
         "dry_run": dry_run,
         "collapse_canonical": collapse_canonical,
         "catalog_sync": catalog_sync,
+        "import_diagnostics": diagnostics,
+        "reconciliation": reconciliation,
     }
+    if merged.get("schema_version") != previous_schema_version or any(correction(a) for a in imported.get("activities", [])):
+        log_entry["contract_transition"] = {"from": previous_schema_version, "to": merged.get("schema_version"), "requires_correction_aware_reader": True}
     if "tax_lots" in imported:
         log_entry["tax_lots"] = _counts_dict(lot_counts)
     if "statement_observations" in imported:
@@ -1108,6 +1123,30 @@ def cmd_import_statement(args: argparse.Namespace) -> int:
 
     print(json.dumps(log_entry, indent=2, ensure_ascii=False))
     return 0
+
+
+def cmd_activity_correct(args: argparse.Namespace) -> int:
+    """Prepare a normal statement; the shared import boundary owns all writes."""
+    portfolio = load_json(args.portfolio)
+    check_financial_contract(portfolio)
+    replacement = load_json(args.input)
+    if not isinstance(replacement, dict) or not isinstance(replacement.get("id"), str) or not replacement["id"].strip():
+        raise ValueError("Replacement must be a complete activity with its own stable id")
+    previous = next((a for a in portfolio.get("activities", []) if a.get("id") == replacement["id"]), None)
+    replacement.setdefault("created_at", previous.get("created_at") if previous else _now_iso())
+    replacement.setdefault("idempotency_key", hashlib.sha256(f"manual-correction|{replacement['id']}".encode()).hexdigest()[:32])
+    replacement["source_system"] = "manual"
+    replacement.setdefault("extensions", {})["rikdom_correction"] = {"version": 1, "supersedes_activity_id": args.activity_id, "reason": args.reason}
+    from jsonschema import Draft202012Validator, FormatChecker
+    schema = json.loads(resource_files("rikdom._resources").joinpath("portfolio.schema.json").read_text(encoding="utf-8"))
+    validator = Draft202012Validator({"$ref": "#/$defs/Activity", "$defs": schema["$defs"]}, format_checker=FormatChecker())
+    errors = list(validator.iter_errors(replacement))
+    if errors:
+        raise ValueError(f"Invalid correction activity: {errors[0].message}")
+    imported = {"provider": "manual", "activities": [replacement]}
+    args.plugin = "manual-activity"
+    catalog_sync = _sync_asset_type_catalog_from_plugins(portfolio, args.plugins_dir)
+    return _apply_statement(args, portfolio, imported, catalog_sync)
 
 
 def cmd_imports_list(args: argparse.Namespace) -> int:
@@ -1452,7 +1491,7 @@ def _merge_by_asset_class(
     target: dict[str, float], increment: dict[str, float]
 ) -> None:
     for asset_class, amount in increment.items():
-        target[asset_class] = round(target.get(asset_class, 0.0) + float(amount), 2)
+        target[asset_class] = (target.get(asset_class, 0.0) + float(amount))
 
 
 def cmd_workspace_rollup(args: argparse.Namespace) -> int:
@@ -1513,9 +1552,7 @@ def cmd_workspace_rollup(args: argparse.Namespace) -> int:
             aggregate.base_currency,
             {"portfolio_value_base": 0.0, "by_asset_class": {}},
         )
-        currency_bucket["portfolio_value_base"] = round(
-            currency_bucket["portfolio_value_base"] + aggregate.total_value_base, 2
-        )
+        currency_bucket["portfolio_value_base"] = (currency_bucket["portfolio_value_base"] + aggregate.total_value_base)
         _merge_by_asset_class(
             currency_bucket["by_asset_class"], aggregate.by_asset_class
         )
@@ -2192,6 +2229,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_snapshot.add_argument("--snapshots", default=None)
     p_snapshot.add_argument("--fx-history", default=None)
     p_snapshot.add_argument("--timestamp")
+    p_snapshot.add_argument("--fx-provider", default=None, help="Explicit connector plugin used to acquire missing FX")
+    p_snapshot.add_argument("--plugins-dir", default="plugins")
     p_snapshot.add_argument(
         "--no-fx-auto-ingest",
         action="store_true",
@@ -2326,6 +2365,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_viz.add_argument("--fx-history", default=None)
     p_viz.add_argument("--out", default=None)
     p_viz.add_argument("--include-current", action="store_true")
+    p_viz.add_argument("--plugin", default="quarto-portfolio-report")
+    p_viz.add_argument("--plugins-dir", default="plugins")
     _add_workspace_options(
         p_viz, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
@@ -2384,6 +2425,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_import.add_argument("--input", required=True)
     p_import.add_argument("--plugins-dir", default="plugins")
     p_import.add_argument("--write", action="store_true")
+    p_import.add_argument("--reconcile", action="store_true", help="Write trust/reconciliation artifacts after applying an import")
+    p_import.add_argument("--fx-history", default=None)
     p_import.add_argument(
         "--dry-run",
         action="store_true",
@@ -2411,6 +2454,24 @@ def build_parser() -> argparse.ArgumentParser:
         p_import, with_out_root=True, with_portfolio_name=True, with_registry=True
     )
     p_import.set_defaults(func=cmd_import_statement)
+
+    p_activity = sub.add_parser("activity", help="Auditable manual activity corrections")
+    activity_sub = p_activity.add_subparsers(dest="activity_command", required=True)
+    p_correct = activity_sub.add_parser("correct", help="Preview or append a replacement, preserving the original")
+    p_correct.add_argument("activity_id")
+    p_correct.add_argument("--input", required=True)
+    p_correct.add_argument("--reason", required=True)
+    p_correct.add_argument("--portfolio", default=None)
+    p_correct.add_argument("--plugins-dir", default="plugins")
+    p_correct.add_argument("--write", action="store_true")
+    p_correct.add_argument("--dry-run", action="store_true")
+    p_correct.add_argument("--reconcile", action="store_true")
+    p_correct.add_argument("--fx-history", default=None)
+    p_correct.add_argument("--import-log", default=None)
+    p_correct.add_argument("--import-run-id", default=None)
+    p_correct.add_argument("--ingested-at", default=None)
+    p_correct.set_defaults(collapse_canonical=False, func=cmd_activity_correct)
+    _add_workspace_options(p_correct, with_out_root=True, with_portfolio_name=True, with_registry=True)
 
     p_imports = sub.add_parser("imports", help="Inspect import run history")
     _add_workspace_options(p_imports)
@@ -2664,8 +2725,14 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    _bootstrap_default_workspace(args)
-    return args.func(args)
+    try:
+        preview = args.command in ("import-statement", "activity") and (not getattr(args, "write", False) or getattr(args, "dry_run", False))
+        if not preview:
+            _bootstrap_default_workspace(args)
+        return args.func(args)
+    except (ValueError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

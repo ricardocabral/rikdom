@@ -82,5 +82,24 @@
       }
     }
   ],
-  "provider": "csv-generic"
+  "provider": "csv-generic",
+  "metadata": {
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "csv-generic:statement",
+          "status": "unknown",
+          "event_types": [
+            "dividend",
+            "reimbursement"
+          ],
+          "reasons": [
+            "source_does_not_declare_complete_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
+  }
 }

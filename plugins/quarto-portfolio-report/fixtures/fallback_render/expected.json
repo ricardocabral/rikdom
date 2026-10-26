@@ -16,6 +16,22 @@
     {
       "type": "js",
       "path": "out/report-data.js"
+    },
+    {
+      "type": "holding_trust_json",
+      "path": "out/holding_trust.json"
+    },
+    {
+      "type": "reconciliation_json",
+      "path": "out/reconciliation.json"
+    },
+    {
+      "type": "holding_trust_md",
+      "path": "out/holding_trust.md"
+    },
+    {
+      "type": "reconciliation_md",
+      "path": "out/reconciliation.md"
     }
   ],
   "warnings": [

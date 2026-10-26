@@ -8,8 +8,14 @@
       "holding_id": "example-fii",
       "effective_at": "2026-01-01T00:00:00Z",
       "settled_at": "2026-01-02T00:00:00Z",
-      "money": {"amount": 10, "currency": "BRL"},
-      "cost_basis_adjustment": {"amount": -10, "currency": "BRL"},
+      "money": {
+        "amount": 10,
+        "currency": "BRL"
+      },
+      "cost_basis_adjustment": {
+        "amount": -10,
+        "currency": "BRL"
+      },
       "source_ref": "example-statement#page=1"
     }
   ],
@@ -19,8 +25,29 @@
       "holding_id": "example-fii",
       "acquired_at": "2025-01-01T00:00:00Z",
       "quantity": 10,
-      "cost_basis": {"amount": 100, "currency": "BRL"},
-      "provenance": {"source_ref": "example-purchase#page=1"}
+      "cost_basis": {
+        "amount": 100,
+        "currency": "BRL"
+      },
+      "provenance": {
+        "source_ref": "example-purchase#page=1"
+      }
     }
-  ]
+  ],
+  "metadata": {
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "normalized-statement-json:statement",
+          "status": "unknown",
+          "event_types": [],
+          "reasons": [
+            "normalized_input_has_no_declared_history_coverage"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
+  }
 }

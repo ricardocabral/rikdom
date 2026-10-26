@@ -31,7 +31,8 @@ Most commands accept these workspace flags:
 
 `snapshot` flags:
 
-- `--no-fx-auto-ingest` — disable automatic FX ingestion (history lookup only).
+- `--fx-provider <plugin>` — explicitly enable the selected connector for missing FX (`daily-rates` operation). Without it, snapshot uses local history only.
+- `--no-fx-auto-ingest` — disable acquisition even when a provider is selected.
 - `--fx-history <path>` — use a custom FX history file.
 - `--rotate-bytes <N>` — rotate `data/snapshots.jsonl` when it exceeds N bytes.
 
@@ -152,3 +153,20 @@ make validate DATA_DIR=workspace-data OUT_DIR=workspace-out PORTFOLIO_NAME=paper
 
 - [Tutorials](../tutorials/) — guided walkthroughs.
 - [How-to guides](../how-to/) — task-oriented recipes.
+
+## Import trust and manual corrections
+
+`import-statement --reconcile --write` writes the normal import and the four
+trust artifacts under `<out-root>/reports/`. Preview includes candidate summaries
+but creates no artifacts/log/canonical writes. `--fx-history` selects cached inputs.
+See [import diagnostics](import-diagnostics.md) for coverage and blocking codes.
+
+`activity correct <id> --input <complete-activity.json> --reason <text>` previews
+an immutable replacement. `--write` applies; `--dry-run` overrides `--write`;
+`--reconcile` adds trust artifacts. Workspace flags, `--import-log`,
+`--import-run-id`, `--ingested-at`, `--fx-history`, and `--plugins-dir` apply.
+The first correction writes schema 2.0.0 with the linked event atomically.
+Uncorrected 1.x files remain supported. Older raw-ledger calculators are unsafe
+for correction-bearing data.
+
+`viz --plugin <name> --plugins-dir <dir>` selects an output plugin explicitly.

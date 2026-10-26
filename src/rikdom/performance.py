@@ -10,6 +10,8 @@ MVP scope (Phase 2 / Step 5):
 
 from __future__ import annotations
 
+from .activities import effective_activities
+
 from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 from typing import Any, Iterable
@@ -270,6 +272,7 @@ def external_cashflow_currencies(
     period_start: datetime | None = None,
     period_end: datetime | None = None,
 ) -> list[str]:
+    activities = effective_activities(activities)
     base = base_currency.strip().upper()
     rates = _normalize_fx_rates(fx_rates_to_base)
     currencies: set[str] = set()
@@ -331,6 +334,7 @@ def extract_external_cashflows(
     money, unparsable dates) are surfaced as warnings instead of errors so
     a partial answer is still produced.
     """
+    activities = effective_activities(activities)
 
     rates = _normalize_fx_rates(fx_rates_to_base)
     flows: list[Cashflow] = []
@@ -660,6 +664,7 @@ def compute_performance_by_strategic_bucket(
     Activities without a ``holding_id`` — or whose holding is not covered
     by any asset_class target — fall under ``__unallocated__``.
     """
+    activities = effective_activities(activities)
 
     since_dt = _parse_iso(since) if isinstance(since, str) else since
     until_dt = _parse_until_bound(until) if isinstance(until, str) else until
@@ -744,9 +749,9 @@ def compute_performance_by_strategic_bucket(
         results.append(
             StrategicBucketPerformance(
                 bucket_key=key,
-                start_value_base=round(start_value, 2),
-                end_value_base=round(end_value, 2),
-                net_external_cashflow_base=round(net_flow, 2),
+                start_value_base=(start_value),
+                end_value_base=(end_value),
+                net_external_cashflow_base=(net_flow),
                 twr_pct=None if twr_fraction is None else round(twr_fraction * 100, 6),
                 mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
                 cashflow_count=len(flows),
@@ -850,6 +855,7 @@ def compute_performance_by_account(
     either bookend snapshot or in attributed activities) plus a list of
     top-level warnings (e.g. snapshots missing ``by_account``).
     """
+    activities = effective_activities(activities)
 
     since_dt = _parse_iso(since) if isinstance(since, str) else since
     until_dt = _parse_until_bound(until) if isinstance(until, str) else until
@@ -923,9 +929,9 @@ def compute_performance_by_account(
         results.append(
             AccountPerformance(
                 account_id=aid,
-                start_value_base=round(start_value, 2),
-                end_value_base=round(end_value, 2),
-                net_external_cashflow_base=round(net_flow, 2),
+                start_value_base=(start_value),
+                end_value_base=(end_value),
+                net_external_cashflow_base=(net_flow),
                 twr_pct=None if twr_fraction is None else round(twr_fraction * 100, 6),
                 mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
                 cashflow_count=len(flows),
@@ -946,6 +952,7 @@ def compute_performance(
     policy: dict[str, Any] | None = None,
     benchmark_loader: BenchmarkLoader | None = None,
 ) -> PerformanceResult:
+    activities = effective_activities(activities)
     since_dt = _parse_iso(since) if isinstance(since, str) else since
     until_dt = _parse_until_bound(until) if isinstance(until, str) else until
 
@@ -1025,9 +1032,9 @@ def compute_performance(
         base_currency=base_currency,
         period_start=start_snap.get("timestamp", ""),
         period_end=end_snap.get("timestamp", ""),
-        start_value_base=round(start_value, 2),
-        end_value_base=round(end_value, 2),
-        net_external_cashflow_base=round(net_flow, 2),
+        start_value_base=(start_value),
+        end_value_base=(end_value),
+        net_external_cashflow_base=(net_flow),
         twr_pct=twr_pct,
         mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
         cashflow_count=len(cashflows),

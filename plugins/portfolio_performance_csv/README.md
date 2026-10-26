@@ -23,8 +23,9 @@ Recognized columns (English / German):
 
 ## Locale
 
-Numbers may use either `.` or `,` as decimal separator; both are normalized via
-`rikdom.import_normalization.parse_decimal`. Dates accept ISO 8601 and the German
+Numeric parsing uses an explicit source dialect: semicolon exports use comma
+decimals and dot grouping; other delimiters use dot decimals and comma grouping.
+Dates without a timezone use UTC. Dates accept ISO 8601 and the German
 `DD.MM.YYYY` form (with optional `Time`/`Uhrzeit` column appended).
 
 ## CLI Example
