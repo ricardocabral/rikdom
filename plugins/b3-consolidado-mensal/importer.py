@@ -104,6 +104,17 @@ SHEET_SPECS: tuple[SheetSpec, ...] = (
     ),
 )
 
+# These are layout aliases, not new holding identities. Keep the canonical
+# SheetSpec names in IDs so newer exports update existing monthly positions.
+POSITION_SHEET_ALIASES = {
+    "Posição - Ações": "Acoes",
+    "Posição - BDR": "BDR",
+    "Posição - ETF": "ETF",
+    "Posição - Fundos": "Fundo de Investimento",
+    "Posição - Renda Fixa": "Renda Fixa",
+    "Posição - Tesouro Direto": "Tesouro Direto",
+}
+
 RENDA_FIXA_PREFIX_TO_ASSET_TYPE: dict[str, str] = {
     "CDB": "cdb",
     "LCA": "lca",
@@ -514,9 +525,13 @@ def parse_workbook(path: Path) -> dict[str, Any]:
             rows, headers = _read_sheet_rows(zf, targets["Movimentação"], shared_strings)
             movements = _parse_movements(rows, headers)
         for spec in SHEET_SPECS:
-            target = targets.get(spec.name)
-            if not target:
+            names = [name for name in (spec.name, POSITION_SHEET_ALIASES[spec.name]) if name in targets]
+            if len(names) > 1:
+                raise ValueError(f"workbook is incompatible: multiple position sheets for '{spec.name}'")
+            if not names:
                 continue
+            sheet_name = names[0]
+            target = targets[sheet_name]
             rows, headers = _read_sheet_rows(zf, target, shared_strings)
 
             missing_required = []
@@ -533,10 +548,11 @@ def parse_workbook(path: Path) -> dict[str, Any]:
                     f"({', '.join(missing)})"
                 )
 
-            parsed_sheets.append(spec.name)
+            parsed_sheets.append(sheet_name)
             for row in rows:
                 holding = _to_holding(spec, row)
                 if holding is not None:
+                    holding["metadata"]["source_sheet"] = sheet_name
                     holdings.append(holding)
 
     if not parsed_sheets and movements is None:

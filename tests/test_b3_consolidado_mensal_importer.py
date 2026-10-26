@@ -362,6 +362,42 @@ class B3ConsolidadoMensalImporterHelperTests(unittest.TestCase):
         self.assertEqual(rows[0]["Quantidade"], "10")
         self.assertEqual(rows[0]["Valor Atualizado"], "100.5")
 
+    def test_current_position_sheet_names_preserve_legacy_holding_identity(self) -> None:
+        headers = ["Produto", "Instituição", "Conta", "Código de Negociação", "Quantidade", "Valor Atualizado", "Valor Atualizado MTM"]
+        cases = [
+            ("Posição - Ações", "Acoes", "ZZZA3 - EMPRESA SINTETICA", "ZZZA3", "stock"),
+            ("Posição - BDR", "BDR", "ZZZB34 - RECIBO SINTETICO", "ZZZB34", "stock"),
+            ("Posição - ETF", "ETF", "ZZZC11 - ETF SINTETICO", "ZZZC11", "fund"),
+            ("Posição - Fundos", "Fundo de Investimento", "ZZZD11 - FUNDO IMOB SINTETICO", "ZZZD11", "reit"),
+            ("Posição - Renda Fixa", "Renda Fixa", "CDB - BANCO FICTICIO", "", "cdb"),
+            ("Posição - Tesouro Direto", "Tesouro Direto", "Tesouro Prefixado Sintetico 2099", "", "tesouro_direto"),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "synthetic-position.xlsx"
+            for legacy, current, product, ticker, expected_type in cases:
+                with self.subTest(sheet=current):
+                    row = [product, "CORRETORA FICTICIA GAMA", "CONTA-SINTETICA", ticker, 7, 93.59, 93.59]
+                    _write_workbook(path, [(legacy, headers, [row])])
+                    old = importer.parse_workbook(path)["holdings"][0]
+                    _write_workbook(path, [(current, headers, [row])])
+                    payload = importer.parse_workbook(path)
+                    holding = payload["holdings"][0]
+                    self.assertEqual(holding["id"], old["id"])
+                    self.assertEqual(holding["asset_type_id"], expected_type)
+                    self.assertEqual(holding["quantity"], 7)
+                    self.assertEqual(holding["market_value"], {"amount": 93.59, "currency": "BRL"})
+                    self.assertEqual(holding["metadata"]["source_sheet"], current)
+                    self.assertEqual(payload["metadata"]["parsed_position_sheets"], [current])
+
+    def test_duplicate_position_layouts_fail_instead_of_selecting_a_snapshot(self) -> None:
+        headers = ["Produto", "Quantidade", "Valor Atualizado"]
+        rows = [["ZZZA3 - EMPRESA SINTETICA", 7, 93.59]]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "synthetic-ambiguous.xlsx"
+            _write_workbook(path, [("Posição - Ações", headers, rows), ("Acoes", headers, rows)])
+            with self.assertRaisesRegex(ValueError, "multiple position sheets"):
+                importer.parse_workbook(path)
+
     def test_parse_workbook_rejects_files_without_supported_sheets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             xlsx_path = Path(tmp) / "unsupported.xlsx"

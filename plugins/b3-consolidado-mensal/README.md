@@ -5,12 +5,16 @@ Plugin de importação dos relatórios de posição mensal e `Movimentação` da
 ## Entrada esperada
 
 Arquivo Excel no formato de relatório consolidado mensal da B3, com abas de posição:
-- `Posição - Ações`
-- `Posição - BDR`
-- `Posição - ETF`
-- `Posição - Fundos`
-- `Posição - Renda Fixa`
-- `Posição - Tesouro Direto`
+- `Posição - Ações` ou `Acoes`
+- `Posição - BDR` ou `BDR`
+- `Posição - ETF` ou `ETF`
+- `Posição - Fundos` ou `Fundo de Investimento`
+- `Posição - Renda Fixa` ou `Renda Fixa`
+- `Posição - Tesouro Direto` ou `Tesouro Direto`
+
+Os nomes antigos e atuais preservam a mesma identidade da posição. Um arquivo
+com as duas variantes da mesma categoria é rejeitado para evitar escolher ou
+somar posições ambíguas. O nome real da aba fica nos metadados de origem.
 
 Também aceita a aba `Movimentação` com as colunas:
 
