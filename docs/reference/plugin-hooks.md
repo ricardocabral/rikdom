@@ -81,7 +81,7 @@ Consumed by `run_import_pipeline` and `cmd_import_statement` (see
   "contractVersion": "1.0",
   "readOnly": true,
   "operations": {
-    "lookup": {"parameters": ["symbols"], "requiredParameters": ["symbols"]}
+    "lookup": {"parameters": ["ids"], "requiredParameters": ["ids"]}
   }
 }
 ```
@@ -107,10 +107,13 @@ does not provide a general-purpose remote tool executor. No concrete MCP
 transport is included yet.
 
 ```bash
-uv run rikdom connector describe --plugin brapi --plugins-dir plugins
-uv run rikdom connector query --plugin brapi --operation quote \
-  --params '{"symbols":["PETR4","VALE3"]}' --plugins-dir plugins
+uv run rikdom connector describe --plugin '<connector>' --plugins-dir plugins
+uv run rikdom connector query --plugin '<connector>' --operation lookup \
+  --params '{"ids":["example-1","example-2"]}' --plugins-dir plugins
 ```
+
+Replace `<connector>` with an installed plugin. `lookup` and `ids` illustrate
+the contract; use the operation and parameters declared by that plugin.
 
 The hook returns raw provider JSON. `run_connector_query_pipeline` and the CLI
 wrap it in a host-owned acquisition envelope:
@@ -121,7 +124,7 @@ wrap it in a host-owned acquisition envelope:
   "plugin": {"name": "example", "version": "0.1.0", "apiVersion": "1.1"},
   "operation": "lookup",
   "retrievedAt": "2026-10-26T12:00:00+00:00",
-  "data": {"results": [{"symbol": "EXAMPLE", "price": null}]}
+  "data": {"results": [{"id": "example-1", "value": null}]}
 }
 ```
 
@@ -136,8 +139,7 @@ These results do not conform to the statement import schema. The connector
 pipeline receives no canonical file paths and does not merge holdings, import
 ledger events, or write portfolio files. Local plugins remain trusted Python
 with process-level access, so these are interface guarantees, not isolation.
-See the [BrAPI plugin](../../plugins/brapi/README.md) for its operations and
-authentication rules.
+Provider operations and authentication rules belong in each plugin's README.
 
 ## Contract test fixtures
 
@@ -189,11 +191,11 @@ uses the same descriptor, operation, and JSON validation as the runtime; query
 fixtures compare the validated raw payload, before the CLI adds its retrieval
 timestamp. A `connector_describe` case needs only its hook name and expected
 result. A query case supplies `operation` and `params` and may exercise invalid
-input with an `expected_error.json` fixture. BrAPI's query fixture rejects an
-undeclared operation before calling the provider; direct HTTP-boundary tests
-cover successful responses, authentication, and rate limits. Synthetic
-connector fixtures also exercise successful offline query dispatch. This
-does not implement cached response replay or an enforced network sandbox.
+input with an `expected_error.json` fixture. Cover successful offline dispatch
+as well as rejected operations. Mock external I/O in transport tests to
+exercise successful responses, authentication, and rate limits without
+provider access. This does not implement cached response replay or an enforced
+network sandbox.
 
 ### Failure-mode fixtures
 

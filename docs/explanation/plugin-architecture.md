@@ -134,9 +134,9 @@ additive extensions in plugin API `1.1`. Existing `1.0` plugins and Stable hook
 contracts remain unchanged.
 
 REST APIs and MCP servers can fit this same boundary: a plugin owns its HTTP
-client or MCP client and returns a JSON dict. The first implementation is the
-[BrAPI REST plugin](../../plugins/brapi/README.md); no concrete MCP transport is
-implemented yet.
+client or MCP client and returns a JSON dict. The
+[brapi plugin](../../plugins/brapi/README.md) is an example external data
+connector. No concrete MCP transport is implemented yet.
 
 Provider responses remain provider-native, including missing values, warnings,
 and error fields. Market quotes and declared dividends describe external market

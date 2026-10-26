@@ -47,14 +47,17 @@ Use tracked sample fixtures (for example `data-sample/portfolio.json` or `tests/
 `1.0` plugins remain unchanged:
 
 ```bash
-uv run rikdom connector describe --plugin brapi --plugins-dir plugins
-uv run rikdom connector query --plugin brapi --operation quote \
-  --params '{"symbols":["PETR4","VALE3"]}' --plugins-dir plugins
+uv run rikdom connector describe --plugin '<connector>' --plugins-dir plugins
+uv run rikdom connector query --plugin '<connector>' --operation '<operation>' \
+  --params '{}' --plugins-dir plugins
 ```
 
+Replace the placeholders and parameter object using the selected plugin's
+README and description.
+
 Core passes the operation and JSON parameter object to the selected plugin;
-the plugin owns provider rules, authentication, and REST or MCP transport. The
-BrAPI plugin supplies REST access; no concrete MCP transport is included yet.
+the plugin owns provider rules, authentication, and REST or MCP transport.
+No concrete MCP transport is included yet.
 Responses preserve provider-native JSON and do not import holdings or ledger
 events, update canonical files, or replace the FX provider.
 The CLI wraps responses under `data` with the selected plugin's identity,

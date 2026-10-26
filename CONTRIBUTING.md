@@ -127,7 +127,7 @@ For plugin-related work:
 - For REST or MCP data providers, use the `external/connector` contract in API
   `1.1`. Keep transport, provider rules, and authentication handling inside the plugin;
   see [connector hooks](docs/reference/plugin-hooks.md#connector-hooks) and the
-  [BrAPI reference implementation](plugins/brapi/README.md). Include offline
+  [brapi example connector](plugins/brapi/README.md). Include offline
   fixtures and mock external I/O in transport tests.
 
 ## Reporting bugs and requesting features

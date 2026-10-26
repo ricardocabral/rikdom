@@ -96,6 +96,21 @@ responses can omit unavailable symbols; the plugin preserves those responses
 as returned. Callers must compare requested symbols with returned symbols
 before treating a batch as complete.
 
+For quotes, inspect `data.results` in the CLI envelope, then each result's
+`symbol` and `data.regularMarketPrice`. The provider's `regularMarketTime`
+records the quote time; the host's `retrievedAt` records acquisition time.
+
+To save a quote response locally:
+
+```bash
+mkdir -p out
+uv run rikdom connector query --plugin brapi --operation quote \
+  --params '{"symbols":["PETR4","VALE3"]}' --plugins-dir plugins \
+  > out/brapi-quote.json
+```
+
+This file is a saved response, not an automatic cache or replay facility.
+
 Queries do not import ledger events, change canonical portfolio files, or
 replace the existing FX provider. Normalized enrichment, cached replay,
 permission enforcement, and sandboxing are outside this first query boundary.

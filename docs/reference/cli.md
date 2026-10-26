@@ -82,9 +82,10 @@ Connector flags:
 | `--operation` | `query` | Yes | — | Operation name advertised by the selected connector. |
 | `--params` | `query` | No | `{}` | JSON object; accepted fields and required inputs belong to the plugin. |
 
-These commands do not accept workspace flags or load portfolio files. BrAPI's
-`BRAPI_TOKEN` environment variable is handled by its adapter; there is no
-generic token or endpoint flag in the connector CLI.
+These commands do not accept workspace flags or load portfolio files.
+Authentication and endpoint configuration belong to each plugin; there is no
+generic token or endpoint flag in the connector CLI. Consult the selected
+plugin's README for its configuration and available operations.
 
 `describe` returns a descriptor with `contractVersion`, `readOnly`, and
 `operations`. `query` returns `contractVersion`, `plugin` (name, implementation
@@ -98,9 +99,8 @@ status `1`, with a diagnostic on stderr. Provider errors embedded in a
 successful JSON response remain under `data`; callers must inspect them.
 Argument parsing failures exit with status `2`.
 
-For examples see [query external data](../how-to/query-external-data.md) and
-the [BrAPI plugin](../../plugins/brapi/README.md). Plugin-owned REST and MCP
-clients use the same CLI contract; the bundled adapter currently uses REST.
+For the workflow see [query external data](../how-to/query-external-data.md).
+Plugin-owned REST and MCP clients use the same CLI contract.
 
 ## Migrations
 
