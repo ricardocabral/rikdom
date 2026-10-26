@@ -66,6 +66,42 @@ return assumptions. Pass `--as-of YYYY-MM-DD` to pin the projection start date.
 | `rikdom render-report --plugin quarto-portfolio-report`             | `make render-report` | Render a report through an `output` plugin.                                                                     |
 | `rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins` | `make storage-sync`  | Mirror canonical state to a `state/storage` backend.                                                            |
 
+## External data connectors
+
+| Command | Purpose |
+| --- | --- |
+| `rikdom connector describe --plugin <name>` | Describe a selected connector's declared operations and parameters. Offline by plugin contract. |
+| `rikdom connector query --plugin <name> --operation <operation> --params '<json>'` | Query one declared operation and print JSON with acquisition provenance. |
+
+Connector flags:
+
+| Flag | Applies to | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `--plugin` | Both | Yes | — | Name of an installed `external/connector` plugin. |
+| `--plugins-dir` | Both | No | `plugins` | Directory containing plugin folders and manifests. |
+| `--operation` | `query` | Yes | — | Operation name advertised by the selected connector. |
+| `--params` | `query` | No | `{}` | JSON object; accepted fields and required inputs belong to the plugin. |
+
+These commands do not accept workspace flags or load portfolio files. BrAPI's
+`BRAPI_TOKEN` environment variable is handled by its adapter; there is no
+generic token or endpoint flag in the connector CLI.
+
+`describe` returns a descriptor with `contractVersion`, `readOnly`, and
+`operations`. `query` returns `contractVersion`, `plugin` (name, implementation
+version, API version), `operation`, `retrievedAt`, and raw provider JSON under
+`data`. Provider `null` values, warnings, and errors remain in that payload.
+The envelope format is defined in the [connector hook reference](plugin-hooks.md#connector-hooks).
+
+Successful commands exit with status `0`. Invalid parameters, unsupported
+operations, plugin-loading failures, and handled provider failures exit with
+status `1`, with a diagnostic on stderr. Provider errors embedded in a
+successful JSON response remain under `data`; callers must inspect them.
+Argument parsing failures exit with status `2`.
+
+For examples see [query external data](../how-to/query-external-data.md) and
+the [BrAPI plugin](../../plugins/brapi/README.md). Plugin-owned REST and MCP
+clients use the same CLI contract; the bundled adapter currently uses REST.
+
 ## Migrations
 
 | Command                                                     | Make shortcut                 | Purpose                               |

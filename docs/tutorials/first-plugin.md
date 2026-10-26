@@ -4,6 +4,11 @@ This tutorial walks you through scaffolding, implementing, and running a
 working `source/input` plugin using the bundled SDK template. By the end you
 will have a plugin that imports a CSV statement into your local portfolio.
 
+For a data-service connector instead, see [query external data](../how-to/query-external-data.md)
+and the [connector hooks](../reference/plugin-hooks.md#connector-hooks).
+The bundled scaffold generates a `source/input` importer targeting API `1.0`;
+connectors use `external/connector`, API `1.1`, and different hooks.
+
 If you want background instead of a guided lesson, see
 [plugin architecture](../explanation/plugin-architecture.md). For full field
 references see [plugin manifest](../reference/plugin-manifest.md) and

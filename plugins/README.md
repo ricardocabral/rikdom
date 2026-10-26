@@ -4,6 +4,7 @@ This directory contains local plugins loaded by `rikdom`.
 
 Canonical docs:
 - [Plugin architecture](../docs/explanation/plugin-architecture.md) (lifecycle, taxonomy, dispatch)
+- [Query external data](../docs/how-to/query-external-data.md) (discover a connector, query data, inspect results)
 - [Author your first plugin](../docs/tutorials/first-plugin.md) (`rikdom plugin init` walkthrough)
 - [Plugin manifest reference](../docs/reference/plugin-manifest.md) and [plugin hooks reference](../docs/reference/plugin-hooks.md)
 - [Plugin compatibility & stability](../docs/explanation/plugin-compatibility.md) (semver policy and stability tiers)
@@ -52,10 +53,14 @@ uv run rikdom connector query --plugin brapi --operation quote \
 ```
 
 Core passes the operation and JSON parameter object to the selected plugin;
-the plugin owns provider rules, credentials, and REST or MCP transport. The
+the plugin owns provider rules, authentication, and REST or MCP transport. The
 BrAPI plugin supplies REST access; no concrete MCP transport is included yet.
 Responses preserve provider-native JSON and do not import holdings or ledger
 events, update canonical files, or replace the FX provider.
+The CLI wraps responses under `data` with the selected plugin's identity,
+version, operation, and retrieval time. See the
+[connector workflow](../docs/how-to/query-external-data.md) for authentication,
+result handling, and how another REST or MCP provider fits this boundary.
 
 ## Safety Baseline
 

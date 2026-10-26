@@ -33,6 +33,8 @@ With coding agents and LLMs, it is much easier to build your own asset managemen
 - Archive or transfer data with checksum-verified [`rikdom-export`](docs/reference/export-format.md) bundles.
 - Generate a minimal static dashboard for allocation and progress over time.
 - Ingest provider statements through community plugins.
+- Query external market data through optional connector plugins, with provider
+  rules and authentication handled by each adapter.
 
 ## Core Principles
 
@@ -65,6 +67,10 @@ flowchart TD
   U["User input"] --> C["CLI commands"]
   S["Provider statements"] --> P["Plugins"]
   P --> C
+
+  D["External data services"] --> DC["Connector plugins"]
+  C -->|Explicit connector query| DC
+  DC --> Q["JSON with acquisition provenance"]
 
   C --> V["Schema validation"]
   V --> E["Event ledger activities"]
@@ -119,12 +125,39 @@ flowchart TD
 
 For a guided walkthrough see the [first portfolio tutorial](docs/tutorials/first-portfolio.md).
 
+## External data connectors
+
+Use an `external/connector` plugin to query market data independently of your
+portfolio files. The bundled [brapi plugin](plugins/brapi/README.md) provides
+Brazilian quotes, price history, dividends, FII data, FX, and macro indicators:
+
+```bash
+uv run rikdom connector describe --plugin brapi --plugins-dir plugins
+uv run rikdom connector query --plugin brapi --operation quote \
+  --params '{"symbols":["PETR4","VALE3"]}' --plugins-dir plugins
+```
+
+For authenticated BrAPI requests, set `BRAPI_TOKEN` in the environment. The
+adapter sends it in the Bearer authorization header; keep it out of command
+parameters and tracked files. PETR4 and VALE3 support public demo queries
+without a token. Other data depends on the provider's plan.
+
+Queries return JSON under `data`, with the plugin version, operation, and
+retrieval timestamp. They do not import transactions or update holdings.
+REST or Model Context Protocol (MCP) clients belong inside individual plugins;
+the BrAPI adapter uses REST, and no MCP adapter is bundled yet. Connector hooks
+are Experimental in plugin API `1.1`; existing `1.0` plugins remain compatible.
+
+See [query external data](docs/how-to/query-external-data.md) for the workflow
+and [connector architecture](docs/explanation/plugin-architecture.md#external-connectors)
+for the boundary between acquisition and planned normalized enrichment.
+
 ## Documentation
 
 Full documentation is organized along the [Diataxis](https://diataxis.fr/) framework at [`docs/index.md`](docs/index.md):
 
 - **Tutorials** — [your first portfolio](docs/tutorials/first-portfolio.md), [author your first plugin](docs/tutorials/first-plugin.md).
-- **How-to guides** — [import a statement](docs/how-to/import-a-statement.md), [run a migration](docs/how-to/run-a-migration.md), [compute performance](docs/how-to/compute-performance.md), and more.
+- **How-to guides** — [import a statement](docs/how-to/import-a-statement.md), [query external data](docs/how-to/query-external-data.md), [run a migration](docs/how-to/run-a-migration.md), [compute performance](docs/how-to/compute-performance.md), and more.
 - **Reference** — [CLI](docs/reference/cli.md), [schemas](docs/reference/schemas.md), [plugin manifest & hooks](docs/reference/plugin-manifest.md), [export bundle format](docs/reference/export-format.md).
 - **Explanation** — [schema design](docs/explanation/schema-design.md), [plugin architecture](docs/explanation/plugin-architecture.md), [calculation trust](docs/explanation/calculation-trust.md), [storage durability](docs/explanation/storage-durability.md).
 
@@ -146,6 +179,7 @@ make check
 | Importing statements      | [`charles-schwab`](plugins/charles-schwab/README.md)                   | Imports account metadata, holdings, cash balances, and activities from Charles Schwab CSV statement exports. |
 | Importing statements      | [`b3-consolidado-mensal`](plugins/b3-consolidado-mensal/README.md)     | Imports holdings from B3 consolidated monthly XLSX reports.                                                  |
 | Asset type enrichment     | [`asset-types-br-catalog`](plugins/asset-types-br-catalog/README.md)   | Brazilian asset-type catalog for FIIs, public/private debt, BDRs, COEs, and special funds.                   |
+| External market data      | [`brapi`](plugins/brapi/README.md)                                  | Queries Brazilian stocks, FIIs, FX, and macro data through an optional REST connector.                        |
 | Storage sync / analytics  | [`duckdb-storage`](plugins/duckdb-storage/README.md)                   | Mirrors rikdom canonical JSON data into DuckDB for local analytics workflows.                                |
 | Reporting / visualization | [`quarto-portfolio-report`](plugins/quarto-portfolio-report/README.md) | Renders portfolio graphics and reports through Quarto.                                                       |
 

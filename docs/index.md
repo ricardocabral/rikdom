@@ -15,6 +15,7 @@ Hands-on lessons for newcomers. Start here.
 Goal-oriented recipes for users who already know the basics.
 
 - [Import a broker statement](how-to/import-a-statement.md)
+- [Query external data through a connector](how-to/query-external-data.md)
 - [Render a portfolio report](how-to/render-a-report.md)
 - [Run a schema migration](how-to/run-a-migration.md)
 - [Author a new migration](how-to/author-a-migration.md)
@@ -32,6 +33,7 @@ Information-oriented descriptions of the machinery.
 - [Storage layout](reference/storage-layout.md)
 - [Plugin manifest fields](reference/plugin-manifest.md)
 - [Plugin hooks](reference/plugin-hooks.md)
+- [Bundled plugin catalog](../plugins/README.md) — importers, connectors, reports, and storage.
 - [Migration version history](reference/migrations.md)
 - [Reconciliation issue codes](reference/reconciliation-codes.md)
 - [Performance output](reference/performance-output.md)
@@ -43,7 +45,7 @@ Information-oriented descriptions of the machinery.
 Background, design decisions, and trade-offs.
 
 - [Schema design](explanation/schema-design.md)
-- [Plugin architecture](explanation/plugin-architecture.md)
+- [Plugin architecture](explanation/plugin-architecture.md) — lifecycle, external data connectors, and REST/MCP boundaries.
 - [Plugin compatibility & stability](explanation/plugin-compatibility.md)
 - [Calculation trust & reconciliation](explanation/calculation-trust.md)
 - [Storage durability](explanation/storage-durability.md)

@@ -5,6 +5,10 @@ data through the Experimental `connector_describe` and `connector_query` hooks
 in plugin API `1.1`. Existing API `1.0` plugins remain unchanged. Core contains
 no BrAPI-specific commands or credentials.
 
+For the shared discovery and query workflow, see
+[query external data](../../docs/how-to/query-external-data.md). For implementing
+another REST or MCP provider, see the [connector contract](../../docs/reference/plugin-hooks.md#connector-hooks).
+
 ## Run
 
 From the repository root:
