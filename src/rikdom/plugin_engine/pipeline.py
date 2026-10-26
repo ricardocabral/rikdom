@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from .connectors import CONNECTOR_CONTRACT_VERSION, describe_connector, json_object, query_connector
 from .contracts import OutputRequest, PhaseName, PluginContext
 from .errors import PluginEngineError, PluginLoadError, PluginTypeError
 from .loader import discover_plugins_with_warnings, plugin_index
@@ -46,6 +48,34 @@ def run_import_pipeline(plugin_name: str, plugins_dir: str, input_path: str) -> 
     if not isinstance(result, dict):
         raise PluginEngineError("source/input plugin must return an object")
     return result
+
+
+def run_connector_describe_pipeline(plugin_name: str, plugins_dir: str) -> dict:
+    pm, _ = _load_single_plugin_manager(
+        plugin_name, plugins_dir, expected_type=PhaseName.CONNECTOR
+    )
+    ctx = PluginContext(run_id=_new_run_id("connector-describe"), plugin_name=plugin_name)
+    return describe_connector(pm, ctx)
+
+
+def run_connector_query_pipeline(
+    plugin_name: str, plugins_dir: str, operation: str, params: dict
+) -> dict:
+    if not isinstance(operation, str) or not operation.strip():
+        raise PluginEngineError("Connector operation must be a non-empty string")
+    params = json_object(params, "Connector parameters")
+    pm, manifest = _load_single_plugin_manager(
+        plugin_name, plugins_dir, expected_type=PhaseName.CONNECTOR
+    )
+    ctx = PluginContext(run_id=_new_run_id("connector-query"), plugin_name=plugin_name)
+    result = query_connector(pm, ctx, operation, params)
+    return {
+        "contractVersion": CONNECTOR_CONTRACT_VERSION,
+        "plugin": {"name": manifest.name, "version": manifest.version, "apiVersion": manifest.api_version},
+        "operation": operation,
+        "retrievedAt": datetime.now(timezone.utc).isoformat(),
+        "data": result,
+    }
 
 
 def run_output_pipeline(

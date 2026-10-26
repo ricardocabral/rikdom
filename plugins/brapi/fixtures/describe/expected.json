@@ -1,0 +1,149 @@
+{
+  "contractVersion": "1.0",
+  "readOnly": true,
+  "provider": "brapi",
+  "transport": "REST",
+  "baseUrl": "https://brapi.dev",
+  "auth": {
+    "environment": "BRAPI_TOKEN",
+    "scheme": "Bearer"
+  },
+  "operations": {
+    "quote": {
+      "path": "/api/v2/stocks/quote",
+      "parameters": [
+        "symbols"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "symbols",
+      "maxSymbols": null
+    },
+    "historical": {
+      "path": "/api/v2/stocks/historical",
+      "parameters": [
+        "symbols",
+        "range",
+        "interval",
+        "startDate",
+        "endDate",
+        "sortOrder",
+        "includeRaw"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "symbols",
+      "maxSymbols": null
+    },
+    "dividends": {
+      "path": "/api/v2/stocks/dividends",
+      "parameters": [
+        "symbols",
+        "startDate",
+        "endDate",
+        "sortBy",
+        "sortOrder",
+        "includeRaw"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "symbols",
+      "maxSymbols": null
+    },
+    "fii-indicators": {
+      "path": "/api/v2/fii/indicators",
+      "parameters": [
+        "symbols"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "symbols",
+      "maxSymbols": 20
+    },
+    "fii-historical": {
+      "path": "/api/v2/fii/historical",
+      "parameters": [
+        "symbols",
+        "startDate",
+        "endDate",
+        "sortOrder"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "symbols",
+      "maxSymbols": 20
+    },
+    "fii-dividends": {
+      "path": "/api/v2/fii/dividends",
+      "parameters": [
+        "symbols",
+        "startDate",
+        "endDate",
+        "sortBy",
+        "sortOrder"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "symbols",
+      "maxSymbols": 20
+    },
+    "currency": {
+      "path": "/api/v2/currency",
+      "parameters": [
+        "symbols"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "currency",
+      "maxSymbols": null
+    },
+    "currency-historical": {
+      "path": "/api/v2/currency/historical",
+      "parameters": [
+        "symbols",
+        "startDate",
+        "endDate",
+        "sortOrder",
+        "limit"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "currency",
+      "maxSymbols": 20
+    },
+    "macro": {
+      "path": "/api/v2/macro",
+      "parameters": [
+        "symbols",
+        "startDate",
+        "endDate",
+        "sortOrder",
+        "limit"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "symbols",
+      "maxSymbols": 20
+    },
+    "macro-latest": {
+      "path": "/api/v2/macro/latest",
+      "parameters": [
+        "symbols"
+      ],
+      "requiredParameters": [
+        "symbols"
+      ],
+      "symbolParameter": "symbols",
+      "maxSymbols": 20
+    }
+  }
+}

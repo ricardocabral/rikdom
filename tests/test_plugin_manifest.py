@@ -27,6 +27,19 @@ def _write_manifest(tmp: Path, payload: dict) -> Path:
 
 
 class LoadManifestSchemaTest(unittest.TestCase):
+    def test_connector_manifest_cannot_claim_api_1_0(self) -> None:
+        payload = {**BASE_MANIFEST, "plugin_types": ["external/connector"]}
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(PluginManifestError):
+                load_manifest(_write_manifest(Path(tmp), payload))
+
+    def test_connector_manifest_targets_additive_api_version(self) -> None:
+        payload = {**BASE_MANIFEST, "api_version": "1.1", "plugin_types": ["external/connector"]}
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = load_manifest(_write_manifest(Path(tmp), payload))
+        self.assertEqual(manifest.api_version, "1.1")
+        self.assertEqual(manifest.plugin_types, ["external/connector"])
+
     def test_valid_manifest_loads(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             plugin_dir = _write_manifest(Path(tmp), dict(BASE_MANIFEST))

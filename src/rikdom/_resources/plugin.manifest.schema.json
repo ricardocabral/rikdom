@@ -13,6 +13,16 @@
     "module",
     "class_name"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "plugin_types": {"contains": {"const": "external/connector"}}
+        }
+      },
+      "then": {"properties": {"api_version": {"const": "1.1"}}}
+    }
+  ],
   "properties": {
     "name": {
       "type": "string",
@@ -26,7 +36,7 @@
     },
     "api_version": {
       "type": "string",
-      "enum": ["1.0"],
+      "enum": ["1.0", "1.1"],
       "description": "Rikdom plugin API contract version that this plugin targets."
     },
     "plugin_types": {

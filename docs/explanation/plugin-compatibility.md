@@ -12,12 +12,14 @@ validated by the bundled manifest schema at
 `src/rikdom/_resources/plugin.manifest.schema.json` (shipped as a package
 resource so it resolves in installed distributions too).
 
-- v1 is the string `"1.0"`. It is the only currently accepted value; the
-  schema enum rejects anything else.
-- Future **minor** bumps (`"1.1"`, `"1.2"`, ...) are strictly additive. They
+- The runtime accepts `"1.0"` and `"1.1"`. API `"1.1"` adds the Experimental
+  `external/connector` query and discovery hooks. Existing plugins declaring
+  `"1.0"` keep working unchanged; the schema requires connector plugins to
+  target `"1.1"`.
+- Future **minor** bumps (`"1.2"`, ...) are additive for Stable surfaces. They
   may introduce new hooks or new optional manifest fields, but must not
   change or remove anything declared in `"1.0"`. Plugins declaring `"1.0"`
-  keep working unchanged.
+  keep working unchanged. Experimental hooks follow the exception below.
 - Future **major** bumps (`"2.0"`) may remove hooks, change hook signatures,
   or tighten schema constraints. Any such change ships only after a
   deprecation window (see below).
@@ -27,7 +29,8 @@ resource so it resolves in installed distributions too).
 
 ## Stability tiers per hook
 
-All eight v1 hooks are Stable. The mapping below mirrors the
+All eight API 1.0 hooks remain Stable. API 1.1 adds Experimental
+`connector_describe` and `connector_query` hooks. The mapping mirrors the
 `HOOK_STABILITY` constant in `src/rikdom/plugin_engine/hookspecs.py`, which
 documentation and tooling can import directly.
 
@@ -38,6 +41,15 @@ Future minor bumps may introduce **experimental** hooks. Experimental hooks
 are explicitly marked in `HOOK_STABILITY` and may change signature or be
 removed between minor releases without a deprecation window. Stable hooks
 never degrade in place.
+
+Connector descriptions and CLI query envelopes declare `contractVersion:
+"1.0"`. This is the experimental connector payload version, separate from
+the manifest's `api_version: "1.1"` and the plugin's implementation `version`.
+The host rejects unsupported description versions. A future incompatible
+connector payload must use a new contract version and document migration;
+it must not silently reinterpret saved `1.0` envelopes. The current envelope
+preserves raw acquisition provenance, not the normalized enrichment or replay
+contracts planned in the roadmap.
 
 ## Deprecation window
 

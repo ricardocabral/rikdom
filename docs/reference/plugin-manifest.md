@@ -25,13 +25,16 @@ resource so it resolves in installed distributions.
 | --- | --- | --- | --- |
 | `name` | yes | string | Plugin slug. Must match `^[a-z][a-z0-9-]{1,63}$`. Matches the directory name. |
 | `version` | yes | string | Plugin's own semver. |
-| `api_version` | optional | string | Rikdom plugin API version. Defaults to `"1.0"`. Only `"1.0"` is currently accepted. See [plugin compatibility](../explanation/plugin-compatibility.md). |
+| `api_version` | yes | string | Rikdom plugin API version: `"1.0"` or `"1.1"`. Connector plugins target `"1.1"`. See [plugin compatibility](../explanation/plugin-compatibility.md). |
 | `plugin_types` | yes | string[] | One or more entries from the [taxonomy](../explanation/plugin-architecture.md#plugin-taxonomy). |
 | `module` | yes | string | Python module name (without `.py`) inside the plugin directory. |
 | `class_name` | yes | string | Class inside `module` that registers `@hookimpl` methods. |
 | `description` | optional | string | Human-readable description. |
 
-The manifest schema rejects any field outside this set.
+The manifest schema rejects any field outside this set and requires API `1.1`
+when `plugin_types` contains `external/connector`. There are no enforced
+filesystem, network, or secret permissions in this manifest. Only load trusted
+plugins; see [operational safety](../explanation/plugin-architecture.md#operational-safety).
 
 ## Discovery
 

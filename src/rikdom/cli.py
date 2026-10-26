@@ -57,6 +57,8 @@ from .plugin_engine.errors import PluginEngineError
 from .plugin_engine.loader import discover_plugins
 from .plugin_engine.pipeline import (
     build_asset_type_catalog_with_warnings,
+    run_connector_describe_pipeline,
+    run_connector_query_pipeline,
     run_import_pipeline,
     run_output_pipeline,
     run_storage_sync_pipeline,
@@ -296,6 +298,25 @@ def _bootstrap_default_workspace(args: argparse.Namespace) -> None:
         _bootstrap_default_file(
             fx_history_path, defaults["fx_history"], SAMPLE_FX_HISTORY_PATH
         )
+
+
+def cmd_connector(args: argparse.Namespace) -> int:
+    try:
+        if args.connector_command == "describe":
+            result = run_connector_describe_pipeline(args.plugin, args.plugins_dir)
+        else:
+            try:
+                params = json.loads(args.params)
+            except json.JSONDecodeError:
+                raise PluginEngineError("Connector --params must be a valid JSON object") from None
+            result = run_connector_query_pipeline(
+                args.plugin, args.plugins_dir, args.operation, params
+            )
+    except (PluginEngineError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -2096,6 +2117,20 @@ def _add_workspace_options(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rikdom")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    p_connector = sub.add_parser("connector", help="Query an explicitly selected external connector plugin")
+    connector_sub = p_connector.add_subparsers(dest="connector_command", required=True)
+    for name, description in (
+        ("describe", "Describe connector operations without a network request"),
+        ("query", "Query an external connector and print JSON with acquisition provenance"),
+    ):
+        command = connector_sub.add_parser(name, help=description)
+        command.add_argument("--plugin", required=True)
+        command.add_argument("--plugins-dir", default="plugins")
+        if name == "query":
+            command.add_argument("--operation", required=True)
+            command.add_argument("--params", default="{}", help="Connector parameters as a JSON object")
+        command.set_defaults(func=cmd_connector)
 
     p_validate = sub.add_parser("validate", help="Validate portfolio structure")
     p_validate.add_argument("--portfolio", default=None)

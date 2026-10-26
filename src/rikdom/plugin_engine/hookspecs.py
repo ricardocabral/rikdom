@@ -9,6 +9,24 @@ hookimpl = pluggy.HookimplMarker("rikdom")
 
 class RikdomHookSpecs:
     @hookspec(firstresult=True)
+    def connector_describe(self, ctx):
+        """Describe an external connector's operations without accessing the network.
+
+        Stability: Experimental (API 1.1). Return contractVersion '1.0',
+        readOnly true, and operations mapping names to description objects.
+        Transport and authentication belong to the trusted plugin.
+        """
+
+    @hookspec(firstresult=True)
+    def connector_query(self, ctx, operation, params):
+        """Query the selected connector with an operation and JSON object parameters.
+
+        Stability: Experimental (API 1.1). Return strict provider-native JSON
+        without canonical writes. The host validates declared operations,
+        detaches params/results, and adds acquisition provenance to CLI output.
+        """
+
+    @hookspec(firstresult=True)
     def source_input(self, ctx, input_path):
         """Return normalized statement payload.
 
@@ -73,10 +91,11 @@ class RikdomHookSpecs:
         """
 
 
-# Programmatic stability metadata for each hook (v1 freeze).
-# Keys mirror the method names on RikdomHookSpecs; values are tier strings
-# ("stable" in v1). Importable by plugins-list tooling and docs generators.
+# Programmatic stability metadata. API 1.1 adds experimental connector hooks;
+# existing API 1.0 hooks retain their stable contracts.
 HOOK_STABILITY: dict[str, str] = {
+    "connector_describe": "experimental",
+    "connector_query": "experimental",
     "source_input": "stable",
     "asset_type_catalog": "stable",
     "output": "stable",

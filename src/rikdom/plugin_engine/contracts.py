@@ -6,6 +6,7 @@ from typing import Any
 
 class PhaseName:
     SOURCE_INPUT = "source/input"
+    CONNECTOR = "external/connector"
     TRANSFORM = "transform"
     ENRICHMENT = "enrichment"
     STRATEGY_DECISION = "strategy/decision"
@@ -21,6 +22,7 @@ class PhaseName:
     ASSET_TYPE_CATALOG = "asset-type/catalog"
     ALL = {
         SOURCE_INPUT,
+        CONNECTOR,
         TRANSFORM,
         ENRICHMENT,
         STRATEGY_DECISION,

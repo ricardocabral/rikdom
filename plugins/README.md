@@ -9,6 +9,7 @@ Canonical docs:
 - [Plugin compatibility & stability](../docs/explanation/plugin-compatibility.md) (semver policy and stability tiers)
 
 Plugin docs:
+- [brapi](brapi/README.md)
 - [csv-generic](csv-generic/README.md)
 - [ghostfolio_export_json](ghostfolio_export_json/README.md)
 - [ibkr_flex_xml](ibkr_flex_xml/README.md)
@@ -37,6 +38,24 @@ uv run pytest -q tests/test_plugins.py tests/test_asset_type_catalog_plugins.py
 
 Plugin-specific prerequisites and run commands are documented in each plugin README.
 Use tracked sample fixtures (for example `data-sample/portfolio.json` or `tests/fixtures/portfolio.json`) in examples so commands work in a clean checkout.
+
+## External Connectors
+
+`external/connector` plugins expose provider operations through Experimental
+`connector_describe` and `connector_query` hooks in API `1.1`. Existing API
+`1.0` plugins remain unchanged:
+
+```bash
+uv run rikdom connector describe --plugin brapi --plugins-dir plugins
+uv run rikdom connector query --plugin brapi --operation quote \
+  --params '{"symbols":["PETR4","VALE3"]}' --plugins-dir plugins
+```
+
+Core passes the operation and JSON parameter object to the selected plugin;
+the plugin owns provider rules, credentials, and REST or MCP transport. The
+BrAPI plugin supplies REST access; no concrete MCP transport is included yet.
+Responses preserve provider-native JSON and do not import holdings or ledger
+events, update canonical files, or replace the FX provider.
 
 ## Safety Baseline
 

@@ -9,6 +9,7 @@ from typing import Any
 import jsonschema
 from jsonschema import Draft202012Validator
 
+from .connectors import describe_connector, query_connector
 from .contracts import OutputRequest, PluginContext
 from .errors import PluginEngineError
 from .loader import discover_plugins
@@ -21,6 +22,8 @@ from .runtime import build_manager, load_plugin_instance
 # (pluggy returns a list of per-plugin results that we unwrap for the sole
 # registered plugin under test).
 HOOK_DISPATCH: dict[str, str] = {
+    "connector_describe": "firstresult",
+    "connector_query": "firstresult",
     "source_input": "firstresult",
     "output": "firstresult",
     "state_storage_sync": "firstresult",
@@ -231,6 +234,12 @@ def _invoke_hook(pm, hook: str, case: FixtureCase, tmp_dir: Path) -> Any:
     spec = case.spec
     options = spec.get("options") or {}
     fixture_dir = case.fixture_dir
+
+    if hook == "connector_describe":
+        return describe_connector(pm, ctx)
+
+    if hook == "connector_query":
+        return query_connector(pm, ctx, spec.get("operation"), spec.get("params", {}))
 
     if hook == "source_input":
         input_path = _discover_input_file(fixture_dir, spec.get("input"))

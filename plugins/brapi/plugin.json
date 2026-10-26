@@ -1,0 +1,9 @@
+{
+  "name": "brapi",
+  "version": "0.1.0",
+  "api_version": "1.1",
+  "plugin_types": ["external/connector"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Query BrAPI stock, FII, currency and macroeconomic data over REST"
+}
