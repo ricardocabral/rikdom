@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "announcements": [
+    {
+      "id": "ann-1",
+      "revision": 1,
+      "status": "announced",
+      "source": {
+        "kind": "manual",
+        "reference": "Reviewed sample evidence",
+        "as_of": "2026-01-01"
+      },
+      "scope": {
+        "holding_id": "holding-1"
+      },
+      "income_type": "dividend",
+      "payment_date": "2026-02-01",
+      "money": {
+        "amount": 50,
+        "currency": "USD"
+      },
+      "amount_basis": "gross",
+      "amount_kind": "total"
+    }
+  ],
+  "estimates": [
+    {
+      "id": "scenario-1",
+      "scenario": "Illustration only",
+      "source": {
+        "kind": "manual",
+        "reference": "Reviewed sample evidence",
+        "as_of": "2026-01-01"
+      },
+      "scope": {
+        "holding_id": "holding-1"
+      },
+      "income_type": "dividend",
+      "payment_date": "2026-03-01",
+      "money": {
+        "amount": 999,
+        "currency": "USD"
+      },
+      "amount_basis": "gross",
+      "assumptions": "Illustrative fixed payment; no statement evidence."
+    }
+  ],
+  "payment_links": [
+    {
+      "announcement_id": "ann-1",
+      "activity_id": "payment-1",
+      "source": {
+        "kind": "manual",
+        "reference": "Reviewed sample evidence",
+        "as_of": "2026-01-01"
+      }
+    }
+  ],
+  "cost_bases": [
+    {
+      "id": "cost-1",
+      "scope": {
+        "holding_id": "holding-1"
+      },
+      "source": {
+        "kind": "manual",
+        "reference": "Reviewed sample evidence",
+        "as_of": "2026-01-01"
+      },
+      "method": "declared_constant_cost",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "money": {
+        "amount": 1000,
+        "currency": "USD"
+      },
+      "amount_basis": "gross",
+      "coverage": "complete",
+      "income_source_system": "sample-broker"
+    }
+  ]
+}

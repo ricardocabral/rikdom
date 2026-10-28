@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/rikdom/schema/income-plan.schema.json",
+  "title": "Rikdom local income plan version 1",
+  "type": "object",
+  "required": [
+    "version"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "announcements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/announcement"
+      }
+    },
+    "estimates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/estimate"
+      }
+    },
+    "payment_links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/payment_link"
+      }
+    },
+    "cost_bases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cost_basis"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": [
+        "kind",
+        "reference",
+        "as_of"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "manual",
+            "file",
+            "provider"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "account_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "asset_type_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "holding_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source_system": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "instrument": {
+          "type": "object",
+          "minProperties": 1
+        }
+      }
+    },
+    "money": {
+      "type": "object",
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "announcement": {
+      "type": "object",
+      "required": [
+        "id",
+        "source",
+        "scope",
+        "income_type",
+        "payment_date",
+        "money",
+        "amount_basis",
+        "revision",
+        "status",
+        "amount_kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "income_type": {
+          "enum": [
+            "dividend",
+            "interest"
+          ]
+        },
+        "payment_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "money": {
+          "$ref": "#/$defs/money"
+        },
+        "amount_basis": {
+          "enum": [
+            "gross",
+            "net",
+            "unknown"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "announced",
+            "cancelled"
+          ]
+        },
+        "amount_kind": {
+          "enum": [
+            "total",
+            "per_unit"
+          ]
+        },
+        "ex_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "record_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "entitlement_quantity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "entitlement_source": {
+          "$ref": "#/$defs/source"
+        }
+      },
+      "dependentRequired": {
+        "entitlement_quantity": [
+          "entitlement_source"
+        ],
+        "entitlement_source": [
+          "entitlement_quantity"
+        ]
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "required": [
+        "id",
+        "source",
+        "scope",
+        "income_type",
+        "payment_date",
+        "money",
+        "amount_basis",
+        "scenario",
+        "assumptions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "income_type": {
+          "enum": [
+            "dividend",
+            "interest"
+          ]
+        },
+        "payment_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "money": {
+          "$ref": "#/$defs/money"
+        },
+        "amount_basis": {
+          "enum": [
+            "gross",
+            "net",
+            "unknown"
+          ]
+        },
+        "scenario": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "assumptions": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "payment_link": {
+      "type": "object",
+      "required": [
+        "announcement_id",
+        "activity_id",
+        "source"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "announcement_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "activity_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      }
+    },
+    "cost_basis": {
+      "type": "object",
+      "required": [
+        "id",
+        "source",
+        "scope",
+        "method",
+        "period",
+        "money",
+        "amount_basis",
+        "coverage"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "method": {
+          "const": "declared_constant_cost"
+        },
+        "period": {
+          "type": "object",
+          "required": [
+            "start",
+            "end"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "end": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "money": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "amount",
+                "currency"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "amount": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "amount_basis": {
+          "enum": [
+            "gross",
+            "net",
+            "unknown"
+          ]
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "income_source_system": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    }
+  }
+}
