@@ -162,7 +162,7 @@ The result contains `version: 1`, `start`, `end`, and these lists:
 | `announced` | Latest selected input row, plus `currency`, `expected_amount` (number or null), `reason` (text or null). Cancelled revisions remain visible with null expected amount. |
 | `estimates` | Selected input row, plus `currency` and `estimated_amount`. Always visibly separate from actual income. |
 | `reconciliation` | `announcement_id`, `scope`, `income_type`, `payment_date`, `currency`, `amount_basis`, `expected_amount`, `received_amount`, `known_received_subtotal`, `activity_ids`, `status`, `reason`. |
-| `yield_on_cost` | `id`, `scope`, `source`, `method`, `period`, `currency`, `amount_basis`, `cost_basis`, `received_amount`, `activity_ids`, `ratio`, `status`, `reason`. |
+| `yield_on_cost` | `id`, `scope`, `source`, `method`, `period`, `currency`, `amount_basis`, `coverage`, `income_source_system` (text or null), `cost_basis`, `received_amount`, `activity_ids`, `ratio`, `status`, `reason`. |
 | `diagnostics` | `id` (announcement ID or null) and `message` (source-aware explanatory text). |
 
 Reconciliation `activity_ids` are unique effective IDs, sorted lexically. Status
@@ -172,7 +172,10 @@ explicit expectation. It does not assert complete payment coverage. With no
 selected payment, `received_amount` is null and `known_received_subtotal` is zero;
 `unlinked` never alleges a late or missing payment. Yield status is `available` or
 `unavailable`; an unavailable result has null `ratio` and `received_amount` plus a
-reason. Lists are deterministic by ID, diagnostics by announcement/activity link.
+reason. Every yield row retains its declared `coverage` and `income_source_system`
+(null when absent), including unavailable results, so exported results preserve the
+evidence behind the decision. Lists are deterministic by ID, diagnostics by
+announcement/activity link.
 
 Inclusive date filters use each activity's source-local calendar day, preserving
 the received engine's explicit timestamp offset. Announcements and estimates use

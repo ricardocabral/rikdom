@@ -180,8 +180,9 @@ def _reconcile(announcement: dict[str, Any], payments: list[dict[str, Any]], out
 def _yield(row: dict[str, Any], received: dict[str, Any], effective: list[dict[str, Any]],
            start: str | None, end: str | None) -> dict[str, Any]:
     money, period, basis = row['money'], row['period'], row['amount_basis']
-    result = {key: copy.deepcopy(row[key]) for key in ('id', 'scope', 'source', 'method', 'period', 'amount_basis')}
-    result.update(currency=money['currency'] if money else None, cost_basis=money['amount'] if money else None,
+    result = {key: copy.deepcopy(row[key]) for key in ('id', 'scope', 'source', 'method', 'period', 'amount_basis', 'coverage')}
+    result.update(income_source_system=row.get('income_source_system'),
+                  currency=money['currency'] if money else None, cost_basis=money['amount'] if money else None,
                   received_amount=None, activity_ids=[], ratio=None, status='unavailable', reason=None)
     reason = None
     if money is None:

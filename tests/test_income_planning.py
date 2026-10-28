@@ -246,6 +246,25 @@ class IncomePlanningTests(unittest.TestCase):
                 self.assertIsNone(row['received_amount'])
                 self.assertIn(reason, row['reason'].lower())
 
+    def test_yield_retains_declared_coverage_and_income_source_for_audit_without_mutation(self):
+        for coverage, declared_source, status in [('complete', 'broker', 'available'),
+                                                   ('partial', 'broker', 'unavailable'),
+                                                   ('unknown', None, 'unavailable')]:
+            with self.subTest(coverage=coverage, declared_source=declared_source):
+                declaration = cost(coverage=coverage)
+                if declared_source is None:
+                    declaration.pop('income_source_system')
+                config = plan(cost_bases=[declaration])
+                p = portfolio(payment())
+                before = copy.deepcopy((p, config))
+                row = build(p, config)['yield_on_cost'][0]
+                self.assertEqual(row['status'], status)
+                self.assertEqual(row['coverage'], coverage)
+                self.assertEqual(row['income_source_system'], declared_source)
+                self.assertEqual((p, config), before)
+                row['source']['reference'] = 'edited result evidence'
+                self.assertEqual((p, config), before)
+
     def test_yield_missing_historical_attribution_is_unavailable_not_silently_omitted(self):
         for missing in ('holding_id', 'account_id'):
             a = payment()
