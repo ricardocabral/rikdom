@@ -123,15 +123,20 @@ def _normalize_schwab_date(value: str) -> str | None:
 
 def _activity_type(action: str) -> tuple[str, str | None]:
     lowered = action.lower()
-    if "buy" in lowered:
+    if (re.fullmatch(r"tax(?:es)?(?:\s+(?:refund|adjustment))?", lowered.strip())
+            or re.search(r"\b(?:withholding|(?:foreign|dividend|interest)\s+tax|tax\s+(?:withheld|withholding|refund))\b", lowered)):
+        return "tax_withheld", None
+    if re.search(r"\bbuy\b", lowered):
         return "buy", None
-    if "sell" in lowered:
+    if re.search(r"\bsell\b", lowered):
         return "sell", None
-    if "dividend" in lowered:
+    if re.search(r"\bdividend\b", lowered):
         return "dividend", None
-    if "interest" in lowered:
+    if re.search(r"\binterest\b", lowered):
         return "interest", None
-    if "fee" in lowered or "commission" in lowered:
+    if re.fullmatch(r"income(?:\s+adjustment)?", lowered.strip()):
+        return "income", None
+    if re.search(r"\b(?:fee|commission)\b", lowered):
         return "fee", None
     if any(
         token in lowered
@@ -149,7 +154,7 @@ def _activity_type(action: str) -> tuple[str, str | None]:
 def _normalize_amount_sign(event_type: str, amount: float) -> float:
     if event_type in {"buy", "fee", "transfer_out"}:
         return -abs(amount)
-    if event_type in {"sell", "dividend", "interest", "transfer_in"}:
+    if event_type in {"sell", "transfer_in"}:
         return abs(amount)
     return amount
 
@@ -243,6 +248,18 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
     if amount is None:
         raise ValueError("Charles Schwab transaction row has invalid amount")
 
+    # Keep the original fingerprint inputs so enriched/corrected events retain
+    # their identities. Existing conflicting ledger rows require a correction.
+    identity_amount = amount
+    for token, sign in (("buy", -1), ("sell", 1), ("dividend", 1), ("interest", 1),
+                        ("fee", -1), ("commission", -1), ("transfer in", 1),
+                        ("deposit", 1), ("wire received", 1), ("incoming", 1),
+                        ("transfer out", -1), ("withdraw", -1), ("wire sent", -1),
+                        ("outgoing", -1)):
+        if token in action.lower():
+            identity_amount = sign * abs(amount)
+            break
+
     event_type, subtype = _activity_type(action)
     amount = _normalize_amount_sign(event_type, amount)
 
@@ -276,7 +293,7 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
         "date": effective_at,
         "action": action,
         "symbol": symbol,
-        "amount": amount,
+        "amount": identity_amount,
         "quantity": quantity,
         "reference_id": reference_id,
     }
@@ -294,8 +311,18 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
         "metadata": {
             "action": action,
             "description": row.get("description", ""),
+            "rikdom_source_identity": {
+                "version": 1,
+                "scope": f"{PROVIDER}:account:{account_number}",
+                "signature": digest,
+                "occurrence": 0,
+                "kind": "source" if reference_id else "anonymous",
+            },
         },
     }
+
+    if event_type in {"dividend", "interest", "income"}:
+        activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": "unknown"}
 
     if subtype:
         activity["subtype"] = subtype
@@ -306,8 +333,11 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
     if quantity is not None and quantity != 0:
         activity["quantity"] = abs(quantity)
 
-    if fees is not None and fees != 0:
-        activity["fees"] = {"amount": abs(fees), "currency": currency}
+    if fees is not None and (fees != 0 or event_type in {"dividend", "interest", "income"}):
+        activity["fees"] = {
+            "amount": fees if event_type in {"dividend", "interest", "income"} else abs(fees),
+            "currency": currency,
+        }
 
     return activity
 
@@ -327,7 +357,8 @@ def parse_statement(path: Path) -> dict[str, Any]:
     detected_currencies: list[str] = []
 
     seen_holding_ids: set[str] = set()
-    seen_activity_ids: set[str] = set()
+    seen_activities: dict[str, dict[str, Any]] = {}
+    document_rows: list[str] = []
 
     for row in rows:
         record_type = row.get("record_type", "").strip().lower()
@@ -354,24 +385,39 @@ def parse_statement(path: Path) -> dict[str, Any]:
             generated_candidates.append(statement_date)
 
         if record_type == "account":
+            document_rows.append(json.dumps({
+                "record_type": "account", "account_number": account_number,
+                "account_name": account_name, "currency": currency,
+                "statement_date": statement_date,
+            }, sort_keys=True, ensure_ascii=False))
             continue
         if record_type == "position":
             holding = _parse_position(row)
+            document_rows.append(json.dumps(holding, sort_keys=True, ensure_ascii=False))
             if holding["id"] not in seen_holding_ids:
                 holdings.append(holding)
                 seen_holding_ids.add(holding["id"])
             continue
         if record_type == "cash":
             holding = _parse_cash(row)
+            document_rows.append(json.dumps(holding, sort_keys=True, ensure_ascii=False))
             if holding["id"] not in seen_holding_ids:
                 holdings.append(holding)
                 seen_holding_ids.add(holding["id"])
             continue
         if record_type == "transaction":
             activity = _parse_transaction(row)
-            if activity["id"] not in seen_activity_ids:
+            document_rows.append(json.dumps(activity, sort_keys=True, ensure_ascii=False))
+            previous = seen_activities.get(activity["id"])
+            if previous is not None and previous != activity:
+                raise ValueError(
+                    "Charles Schwab transactions have conflicting content for identity "
+                    f"'{activity['id']}'; provide distinct confirmed source reference IDs "
+                    "or use reviewed normalized input"
+                )
+            if previous is None:
                 activities.append(activity)
-                seen_activity_ids.add(activity["id"])
+                seen_activities[activity["id"]] = activity
             continue
 
         raise ValueError(
@@ -386,6 +432,14 @@ def parse_statement(path: Path) -> dict[str, Any]:
         "source_file": path.name,
         "accounts": sorted(accounts.values(), key=lambda item: item["account_number"]),
     }
+
+    # A sorted multiset keeps duplicates but ignores filenames, row order, and
+    # generated timestamps. The source fingerprint never changes legacy IDs.
+    document = hashlib.sha256(
+        json.dumps(sorted(document_rows), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    for activity in activities:
+        activity["metadata"]["rikdom_source_identity"]["document_fingerprint"] = document
 
     generated_at = max(generated_candidates) if generated_candidates else _now_iso()
     for holding in holdings:

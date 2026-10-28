@@ -40,12 +40,13 @@ sync:
 
 bootstrap:
 	mkdir -p $(DATA_DIR) $(DATA_DIR)/benchmarks
-	cp -n data-sample/portfolio.json $(DATA_DIR)/portfolio.json
-	cp -n data-sample/snapshots.jsonl $(DATA_DIR)/snapshots.jsonl
-	cp -n data-sample/policy.json $(DATA_DIR)/policy.json
+	test -e $(DATA_DIR)/portfolio.json || cp -n data-sample/portfolio.json $(DATA_DIR)/portfolio.json
+	test -e $(DATA_DIR)/snapshots.jsonl || cp -n data-sample/snapshots.jsonl $(DATA_DIR)/snapshots.jsonl
+	test -e $(DATA_DIR)/policy.json || cp -n data-sample/policy.json $(DATA_DIR)/policy.json
+	test -e $(DATA_DIR)/fx_rates.jsonl || cp -n data-sample/fx_rates.jsonl $(DATA_DIR)/fx_rates.jsonl
 	for f in data-sample/benchmarks/*.jsonl; do \
 		[ -e "$$f" ] || continue; \
-		cp -n "$$f" $(DATA_DIR)/benchmarks/$$(basename "$$f"); \
+		test -e $(DATA_DIR)/benchmarks/$$(basename "$$f") || cp -n "$$f" $(DATA_DIR)/benchmarks/$$(basename "$$f"); \
 	done
 
 validate:

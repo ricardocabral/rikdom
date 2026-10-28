@@ -1,132 +1,134 @@
 # Tutorial: Your first portfolio
 
-This tutorial walks you through validating, snapshotting, visualizing, and
-summarizing income for your first portfolio with rikdom. By the end you will have a `data/`
-workspace, an HTML dashboard, and a baseline understanding of the canonical
-files rikdom reads and writes.
+Import a sample statement, inspect income and trust evidence, and create a local
+snapshot and HTML report. Estimated time: 10–15 minutes after installation. This
+is a walkthrough estimate, not a measured usability result.
 
-If you want background instead of a guided lesson, see
-[schema design](../explanation/schema-design.md). For specific tasks, see
-the [how-to guides](../how-to/).
+## Prerequisites and installation
 
-## What you will build
-
-- A local workspace at `data/` with `portfolio.json` and `snapshots.jsonl`.
-- A validated portfolio that passes schema and structural checks.
-- One historical snapshot row with a base-currency total.
-- An HTML dashboard at `out/dashboard.html`.
-- A received-income report at `out/reports/income.md`.
-
-Estimated time: 5 minutes.
-
-## Prerequisites
-
-- macOS, Linux, or Windows shell.
-- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) installed.
-
-## 1. Sync dependencies
-
-From the repo root:
+Use a macOS or Linux shell (or WSL on Windows), with `make` and
+[`uv`](https://docs.astral.sh/uv/getting-started/installation/) installed. Run
+all commands from the repository root.
 
 ```bash
 make sync
 ```
 
-This installs the project into a local virtualenv that `uv run` will use.
+Installation downloads dependencies and requires network access. The remaining
+steps use tracked samples and local files; no account, paid API, or AI service is
+needed. `uv run --offline --no-sync` uses the environment you just installed.
 
-## 2. Bootstrap the workspace
+## 1. Create a sample workspace
 
-Seed the workspace from the tracked `data-sample/` templates before running
-the commands below. The `income` command requires existing input and does not
-create sample data automatically:
-
-```bash
-make bootstrap
-cp -n data-sample/fx_rates.jsonl data/fx_rates.jsonl
-```
-
-After this you have:
-
-```
-data/
-  portfolio.json     # current-state portfolio
-  snapshots.jsonl    # append-only history (one JSON object per line)
-  fx_rates.jsonl     # FX history used at snapshot time
-```
-
-The contents come from `data-sample/`. They are example data — safe to play
-with. `data/` is gitignored.
-
-## 3. Validate the portfolio
+Use a separate directory for this lesson:
 
 ```bash
-make validate
+make bootstrap DATA_DIR=data/tutorial OUT_DIR=out/tutorial
 ```
 
-This runs schema validation, structural checks, and reconciliation. The sample
-passes validation; warnings can identify missing line-item FX references or
-incomplete history. Inspect them before relying on a total. If you later edit
-`data/portfolio.json`, re-run this to catch shape errors early.
+This copies `portfolio.json`, `snapshots.jsonl`, `policy.json`, local
+`fx_rates.jsonl`, and benchmark samples from `data-sample/`. Repeating bootstrap
+preserves existing files. Expected numbers below assume a fresh directory.
+`data/` and `out/` are gitignored, including these lesson directories.
 
-## 4. Take a snapshot
+## 2. Preview the statement
 
 ```bash
-make snapshot
+uv run --offline --no-sync rikdom import-statement \
+  --data-dir data/tutorial --out-root out/tutorial \
+  --plugin csv-generic --input data-sample/sample_statement.csv --dry-run
 ```
 
-Using local FX history, Rikdom computes the aggregated base-currency total, and
-**appends** a new row to `data/snapshots.jsonl` with a locked-in FX context
-under `metadata.fx_lock`. The file is append-only — old history is never
-rewritten.
+In `dry_run_diff.summary`, expect two holdings and three activities with
+`create` counts of 2 and 3. `write` is `false`. The portfolio, history, import log,
+and report artifacts are unchanged. Inspect `import_diagnostics`: this source
+reports **unknown** history coverage.
 
-Run `make snapshot` a second time and you'll see a second row.
-
-## 5. Generate a dashboard
+## 3. Apply and repeat the import
 
 ```bash
-make viz
+uv run --offline --no-sync rikdom import-statement \
+  --data-dir data/tutorial --out-root out/tutorial \
+  --plugin csv-generic --input data-sample/sample_statement.csv --write --reconcile
 ```
 
-This produces `out/dashboard.html` and `out/portfolio-report.html`. Open
-`out/dashboard.html` in a browser to see allocation, totals, and the
-snapshot history you just appended.
+Expect `holdings.inserted: 2` and `activities.inserted: 3`. Run the same command
+again. Expect zero inserts and updates, with two holdings and three activities
+skipped. The holdings and events are deduplicated; each written run still appends
+an audit entry to `data/tutorial/import_log.jsonl`.
 
-## 6. Inspect the evidence
+Open `out/tutorial/reports/holding_trust.md` and
+`out/tutorial/reports/reconciliation.md`. The valuation invariant matches, but
+history remains unknown and quantity reconciliation is not computable for four
+holdings. Zero findings do not establish complete transaction history.
+
+## 4. Validate the result
 
 ```bash
-uv run rikdom reconcile --data-dir data --out-root out
+uv run --offline --no-sync rikdom validate \
+  --data-dir data/tutorial --out-root out/tutorial
 ```
 
-Open `out/reports/holding_trust.md` to see source amounts, FX and exclusions,
-and `out/reports/reconciliation.md` for findings. Unknown history is not a clean
-quantity reconciliation. No account, paid API, or AI service is needed.
+The sample passes validation. Inspect warnings and trust evidence before relying
+on totals. Re-run validation after editing the portfolio.
 
-## 7. Inspect received income
+## 5. Append a snapshot using local FX
+
+Use a fixed sample date so the lesson is reproducible:
 
 ```bash
-uv run rikdom income --data-dir data --out-root out \
+uv run --offline --no-sync rikdom snapshot \
+  --data-dir data/tutorial --out-root out/tutorial \
+  --timestamp 2026-04-21T10:00:00Z --no-fx-auto-ingest
+```
+
+This appends one row to `data/tutorial/snapshots.jsonl`, preserving previous
+rows. Its `metadata.fx_lock.rates_to_base.USD` is `5.25`, from the tracked local
+FX history. These are example historical rates, not current market prices.
+
+## 6. Read received income
+
+```bash
+uv run --offline --no-sync rikdom income \
+  --data-dir data/tutorial --out-root out/tutorial \
   --start 2026-01-01 --end 2026-12-31
 ```
 
-Open `out/reports/income.md`. The unchanged sample has one April 2026 dividend:
-BRL 96 of gross income. Net receipts are unavailable because the source does not
-assert withholding, including whether it was zero. Inspect the diagnostic and
-compare it with the event row in `out/reports/income.json`.
+Open `out/tutorial/reports/income.md` and `income.json`. Expect:
 
-This report reads the activity ledger without changing holdings or snapshots.
-For other imports and date ranges, use the [income guide](../how-to/summarize-income.md).
+| Period | Currency | Gross income |
+| --- | --- | ---: |
+| February 2026 | USD | 1.20 |
+| March 2026 | BRL | 45.70 |
+| April 2026 | BRL | 96.00 |
 
-## What you have learned
+Yearly totals stay separate: **BRL 141.70** and **USD 1.20**. The April dividend
+was already in the seed portfolio. The imported BRL 12.50 reimbursement is
+excluded from income. Net receipts and withholding are unavailable for all three
+income events because the sources do not assert withholding, including whether
+it was zero. Read the three diagnostics; do not interpret unknown amounts as zero.
+Income reporting leaves holdings and snapshots unchanged.
 
-- Where rikdom keeps its state (`data/portfolio.json`, `data/snapshots.jsonl`).
-- The `validate → snapshot → viz` flow that drives most workflows.
-- That snapshots are append-only and FX-locked for reproducibility.
-- How to inspect received income and recognize an unavailable net amount.
+## 7. Generate the offline fallback report
 
-## Where to go next
+```bash
+RIKDOM_DISABLE_QUARTO=1 uv run --offline --no-sync rikdom viz \
+  --data-dir data/tutorial --out-root out/tutorial
+```
 
-- [Author your first plugin](first-plugin.md) — extend rikdom with your own importer.
-- [Import a broker statement](../how-to/import-a-statement.md) — replace sample data with real data from a community plugin.
+Open `out/tutorial/dashboard.html` and `out/tutorial/portfolio-report.html` in a
+browser. Both show **Fallback Portfolio Report**, valuation, history and data
+quality evidence. This path works without Quarto and does not provide the full
+interactive charts. To render the full dashboard after separately installing
+Quarto, run the command without `RIKDOM_DISABLE_QUARTO=1`; that rendering path is
+outside this offline lesson.
+
+You have previewed, applied, and replayed an import, checked trust and income,
+and saved an FX-locked snapshot and local report.
+
+## Next steps
+
+- [Import a broker statement](../how-to/import-a-statement.md) — choose an importer for your own files.
 - [Summarize received dividends and interest](../how-to/summarize-income.md) — inspect other periods and source conventions.
 - [Compute portfolio TWR / MWR](../how-to/compute-performance.md) — measure returns over a window.
-- [Schema design](../explanation/schema-design.md) — understand the data model behind `portfolio.json`.
+- [Schema design](../explanation/schema-design.md) — understand the canonical files.

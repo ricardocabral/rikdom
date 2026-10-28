@@ -38,7 +38,7 @@ class Plugin:
                     "affects_quantity": bool(activity.get("quantity")),
                     "affects_cash": bool(activity.get("money", {}).get("amount")),
                 })
-        return with_import_diagnostics(
+        payload = with_import_diagnostics(
             payload,
             history_coverage=[{
                 "scope": "charles-schwab:statement",
@@ -48,3 +48,7 @@ class Plugin:
             }],
             unsupported_events=unsupported,
         )
+        if payload.get("activities"):
+            identity = payload["activities"][0]["metadata"]["rikdom_source_identity"]
+            payload["metadata"]["rikdom_import_diagnostics"]["document_fingerprint"] = identity["document_fingerprint"]
+        return payload

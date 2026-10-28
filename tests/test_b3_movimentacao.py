@@ -158,7 +158,7 @@ class B3MovimentacaoTests(unittest.TestCase):
                 ("coverage ends before position", {"through": "2001-02-03"}, 10, "not_computable"),
                 ("nonzero opening", {"opening_quantity": 1}, 10, "not_computable"),
                 ("partial history", {"status": "partial"}, 10, "not_computable"),
-                ("settled basis is unsupported", {"position_basis": "settled"}, 10, "not_computable"),
+                ("settled basis excludes every unsettled trade", {"position_basis": "settled"}, 0, "matched"),
             ]
             for name, changes, quantity, expected in cases:
                 with self.subTest(name=name):
@@ -174,6 +174,19 @@ class B3MovimentacaoTests(unittest.TestCase):
             result = run("normalized-statement-json", statement, "--write")
             self.assertEqual(result["reconciliation"]["quantity_summary"]["matched"], 1)
             self.assertEqual(len(load_json(path)["activities"]), 4)
+
+            # Review the actual settlement dates independently of the trade dates.
+            settled = copy.deepcopy(evidence)
+            settled["holdings"][0]["quantity"] = 14
+            settled["metadata"]["rikdom_import_diagnostics"]["history_coverage"][0]["position_basis"] = "settled"
+            for activity in settled["activities"][:2]:
+                activity["settled_at"] = "2001-02-04T23:59:59-02:00"
+            save_json(statement, settled)
+            for flag in ("--dry-run", "--write", "--write"):
+                result = run("normalized-statement-json", statement, flag)
+                self.assertEqual(result["reconciliation"]["quantity_summary"]["matched"], 1)
+            self.assertEqual(len(load_json(path)["activities"]), 4)
+            self.assertEqual(load_json(path)["holdings"][0]["quantity"], 14)
 
 
 if __name__ == "__main__":

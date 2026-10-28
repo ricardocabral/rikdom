@@ -19,7 +19,21 @@ Statement importers shipped in this repo:
 - `b3-consolidado-mensal` — B3 monthly holdings or `Movimentação` XLSX history.
 - `irpf-xml` — Brazilian IRPF declaration XML (year-end holdings).
 
+Additional shipped statement importers include `btg-investment-pdf`,
+`btg_wm_conta_internacional`, `fidelity`, `vanguard`,
+`normalized-statement-json`, `portfolio_performance_csv`,
+`wealthfolio_activity_csv`, and `wealthfolio_export_json`.
 Each plugin's README documents its expected file format.
+
+For a complete sample exercise with no broker account, follow
+[your first portfolio](../tutorials/first-portfolio.md). It previews and imports
+`data-sample/sample_statement.csv`, replays the import, and checks native-currency
+income, trust evidence, a local-FX snapshot, and fallback HTML.
+
+Use `make bootstrap DATA_DIR=data OUT_DIR=out` only when you want the tracked
+sample portfolio, policy, history, and FX files. Existing files are preserved.
+After `make sync`, the sample workflow runs without network access using
+`uv run --offline --no-sync rikdom ...`.
 
 ## Dry-run an import
 
@@ -52,8 +66,10 @@ Behavior:
   [storage durability](../explanation/storage-durability.md)).
 - One row is appended to `data/import_log.jsonl` with the `source_system`,
   `source_ref`, `import_run_id`, and `idempotency_key` for the run.
-- Repeats are deduplicated by `idempotency_key` — re-running the same
-  import is a no-op.
+- Repeats deduplicate holdings and activities using their stable identity and
+  idempotency evidence. Re-run the same command and inspect `dry_run_diff` and
+  inserted/updated/skipped counts. Unchanged records are skipped, while a written
+  run still appends an audit-log entry; the whole command is not a filesystem no-op.
 
 ## Validate the result
 

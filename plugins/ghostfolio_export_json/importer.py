@@ -22,6 +22,11 @@ _EVENT_TYPE_MAP = {
     "sell": "sell",
     "dividend": "dividend",
     "interest": "interest",
+    "income": "income",
+    "tax": "tax_withheld",
+    "tax_refund": "tax_withheld",
+    "withholding_tax": "tax_withheld",
+    "tax_withheld": "tax_withheld",
     "fee": "fee",
     "deposit": "transfer_in",
     "withdrawal": "transfer_out",
@@ -145,16 +150,40 @@ def _normalize_activity(item: dict[str, Any]) -> dict[str, Any]:
     if quantity is not None:
         activity["quantity"] = quantity
 
-    amount = parse_decimal(_pick(item, "amount", "value", "netAmount", "grossAmount"))
     currency = normalize_currency(
         _pick(item, "currency", "currencyCode", "valueCurrency", "accountCurrency")
     )
-    if amount is not None and currency:
-        activity["money"] = {"amount": amount, "currency": currency}
+    amount_basis = "unknown"
+    for field, aliases, currency_aliases in (
+        ("money", ("amount", "value", "netAmount", "grossAmount"),
+         ("currency", "currencyCode", "valueCurrency", "accountCurrency")),
+        ("fees", ("fee", "fees", "feeAmount"), ("feeCurrency", "feesCurrency")),
+        ("withholding_tax", ("withholdingTax", "withholding_tax", "withholdingTaxAmount", "tax", "taxes", "taxAmount"),
+         ("withholdingTaxCurrency", "withholding_tax_currency", "taxCurrency", "taxesCurrency")),
+    ):
+        # Validate every supplied alias, including evidence after the selected
+        # alias. An invalid primary or secondary amount must never disappear.
+        for alias in aliases:
+            raw = item.get(alias)
+            if raw is None or raw == "":
+                continue
+            raw_currency = _pick(item, alias + "Currency", *currency_aliases)
+            if isinstance(raw, dict):
+                raw_currency = raw.get("currency", raw_currency)
+                raw = raw.get("amount")
+            value = parse_decimal(raw)
+            if value is None:
+                raise ValueError(f"Ghostfolio activity '{activity_id}' has invalid {alias}")
+            code = normalize_currency(raw_currency) if raw_currency is not None else currency
+            if not code:
+                raise ValueError(f"Ghostfolio activity '{activity_id}' has invalid or missing {alias} currency")
+            if field not in activity:
+                activity[field] = {"amount": value, "currency": code}
+                if field == "money":
+                    amount_basis = {"netAmount": "net", "grossAmount": "gross"}.get(alias, "unknown")
 
-    fee_amount = parse_decimal(_pick(item, "fee", "fees", "feeAmount"))
-    if fee_amount is not None and currency:
-        activity["fees"] = {"amount": fee_amount, "currency": currency}
+    if event_type in {"dividend", "interest", "income"}:
+        activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": amount_basis}
 
     instrument: dict[str, Any] = {}
     ticker = as_text(_pick(item, "symbol", "ticker"))

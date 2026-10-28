@@ -1000,13 +1000,14 @@ def reconcile_quantities(holdings: list[dict[str, Any]], activities: list[dict[s
         if not _is_numeric(holding.get("quantity")):
             continue
         hid, account = holding.get("id"), holding.get("account_id")
-        result: dict[str, Any] = {"holding_id": hid, "status": "not_computable", "reason": "Explicit account-scoped history and dated trade-basis position required"}
+        result: dict[str, Any] = {"holding_id": hid, "status": "not_computable", "reason": "Explicit account-scoped history and dated trade- or settled-basis position required"}
         results.append(result)
         declarations = [c for c in diagnostics["history_coverage"] if c.get("holding_id") == hid and account and c.get("account_id") == account]
         if len(declarations) != 1:
             continue
         c = declarations[0]
-        if c.get("status") != "complete" or c.get("history_origin") != "inception" or c.get("opening_quantity") != 0 or c.get("position_basis") != "trade" or not c.get("evidence") or not {"buy", "sell"}.issubset(set(c.get("event_types", []))):
+        basis = c.get("position_basis")
+        if c.get("status") != "complete" or c.get("history_origin") != "inception" or c.get("opening_quantity") != 0 or basis not in ("trade", "settled") or not c.get("evidence") or not {"buy", "sell"}.issubset(set(c.get("event_types", []))):
             continue
         try:
             zone = ZoneInfo(c["timezone"])
@@ -1060,7 +1061,11 @@ def reconcile_quantities(holdings: list[dict[str, Any]], activities: list[dict[s
             if event not in c.get("event_types", []):
                 invalid = True
                 continue
-            when = a.get("trade_at") or (a.get("effective_at") if c.get("effective_at_basis") == "trade" else None)
+            if basis == "trade":
+                when = a.get("trade_at") or (a.get("effective_at") if c.get("effective_at_basis") == "trade" else None)
+            else:
+                # A present but invalid settlement timestamp must not be hidden.
+                when = a.get("settled_at", a.get("effective_at") if c.get("effective_at_basis") == "settled" else None)
             try:
                 timestamp = datetime.fromisoformat(when.replace("Z", "+00:00"))
                 if timestamp.tzinfo is None:
@@ -1088,5 +1093,5 @@ def reconcile_quantities(holdings: list[dict[str, Any]], activities: list[dict[s
         if invalid:
             result["reason"] = "Ambiguous or unsupported quantity movement"
             continue
-        result.update(status="matched" if abs(float(holding["quantity"]) - ledger) <= tolerance else "mismatched", reason="Declared history compared on trade basis", ledger_quantity=ledger, holding_quantity=float(holding["quantity"]), activity_ids=refs)
+        result.update(status="matched" if abs(float(holding["quantity"]) - ledger) <= tolerance else "mismatched", reason=f"Declared history compared on {basis} basis", ledger_quantity=ledger, holding_quantity=float(holding["quantity"]), activity_ids=refs)
     return results

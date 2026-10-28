@@ -26,7 +26,8 @@
           ]
         }
       ],
-      "unsupported_events": []
+      "unsupported_events": [],
+      "document_fingerprint": "251706439d24ba5f400125d953f900641e670d542aa4385a632c68e3b60f7351"
     }
   },
   "holdings": [
@@ -85,7 +86,19 @@
       "source_ref": "schwab:ROTH-7788#txn:RIRA-2001",
       "metadata": {
         "action": "Cash Dividend",
-        "description": "Dividend reinvestment"
+        "description": "Dividend reinvestment",
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        },
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "charles-schwab:account:ROTH-7788",
+          "signature": "90993b42fedecf25",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "251706439d24ba5f400125d953f900641e670d542aa4385a632c68e3b60f7351"
+        }
       },
       "instrument": {
         "ticker": "SWPPX",
@@ -106,7 +119,15 @@
       "source_ref": "schwab:ROTH-7788#txn:RIRA-2002",
       "metadata": {
         "action": "Transfer In",
-        "description": ""
+        "description": "",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "charles-schwab:account:ROTH-7788",
+          "signature": "a6afcf4a236180ad",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "251706439d24ba5f400125d953f900641e670d542aa4385a632c68e3b60f7351"
+        }
       }
     },
     {
@@ -122,7 +143,15 @@
       "source_ref": "schwab:ROTH-7788#txn:RIRA-2003",
       "metadata": {
         "action": "Transfer Out",
-        "description": ""
+        "description": "",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "charles-schwab:account:ROTH-7788",
+          "signature": "8053843dfdb632d6",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "251706439d24ba5f400125d953f900641e670d542aa4385a632c68e3b60f7351"
+        }
       }
     }
   ]

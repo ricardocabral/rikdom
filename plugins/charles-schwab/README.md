@@ -20,8 +20,47 @@ Header matching is case-insensitive and tolerant of spaces/punctuation.
 - `metadata.accounts` captures account metadata discovered in the file
 - Position + cash rows map to canonical `holdings`
 - Transaction rows map to canonical `activities`
-- Supported transaction mappings: `buy`, `sell`, `dividend`, `interest`, `fee`, `transfer_in`, `transfer_out` (fallback `other`)
+- Supported transaction mappings: `buy`, `sell`, `dividend`, `interest`, `income`, `tax_withheld`, `fee`, `transfer_in`, `transfer_out` (fallback `other`)
 - Deterministic `id`/`idempotency_key` values are generated for idempotent re-runs
+
+## Income evidence
+
+Dividend, interest, and generic income keep the source amount's sign, including
+negative corrections. Explicit withholding/tax action labels map to separate
+`tax_withheld` events before dividend/interest matching; refunds keep their sign.
+Classification uses the action field, not the instrument description. Bounded
+labels avoid treating `TAXF` or `Tax-Exempt Bond` as a tax action.
+
+The supported CSV dialect does not establish whether `amount` is gross or net.
+Income therefore declares `metadata.rikdom_income` as
+`{"version": 1, "amount_basis": "unknown"}`. Reports retain this uncertainty.
+Missing withholding is never replaced with zero or inferred from a tax event.
+Available income fees retain their sign, including explicit zero; a blank fee
+remains absent. The dialect's `currency` applies to transaction amounts and fees,
+with the existing USD default for omitted currency.
+
+Anonymous IDs and idempotency keys retain the original fingerprint convention,
+including its historical amount-sign normalization. Each transaction also carries
+opaque `metadata.rikdom_source_identity` evidence. Document fingerprints use a
+sorted multiset of normalized rows, retaining duplicate-row multiplicity while
+ignoring row order, filenames, and generated timestamps. Identical repeated rows
+continue to deduplicate within one file.
+
+If anonymous rows share a legacy identity but assert conflicting economic facts
+(for example, +10 and -10 dividends on the same date), the import fails within
+one file or against an earlier import. This also protects stored events from
+older importer versions without source-identity metadata. Exact replay and reviewed
+metadata or optional evidence enrichment remain allowed; conflicting stored money or event
+types require an [auditable correction](../../docs/how-to/enter-and-correct-activities.md).
+Resolve the source's distinct reference IDs, or use the
+[normalized-input workflow](../../docs/how-to/import-a-statement.md) with reviewed,
+confirmed event IDs; do not invent source references. Explicit reference IDs
+retain their existing source-update semantics.
+
+Preview reimports of previously imported income: ordinary source rows may update,
+while corrected or superseded rows retain the existing ledger protections. Use an
+[auditable correction](../../docs/how-to/enter-and-correct-activities.md) or a
+reviewed normalized statement when repairing stored evidence.
 
 ## Known Gaps (v1)
 

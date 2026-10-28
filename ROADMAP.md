@@ -161,7 +161,7 @@ Sequencing override:
 - [x] Ship `wealthfolio_activity_csv` fallback importer path with fixtures.
 - [x] Add IBKR cancellation/corporate-action edge-case tests.
 - [x] Import a B3 `Movimentação` history file twice without duplicating recognized activities; report unsupported movements and partial coverage.
-- [ ] Reconcile B3 positions with verified account/opening coverage and compatible execution/settlement-date evidence.
+- [x] Reconcile B3 positions with verified account/opening coverage and compatible execution/settlement-date evidence (reviewed complete inception history with zero opening; raw B3 remains partial).
 - [x] Enter and correct a manual activity with preview/validation and an auditable correction trail.
 - [x] Surface explicit history coverage and unsupported events for every first-party importer.
 
@@ -236,11 +236,12 @@ Sequencing override:
 - [x] Roll up dividend and interest events into monthly/yearly native-currency income views.
 - [x] Expose income views through the `income` CLI and JSON/Markdown report artifacts.
 - [ ] Ensure all first-party importers map dividend/interest/cashflow events consistently.
-- [ ] Enable new users to run bootstrap + first import using a documented happy path in under 15 minutes.
+  Schwab and Ghostfolio now preserve signed income/tax evidence and explicit gross/net/unknown basis; full first-party coverage remains open.
+- [x] Enable new users to run bootstrap + first import using a documented happy path in under 15 minutes (10–15 minute walkthrough estimate after installation, not a measured usability result).
 - [ ] Display paid and announced income separately; forecasts never enter actual balances or realized returns.
 - [ ] Match imported payments to announced events without double-counting reinvested distributions, corrections, or repeated provider refreshes.
 - [ ] Explain yield-on-cost inputs and flag unavailable cost basis; distinguish gross income from net receipts.
-- [ ] Complete onboarding with sample data and no account, paid API key, or AI service.
+- [x] Complete onboarding with sample data and no account, paid API key, or AI service (local import/replay, trust, income, snapshot, and fallback HTML verified with network connections denied).
 
 
 ### Small extension: collective dividend-receipt validation
