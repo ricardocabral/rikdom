@@ -7,7 +7,7 @@ Pick the section that matches what you are trying to do right now.
 
 Hands-on lessons for newcomers. Start here.
 
-- [Your first portfolio](tutorials/first-portfolio.md) — validate, snapshot, visualize.
+- [Your first portfolio](tutorials/first-portfolio.md) — validate, snapshot, visualize, inspect income.
 - [Author your first plugin](tutorials/first-plugin.md) — scaffold a `source/input` plugin end-to-end.
 
 ## [How-to guides](how-to/) — solve a specific problem

@@ -50,6 +50,7 @@ uv run rikdom plugins list --plugins-dir plugins
 
 ## See also
 
+- [Received-income JSON/Markdown reports](summarize-income.md) — separate artifacts generated with `rikdom income`.
 - [CLI reference: visualization](../reference/cli.md#visualization)
 - [Plugin architecture](../explanation/plugin-architecture.md)
 
