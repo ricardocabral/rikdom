@@ -76,8 +76,10 @@ Received `events`, `monthly`, and `yearly` amounts retain their actual-ledger
 meaning. Announcements and estimates never enter these totals. Markdown renders
 the planning results in separate sections. The plan is validated by the income
 calculation before artifact writes; output filenames cannot overwrite either
-the portfolio or an explicit plan input. Existing commands without a plan keep
-their original version `1` output contract.
+the portfolio or an explicit plan input, including existing symlink or hard-link
+aliases. Markdown retains each planning scope and source evidence; yield rows
+also retain the declared income source and coverage. Existing commands without
+a plan keep their original version `1` JSON output contract.
 
 See the [income plan reference](income-plan.md) for exact required source, scope,
 revision, linkage and cost-method fields, and the

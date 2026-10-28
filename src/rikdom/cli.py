@@ -10,6 +10,7 @@ import sys
 import uuid
 import zipfile
 from datetime import datetime, timezone
+from html import escape
 from tempfile import TemporaryDirectory
 from importlib.resources import as_file, files as resource_files
 from pathlib import Path
@@ -447,7 +448,9 @@ def _income_markdown(report: dict[str, Any]) -> str:
     def cell(value: Any) -> str:
         if value is None:
             return "Unavailable"
-        return str(value).replace("|", "\\|").replace("\n", " ")
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value, ensure_ascii=False, sort_keys=True)
+        return escape(str(value), quote=False).replace("|", "\\|").replace("\n", " ")
 
     lines = ["# Received income", "", report["date_convention"], "",
              f"Start: {report['start'] or 'unbounded'}; end: {report['end'] or 'unbounded'}.", ""]
@@ -475,37 +478,37 @@ def _income_markdown(report: dict[str, Any]) -> str:
     if planning is not None:
         lines.extend(["", "## Announced income", "",
                       "Announcements are entitlements, not received cash or realized returns.", "",
-                      "| ID | Revision | Status | Payment date | Currency | Basis | Expected amount | Reason |",
-                      "| --- | ---: | --- | --- | --- | --- | ---: | --- |"])
+                      "| ID | Revision | Status | Scope | Payment date | Currency | Basis | Expected amount | Source | Reason |",
+                      "| --- | ---: | --- | --- | --- | --- | --- | ---: | --- | --- |"])
         for row in planning['announced']:
             lines.append("| " + " | ".join(cell(row.get(key)) for key in
-                         ('id', 'revision', 'status', 'payment_date', 'currency', 'amount_basis', 'expected_amount', 'reason')) + " |")
+                         ('id', 'revision', 'status', 'scope', 'payment_date', 'currency', 'amount_basis', 'expected_amount', 'source', 'reason')) + " |")
         lines.extend(["", "## Scenario estimates", "",
                       "Estimates never enter actual balances, received totals, or realized returns.", "",
-                      "| ID | Scenario | Payment date | Currency | Basis | Estimated amount | Assumptions |",
-                      "| --- | --- | --- | --- | --- | ---: | --- |"])
+                      "| ID | Scenario | Scope | Payment date | Currency | Basis | Estimated amount | Source | Assumptions |",
+                      "| --- | --- | --- | --- | --- | --- | ---: | --- | --- |"])
         for row in planning['estimates']:
             lines.append("| " + " | ".join(cell(row.get(key)) for key in
-                         ('id', 'scenario', 'payment_date', 'currency', 'amount_basis', 'estimated_amount', 'assumptions')) + " |")
+                         ('id', 'scenario', 'scope', 'payment_date', 'currency', 'amount_basis', 'estimated_amount', 'source', 'assumptions')) + " |")
         lines.extend(["", "## Payment reconciliation", "",
                       "Only reviewed links establish matches. Unlinked payments do not prove a broker delay.", "",
-                      "| Announcement | Status | Currency | Basis | Expected | Received | Activities | Reason |",
-                      "| --- | --- | --- | --- | ---: | ---: | --- | --- |"])
+                      "| Announcement | Status | Scope | Currency | Basis | Expected | Received | Activities | Reason |",
+                      "| --- | --- | --- | --- | --- | ---: | ---: | --- | --- |"])
         for row in planning['reconciliation']:
             lines.append("| " + " | ".join(cell(row.get(key)) for key in
-                         ('announcement_id', 'status', 'currency', 'amount_basis', 'expected_amount',
+                         ('announcement_id', 'status', 'scope', 'currency', 'amount_basis', 'expected_amount',
                           'received_amount', 'activity_ids', 'reason')) + " |")
         lines.extend(["", "## Yield on cost", "",
                       "Received income divided by the declared cost basis for the explicit period; not annualized.",
                       "Gross and net income use their declared basis. Unavailable inputs never become zero.", "",
-                      "| ID | Method | Period | Currency | Basis | Cost basis | Received | Yield | Source | Reason |",
-                      "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |"])
+                      "| ID | Scope | Method | Period | Currency | Basis | Cost basis | Received | Yield | Income source | Coverage | Cost evidence | Reason |",
+                      "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- |"])
         for row in planning['yield_on_cost']:
             period = row['period']
-            values = [row['id'], row['method'], f"{period['start']} to {period['end']}",
+            values = [row['id'], row['scope'], row['method'], f"{period['start']} to {period['end']}",
                       row['currency'], row['amount_basis'], row['cost_basis'], row['received_amount'],
                       format(row['ratio'], '.2%') if row['ratio'] is not None else None,
-                      json.dumps(row['source'], ensure_ascii=False), row['reason']]
+                      row['income_source_system'], row['coverage'], row['source'], row['reason']]
             lines.append("| " + " | ".join(cell(value) for value in values) + " |")
         if planning['diagnostics']:
             lines.extend(["", "## Planning diagnostics", ""])
@@ -533,7 +536,8 @@ def cmd_income(args: argparse.Namespace) -> int:
     inputs = {Path(args.portfolio).resolve()}
     if plan_path:
         inputs.add(Path(plan_path).resolve())
-    if any(path.resolve() in inputs for path in artifacts):
+    if any(path.resolve() in inputs or (path.exists() and any(path.samefile(source) for source in inputs))
+           for path in artifacts):
         raise ValueError("Income artifact would overwrite a portfolio or plan input")
     out_dir.mkdir(parents=True, exist_ok=True)
     for path, content in artifacts.items():

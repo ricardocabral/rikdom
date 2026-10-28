@@ -83,7 +83,8 @@ class IncomePlanningCliTests(unittest.TestCase):
             self.assertEqual(json.loads((output / 'income.json').read_text()), report)
             markdown = (output / 'income.md').read_text()
             for text in ('Announced income', 'Scenario estimates', 'Payment reconciliation',
-                         'Yield on cost', 'ann-1', 'matched', 'declared_constant_cost', '5.00%'):
+                         'Yield on cost', 'ann-1', 'matched', 'declared_constant_cost', '5.00%',
+                         'holding-1', 'sample-broker', 'complete', 'Reviewed sample evidence'):
                 self.assertIn(text, markdown)
             self.assertEqual(report['monthly'][0]['gross']['total'], 50)
             self.assertEqual((canonical.read_bytes(), plan_path.read_bytes()), before)
@@ -135,6 +136,57 @@ class IncomePlanningCliTests(unittest.TestCase):
             self.assertTrue(stderr)
             self.assertFalse((root / 'income.md').exists())
             self.assertEqual((canonical.read_bytes(), plan_path.read_bytes()), before)
+
+    def test_existing_hardlinked_artifacts_cannot_overwrite_either_input(self):
+        for target in ('portfolio', 'plan'):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                canonical, plan_path, output = root / 'portfolio.json', root / 'plan.json', root / 'out'
+                canonical.write_text(json.dumps(sample_portfolio()))
+                plan_path.write_text(json.dumps(sample_plan()))
+                output.mkdir()
+                (output / 'income.json').hardlink_to(canonical if target == 'portfolio' else plan_path)
+                before = canonical.read_bytes(), plan_path.read_bytes()
+                code, stdout, stderr = self.run_cli('--portfolio', canonical, '--income-plan', plan_path,
+                                                   '--out-dir', output, '--format', 'json')
+                self.assertEqual(code, 1)
+                self.assertEqual(stdout, '')
+                self.assertTrue(stderr)
+                self.assertEqual((canonical.read_bytes(), plan_path.read_bytes()), before)
+
+    def test_markdown_keeps_each_planning_scope_and_source_on_its_own_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            canonical, plan_path, output = root / 'portfolio.json', root / 'plan.json', root / 'out'
+            plan = sample_plan()
+            second = copy.deepcopy(plan['announcements'][0])
+            second.update(id='ann-2', scope={'holding_id': 'holding-2'},
+                          source={**source(), 'reference': 'Other issuer | <notice>'})
+            plan['announcements'].append(second)
+            second = copy.deepcopy(plan['estimates'][0])
+            second.update(id='scenario-2', scope={'holding_id': 'holding-2'},
+                          source={**source(), 'reference': 'Other scenario evidence'})
+            plan['estimates'].append(second)
+            second = copy.deepcopy(plan['cost_bases'][0])
+            second.update(id='cost-2', scope={'holding_id': 'holding-2'},
+                          source={**source(), 'reference': 'Other cost evidence'})
+            plan['cost_bases'].append(second)
+            canonical.write_text(json.dumps(sample_portfolio()))
+            plan_path.write_text(json.dumps(plan))
+            code, _, stderr = self.run_cli('--portfolio', canonical, '--income-plan', plan_path,
+                                           '--out-dir', output, '--format', 'markdown')
+            self.assertEqual((code, stderr), (0, ''))
+            markdown = (output / 'income.md').read_text()
+            for identity, evidence in (('ann-2', 'Other issuer \\| &lt;notice&gt;'),
+                                       ('scenario-2', 'Other scenario evidence'),
+                                       ('cost-2', 'Other cost evidence')):
+                row = next(line for line in markdown.splitlines() if line.startswith('| ' + identity + ' |'))
+                self.assertIn('holding-2', row)
+                self.assertIn(evidence, row)
+            row = next(line for line in markdown.splitlines() if line.startswith('| cost-2 |'))
+            self.assertIn('sample-broker', row)
+            self.assertIn('complete', row)
+            self.assertNotIn('<notice>', markdown)
 
     def test_links_to_original_activity_resolve_the_effective_correction_once(self):
         portfolio, plan = sample_portfolio(), sample_plan()
