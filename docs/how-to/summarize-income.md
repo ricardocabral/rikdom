@@ -43,10 +43,16 @@ Only posted dividend and interest events enter these received-income totals.
 Pending events are not assumed to be announced distributions. Cancelled events,
 transfers, contributions, generic income and reinvestment purchase legs are
 excluded. The associated posted dividend remains income when it is reinvested.
-For files imported with an older importer, reimport the original source to add
-its current amount-basis declarations before relying on gross/net comparisons.
-Unmarked historical events otherwise follow the canonical gross convention;
-the report cannot infer their original source columns.
+For files imported with an older importer, preview a reimport of the original
+source and inspect the resulting basis and withholding evidence before relying
+on gross/net comparisons. Alternatively, correct the activity explicitly.
+Unmarked historical events follow the canonical gross convention; the report
+cannot infer their original source columns. Importer-specific semantics are
+documented for [Portfolio Performance](../../plugins/portfolio_performance_csv/README.md#received-income-semantics),
+[Wealthfolio CSV](../../plugins/wealthfolio_activity_csv/README.md#received-income-semantics),
+[Wealthfolio JSON](../../plugins/wealthfolio_export_json/README.md#received-income-semantics),
+[IBKR](../../plugins/ibkr_flex_xml/README.md#received-income-semantics), and
+[B3](../../plugins/b3-consolidado-mensal/README.md).
 
 Coverage depends on your imports: an empty report is not evidence that no income
 was owed or paid. Announced-event matching, forecasts, yield on cost and tax

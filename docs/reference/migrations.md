@@ -33,8 +33,10 @@ unknown user data under `metadata` / `extensions`.
 
 ## Compatibility policy
 
-- Readers accept any `schema_version` within the current major, between
-  `MIN_COMPATIBLE_SCHEMA_VERSION` and `CURRENT_SCHEMA_VERSION`.
+- Correction-aware financial readers accept compatible legacy 1.x versions
+  through 1.7.0 and exact version 2.0.0. Correction-bearing portfolios require
+  2.0.0. The first correction writes that version with its linked event; it is
+  not a generic migration step. See [activity corrections](../how-to/enter-and-correct-activities.md#correct-an-existing-event).
 - `schema_uri` must match the canonical URI
   (`https://example.org/rikdom/schema/portfolio.schema.json`).
 - Unknown fields under `metadata` and top-level `extensions` are preserved

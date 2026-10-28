@@ -65,8 +65,8 @@ and interest, grouped by calendar month/year and native currency. It runs offlin
 
 Standard workspace flags select the data/output roots, registry and portfolio.
 Successful execution returns status `0` and prints the full report as JSON,
-regardless of artifact format. Invalid inputs return status `1` with a diagnostic
-on stderr before report writes. Missing inputs are not bootstrapped by this
+regardless of artifact format. Invalid report inputs return status `1` with a diagnostic
+on stderr before report writes; argument parsing errors return status `2`. Missing inputs are not bootstrapped by this
 command. Canonical files and import logs are not modified.
 
 Output version `1` includes `start`, `end`, `date_convention`, `limitations`,
@@ -85,7 +85,10 @@ without conversion to UTC. It does not assert actual cash availability. Differen
 currencies are never combined. Corrections are projected before filtering;
 cancelled/pending events, buys, transfers, principal returns and generic `income`
 are excluded from received dividends/interest. Generic-income exclusions produce
-a diagnostic. An empty history does not establish complete statement coverage.
+a diagnostic counted across the effective history, even outside the date filter.
+Each ledger activity must have a unique nonempty ID and an explicit valid status;
+any supplied idempotency keys must also be unique and nonempty. An empty history
+does not establish complete statement coverage.
 
 Income metadata uses an optional versioned declaration:
 

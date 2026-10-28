@@ -72,7 +72,10 @@ It requires an explicit complete-history declaration under
 Unknown, partial, inconsistent or ambiguous history produces
 `status: incomplete_history`, with `profit_amount` and `xirr_pct` set to
 `null`. Observed receipts and costs remain available for reconciliation.
-Do not declare completeness from a current position or annual income total.
+Corrections are resolved before calculating returns. A distribution with unknown amount basis
+prevents a complete return; a net-marked receipt is not charged twice. See the
+[income amount-basis contract](../reference/cli.md#income). Do not declare
+completeness from a current position or annual income total.
 
 The default terminal value is the holding's market value at its actual
 `as_of` timestamp. To supply a separately calculated liquidation value:

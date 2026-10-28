@@ -40,8 +40,8 @@ at period_start), … external CFs (sign-flipped to investor perspective) …,
 end_value (positive at period_end)]`.
 
 Implementation: Newton's method with bisection fallback over `[-0.999999,
-10.0]`. Bisection guarantees convergence for any series with at least one
-sign change.
+10.0]`. A sign change alone does not guarantee a solution within that range; an
+unsolvable series yields an unavailable MWR.
 
 `mwr_pct` is annualized using a 365-day year; short windows extrapolate.
 
@@ -51,7 +51,9 @@ Only **external** activity events feed the cashflow series — see the
 [external vs. internal cashflows](../reference/performance-output.md#external-vs-internal-cashflows)
 table. Internal events (`buy`, `sell`, `dividend`, etc.) reshape value
 within the portfolio and would double-count if added to the series, since
-the next snapshot already reflects them.
+the next snapshot already reflects them. Instrument returns use a different
+boundary: purchases and distributions cross between the investor and the
+instrument. See [per-instrument output](../reference/performance-output.md#per-instrument-output).
 
 ## Why FX gaps warn instead of fail
 

@@ -98,7 +98,7 @@ the instrument boundary; portfolio-level external flow rules remain unchanged.
 | `valuation_basis` | `gross_market_value` or `explicit_terminal_value`; taxes are not inferred. |
 | `observed_buy_outflows` | Recorded purchases including attached fees and taxes. |
 | `observed_sell_inflows` | Recorded sales after attached fees and taxes. |
-| `observed_distributions` | Recorded dividend, interest, income, amortization and reimbursement receipts after attached costs. |
+| `observed_distributions` | Recorded dividend, interest, income, amortization and reimbursement receipts; gross-basis amounts are reduced by attached costs, while net-basis amounts are used as recorded. |
 | `observed_fees`, `observed_taxes` | Costs recorded in supported events, including attached costs. |
 | `observed_net_cashflow` | Recorded investor cashflows, excluding terminal value. |
 | `profit_amount` | Terminal value plus net cashflows; `null` for incomplete history. |
@@ -107,9 +107,12 @@ the instrument boundary; portfolio-level external flow rules remain unchanged.
 | `warnings` | Missing coverage, stale valuations, ambiguous identities, unsupported movements or inconsistent amounts. |
 
 Observed totals summarize the records present; they are not complete lifetime
-totals unless the history has been reconciled. Pending and cancelled activities
-are excluded. Signed corporate-action quantity deltas carry no investment cash
-by themselves. Unhandled cash components prevent a complete return.
+totals unless the history has been reconciled. Corrections are resolved before
+calculating returns, and pending and cancelled activities are excluded. For
+distributions marked net, the recorded amount is the receipt and attached
+charges are not deducted again. An unknown amount basis makes the full return
+unavailable; see the [income amount-basis contract](cli.md#income). Signed
+corporate-action quantity deltas carry no investment cash by themselves. Unhandled cash components prevent a complete return.
 
 Full returns require the declared coverage to include the first acquisition
 through valuation, without declared gaps or inconsistent quantities. Explicit
@@ -120,12 +123,15 @@ fixed-income redemption taxes.
 
 ## Scope and limits
 
-MVP is portfolio-level. Per-account, per-strategic-bucket, and benchmark
-attribution have shipped on `totals.by_account` / `totals.by_strategic_bucket`
-bookends; CLI surfacing follows.
+The CLI also supports `--by account` and `--by strategic_bucket`, using
+`totals.by_account` and `totals.by_strategic_bucket` snapshot bookends,
+respectively. Strategic-bucket output requires a policy. A supplied policy can
+also enable benchmark comparisons. Instrument mode uses the activity ledger
+and a terminal valuation instead of snapshot bookends.
 
-> Caveat: today's FX lock is applied to all historical cashflows. Per-cashflow
-> FX provenance lands with the `Money.fx_ref` rollout (schema 1.5.0 onward).
+> Caveat: the CLI resolves an FX lock at computation time and applies it to
+> historical cashflows. Although schema 1.5.0 supports `Money.fx_ref`
+> provenance, this performance calculation does not use per-cashflow FX rates.
 
 ## See also
 
