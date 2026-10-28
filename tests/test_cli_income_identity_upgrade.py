@@ -101,3 +101,47 @@ class SourceIdentityUpgradeCliTests(unittest.TestCase):
             self.assertEqual(code, 0, err)
             self.assertEqual(report['activities']['skipped'], 1)
             self.assertEqual(portfolio.read_bytes(), before)
+
+    def test_source_upgrade_cannot_remove_asserted_money_or_charges(self):
+        for kind in ('anonymous', 'source'):
+            for field in ('money', 'fees'):
+                with self.subTest(kind=kind, field=field), TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    portfolio, log = root / 'portfolio.json', root / 'import_log.jsonl'
+                    portfolio.write_text(json.dumps({'holdings': [], 'activities': []}))
+                    original = self.activity()
+                    code, _, err = self.import_activity(root, original)
+                    self.assertEqual(code, 0, err)
+                    revised = copy.deepcopy(original)
+                    self.add_source_identity(revised)
+                    revised['metadata']['rikdom_source_identity']['kind'] = kind
+                    del revised[field]
+                    before, log_before = portfolio.read_bytes(), log.read_bytes()
+                    code, report, err = self.import_activity(root, revised)
+                    self.assertEqual(code, 1, err)
+                    self.assertIn('AMBIGUOUS_IMPORT_IDENTITY', [
+                        issue['code'] for issue in report['preflight']['issues']])
+                    self.assertEqual(portfolio.read_bytes(), before)
+                    self.assertEqual(log.read_bytes(), log_before)
+
+    def test_source_upgrade_matches_identities_as_the_merge_does(self):
+        for match in ('id', 'idempotency_key', 'both'):
+            with self.subTest(match=match), TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                portfolio, log = root / 'portfolio.json', root / 'import_log.jsonl'
+                portfolio.write_text(json.dumps({'holdings': [], 'activities': []}))
+                original = self.activity()
+                code, _, err = self.import_activity(root, original)
+                self.assertEqual(code, 0, err)
+                revised = copy.deepcopy(original)
+                self.add_source_identity(revised)
+                revised['money']['amount'] = -10
+                revised['id'] = (' ' + original['id'] + ' ') if match != 'idempotency_key' else 'new-id'
+                revised['idempotency_key'] = (' ' + original['idempotency_key'] + ' ') if match != 'id' else 'new-key'
+                before, log_before = portfolio.read_bytes(), log.read_bytes()
+                code, report, err = self.import_activity(root, revised)
+                self.assertEqual(code, 1, err)
+                self.assertIn('AMBIGUOUS_IMPORT_IDENTITY', [
+                    issue['code'] for issue in report['preflight']['issues']])
+                self.assertEqual(portfolio.read_bytes(), before)
+                self.assertEqual(log.read_bytes(), log_before)

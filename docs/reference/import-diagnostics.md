@@ -69,7 +69,8 @@ source columns, ticker conventions, or account naming rules.
 
 When a parser adds source-identity evidence to a legacy stored event, reimport
 cannot change already asserted economic fields under the same ID or idempotency
-key. Conflicting signs, event types or charges block before writing; use an
+key, using the same whitespace normalization as the merge. Changing or dropping
+asserted amounts, event types or charges blocks before writing; use an
 auditable correction after reviewing the original statement. New metadata and
 previously absent evidence can still be added. Events already backed by source
 identifiers retain the existing source-update behavior.

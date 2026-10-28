@@ -661,11 +661,11 @@ def validate_import_diagnostics(value: Any) -> list[str]:
 
 
 def _asserted_values_conflict(previous: Any, incoming: Any) -> bool:
-    """New optional evidence is safe; changing a shared assertion is ambiguous."""
+    """New optional evidence is safe; stored assertions must remain intact."""
     if isinstance(previous, dict) and isinstance(incoming, dict):
         return any(
-            _asserted_values_conflict(value, incoming[key])
-            for key, value in previous.items() if key in incoming
+            key not in incoming or _asserted_values_conflict(value, incoming[key])
+            for key, value in previous.items()
         )
     return previous != incoming
 
@@ -715,8 +715,8 @@ def identity_conflicts(portfolio: dict[str, Any], imported: dict[str, Any]) -> l
             # Legacy stored events may predate source-identity metadata. Match
             # the same keys as merge, without interpreting provider signatures.
             matches = [old for old in existing.values()
-                       if old.get("id") == activity.get("id")
-                       or (activity.get("idempotency_key") and old.get("idempotency_key") == activity["idempotency_key"])]
+                       if as_text(old.get("id")) == as_text(activity.get("id"))
+                       or (as_text(activity.get("idempotency_key")) and as_text(old.get("idempotency_key")) == as_text(activity["idempotency_key"]))]
             for old in matches:
                 if identity["kind"] == "source" and (old.get("metadata") or {}).get("rikdom_source_identity") is not None:
                     # Preserve established updates for source-backed events;
