@@ -18,7 +18,7 @@
           "event_types": [
             "buy",
             "dividend",
-            "fee",
+            "tax_withheld",
             "transfer_in"
           ],
           "reasons": [
@@ -627,13 +627,25 @@
         "description": "BND - VANGUARD BD INDEX FDS TOTAL BND MRKT - DIV:BND(0.1287/sh):TAXCD:A",
         "price": 0.0,
         "settle_at": "2026-04-03T00:00:00Z",
-        "source_block": "activity"
+        "source_block": "activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "acb04b6dff71a8",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "asset_type_id": "debt_instrument"
     },
     {
       "id": "btgwm-act-b1bb76bdaed23a",
-      "event_type": "fee",
+      "event_type": "tax_withheld",
       "status": "posted",
       "effective_at": "2026-04-03T00:00:00Z",
       "money": {
@@ -652,7 +664,15 @@
         "description": "BND - VANGUARD BD INDEX FDS TOTAL BND MRKT - DIVNRA:BND(0.1287/sh):NRA withholding",
         "price": 0.0,
         "settle_at": "2026-04-03T00:00:00Z",
-        "source_block": "activity"
+        "source_block": "activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "b1bb76bdaed23a",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
       },
       "asset_type_id": "debt_instrument",
       "subtype": "withholding_tax"
@@ -678,13 +698,25 @@
         "description": "SGOV - ISHARES TR 0-3 MNTH TREASRY - DIV:SGOV(0.1811/sh):TAXCD:4",
         "price": 0.0,
         "settle_at": "2026-04-08T00:00:00Z",
-        "source_block": "activity"
+        "source_block": "activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "fbafe20a505aff",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "asset_type_id": "cash_equivalent"
     },
     {
       "id": "btgwm-act-6eb0c62fa0880b",
-      "event_type": "fee",
+      "event_type": "tax_withheld",
       "status": "posted",
       "effective_at": "2026-04-08T00:00:00Z",
       "money": {
@@ -703,7 +735,15 @@
         "description": "SGOV - ISHARES TR 0-3 MNTH TREASRY - DIVNRA:SGOV(0.1811/sh):NRA withholding @30.00%",
         "price": 0.0,
         "settle_at": "2026-04-08T00:00:00Z",
-        "source_block": "activity"
+        "source_block": "activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "6eb0c62fa0880b",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
       },
       "asset_type_id": "cash_equivalent",
       "subtype": "withholding_tax"
@@ -729,13 +769,25 @@
         "description": "SCHH - SCHWAB STRATEGIC TR US REIT ETF - DIV:SCHH(0.0982/sh):TAXCD:A",
         "price": 0.0,
         "settle_at": "2026-04-23T00:00:00Z",
-        "source_block": "activity"
+        "source_block": "activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "072524b91093dc",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "asset_type_id": "stock"
     },
     {
       "id": "btgwm-act-d8a0b6628710fa",
-      "event_type": "fee",
+      "event_type": "tax_withheld",
       "status": "posted",
       "effective_at": "2026-04-23T00:00:00Z",
       "money": {
@@ -754,7 +806,15 @@
         "description": "SCHH - SCHWAB STRATEGIC TR US REIT ETF - DIVNRA:SCHH(0.0982/sh):NRA withholding @30.00%",
         "price": 0.0,
         "settle_at": "2026-04-23T00:00:00Z",
-        "source_block": "activity"
+        "source_block": "activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "d8a0b6628710fa",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
       },
       "asset_type_id": "stock",
       "subtype": "withholding_tax"
@@ -780,13 +840,25 @@
         "description": "VOO - VANGUARD INDEX FDS S&P 500 ETF SHS - DIV:VOO(1.3237/sh):TAXCD:A",
         "price": 0.0,
         "settle_at": "2026-04-29T00:00:00Z",
-        "source_block": "activity"
+        "source_block": "activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "cbc39a7ac770d0",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "asset_type_id": "stock"
     },
     {
       "id": "btgwm-act-7b6e9a36649ed4",
-      "event_type": "fee",
+      "event_type": "tax_withheld",
       "status": "posted",
       "effective_at": "2026-04-29T00:00:00Z",
       "money": {
@@ -805,7 +877,15 @@
         "description": "VOO - VANGUARD INDEX FDS S&P 500 ETF SHS - DIVNRA:VOO(1.3237/sh):NRA withholding @30.00%",
         "price": 0.0,
         "settle_at": "2026-04-29T00:00:00Z",
-        "source_block": "activity"
+        "source_block": "activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "7b6e9a36649ed4",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
       },
       "asset_type_id": "stock",
       "subtype": "withholding_tax"
@@ -831,7 +911,15 @@
         "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
         "price": 1.0,
         "settle_at": "2026-04-03T00:00:00Z",
-        "source_block": "sweep_activity"
+        "source_block": "sweep_activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "e9dfc0210193ef",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
       },
       "asset_type_id": "cash_equivalent"
     },
@@ -856,7 +944,15 @@
         "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
         "price": 1.0,
         "settle_at": "2026-04-08T00:00:00Z",
-        "source_block": "sweep_activity"
+        "source_block": "sweep_activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "4eb6a667f48076",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
       },
       "asset_type_id": "cash_equivalent"
     },
@@ -881,7 +977,15 @@
         "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
         "price": 1.0,
         "settle_at": "2026-04-23T00:00:00Z",
-        "source_block": "sweep_activity"
+        "source_block": "sweep_activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "17b7c8f722b9be",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
       },
       "asset_type_id": "cash_equivalent"
     },
@@ -906,7 +1010,15 @@
         "description": "DWBDS - DW Bank Sweep (FDIC INSURED DEPOSIT NOT COVERED BY SIPC) - Debit Sweep Program",
         "price": 1.0,
         "settle_at": "2026-04-29T00:00:00Z",
-        "source_block": "sweep_activity"
+        "source_block": "sweep_activity",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "btg_wm_conta_internacional:account:BTGP-001-RNDX412921",
+          "signature": "ac80bdf9c07ed7",
+          "document_fingerprint": "a9c8b4418bb473",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
       },
       "asset_type_id": "cash_equivalent"
     }

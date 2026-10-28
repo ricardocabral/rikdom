@@ -47,3 +47,26 @@ payload = run_import_pipeline(
 print(payload["provider"], len(payload.get("holdings", [])), len(payload.get("activities", [])))
 PY
 ```
+
+## Canonical income evidence
+
+This is a caller-normalized input, not a broker label mapper. Supply canonical
+`event_type` (`dividend`, `interest`, `income`, `tax_withheld`, etc.) and signed
+`amount` yourself. `effective_at` is required for activities.
+
+For income, optional `amount_basis` accepts `gross`, `net` or `unknown` and emits
+`metadata.rikdom_income` version 1. If omitted, the canonical schema's existing
+gross-amount convention remains in effect. Use `unknown` when source evidence
+does not establish gross/net; do not treat an ambiguous provider cash amount as
+gross merely because it can fit this CSV.
+
+Optional `withholding_tax` and `fees` carry signed finite amounts, including
+explicit zero. Optional `withholding_tax_currency` and `fees_currency` retain
+each charge's own currency; omitted charge currencies mean the row's canonical
+`currency`. Missing charge amounts stay absent. Invalid supplied amounts, basis
+or charge currencies are rejected. Separate `tax_withheld` rows are not counted
+as dividends and are not automatically linked to income.
+
+IDs and idempotency keys are caller-controlled. For immutable corrections,
+source identity evidence or richer metadata, use reviewed
+[normalized JSON](../normalized-statement-json/README.md).

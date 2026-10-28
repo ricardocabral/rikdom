@@ -112,7 +112,15 @@
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1001",
       "metadata": {
         "activity_type": "Buy",
-        "description": "Vanguard Total Stock Market ETF"
+        "description": "Vanguard Total Stock Market ETF",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-00112233",
+          "signature": "9f00168d79419803",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "e4910d729d514e30c888452f80f882881c9a1b9b284764a01e2f154ec835fb5d"
+        }
       },
       "instrument": {
         "ticker": "VTI",
@@ -133,7 +141,15 @@
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1002",
       "metadata": {
         "activity_type": "Sell",
-        "description": "Vanguard Total International Stock ETF"
+        "description": "Vanguard Total International Stock ETF",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-00112233",
+          "signature": "39127b28718af31b",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "e4910d729d514e30c888452f80f882881c9a1b9b284764a01e2f154ec835fb5d"
+        }
       },
       "instrument": {
         "ticker": "VXUS",
@@ -154,11 +170,27 @@
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1003",
       "metadata": {
         "activity_type": "Cash Dividend",
-        "description": "Vanguard Total Stock Market ETF"
+        "description": "Vanguard Total Stock Market ETF",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-00112233",
+          "signature": "fe5baf5310279d34",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "e4910d729d514e30c888452f80f882881c9a1b9b284764a01e2f154ec835fb5d"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "instrument": {
         "ticker": "VTI",
         "country": "US"
+      },
+      "fees": {
+        "amount": 0.0,
+        "currency": "USD"
       }
     },
     {
@@ -174,7 +206,23 @@
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1004",
       "metadata": {
         "activity_type": "Interest",
-        "description": "Settlement Fund"
+        "description": "Settlement Fund",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-00112233",
+          "signature": "1ad6d3d4f275fa40",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "e4910d729d514e30c888452f80f882881c9a1b9b284764a01e2f154ec835fb5d"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
+      },
+      "fees": {
+        "amount": 0.0,
+        "currency": "USD"
       }
     },
     {
@@ -190,7 +238,15 @@
       "source_ref": "vanguard:VG-00112233#txn:VG-TXN-1005",
       "metadata": {
         "activity_type": "Advisory Fee",
-        "description": "Account Maintenance"
+        "description": "Account Maintenance",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-00112233",
+          "signature": "818e48780807e028",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "e4910d729d514e30c888452f80f882881c9a1b9b284764a01e2f154ec835fb5d"
+        }
       }
     }
   ]

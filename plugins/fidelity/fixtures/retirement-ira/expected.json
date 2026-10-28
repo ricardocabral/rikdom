@@ -109,7 +109,15 @@
       "source_ref": "fidelity:FID-IRA-2468#txn:IRATXN-2001",
       "metadata": {
         "action": "Contribution",
-        "description": "Annual IRA contribution"
+        "description": "Annual IRA contribution",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "fidelity:account:FID-IRA-2468",
+          "signature": "62d530bea33d3d6e",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "2c506616fe733255cb812a6ff2ce76601ca2c43732691866947dd5008c3fa8f1"
+        }
       }
     },
     {
@@ -125,7 +133,15 @@
       "source_ref": "fidelity:FID-IRA-2468#txn:IRATXN-2002",
       "metadata": {
         "action": "Reinvestment",
-        "description": "Reinvestment Fidelity 500 Index Fund"
+        "description": "Reinvestment Fidelity 500 Index Fund",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "fidelity:account:FID-IRA-2468",
+          "signature": "d2b83d2f088fa358",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "2c506616fe733255cb812a6ff2ce76601ca2c43732691866947dd5008c3fa8f1"
+        }
       },
       "instrument": {
         "ticker": "FXAIX",
@@ -146,7 +162,15 @@
       "source_ref": "fidelity:FID-IRA-2468#txn:IRATXN-2003",
       "metadata": {
         "action": "Distribution",
-        "description": "Retirement distribution"
+        "description": "Retirement distribution",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "fidelity:account:FID-IRA-2468",
+          "signature": "b77710461e4e4b66",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "2c506616fe733255cb812a6ff2ce76601ca2c43732691866947dd5008c3fa8f1"
+        }
       }
     }
   ]

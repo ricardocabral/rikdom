@@ -83,3 +83,33 @@ requires `--fx-provider frankfurter`; core diagnostics/report flows remain local
 Manual entry and immutable corrections use the existing
 [normalized JSON importer](normalized-statement-json/README.md) and
 [correction workflow](../docs/how-to/enter-and-correct-activities.md).
+
+## Posted-income coverage by source
+
+The table covers every first-party `source/input` plugin. Provider cash amounts
+whose gross/net basis is not established declare `metadata.rikdom_income` version
+1 with `amount_basis: unknown`. Missing withholding is unknown; a reported zero
+is evidence. Separate tax events are never linked to income by the importer.
+Only posted `dividend` and `interest` events enter received-income totals;
+generic `income` stays outside those totals.
+
+| Source | Posted-income path and amount basis | Coverage limit |
+| --- | --- | --- |
+| [b3-consolidado-mensal](b3-consolidado-mensal/README.md) | Movimentação dividends/JCP and generic rendimentos; unknown basis | Position sheets are holdings only. Reversals, tax labels and unsupported directions remain in diagnostics for review. |
+| [btg-investment-pdf](btg-investment-pdf/README.md) | No posted-income activities | Positions, receivables, acquisition observations and movement section evidence do not establish received income. |
+| [btg_wm_conta_internacional](btg_wm_conta_internacional/README.md) | `DIV` dividend, unknown basis; `DIVNRA` separate signed tax | Unknown activity codes remain `other` with diagnostics. Accrued interest headings and synthetic openings are not received income. |
+| [charles-schwab](charles-schwab/README.md) | Dividend/interest amounts have unknown basis; signed tax/refund events stay separate | No automatic linkage of tax rows or complete-history assertion. |
+| [csv-generic](csv-generic/README.md) | Caller-normalized canonical activities; gross by canonical default, or explicit gross/net/unknown | Caller must supply event type, currency, basis and charges correctly; no provider label interpretation. |
+| [fidelity](fidelity/README.md) | CSV dividends/interest have unknown basis; signed tax/refund events stay separate | Normalized export rows required; no tax linkage or tax-lot reconstruction. |
+| [ghostfolio_export_json](ghostfolio_export_json/README.md) | Explicit net/gross aliases establish basis; ambiguous amount/value aliases stay unknown | Attached charges retain their own evidence/currencies; generic income and tax events are separate. |
+| [ibkr_flex_xml](ibkr_flex_xml/README.md) | CashTransaction dividends/interest have unknown basis; withholding/refunds stay separate | Cash amount alone does not establish gross/net or tax linkage. |
+| [irpf-xml](irpf-xml/README.md) | No posted-income activities | Annual asset declarations and receivables establish holdings only. |
+| [normalized-statement-json](normalized-statement-json/README.md) | Canonical passthrough preserves caller's income markers, amounts, charges and metadata | Unmarked canonical amounts follow the schema gross convention; caller establishes source semantics and history. |
+| [portfolio_performance_csv](portfolio_performance_csv/README.md) | Transaction Value is net; Gross Amount fallback is gross in its own currency | Missing charges remain unreported; source amounts are not converted between currencies. |
+| [vanguard](vanguard/README.md) | CSV and OFX dividends/interest have unknown basis; CSV tax/refund events stay separate | OFX supports DIV/INTEREST; unsupported transaction/income variants remain explicit. |
+| [wealthfolio_activity_csv](wealthfolio_activity_csv/README.md) | Explicit amount is net; quantity × price fallback has unknown basis | Generic income is not reclassified as dividends; attached tax/fee evidence is preserved. |
+| [wealthfolio_export_json](wealthfolio_export_json/README.md) | Explicit amount/net_amount is net; quantity × price fallback has unknown basis | Generic income is not reclassified as dividends; attached tax/fee evidence is preserved. |
+
+The other first-party plugins (`asset-types-br-catalog`, `brapi`,
+`duckdb-storage`, `frankfurter`, `quarto-portfolio-report`) provide catalogs,
+external queries, storage or output. They do not import posted source income.

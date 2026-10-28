@@ -29,3 +29,9 @@ added as a separate receivable.
 PDF input requires Poppler's `pdftotext`. Text input must retain layout spacing.
 All amounts are BRL; full precision is retained during reconciliation and each
 reported price is kept separately from broker gross market value.
+
+This is a positions/observations importer. Retained movement sections and accrued
+or accumulated receivables do not create posted dividend/interest activities.
+They do not establish payment dates, cash availability, withholding, gross/net
+basis or complete income history. Recover verified payments separately through
+`normalized-statement-json`.

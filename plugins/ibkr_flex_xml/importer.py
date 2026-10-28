@@ -386,6 +386,8 @@ def _cash_activity(row: dict[str, str], account_id: str) -> dict[str, Any]:
             "description": description_raw,
         },
     }
+    if event_type in {"dividend", "interest"}:
+        activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": "unknown"}
     if event_type == "other":
         raw_tag = cash_type_raw or description_raw
         if raw_tag:
@@ -418,12 +420,17 @@ def parse_statement(path: Path, *, unsupported_events: list[dict[str, Any]] | No
         seen_ids.add(aid)
         activities.append(activity)
 
+    seen_cash: dict[str, dict[str, Any]] = {}
     for cash_row in _iter_elements(root, "CashTransaction"):
         row = {k: v for k, v in cash_row.attrib.items()}
         activity = _cash_activity(row, account_id)
         aid = activity["id"]
-        if aid in seen_ids:
+        previous = seen_cash.get(aid)
+        if previous is not None:
+            if previous != activity:
+                raise ValueError("IBKR cash rows have conflicting content for identity " + aid)
             continue
+        seen_cash[aid] = activity
         seen_ids.add(aid)
         activities.append(activity)
 

@@ -46,12 +46,15 @@ class IncomeWorkflowTests(unittest.TestCase):
             original = copy.deepcopy(next(a for a in ledger['activities'] if a['id'] == 'ibkr-cash-div'))
             result = run('income')
             self.assertEqual(len(result['events']), 2)
-            self.assertEqual(result['monthly'][0]['gross']['total'], 105)
+            self.assertIsNone(result['monthly'][0]['gross']['total'])
+            self.assertEqual(result['monthly'][0]['gross']['known_subtotal'], 0)
+            self.assertEqual(result['monthly'][0]['gross']['unavailable_count'], 2)
             self.assertIsNone(result['monthly'][0]['net']['total'])
 
             replacement = copy.deepcopy(original)
             replacement.update(id='reviewed-div', money={'amount': 120, 'currency': 'USD'},
                                withholding_tax={'amount': 0, 'currency': 'USD'})
+            replacement['metadata']['rikdom_income'] = {'version': 1, 'amount_basis': 'gross'}
             replacement.pop('idempotency_key', None)
             replacement_path = root / 'replacement.json'
             save_json(replacement_path, replacement)
@@ -62,8 +65,11 @@ class IncomeWorkflowTests(unittest.TestCase):
             before = canonical.read_bytes(), (data / 'import_log.jsonl').read_bytes()
             report = run('income', '--start', '2026-01-01', '--end', '2026-01-31')
             self.assertEqual(len(report['events']), 2)
-            self.assertEqual(report['monthly'][0]['gross']['total'], 125)
+            self.assertIsNone(report['monthly'][0]['gross']['total'])
+            self.assertEqual(report['monthly'][0]['gross']['known_subtotal'], 120)
+            self.assertEqual(report['monthly'][0]['gross']['unavailable_count'], 1)
             self.assertEqual(report['monthly'][0]['net']['known_subtotal'], 120)
+            self.assertEqual(report['monthly'][0]['net']['unavailable_count'], 1)
             self.assertEqual(before, (canonical.read_bytes(), (data / 'import_log.jsonl').read_bytes()))
             current = load_json(canonical)
             self.assertEqual(current['schema_version'], '2.0.0')

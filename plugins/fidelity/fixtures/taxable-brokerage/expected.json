@@ -112,7 +112,15 @@
       "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1001",
       "metadata": {
         "action": "Buy",
-        "description": "You bought Apple Inc"
+        "description": "You bought Apple Inc",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "fidelity:account:FID-123456789",
+          "signature": "132e4fa8fcb23fa7",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "374eabca5d79c932d6f0f30b25b9e02c3eeafbd829f6ead0abe05c147d06d604"
+        }
       },
       "instrument": {
         "ticker": "AAPL",
@@ -133,7 +141,19 @@
       "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1002",
       "metadata": {
         "action": "Dividend Received",
-        "description": "Dividend received from ITOT"
+        "description": "Dividend received from ITOT",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "fidelity:account:FID-123456789",
+          "signature": "2fea6b737cc02b28",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "374eabca5d79c932d6f0f30b25b9e02c3eeafbd829f6ead0abe05c147d06d604"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "instrument": {
         "ticker": "ITOT",
@@ -153,7 +173,19 @@
       "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1003",
       "metadata": {
         "action": "Interest",
-        "description": "Core position interest"
+        "description": "Core position interest",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "fidelity:account:FID-123456789",
+          "signature": "d1b3fb229a75a005",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "374eabca5d79c932d6f0f30b25b9e02c3eeafbd829f6ead0abe05c147d06d604"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       }
     },
     {
@@ -169,7 +201,15 @@
       "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1004",
       "metadata": {
         "action": "Fee",
-        "description": "Outgoing wire fee"
+        "description": "Outgoing wire fee",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "fidelity:account:FID-123456789",
+          "signature": "4778f128baf139cb",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "374eabca5d79c932d6f0f30b25b9e02c3eeafbd829f6ead0abe05c147d06d604"
+        }
       }
     },
     {
@@ -185,7 +225,15 @@
       "source_ref": "fidelity:FID-123456789#txn:FIDTXN-1005",
       "metadata": {
         "action": "Sell",
-        "description": "You sold Apple Inc"
+        "description": "You sold Apple Inc",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "fidelity:account:FID-123456789",
+          "signature": "c916c5e23504252e",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "374eabca5d79c932d6f0f30b25b9e02c3eeafbd829f6ead0abe05c147d06d604"
+        }
       },
       "instrument": {
         "ticker": "AAPL",

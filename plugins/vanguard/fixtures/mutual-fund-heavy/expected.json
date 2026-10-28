@@ -112,7 +112,15 @@
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2001",
       "metadata": {
         "activity_type": "Buy",
-        "description": "Vanguard Total Stock Market Index Fund Admiral Shares"
+        "description": "Vanguard Total Stock Market Index Fund Admiral Shares",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-99887766",
+          "signature": "13a2c31324bf7b2d",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "0f4a5331789f2d1b71a0a83ae587066f290d4117769e1e15475024131e552be9"
+        }
       },
       "instrument": {
         "ticker": "VTSAX",
@@ -133,7 +141,15 @@
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2002",
       "metadata": {
         "activity_type": "Sell",
-        "description": "Vanguard Total Bond Market Index Fund Admiral Shares"
+        "description": "Vanguard Total Bond Market Index Fund Admiral Shares",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-99887766",
+          "signature": "8885258052316677",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "0f4a5331789f2d1b71a0a83ae587066f290d4117769e1e15475024131e552be9"
+        }
       },
       "instrument": {
         "ticker": "VBTLX",
@@ -154,11 +170,27 @@
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2003",
       "metadata": {
         "activity_type": "Dividend",
-        "description": "Vanguard Total Bond Market Index Fund Admiral Shares"
+        "description": "Vanguard Total Bond Market Index Fund Admiral Shares",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-99887766",
+          "signature": "aeed99785289e620",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "0f4a5331789f2d1b71a0a83ae587066f290d4117769e1e15475024131e552be9"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "instrument": {
         "ticker": "VBTLX",
         "country": "US"
+      },
+      "fees": {
+        "amount": 0.0,
+        "currency": "USD"
       }
     },
     {
@@ -174,7 +206,15 @@
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2004",
       "metadata": {
         "activity_type": "Transfer In",
-        "description": "Settlement Fund"
+        "description": "Settlement Fund",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-99887766",
+          "signature": "a1b9c38ef7e7ffc5",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "0f4a5331789f2d1b71a0a83ae587066f290d4117769e1e15475024131e552be9"
+        }
       }
     },
     {
@@ -190,7 +230,15 @@
       "source_ref": "vanguard:VG-99887766#txn:VG-TXN-2005",
       "metadata": {
         "activity_type": "Fee",
-        "description": "Account Service"
+        "description": "Account Service",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-99887766",
+          "signature": "80d04eca3dfec939",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "0f4a5331789f2d1b71a0a83ae587066f290d4117769e1e15475024131e552be9"
+        }
       }
     }
   ]

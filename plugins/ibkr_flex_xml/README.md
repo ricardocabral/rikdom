@@ -34,3 +34,12 @@ withholding rows remain separate `tax_withheld` events; the importer does not
 associate them with dividends. A dividend row without attached withholding does
 not establish net income or zero tax. See IBKR's separate dividend, interest and
 withholding categories in the [official Cash Report documentation](https://www.ibkrguides.com/reportingreference/reportguide/cash%20reportfq.htm).
+
+Supported CashTransaction income now explicitly declares
+`metadata.rikdom_income = {"version": 1, "amount_basis": "unknown"}`: its `amount`
+alone does not establish gross/net. No source tax association is invented.
+Existing IDs and signed money are unchanged. Duplicate cash rows with identical
+canonical content are de-duplicated; conflicting amounts/currencies for the same
+cash ID raise instead of silently discarding a correction. Unchanged imports
+replay without adding activities. Reimport older canonical income rows to add
+the neutral amount-basis marker, or record an explicit canonical correction.

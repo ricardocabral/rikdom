@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import csv
 import json
+import math
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -84,6 +86,28 @@ def _to_activity(row: dict[str, str | None]) -> dict:
         "effective_at": effective_at,
         "money": {"amount": amount, "currency": currency},
     }
+
+    if not math.isfinite(amount):
+        raise ValueError("Invalid activity amount: expected a finite number")
+    basis = _cell(row, "amount_basis")
+    if basis:
+        if event_type not in {"dividend", "interest", "income"} or basis not in {"gross", "net", "unknown"}:
+            raise ValueError("Invalid activity amount_basis: expected income gross, net or unknown")
+        activity["metadata"] = {"rikdom_income": {"version": 1, "amount_basis": basis}}
+    for field in ("withholding_tax", "fees"):
+        raw = _cell(row, field)
+        if not raw:
+            continue
+        try:
+            charge = float(raw)
+        except ValueError as exc:
+            raise ValueError(f"Invalid activity {field}: {raw!r}") from exc
+        if not math.isfinite(charge):
+            raise ValueError(f"Invalid activity {field}: expected a finite number")
+        charge_currency = _cell(row, field + "_currency").upper() or currency
+        if not re.fullmatch(r"[A-Z]{3}", charge_currency):
+            raise ValueError(f"Invalid activity {field} currency: {charge_currency!r}")
+        activity[field] = {"amount": charge, "currency": charge_currency}
 
     asset_type_id = _cell(row, "asset_type_id")
     if asset_type_id:

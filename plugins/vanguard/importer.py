@@ -203,8 +203,14 @@ def _normalize_ofx_datetime(value: str) -> str | None:
     return None
 
 
-def _activity_type(action: str) -> tuple[str, str | None]:
+def _activity_type(action: str, *, legacy_identity: bool = False) -> tuple[str, str | None]:
     lowered = action.lower()
+    # The original classifier remains available only to preserve stored IDs.
+    if not legacy_identity:
+        if re.search(r"\bwithholding\b|\btax(?:es)?\s+(?:withheld|refund)\b", lowered) or lowered.strip() in {"tax", "taxes"}:
+            return "tax_withheld", None
+        if re.fullmatch(r"income(?:\s+adjustment)?", lowered.strip()):
+            return "income", None
     if any(token in lowered for token in ("buy", "purchase", "reinvest")):
         return "buy", None
     if any(token in lowered for token in ("sell", "redemption")):
@@ -225,7 +231,7 @@ def _activity_type(action: str) -> tuple[str, str | None]:
 def _normalize_amount_sign(event_type: str, amount: float) -> float:
     if event_type in {"buy", "fee", "transfer_out"}:
         return -abs(amount)
-    if event_type in {"sell", "dividend", "interest", "transfer_in"}:
+    if event_type in {"sell", "transfer_in"}:
         return abs(amount)
     return amount
 
@@ -322,6 +328,11 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
     if amount is None:
         raise ValueError("Vanguard transaction row has invalid amount")
 
+    legacy_type, _ = _activity_type(action, legacy_identity=True)
+    identity_amount = (
+        abs(amount) if legacy_type in {"dividend", "interest"}
+        else _normalize_amount_sign(legacy_type, amount)
+    )
     event_type, subtype = _activity_type(action)
     amount = _normalize_amount_sign(event_type, amount)
 
@@ -330,6 +341,8 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
     if not effective_at:
         raise ValueError(f"Vanguard transaction row has invalid date '{raw_date}'")
 
+    if row.get("currency", "").strip() and normalize_currency(row["currency"]) is None:
+        raise ValueError("Vanguard transaction row has invalid currency")
     currency = normalize_currency(row.get("currency")) or _DEFAULT_CURRENCY
     symbol = row.get("symbol", "").upper()
     quantity = _parse_optional_decimal(row, "quantity", context="transaction")
@@ -342,7 +355,7 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
         "date": effective_at,
         "activity_type": action,
         "symbol": symbol,
-        "amount": amount,
+        "amount": identity_amount,
         "quantity": quantity,
         "fees": fees,
         "description": description,
@@ -365,6 +378,14 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
         },
     }
 
+    activity["metadata"]["rikdom_source_identity"] = {
+        "version": 1, "scope": f"{PROVIDER}:account:{account_number}",
+        "signature": digest, "occurrence": 0,
+        "kind": "source" if reference_id else "anonymous",
+    }
+    if event_type in {"dividend", "interest", "income"}:
+        activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": "unknown"}
+
     if subtype:
         activity["subtype"] = subtype
 
@@ -374,8 +395,11 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
     if quantity is not None and quantity != 0:
         activity["quantity"] = abs(quantity)
 
-    if fees is not None and fees != 0:
-        activity["fees"] = {"amount": abs(fees), "currency": currency}
+    if fees is not None and (fees != 0 or event_type in {"dividend", "interest", "income"}):
+        activity["fees"] = {
+            "amount": fees if event_type in {"dividend", "interest", "income"} else abs(fees),
+            "currency": currency,
+        }
 
     return activity
 
@@ -671,8 +695,11 @@ def _parse_ofx_income_activity(
     if not effective_at:
         return None
 
-    amount = parse_decimal(_first_text(tx, "TOTAL"))
+    raw_amount = _first_text(tx, "TOTAL")
+    amount = parse_decimal(raw_amount)
     if amount is None:
+        if raw_amount:
+            raise ValueError("Vanguard OFX income has invalid TOTAL " + repr(raw_amount))
         return None
 
     income_type = _first_text(tx, "INCOMETYPE").upper()
@@ -706,15 +733,23 @@ def _parse_ofx_income_activity(
         "event_type": event_type,
         "status": "posted",
         "effective_at": effective_at,
-        "money": {"amount": abs(amount), "currency": currency},
+        "money": {"amount": amount, "currency": currency},
         "idempotency_key": f"vanguard:{_slug(account_number)}:{digest}",
         "source_ref": f"vanguard:{account_number}#txn:{tx_ref}",
         "metadata": {
             "activity_type": action_label,
             "description": sec.get("name") or ticker or "",
             "input_format": "ofx",
+            "rikdom_source_identity": {
+                "version": 1, "scope": f"{PROVIDER}:account:{account_number}",
+                "signature": digest, "occurrence": 0,
+                "kind": "source" if fitid else "anonymous",
+            },
         },
     }
+
+    if event_type in {"dividend", "interest"}:
+        activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": "unknown"}
 
     if event_type == "other" and income_type:
         activity["subtype"] = f"vanguard:{_slug(income_type)}"
@@ -777,7 +812,10 @@ def _parse_ofx_statement(path: Path, *, unsupported_events: list[dict[str, Any]]
     root = _load_ofx_root(path)
 
     account_number = _first_text(root, "ACCTID") or "unknown-account"
-    currency = normalize_currency(_first_text(root, "CURDEF")) or _DEFAULT_CURRENCY
+    raw_currency = _first_text(root, "CURDEF")
+    if raw_currency and normalize_currency(raw_currency) is None:
+        raise ValueError("Vanguard OFX has invalid currency CURDEF " + repr(raw_currency))
+    currency = normalize_currency(raw_currency) or _DEFAULT_CURRENCY
     generated_at = (
         _normalize_ofx_datetime(_first_text(root, "DTSERVER"))
         or _normalize_ofx_datetime(_first_text(root, "DTASOF"))
@@ -825,7 +863,7 @@ def _parse_ofx_statement(path: Path, *, unsupported_events: list[dict[str, Any]]
             seen_holding_ids.add(cash_holding["id"])
 
     activities: list[dict[str, Any]] = []
-    seen_activity_ids: set[str] = set()
+    seen_activities: dict[str, dict[str, Any]] = {}
 
     for tag in ("BUYMF", "BUYSTOCK", "BUYOTHER", "SELLMF", "SELLSTOCK", "SELLOTHER"):
         for tx in _iter_elements(root, tag):
@@ -838,10 +876,13 @@ def _parse_ofx_statement(path: Path, *, unsupported_events: list[dict[str, Any]]
             if activity is None:
                 continue
             aid = activity["id"]
-            if aid in seen_activity_ids:
+            previous = seen_activities.get(aid)
+            if previous is not None:
+                if previous != activity:
+                    raise ValueError("Vanguard OFX transactions have conflicting content for identity " + aid)
                 continue
             activities.append(activity)
-            seen_activity_ids.add(aid)
+            seen_activities[aid] = activity
 
     for tx in _iter_elements(root, "INCOME"):
         activity = _parse_ofx_income_activity(
@@ -853,10 +894,13 @@ def _parse_ofx_statement(path: Path, *, unsupported_events: list[dict[str, Any]]
         if activity is None:
             continue
         aid = activity["id"]
-        if aid in seen_activity_ids:
+        previous = seen_activities.get(aid)
+        if previous is not None:
+            if previous != activity:
+                raise ValueError("Vanguard OFX transactions have conflicting content for identity " + aid)
             continue
         activities.append(activity)
-        seen_activity_ids.add(aid)
+        seen_activities[aid] = activity
 
     for tx in _iter_elements(root, "INVEXPENSE"):
         activity = _parse_ofx_expense_activity(
@@ -867,10 +911,13 @@ def _parse_ofx_statement(path: Path, *, unsupported_events: list[dict[str, Any]]
         if activity is None:
             continue
         aid = activity["id"]
-        if aid in seen_activity_ids:
+        previous = seen_activities.get(aid)
+        if previous is not None:
+            if previous != activity:
+                raise ValueError("Vanguard OFX transactions have conflicting content for identity " + aid)
             continue
         activities.append(activity)
-        seen_activity_ids.add(aid)
+        seen_activities[aid] = activity
 
     supported_tags = {"BUYMF", "BUYSTOCK", "BUYOTHER", "SELLMF", "SELLSTOCK", "SELLOTHER", "INCOME", "INVEXPENSE"}
     emitted_refs = {a.get("source_ref") for a in activities}
@@ -900,6 +947,14 @@ def _parse_ofx_statement(path: Path, *, unsupported_events: list[dict[str, Any]]
 
     if not holdings and not activities:
         raise ValueError("Vanguard OFX did not contain usable holdings or activities")
+
+    document = hashlib.sha256(json.dumps(sorted(
+        json.dumps(a, sort_keys=True, ensure_ascii=False) for a in activities
+    ), ensure_ascii=False).encode("utf-8")).hexdigest()
+    for activity in activities:
+        identity = activity["metadata"].get("rikdom_source_identity")
+        if identity is not None:
+            identity["document_fingerprint"] = document
 
     metadata: dict[str, Any] = {
         "source_file": path.name,
@@ -937,7 +992,7 @@ def _parse_csv_statement(path: Path) -> dict[str, Any]:
     generated_candidates: list[str] = []
 
     seen_holding_ids: set[str] = set()
-    seen_activity_ids: set[str] = set()
+    seen_activities: dict[str, dict[str, Any]] = {}
 
     for row in rows:
         record_type = row.get("record_type", "").strip().lower()
@@ -979,9 +1034,12 @@ def _parse_csv_statement(path: Path) -> dict[str, Any]:
             continue
         if record_type == "transaction":
             activity = _parse_transaction(row)
-            if activity["id"] not in seen_activity_ids:
+            previous = seen_activities.get(activity["id"])
+            if previous is not None and previous != activity:
+                raise ValueError("Vanguard transactions have conflicting content for identity " + activity["id"])
+            if previous is None:
                 activities.append(activity)
-                seen_activity_ids.add(activity["id"])
+                seen_activities[activity["id"]] = activity
             continue
 
         raise ValueError(
@@ -991,6 +1049,12 @@ def _parse_csv_statement(path: Path) -> dict[str, Any]:
 
     if not holdings and not activities:
         raise ValueError("Vanguard CSV did not produce holdings or activities")
+
+    document = hashlib.sha256(json.dumps(sorted(
+        json.dumps(a, sort_keys=True, ensure_ascii=False) for a in activities
+    ), ensure_ascii=False).encode("utf-8")).hexdigest()
+    for activity in activities:
+        activity["metadata"]["rikdom_source_identity"]["document_fingerprint"] = document
 
     metadata: dict[str, Any] = {
         "source_file": path.name,

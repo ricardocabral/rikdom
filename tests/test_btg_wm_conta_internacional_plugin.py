@@ -78,7 +78,7 @@ ACTIVITY
             if a["metadata"]["activity_type"] == "DIVNRA"
             and a["instrument"]["ticker"] == "BND"
         )
-        self.assertEqual(withholding["event_type"], "fee")
+        self.assertEqual(withholding["event_type"], "tax_withheld")
         self.assertEqual(withholding["subtype"], "withholding_tax")
         self.assertEqual(withholding["money"]["amount"], -153.73)
 

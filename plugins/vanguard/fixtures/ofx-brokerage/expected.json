@@ -157,7 +157,19 @@
       "metadata": {
         "activity_type": "Dividend",
         "description": "Vanguard Total Stock Market Index Fund Admiral Shares",
-        "input_format": "ofx"
+        "input_format": "ofx",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-OFX-445566",
+          "signature": "964574371f35bd4e",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "6baf1e029eececab221a73062c17ee3ed2c8d6a8b6ea2a7ee4d6db9316d2db43"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "instrument": {
         "ticker": "VTSAX",
@@ -178,7 +190,19 @@
       "metadata": {
         "activity_type": "Interest",
         "description": "",
-        "input_format": "ofx"
+        "input_format": "ofx",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "vanguard:account:VG-OFX-445566",
+          "signature": "6d12dfd9eddc1ded",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "6baf1e029eececab221a73062c17ee3ed2c8d6a8b6ea2a7ee4d6db9316d2db43"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       }
     },
     {

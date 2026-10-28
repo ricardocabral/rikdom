@@ -278,7 +278,7 @@ def _normalize_event_type(
     if kind == "DIV":
         return "dividend", None
     if kind == "DIVNRA":
-        return "fee", "withholding_tax"
+        return "tax_withheld", "withholding_tax"
     if kind == "BUY":
         return "buy", None
     if kind == "SELL":
@@ -387,6 +387,14 @@ def _parse_activity_table(
                 "source_block": source_block,
             },
         }
+        activity["metadata"]["rikdom_source_identity"] = {
+            "version": 1, "scope": f"{PROVIDER}:account:{account_number}",
+            "signature": digest, "document_fingerprint": statement_ref,
+            "occurrence": 0, "kind": "anonymous",
+        }
+        if event_type == "dividend":
+            activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": "unknown"}
+
         activity["asset_type_id"] = _resolve_asset_type_from_ticker(
             symbol,
             default="stock",
@@ -418,6 +426,7 @@ _CASH_SIGNS: dict[str, float] = {
     "transfer_out": -1.0,
     "income": 1.0,
     "reimbursement": 1.0,
+    "tax_withheld": 1.0,
 }
 
 
@@ -465,7 +474,10 @@ def _period_deltas_for_ticker(
         # The broker signs sale quantities and debit amounts. Event types
         # already encode direction, so apply that direction once.
         qty_delta += abs(qty) * (qty_sign or 0.0)
-        cash_delta += abs(money) * (cash_sign or 0.0)
+        if evt in {"dividend", "interest", "income", "tax_withheld"}:
+            cash_delta += money
+        else:
+            cash_delta += abs(money) * (cash_sign or 0.0)
     return qty_delta, cash_delta
 
 

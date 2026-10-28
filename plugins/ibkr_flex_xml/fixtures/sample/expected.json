@@ -56,7 +56,11 @@
       "metadata": {
         "cash_type": "Dividends",
         "description": "DIVIDEND AAPL",
-        "ibkr_row_type": "CashTransaction"
+        "ibkr_row_type": "CashTransaction",
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "money": {
         "amount": 12.34,
@@ -72,7 +76,11 @@
       "metadata": {
         "cash_type": "Broker Interest Received",
         "description": "",
-        "ibkr_row_type": "CashTransaction"
+        "ibkr_row_type": "CashTransaction",
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "money": {
         "amount": 0.56,

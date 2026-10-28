@@ -129,8 +129,14 @@ def _has_any_phrase(value: str, phrases: tuple[str, ...]) -> bool:
     return any(re.search(rf"\b{re.escape(phrase)}\b", value) for phrase in phrases)
 
 
-def _activity_type(action: str) -> tuple[str, str | None]:
+def _activity_type(action: str, *, legacy_identity: bool = False) -> tuple[str, str | None]:
     lowered = action.lower()
+    # The original classifier remains available only to preserve stored IDs.
+    if not legacy_identity:
+        if re.search(r"\bwithholding\b|\btax(?:es)?\s+(?:withheld|refund)\b", lowered) or lowered.strip() in {"tax", "taxes"}:
+            return "tax_withheld", None
+        if re.fullmatch(r"income(?:\s+adjustment)?", lowered.strip()):
+            return "income", None
     if _has_any_phrase(lowered, ("you bought",)) or _has_any_word(
         lowered, ("buy", "purchase", "reinvestment", "reinvest")
     ):
@@ -159,7 +165,7 @@ def _activity_type(action: str) -> tuple[str, str | None]:
 def _normalize_amount_sign(event_type: str, amount: float) -> float:
     if event_type in {"buy", "fee", "transfer_out"}:
         return -abs(amount)
-    if event_type in {"sell", "dividend", "interest", "transfer_in"}:
+    if event_type in {"sell", "transfer_in"}:
         return abs(amount)
     return amount
 
@@ -255,6 +261,11 @@ def _parse_transaction(
     if amount is None:
         raise ValueError("Fidelity transaction row has invalid amount")
 
+    legacy_type, _ = _activity_type(action, legacy_identity=True)
+    identity_amount = (
+        abs(amount) if legacy_type in {"dividend", "interest"}
+        else _normalize_amount_sign(legacy_type, amount)
+    )
     event_type, subtype = _activity_type(action)
     amount = _normalize_amount_sign(event_type, amount)
 
@@ -263,6 +274,8 @@ def _parse_transaction(
     if not effective_at:
         raise ValueError(f"Fidelity transaction row has invalid date '{raw_date}'")
 
+    if row.get("currency", "").strip() and normalize_currency(row["currency"]) is None:
+        raise ValueError("Fidelity transaction row has invalid currency")
     currency = (
         normalize_currency(row.get("currency")) or account_currency or _DEFAULT_CURRENCY
     )
@@ -288,7 +301,7 @@ def _parse_transaction(
         "date": effective_at,
         "action": action,
         "symbol": symbol,
-        "amount": amount,
+        "amount": identity_amount,
         "quantity": quantity,
         "fees": fees,
         "reference_id": reference_id,
@@ -307,14 +320,26 @@ def _parse_transaction(
         "source_ref": f"fidelity:{account_number}#txn:{tx_ref}",
         "metadata": {"action": action, "description": row.get("description", "")},
     }
+    activity["metadata"]["rikdom_source_identity"] = {
+        "version": 1, "scope": f"{PROVIDER}:account:{account_number}",
+        "signature": digest, "occurrence": 0,
+        "kind": "source" if reference_id else "anonymous",
+    }
+    if event_type in {"dividend", "interest", "income"}:
+        activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": "unknown"}
+
     if subtype:
         activity["subtype"] = subtype
     if symbol and symbol not in {"CASH", "USD"}:
         activity["instrument"] = {"ticker": symbol, "country": "US"}
     if quantity is not None and quantity != 0:
         activity["quantity"] = abs(quantity)
-    if fees is not None and fees != 0:
-        activity["fees"] = {"amount": abs(fees), "currency": currency}
+    if fees is not None and (fees != 0 or event_type in {"dividend", "interest", "income"}):
+        activity["fees"] = {
+            "amount": fees if event_type in {"dividend", "interest", "income"} else abs(fees),
+            "currency": currency,
+        }
+
     return activity
 
 
@@ -332,7 +357,8 @@ def parse_statement(path: Path) -> dict[str, Any]:
     generated_candidates: list[str] = []
     detected_currencies: list[str] = []
     seen_holding_ids: set[str] = set()
-    seen_activity_ids: set[str] = set()
+    seen_activities: dict[str, dict[str, Any]] = {}
+    seen_transaction_rows: dict[str, dict[str, str]] = {}
 
     for row in rows:
         record_type = row.get("record_type", "").strip().lower()
@@ -378,18 +404,19 @@ def parse_statement(path: Path) -> dict[str, Any]:
                 row,
                 account_currency=accounts.get(account_number, {}).get("currency"),
             )
-            if activity["id"] in seen_activity_ids:
+            previous = seen_transaction_rows.get(activity["idempotency_key"])
+            if previous is not None:
+                if previous != row:
+                    raise ValueError("Fidelity transactions have conflicting content for identity " + activity["id"])
+                continue
+            seen_transaction_rows[activity["idempotency_key"]] = row
+            if activity["id"] in seen_activities:
                 digest = activity["idempotency_key"].rsplit(":", 1)[-1]
-                duplicate_id = f"fidelity-txn-{_slug(account_number)}-{digest}"
-                if duplicate_id in seen_activity_ids:
-                    continue
-                activity["metadata"]["duplicate_reference_id"] = activity[
-                    "source_ref"
-                ].rsplit("#txn:", 1)[-1]
-                activity["id"] = duplicate_id
+                activity["metadata"]["duplicate_reference_id"] = activity["source_ref"].rsplit("#txn:", 1)[-1]
+                activity["id"] = f"fidelity-txn-{_slug(account_number)}-{digest}"
                 activity["source_ref"] = f"fidelity:{account_number}#txn:{digest}"
             activities.append(activity)
-            seen_activity_ids.add(activity["id"])
+            seen_activities[activity["id"]] = activity
             continue
         raise ValueError(
             "Fidelity row has unknown record_type; expected one of account, position, cash, transaction"
@@ -397,6 +424,12 @@ def parse_statement(path: Path) -> dict[str, Any]:
 
     if not holdings and not activities:
         raise ValueError("Fidelity CSV did not produce holdings or activities")
+
+    document = hashlib.sha256(json.dumps(sorted(
+        json.dumps(a, sort_keys=True, ensure_ascii=False) for a in activities
+    ), ensure_ascii=False).encode("utf-8")).hexdigest()
+    for activity in activities:
+        activity["metadata"]["rikdom_source_identity"]["document_fingerprint"] = document
 
     metadata: dict[str, Any] = {
         "source_file": path.name,

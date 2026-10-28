@@ -97,3 +97,10 @@ plugin via `fixtures/sample/`.
 The bundled fixture in `fixtures/sample/` is fully synthetic. **Never
 commit a real declaration file** — IRPF XML contains CPF, names, account
 numbers, and other sensitive PII.
+
+## Received-income limit
+
+This importer reads annual asset declarations as holdings, including declared
+receivables. It does not emit posted dividend/interest activities or infer payment
+dates, withholding, gross/net basis, cash availability or income completeness.
+Import verified payments separately through `normalized-statement-json`.

@@ -61,3 +61,30 @@ uv run rikdom import-statement \
   --input plugins/vanguard/fixtures/ofx-brokerage/input.ofx \
   --portfolio tests/fixtures/portfolio.json
 ```
+
+## Received income and replay
+
+CSV dividend/interest and OFX `INCOME` (`DIV`/`INTEREST`) amounts preserve source
+signs, including corrections and explicit zero. Neither format's supported cash
+amount establishes gross/net, so income declares
+`metadata.rikdom_income = {"version": 1, "amount_basis": "unknown"}`. CSV income
+fees retain signs and explicit zero in the transaction currency; missing charges
+remain unreported. Explicit invalid CSV transaction currencies are rejected;
+omitted CSV currencies retain the existing USD default. An explicit invalid OFX
+`CURDEF` currency is also rejected; omitted `CURDEF` retains the USD default.
+
+CSV withholding, `Tax`, `Taxes`, `Tax Withheld` and `Tax Refund` actions map to
+separate signed `tax_withheld` events before dividend/interest matching. No tax
+rows are linked to dividends. Richer attached tax/fee-currency or explicit
+net/gross evidence requires reviewed `normalized-statement-json` input.
+Unsupported OFX income types/transactions remain in diagnostics; this importer
+does not recover tax payments from arbitrary OFX expense/memo text. Explicit
+malformed OFX income `TOTAL` values raise rather than disappear from mixed input.
+
+Existing IDs and idempotency keys retain their legacy calculation even where
+old versions normalized negative income to positive. Conflicting CSV identities
+or OFX FITIDs fail rather than silently discard signed corrections. Anonymous
+legacy fingerprint collisions also fail. Source identity metadata lets preflight
+require review of a conflicting stored legacy event; record an auditable
+canonical correction instead of overwriting it. Unchanged output replays without
+inserting or updating events.

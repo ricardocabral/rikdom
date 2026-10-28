@@ -47,3 +47,28 @@ For a dry-run merge preview, add `--dry-run` and omit `--write`.
 - Advanced options activity is not mapped beyond `other` in v1.
 - This plugin expects a single statement file and does not reconcile multiple Fidelity files across statement periods.
 - Fidelity web exports vary by screen/account type; unsupported CSV headers should be converted to the normalized rows documented above before import.
+
+## Received income and replay
+
+Dividend, interest and generic `Income`/`Income Adjustment` rows preserve signed
+amounts. Their CSV `amount` does not declare gross versus net, so these events
+carry `metadata.rikdom_income = {"version": 1, "amount_basis": "unknown"}`.
+Reported income fees keep their signs and explicit zero values; absent fees and
+withholding are not filled with zero. Fees use the transaction currency. An
+explicit invalid transaction currency is rejected; an omitted currency retains
+the existing account-currency/USD convention.
+
+Explicit withholding, `Tax`, `Taxes`, `Tax Withheld` and `Tax Refund` actions map
+to separate signed `tax_withheld` events, before dividend/interest matching.
+Instrument words such as `TAXF` and `Tax-Exempt Bond` are not tax actions. No
+withholding rows are linked to dividends automatically. Attached tax amounts,
+separate fee currencies and explicit gross/net amounts require reviewed canonical
+JSON through `normalized-statement-json`.
+
+Legacy activity IDs and idempotency keys remain stable, including previously
+positive-normalized negative income. Conflicting rows sharing that legacy
+identity fail instead of losing a correction. Duplicate confirmed references
+with different source fingerprints retain the existing digest-ID fallback.
+Source identity metadata allows import preflight to block economic rewrites of
+legacy stored rows for review; use an auditable canonical correction for such a
+change. Repeated imports of unchanged output do not add or update events.
