@@ -335,11 +335,17 @@ def _write_fallback_html(
     )
     path.write_text(
         (
-            "<html><body>"
+            '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            '<title>rikdom fallback Portfolio Report</title>'
+            '<style>body{max-width:70rem;margin:0 auto;padding:1rem;overflow-wrap:anywhere;}'
+            'a{display:inline-block;margin:.25rem 0;}'
+            'a:focus-visible{outline:2px solid currentColor;outline-offset:2px;}</style>'
+            '</head><body><main>'
             "<h1>Fallback Portfolio Report</h1>"
             f"<p>{escape(reason)}</p>"
             f'<p><a href="{escape(link_href)}">{escape(link_label)}</a></p>'
-            + quality_html + "</body></html>"
+            + quality_html + "</main></body></html>"
         ),
         encoding="utf-8",
     )

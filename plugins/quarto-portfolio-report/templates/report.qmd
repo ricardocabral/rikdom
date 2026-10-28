@@ -320,6 +320,13 @@ format:
 
   .rk-list-row .value { color: var(--rk-graphite); font-variant-numeric: tabular-nums; }
 
+  a:focus-visible, .rk-holdings:focus-visible {
+    outline: 2px solid var(--rk-fjord);
+    outline-offset: 2px;
+  }
+
+  .rk-holdings { overflow-x: auto; }
+
   .rk-holdings table {
     width: 100%;
     border-collapse: collapse;
@@ -757,7 +764,7 @@ format:
       }).join("");
 
       return `
-        <div class="rk-holdings">
+        <div class="rk-holdings" tabindex="0" role="region" aria-label="Top holdings table">
           <table>
             <thead>
               <tr>
@@ -785,6 +792,7 @@ format:
           <div class="rk-subtitle">Static portfolio report · base ${escapeHtml(baseCurrency)}</div>
         </div>
         <div class="rk-chip-row">
+          <a href="dashboard.html">Open dashboard quickview</a>
           <span class="rk-chip">Base ${escapeHtml(baseCurrency)}</span>
           <span class="rk-chip">Country ${escapeHtml(country)}</span>
           <span class="rk-chip">TZ ${escapeHtml(timezone)}</span>
@@ -875,6 +883,7 @@ format:
           <h2 class="rk-alloc-title" style="margin:4px 0 14px;">Top holdings</h2>
           ${renderHoldingsTable()}
           <p class="rk-footnote">
+            Scroll the table horizontally to see all columns; use arrow keys when the table is focused.
             Holdings use the amounts provided in the current payload. When holdings contain multiple currencies,
             each row preserves its own currency code.
           </p>

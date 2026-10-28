@@ -48,11 +48,11 @@ format:
 
   .eyebrow { font-family:var(--font-mono); font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--graphite); }
 
-  .grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); }
+  .grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(min(100%,320px),1fr)); }
   .half-grid { display:grid; gap:16px; grid-template-columns:1fr; margin-top:16px; }
   @media (min-width:880px) { .half-grid { grid-template-columns:1fr 1fr; } }
 
-  .panel { background:var(--linen); border:1px solid var(--stone); border-radius:4px; padding:28px 28px 24px; }
+  .panel { min-width:0; overflow-wrap:anywhere; background:var(--linen); border:1px solid var(--stone); border-radius:4px; padding:28px 28px 24px; }
 
   .metric { font-family:var(--font-serif); font-size:44px; font-weight:300; font-variation-settings:'opsz' 144,'SOFT' 50; letter-spacing:-0.02em; line-height:1.05; margin:10px 0 4px; color:var(--ink); font-variant-numeric: tabular-nums; }
   .muted { color:var(--graphite); font-family:var(--font-mono); font-size:12px; }
@@ -60,7 +60,10 @@ format:
   svg { width:100%; height:auto; display:block; }
 
   .dist { display:grid; gap:18px; grid-template-columns:180px 1fr; align-items:start; }
-  @media (max-width:680px) { .metric{font-size:32px;} .dist{grid-template-columns:1fr;} }
+  @media (max-width:680px) {
+    .metric { font-size:32px; }
+    .dist { grid-template-columns:1fr; }
+  }
 
   .legend { display:grid; gap:8px; margin-top:4px; font-family:var(--font-mono); font-size:12px; }
   .legend-row { display:grid; grid-template-columns:10px 1fr auto; gap:10px; align-items:center; }
@@ -68,6 +71,10 @@ format:
   .legend-label { color:var(--ink); }
   .legend-pct { color:var(--graphite); }
   .value-col { text-align:right; color:var(--graphite); font-variant-numeric:tabular-nums; }
+  @media (max-width:680px) {
+    .legend-row { grid-template-columns:10px minmax(0,1fr); }
+    .value-col { grid-column:2; text-align:left; }
+  }
 
   .donut-center { font-size:10px; fill:var(--graphite); text-anchor:middle; font-family:var(--font-mono); letter-spacing:0.04em; text-transform:uppercase; }
   .donut-total { font-size:13px; fill:var(--ink); text-anchor:middle; font-family:var(--font-mono); font-weight:500; }

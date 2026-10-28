@@ -48,6 +48,21 @@ uv run rikdom plugins list --plugins-dir plugins
 - Time series from `data/snapshots.jsonl`.
 - Optional current-state synthetic snapshot via `--include-current`.
 
+## Keep the report usable offline
+
+Keep the whole output directory together, including `report-data.js` and any
+Quarto-generated `*_files/` folders. Open `dashboard.html` directly in a browser;
+no server or live provider is needed. Missing Quarto or a render failure produces
+a clearly labelled fallback page with valuation, quality context, and local trust
+links; the fallback omits charts and the detailed holdings table.
+
+The deep-dive holdings table scrolls horizontally on small screens. Keyboard
+users can Tab to the table and use arrow keys to reach every column. Both pages
+link back to each other.
+
+See [offline desktop/mobile browser QA](report-browser-qa.md) for reproducible
+checks, optional browser tests, and the current English/Portuguese limitations.
+
 ## See also
 
 - [Received-income JSON/Markdown reports](summarize-income.md) — separate artifacts generated with `rikdom income`.

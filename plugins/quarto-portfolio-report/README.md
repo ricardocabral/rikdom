@@ -53,3 +53,13 @@ quantity comparison counts, exclusions, warnings, and local links to:
 These artifacts use the same report builder and writer as `rikdom reconcile`.
 Zero findings do not establish complete history. Coverage describes only the
 explicitly declared source scopes and periods.
+
+## Offline browser checks
+
+Keep the complete output bundle together, including `report-data.js` and generated
+`*_files/` assets. Both pages open directly from disk and link to each other.
+Fallback output clearly reports its reason and retains valuation/trust links; it
+does not include charts or the detailed holdings table.
+
+See [report browser QA](../../docs/how-to/report-browser-qa.md) for desktop/mobile
+checks, the opt-in Playwright regression, and English/Portuguese status.

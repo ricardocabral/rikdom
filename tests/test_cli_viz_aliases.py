@@ -204,5 +204,52 @@ class CliVizAliasTests(unittest.TestCase):
             )
 
 
+class CliVizAliasArtifactTests(unittest.TestCase):
+    def test_aliases_generate_the_same_local_report_bundle_as_viz(self) -> None:
+        import json
+        from html.parser import HTMLParser
+
+        class LocalLinks(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.links = []
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "a":
+                    self.links.extend(value for key, value in attrs if key == "href")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            totals = []
+            cases = [
+                ("viz", ["--out", str(root / "viz" / "dashboard.html")], root / "viz", "dashboard.html"),
+                ("visualize", ["--out-dir", str(root / "visualize")], root / "visualize", "dashboard.html"),
+                ("render-report", ["--out-dir", str(root / "legacy-unused"), "--out", str(root / "report" / "custom.html")], root / "report", "custom.html"),
+            ]
+            for command, flags, output, dashboard in cases:
+                with self.subTest(command=command), patch.dict("os.environ", {"RIKDOM_DISABLE_QUARTO": "1"}):
+                    errors = io.StringIO()
+                    with redirect_stdout(io.StringIO()), redirect_stderr(errors):
+                        code = main([
+                            command, "--portfolio", "tests/fixtures/portfolio.json",
+                            "--snapshots", "tests/fixtures/snapshots.jsonl",
+                            "--plugins-dir", "plugins", *flags,
+                        ])
+                    self.assertEqual(code, 0, errors.getvalue())
+                    self.assertEqual("deprecated" in errors.getvalue(), command != "viz")
+                    self.assertFalse((root / "legacy-unused").exists())
+                    payload = json.loads((output / "quarto-input.json").read_text())
+                    totals.append(payload["sections"]["current_valuation"]["total_value_base"])
+                    self.assertEqual(payload["sections"]["timeline"][-1]["portfolio_value_base"], 165830.0)
+                    for filename in (dashboard, "portfolio-report.html"):
+                        links = LocalLinks()
+                        links.feed((output / filename).read_text())
+                        self.assertGreaterEqual(len(links.links), 5)
+                        for href in links.links:
+                            self.assertTrue((output / href).is_file(), href)
+                    self.assertIn("165830.0", (output / dashboard).read_text())
+            self.assertEqual(totals, [165830.0] * 3)
+
+
 if __name__ == "__main__":
     unittest.main()
