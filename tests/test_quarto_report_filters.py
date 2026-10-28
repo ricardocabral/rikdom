@@ -69,11 +69,12 @@ class ReportScopeTests(unittest.TestCase):
             {'timestamp': '2026-02-01T00:00:00Z', 'totals': {'portfolio_value_base': 200}},
             {'timestamp': '2026-02-29T00:00:00Z', 'totals': {'portfolio_value_base': 999}},
             {'timestamp': '2026-01-01T00:00:00', 'totals': {'portfolio_value_base': 888}},
+            {'timestamp': '2026-01-01T00:00:00+03:99', 'totals': {'portfolio_value_base': 666}},
             {'totals': {'portfolio_value_base': 777}},
         ]
         sections = plugin._build_report_payload(portfolio, snapshots)['sections']
         self.assertEqual(len(sections['timeline']), 1)
-        self.assertEqual(len(sections['unavailable_snapshots']), 3)
+        self.assertEqual(len(sections['unavailable_snapshots']), 4)
         self.assertIsNone(sections['presentation']['history']['interval_change'])
         self.assertIsNone(sections['presentation']['history']['total_change'])
         self.assertEqual(sections['unavailable_snapshots'][0]['timestamp'], '2026-02-29T00:00:00Z')

@@ -261,7 +261,7 @@ def _build_report_payload(
         timestamp = snapshot.get("timestamp")
         try:
             if not isinstance(timestamp, str) or not re.fullmatch(
-                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})", timestamp
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)", timestamp
             ):
                 raise ValueError("Snapshot timestamp needs an explicit source offset")
             instant = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
