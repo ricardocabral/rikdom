@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.7.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "income-planning-sample",
+    "owner_kind": "person",
+    "display_name": "Income planning sample"
+  },
+  "settings": {"base_currency": "USD", "timezone": "UTC"},
+  "asset_type_catalog": [
+    {"id": "stock", "label": "Stock", "asset_class": "stocks"}
+  ],
+  "holdings": [
+    {
+      "id": "holding-1",
+      "asset_type_id": "stock",
+      "label": "Synthetic sample instrument",
+      "quantity": 10,
+      "market_value": {"amount": 1100, "currency": "USD"},
+      "as_of": "2026-12-31T00:00:00Z"
+    }
+  ],
+  "activities": [
+    {
+      "id": "payment-1",
+      "holding_id": "holding-1",
+      "asset_type_id": "stock",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-02-01T00:00:00Z",
+      "money": {"amount": 50, "currency": "USD"},
+      "withholding_tax": {"amount": 0, "currency": "USD"},
+      "provenance": {"source_system": "sample-broker"}
+    }
+  ]
+}

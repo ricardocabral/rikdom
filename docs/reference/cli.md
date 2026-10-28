@@ -60,6 +60,7 @@ and interest, grouped by calendar month/year and native currency. It runs offlin
 | `--portfolio <path>` | Resolved workspace portfolio | Canonical JSON input. |
 | `--start YYYY-MM-DD` | Unbounded | Inclusive first calendar date. |
 | `--end YYYY-MM-DD` | Unbounded | Inclusive last calendar date. |
+| `--income-plan <path>` | Embedded `extensions.rikdom_income_plan`, if present | Local versioned announcements, estimates, reviewed payment links, and declared cost bases. An explicit file takes precedence. |
 | `--out-dir <path>` | `<out-root>/reports[/<portfolio-name>]` | Artifact destination. |
 | `--format json\|markdown\|both` | `both` | Selects `income.json`, `income.md`, or both. |
 
@@ -68,6 +69,23 @@ Successful execution returns status `0` and prints the full report as JSON,
 regardless of artifact format. Invalid report inputs return status `1` with a diagnostic
 on stderr before report writes; argument parsing errors return status `2`. Missing inputs are not bootstrapped by this
 command. Canonical files and import logs are not modified.
+
+With a plan, JSON additionally includes `planning` version `1`, containing
+`announced`, `estimates`, `reconciliation`, `yield_on_cost`, and `diagnostics`.
+Received `events`, `monthly`, and `yearly` amounts retain their actual-ledger
+meaning. Announcements and estimates never enter these totals. Markdown renders
+the planning results in separate sections. The plan is validated by the income
+calculation before artifact writes; output filenames cannot overwrite either
+the portfolio or an explicit plan input. Existing commands without a plan keep
+their original version `1` output contract.
+
+See the [income plan reference](income-plan.md) for exact required source, scope,
+revision, linkage and cost-method fields, and the
+[local sample workflow](../how-to/summarize-income.md#compare-announcements-with-actual-payments).
+Payment links resolve effective corrections and do not infer receipt from an
+announcement or a reinvestment purchase. Yield `ratio` is a fraction (`0.05`
+means `5%`) for its declared period and amount basis, never silently annualized.
+Unsupported or missing inputs return an unavailable result with its reason.
 
 Output version `1` includes `start`, `end`, `date_convention`, `limitations`,
 `diagnostics`, `events`, `monthly` and `yearly`. Each event retains its activity ID,

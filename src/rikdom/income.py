@@ -147,6 +147,7 @@ def _buckets(rows: list[dict[str, Any]], length: int) -> list[dict[str, Any]]:
 
 def build_income_report(
     portfolio: dict[str, Any], *, start: str | None = None, end: str | None = None,
+    income_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build deterministic, JSON-safe received-income rows and native buckets.
 
@@ -164,6 +165,10 @@ def build_income_report(
     values), ``unavailable_count``, and ``total`` (null unless every event value
     is known). Subtotals are never represented as complete totals. Only event
     dimensions are copied; missing historical attribution stays null.
+
+    ``income_plan`` optionally adds separate planning results. An explicit plan
+    overrides ``extensions.rikdom_income_plan``; neither path changes actual
+    received totals or the canonical ledger.
     """
     if not isinstance(portfolio, dict):
         raise ValueError('Portfolio must be an object')
@@ -214,6 +219,22 @@ def build_income_report(
     for row in rows:
         for metric in _METRICS:
             row[metric] = _json_number(row[metric])
-    return {'version': 1, 'date_convention': _DATE_CONVENTION,
+    report = {'version': 1, 'date_convention': _DATE_CONVENTION,
             'start': start, 'end': end, 'limitations': list(_LIMITATIONS),
             'diagnostics': diagnostics, 'events': rows, 'monthly': monthly, 'yearly': yearly}
+    extensions = portfolio.get('extensions')
+    if income_plan is None and isinstance(extensions, dict) and 'rikdom_income_plan' in extensions:
+        income_plan = extensions['rikdom_income_plan']
+        if not isinstance(income_plan, dict):
+            raise ValueError('extensions.rikdom_income_plan must be a versioned plan object')
+    if income_plan is not None:
+        from .income_planning import build_income_planning_report
+
+        report['planning'] = build_income_planning_report(
+            portfolio, report, income_plan, start=start, end=end,
+        )
+        report['limitations'][1] = (
+            'No FX conversion or automatic linkage of separate tax events; '
+            'planning results are separate from received totals.'
+        )
+    return report

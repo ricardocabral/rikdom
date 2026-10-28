@@ -55,8 +55,52 @@ documented for [Portfolio Performance](../../plugins/portfolio_performance_csv/R
 [B3](../../plugins/b3-consolidado-mensal/README.md).
 
 Coverage depends on your imports: an empty report is not evidence that no income
-was owed or paid. Announced-event matching, forecasts, yield on cost and tax
-filing are separate roadmap work.
+was owed or paid. Tax filing remains outside this report.
+
+## Compare announcements with actual payments
+
+Pass a local [versioned income plan](../reference/income-plan.md) to keep announced
+entitlements and scenario estimates separate from received money:
+
+```bash
+uv run rikdom income \
+  --portfolio tests/fixtures/income_planning_portfolio.json \
+  --income-plan tests/fixtures/income_plan.json \
+  --out-dir out/income-planning
+```
+
+These tracked synthetic inputs need no account, API key, or network connection.
+The example has USD 50 of received gross income, a USD 50 announcement, and a
+separate USD 999 scenario estimate. Actual received income stays USD 50. The
+declared USD 1,000 constant cost basis produces a 5% yield for its explicit
+2026 period; this is not an annualized forecast or a tax-lot calculation.
+
+Inspect the JSON `planning` object or the Markdown sections for announcements,
+estimates, payment reconciliation, and yield on cost. Each announcement includes
+a source, revision, scope, and payment date. Ex and record dates can be retained
+when supplied. A per-unit announcement needs explicit entitlement evidence;
+today's holdings do not establish historical eligibility.
+
+Only reviewed `payment_links` match an announcement to an imported activity.
+Do not create links merely because dates or amounts look alike. Repeated links
+and refreshes do not add income; corrections resolve to the effective activity.
+A reinvestment purchase is not another dividend payment. Unlinked or unavailable
+results describe uncertain evidence, not proof of a missing or delayed payment.
+
+Use the plan's `cost_bases` only when the declared method, period, source,
+currency, and statement coverage are supported. The initial method is
+`declared_constant_cost`, with no automatic FX conversion or annualization.
+Missing basis, unknown income, incomplete coverage, or capital changes that
+invalidate the constant denominator make yield unavailable with an explanation.
+The report distinguishes gross income from net receipts instead of treating
+missing withholding as zero.
+
+You can also place the same plan object under
+`portfolio.extensions.rikdom_income_plan` for report generation. An explicit
+`--income-plan` overrides the embedded plan. Invalid supplied plans stop the
+income command before artifact writes. Neither path creates activities, changes
+holdings, or changes realized returns. Keep canonical inputs and plan files
+separate from artifact filenames.
 
 See the [income CLI reference](../reference/cli.md#income) for flags and the
 amount-basis contract.

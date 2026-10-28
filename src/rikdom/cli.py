@@ -471,6 +471,45 @@ def _income_markdown(report: dict[str, Any]) -> str:
     for row in report['events']:
         lines.append("| " + " | ".join(cell(row[key]) for key in
                      ('date', 'activity_id', 'event_type', 'currency', 'gross', 'withholding', 'fees', 'net')) + " |")
+    planning = report.get('planning')
+    if planning is not None:
+        lines.extend(["", "## Announced income", "",
+                      "Announcements are entitlements, not received cash or realized returns.", "",
+                      "| ID | Revision | Status | Payment date | Currency | Basis | Expected amount | Reason |",
+                      "| --- | ---: | --- | --- | --- | --- | ---: | --- |"])
+        for row in planning['announced']:
+            lines.append("| " + " | ".join(cell(row.get(key)) for key in
+                         ('id', 'revision', 'status', 'payment_date', 'currency', 'amount_basis', 'expected_amount', 'reason')) + " |")
+        lines.extend(["", "## Scenario estimates", "",
+                      "Estimates never enter actual balances, received totals, or realized returns.", "",
+                      "| ID | Scenario | Payment date | Currency | Basis | Estimated amount | Assumptions |",
+                      "| --- | --- | --- | --- | --- | ---: | --- |"])
+        for row in planning['estimates']:
+            lines.append("| " + " | ".join(cell(row.get(key)) for key in
+                         ('id', 'scenario', 'payment_date', 'currency', 'amount_basis', 'estimated_amount', 'assumptions')) + " |")
+        lines.extend(["", "## Payment reconciliation", "",
+                      "Only reviewed links establish matches. Unlinked payments do not prove a broker delay.", "",
+                      "| Announcement | Status | Currency | Basis | Expected | Received | Activities | Reason |",
+                      "| --- | --- | --- | --- | ---: | ---: | --- | --- |"])
+        for row in planning['reconciliation']:
+            lines.append("| " + " | ".join(cell(row.get(key)) for key in
+                         ('announcement_id', 'status', 'currency', 'amount_basis', 'expected_amount',
+                          'received_amount', 'activity_ids', 'reason')) + " |")
+        lines.extend(["", "## Yield on cost", "",
+                      "Received income divided by the declared cost basis for the explicit period; not annualized.",
+                      "Gross and net income use their declared basis. Unavailable inputs never become zero.", "",
+                      "| ID | Method | Period | Currency | Basis | Cost basis | Received | Yield | Source | Reason |",
+                      "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |"])
+        for row in planning['yield_on_cost']:
+            period = row['period']
+            values = [row['id'], row['method'], f"{period['start']} to {period['end']}",
+                      row['currency'], row['amount_basis'], row['cost_basis'], row['received_amount'],
+                      format(row['ratio'], '.2%') if row['ratio'] is not None else None,
+                      json.dumps(row['source'], ensure_ascii=False), row['reason']]
+            lines.append("| " + " | ".join(cell(value) for value in values) + " |")
+        if planning['diagnostics']:
+            lines.extend(["", "## Planning diagnostics", ""])
+            lines.extend(f"- {cell(item['id'])}: {cell(item['message'])}" for item in planning['diagnostics'])
     lines.extend(["", "## Limitations", "", *[f"- {item}" for item in report['limitations']], "", "## Diagnostics", ""])
     lines.extend(f"- {cell(item['activity_id'])}: {cell(item['message'])}" for item in report['diagnostics'])
     if not report['diagnostics']:
@@ -479,7 +518,11 @@ def _income_markdown(report: dict[str, Any]) -> str:
 
 
 def cmd_income(args: argparse.Namespace) -> int:
-    report = build_income_report(load_json(args.portfolio), start=args.start, end=args.end)
+    plan_path = getattr(args, 'income_plan', None)
+    plan = load_json(plan_path) if plan_path else None
+    if plan_path and not isinstance(plan, dict):
+        raise ValueError('Income plan must be a versioned JSON object')
+    report = build_income_report(load_json(args.portfolio), start=args.start, end=args.end, income_plan=plan)
     encoded = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
     out_dir = Path(args.out_dir)
     artifacts = {}
@@ -487,9 +530,11 @@ def cmd_income(args: argparse.Namespace) -> int:
         artifacts[out_dir / "income.json"] = encoded
     if args.format in ("markdown", "both"):
         artifacts[out_dir / "income.md"] = _income_markdown(report)
-    canonical = Path(args.portfolio).resolve()
-    if any(path.resolve() == canonical for path in artifacts):
-        raise ValueError("Income artifact would overwrite the canonical portfolio")
+    inputs = {Path(args.portfolio).resolve()}
+    if plan_path:
+        inputs.add(Path(plan_path).resolve())
+    if any(path.resolve() in inputs for path in artifacts):
+        raise ValueError("Income artifact would overwrite a portfolio or plan input")
     out_dir.mkdir(parents=True, exist_ok=True)
     for path, content in artifacts.items():
         path.write_text(content, encoding="utf-8")
@@ -2281,6 +2326,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_income.add_argument("--portfolio", default=None)
     p_income.add_argument("--start", help="Inclusive start date (YYYY-MM-DD)")
     p_income.add_argument("--end", help="Inclusive end date (YYYY-MM-DD)")
+    p_income.add_argument("--income-plan", help="Local versioned announcements, payment links, and declared cost bases")
     p_income.add_argument("--out-dir", default=None, help="Report directory (default: <out-root>/reports[/<portfolio-name>])")
     p_income.add_argument("--format", choices=("json", "markdown", "both"), default="both")
     _add_workspace_options(p_income, with_out_root=True, with_portfolio_name=True, with_registry=True)

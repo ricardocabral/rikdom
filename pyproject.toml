@@ -46,6 +46,7 @@ where = ["src"]
   "plugin-statement.schema.json",
   "plugin.manifest.schema.json",
   "policy.schema.json",
+  "income-plan.schema.json",
   "template-plugin/**/*",
   "template-plugin/**/.*",
 ]
