@@ -660,6 +660,16 @@ def validate_import_diagnostics(value: Any) -> list[str]:
     return errors
 
 
+def _asserted_values_conflict(previous: Any, incoming: Any) -> bool:
+    """New optional evidence is safe; changing a shared assertion is ambiguous."""
+    if isinstance(previous, dict) and isinstance(incoming, dict):
+        return any(
+            _asserted_values_conflict(value, incoming[key])
+            for key, value in previous.items() if key in incoming
+        )
+    return previous != incoming
+
+
 def identity_conflicts(portfolio: dict[str, Any], imported: dict[str, Any]) -> list[str]:
     """Compare opaque source facts; a source parser never needs portfolio access."""
     errors: list[str] = []
@@ -703,6 +713,22 @@ def identity_conflicts(portfolio: dict[str, Any], imported: dict[str, Any]) -> l
             continue
         if identity["kind"] == "source":
             continue
+        if identity["kind"] == "anonymous":
+            # Legacy stored events may predate source-identity metadata. Match
+            # the same keys as merge, without interpreting provider signatures.
+            matches = [old for old in existing.values()
+                       if old.get("id") == activity.get("id")
+                       or (activity.get("idempotency_key") and old.get("idempotency_key") == activity["idempotency_key"])]
+            for old in matches:
+                # Supplemental execution/settlement evidence can be reviewed
+                # independently; effective_at remains the source event date.
+                ignored = {"metadata", "import_run_id", "ingested_at", "trade_at", "settled_at"}
+                old_content = {k: v for k, v in old.items() if k not in ignored}
+                new_content = {k: v for k, v in activity.items() if k not in ignored}
+                old_content.setdefault("status", "posted")
+                new_content.setdefault("status", "posted")
+                if _asserted_values_conflict(old_content, new_content):
+                    errors.append(f"Anonymous source identity conflicts with stored activity {old.get('id')}; use confirmed source references or an auditable correction")
         previous = existing.get(activity.get("id"))
         if previous is not None and previous.get("idempotency_key") == activity.get("idempotency_key"):
             old_content = {k: v for k, v in previous.items() if k not in ("import_run_id", "ingested_at")}

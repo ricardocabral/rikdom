@@ -28,7 +28,8 @@
           ]
         }
       ],
-      "unsupported_events": []
+      "unsupported_events": [],
+      "document_fingerprint": "d2af4cd2a15d6d2a71569039834c6000470ef39c83084e24ac1b8207f6de33c8"
     }
   },
   "holdings": [
@@ -108,7 +109,15 @@
       "source_ref": "schwab:ABCD-1234#txn:TXN-1001",
       "metadata": {
         "action": "Buy",
-        "description": "Buy shares"
+        "description": "Buy shares",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "charles-schwab:account:ABCD-1234",
+          "signature": "d42772792eca792c",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "d2af4cd2a15d6d2a71569039834c6000470ef39c83084e24ac1b8207f6de33c8"
+        }
       },
       "instrument": {
         "ticker": "MSFT",
@@ -133,7 +142,15 @@
       "source_ref": "schwab:ABCD-1234#txn:TXN-1002",
       "metadata": {
         "action": "Sell",
-        "description": "Sell shares"
+        "description": "Sell shares",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "charles-schwab:account:ABCD-1234",
+          "signature": "c6bd914b86e57afe",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "d2af4cd2a15d6d2a71569039834c6000470ef39c83084e24ac1b8207f6de33c8"
+        }
       },
       "instrument": {
         "ticker": "MSFT",
@@ -162,6 +179,14 @@
         "rikdom_income": {
           "version": 1,
           "amount_basis": "unknown"
+        },
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "charles-schwab:account:ABCD-1234",
+          "signature": "5e7be1953cba9dbc",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "d2af4cd2a15d6d2a71569039834c6000470ef39c83084e24ac1b8207f6de33c8"
         }
       },
       "instrument": {
@@ -186,6 +211,14 @@
         "rikdom_income": {
           "version": 1,
           "amount_basis": "unknown"
+        },
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "charles-schwab:account:ABCD-1234",
+          "signature": "69a2fac730e374e3",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "d2af4cd2a15d6d2a71569039834c6000470ef39c83084e24ac1b8207f6de33c8"
         }
       }
     },
@@ -202,7 +235,15 @@
       "source_ref": "schwab:ABCD-1234#txn:TXN-1005",
       "metadata": {
         "action": "Service Fee",
-        "description": "Monthly account fee"
+        "description": "Monthly account fee",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "charles-schwab:account:ABCD-1234",
+          "signature": "e32fea56aa28d848",
+          "occurrence": 0,
+          "kind": "source",
+          "document_fingerprint": "d2af4cd2a15d6d2a71569039834c6000470ef39c83084e24ac1b8207f6de33c8"
+        }
       }
     }
   ]

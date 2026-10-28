@@ -311,6 +311,13 @@ def _parse_transaction(row: dict[str, str]) -> dict[str, Any]:
         "metadata": {
             "action": action,
             "description": row.get("description", ""),
+            "rikdom_source_identity": {
+                "version": 1,
+                "scope": f"{PROVIDER}:account:{account_number}",
+                "signature": digest,
+                "occurrence": 0,
+                "kind": "source" if reference_id else "anonymous",
+            },
         },
     }
 
@@ -351,6 +358,7 @@ def parse_statement(path: Path) -> dict[str, Any]:
 
     seen_holding_ids: set[str] = set()
     seen_activities: dict[str, dict[str, Any]] = {}
+    document_rows: list[str] = []
 
     for row in rows:
         record_type = row.get("record_type", "").strip().lower()
@@ -377,21 +385,29 @@ def parse_statement(path: Path) -> dict[str, Any]:
             generated_candidates.append(statement_date)
 
         if record_type == "account":
+            document_rows.append(json.dumps({
+                "record_type": "account", "account_number": account_number,
+                "account_name": account_name, "currency": currency,
+                "statement_date": statement_date,
+            }, sort_keys=True, ensure_ascii=False))
             continue
         if record_type == "position":
             holding = _parse_position(row)
+            document_rows.append(json.dumps(holding, sort_keys=True, ensure_ascii=False))
             if holding["id"] not in seen_holding_ids:
                 holdings.append(holding)
                 seen_holding_ids.add(holding["id"])
             continue
         if record_type == "cash":
             holding = _parse_cash(row)
+            document_rows.append(json.dumps(holding, sort_keys=True, ensure_ascii=False))
             if holding["id"] not in seen_holding_ids:
                 holdings.append(holding)
                 seen_holding_ids.add(holding["id"])
             continue
         if record_type == "transaction":
             activity = _parse_transaction(row)
+            document_rows.append(json.dumps(activity, sort_keys=True, ensure_ascii=False))
             previous = seen_activities.get(activity["id"])
             if previous is not None and previous != activity:
                 raise ValueError(
@@ -416,6 +432,14 @@ def parse_statement(path: Path) -> dict[str, Any]:
         "source_file": path.name,
         "accounts": sorted(accounts.values(), key=lambda item: item["account_number"]),
     }
+
+    # A sorted multiset keeps duplicates but ignores filenames, row order, and
+    # generated timestamps. The source fingerprint never changes legacy IDs.
+    document = hashlib.sha256(
+        json.dumps(sorted(document_rows), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    for activity in activities:
+        activity["metadata"]["rikdom_source_identity"]["document_fingerprint"] = document
 
     generated_at = max(generated_candidates) if generated_candidates else _now_iso()
     for holding in holdings:
