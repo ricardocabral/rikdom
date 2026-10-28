@@ -8,8 +8,8 @@ from pathlib import Path
 
 from rikdom.cli import main
 from rikdom.storage import load_json, save_json, append_jsonl
-from test_quantity_coverage import portfolio as declared_portfolio
-from test_import_diagnostics import event
+from tests.test_quantity_coverage import portfolio as declared_portfolio
+from tests.test_import_diagnostics import event
 
 
 ROOT = Path(__file__).resolve().parents[1]
