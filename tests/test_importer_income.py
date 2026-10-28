@@ -55,6 +55,33 @@ class ImporterIncomeTests(unittest.TestCase):
         self.assertNotIn('withholding_tax', by_id['ibkr-cash-div'])
         self.assertEqual(by_id['ibkr-cash-div']['money']['amount'], 10)
 
+    def test_ibkr_recognized_source_type_precedes_instrument_description(self):
+        rows = self.parse('ibkr_flex_xml', '''<FlexQueryResponse><FlexStatements><FlexStatement accountId="U1" whenGenerated="20260421;150000"><CashTransactions>
+          <CashTransaction transactionID="taxf" type="Dividends" description="TAXF Cash Dividend USD 0.10 per Share (Ordinary Dividend)" amount="10" currency="USD" dateTime="20260420;120000"/>
+          <CashTransaction transactionID="exempt" type="Dividends" description="Tax-Exempt Bond dividend" amount="10" currency="USD" dateTime="20260420;120000"/>
+          <CashTransaction transactionID="interest" type="Broker Interest Received" description="TAXF interest" amount="2" currency="USD" dateTime="20260420;120000"/>
+          <CashTransaction transactionID="withholding" type="Withholding Tax" description="AAPL dividend" amount="-3" currency="USD" dateTime="20260420;120000"/>
+          <CashTransaction transactionID="interest-tax" type="Withholding Tax" description="Broker interest" amount="-1" currency="USD" dateTime="20260420;120000"/>
+        </CashTransactions></FlexStatement></FlexStatements></FlexQueryResponse>''', '.xml')
+        self.assertEqual({row['id']: row['event_type'] for row in rows}, {
+            'ibkr-cash-taxf': 'dividend', 'ibkr-cash-exempt': 'dividend',
+            'ibkr-cash-interest': 'interest', 'ibkr-cash-withholding': 'tax_withheld',
+            'ibkr-cash-interest-tax': 'tax_withheld',
+        })
+        self.assertEqual(next(row for row in rows if row['id'] == 'ibkr-cash-withholding')['money']['amount'], -3)
+
+    def test_ibkr_unclassified_type_uses_bounded_description_fallback(self):
+        rows = self.parse('ibkr_flex_xml', '''<FlexQueryResponse><FlexStatements><FlexStatement accountId="U1" whenGenerated="20260421;150000"><CashTransactions>
+          <CashTransaction transactionID="taxf" type="Adjustment" description="TAXF Cash Dividend USD 0.10 per Share" amount="10" currency="USD" dateTime="20260420;120000"/>
+          <CashTransaction transactionID="exempt" type="Adjustment" description="Tax-Exempt Bond dividend" amount="10" currency="USD" dateTime="20260420;120000"/>
+          <CashTransaction transactionID="withholding" type="Adjustment" description="AAPL dividend withholding tax" amount="-3" currency="USD" dateTime="20260420;120000"/>
+          <CashTransaction transactionID="ticker" type="Adjustment" description="TAXF cash adjustment" amount="1" currency="USD" dateTime="20260420;120000"/>
+        </CashTransactions></FlexStatement></FlexStatements></FlexQueryResponse>''', '.xml')
+        self.assertEqual({row['id']: row['event_type'] for row in rows}, {
+            'ibkr-cash-taxf': 'dividend', 'ibkr-cash-exempt': 'dividend',
+            'ibkr-cash-withholding': 'tax_withheld', 'ibkr-cash-ticker': 'other',
+        })
+
     def test_pp_gross_only_buy_keeps_existing_outflow_convention(self):
         row = self.pp('2026-04-01,Buy,,EUR,10,EUR,,,,')
         self.assertEqual(row['event_type'], 'buy')

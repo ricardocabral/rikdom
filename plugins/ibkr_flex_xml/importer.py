@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from functools import partial
@@ -163,20 +164,24 @@ def _trade_event_type(row: dict[str, str]) -> str:
 
 
 def _cash_event_type(row: dict[str, str]) -> str:
-    raw = " ".join((as_text(row.get("type")), as_text(row.get("description")))).lower()
-    # Tax descriptions commonly include the dividend or interest being taxed.
-    if "tax" in raw or "withholding" in raw:
-        return "tax_withheld"
-    if "dividend" in raw:
-        return "dividend"
-    if "interest" in raw:
-        return "interest"
-    if "fee" in raw or "commission" in raw:
-        return "fee"
-    if "deposit" in raw or "transfer in" in raw or "incoming" in raw:
-        return "transfer_in"
-    if "withdraw" in raw or "transfer out" in raw or "outgoing" in raw:
-        return "transfer_out"
+    # A recognized source type wins over ticker/name words in the description.
+    # Only unclassified types fall back to the bounded description checks.
+    for field in ("type", "description"):
+        raw = as_text(row.get(field)).lower()
+        # Withholding descriptions may mention dividends/interest. Tax-exempt is
+        # an instrument property, not evidence of a tax cash movement.
+        if re.search(r"\bwithholding\b|\btax(?:es)?\b(?![-\s]+exempt\b)", raw):
+            return "tax_withheld"
+        if re.search(r"\bdividends?\b", raw):
+            return "dividend"
+        if re.search(r"\binterest\b", raw):
+            return "interest"
+        if re.search(r"\b(?:fees?|commissions?)\b", raw):
+            return "fee"
+        if re.search(r"\b(?:deposits?|incoming)\b|\btransfer[ -]+in\b", raw):
+            return "transfer_in"
+        if re.search(r"\b(?:withdraw(?:al)?s?|outgoing)\b|\btransfer[ -]+out\b", raw):
+            return "transfer_out"
     return "other"
 
 
