@@ -30,7 +30,11 @@
         "ticker": "AAPL"
       },
       "metadata": {
-        "raw_type": "DIVIDEND"
+        "raw_type": "DIVIDEND",
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "money": {
         "amount": 12.4,

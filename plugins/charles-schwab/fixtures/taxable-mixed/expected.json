@@ -158,7 +158,11 @@
       "source_ref": "schwab:ABCD-1234#txn:TXN-1003",
       "metadata": {
         "action": "Cash Dividend",
-        "description": "Cash dividend"
+        "description": "Cash dividend",
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "instrument": {
         "ticker": "VTI",
@@ -178,7 +182,11 @@
       "source_ref": "schwab:ABCD-1234#txn:TXN-1004",
       "metadata": {
         "action": "Bank Interest",
-        "description": "Interest payment"
+        "description": "Interest payment",
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       }
     },
     {

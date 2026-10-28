@@ -85,7 +85,11 @@
       "source_ref": "schwab:ROTH-7788#txn:RIRA-2001",
       "metadata": {
         "action": "Cash Dividend",
-        "description": "Dividend reinvestment"
+        "description": "Dividend reinvestment",
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "instrument": {
         "ticker": "SWPPX",
