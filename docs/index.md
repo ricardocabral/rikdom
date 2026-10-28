@@ -21,6 +21,7 @@ Goal-oriented recipes for users who already know the basics.
 - [Run a schema migration](how-to/run-a-migration.md)
 - [Author a new migration](how-to/author-a-migration.md)
 - [Back up before a migration](how-to/back-up-before-migration.md)
+- [Summarize received dividends and interest](how-to/summarize-income.md)
 - [Compute portfolio TWR / MWR](how-to/compute-performance.md)
 - [Work with multi-currency holdings](how-to/work-with-multi-currency.md)
 - [Recover from a crash or torn write](how-to/recover-from-crash.md)

@@ -50,6 +50,66 @@ most recent.
 `cashflow_policy.contributions[]`, retirement spending assumptions, and real
 return assumptions. Pass `--as-of YYYY-MM-DD` to pin the projection start date.
 
+## Income
+
+`rikdom income` reads the effective activity ledger and reports posted dividends
+and interest, grouped by calendar month/year and native currency. It runs offline.
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--portfolio <path>` | Resolved workspace portfolio | Canonical JSON input. |
+| `--start YYYY-MM-DD` | Unbounded | Inclusive first calendar date. |
+| `--end YYYY-MM-DD` | Unbounded | Inclusive last calendar date. |
+| `--out-dir <path>` | `<out-root>/reports[/<portfolio-name>]` | Artifact destination. |
+| `--format json\|markdown\|both` | `both` | Selects `income.json`, `income.md`, or both. |
+
+Standard workspace flags select the data/output roots, registry and portfolio.
+Successful execution returns status `0` and prints the full report as JSON,
+regardless of artifact format. Invalid inputs return status `1` with a diagnostic
+on stderr before report writes. Missing inputs are not bootstrapped by this
+command. Canonical files and import logs are not modified.
+
+Output version `1` includes `start`, `end`, `date_convention`, `limitations`,
+`diagnostics`, `events`, `monthly` and `yearly`. Each event retains its activity ID,
+event type, date, currency, asserted account/holding/asset-type/instrument
+references, amount basis and nullable `gross`, `withholding`, `fees`, and `net`.
+Missing references remain `null`. Each period/currency bucket contains
+`event_count` and one object per monetary metric:
+
+- `total`: complete sum, or `null` if any event's amount is unavailable.
+- `known_subtotal`: sum of available amounts, including signed adjustments.
+- `unavailable_count`: events without a usable amount for that metric.
+
+The reporting date is the calendar day in `effective_at` at its explicit offset,
+without conversion to UTC. It does not assert actual cash availability. Different
+currencies are never combined. Corrections are projected before filtering;
+cancelled/pending events, buys, transfers, principal returns and generic `income`
+are excluded from received dividends/interest. Generic-income exclusions produce
+a diagnostic. An empty history does not establish complete statement coverage.
+
+Income metadata uses an optional versioned declaration:
+
+```json
+"metadata": {"rikdom_income": {"version": 1, "amount_basis": "net"}}
+```
+
+`amount_basis` is `gross`, `net`, or `unknown`. Without the declaration, the
+existing schema convention treats `money` as gross. The older generic marker
+`metadata.amount_basis: "reported_gross_net_unknown"` means unknown when no modern
+marker is present. A modern declaration takes precedence. Unknown basis leaves
+both gross and net unavailable.
+
+For gross money, net is gross minus declared same-currency withholding and fees.
+For net money, gross is net plus those charges. Missing withholding prevents this
+derivation; explicit zero withholding is known. Absent fees are reported as
+unavailable and no undeclared fee is applied. Cross-currency charges prevent
+derivation; they are not converted with current FX. Separately posted tax events
+are not matched to payments. These conventions also prevent net-marked
+instrument-return receipts from having their charges deducted twice; explicitly
+unknown distribution basis makes full instrument returns unavailable.
+
+See [summarize income](../how-to/summarize-income.md) for usage and import limits.
+
 ## Visualization
 
 | Command                                                             | Make shortcut                 | Purpose                                                    |

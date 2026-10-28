@@ -233,14 +233,54 @@ Sequencing override:
 
 ### Acceptance criteria
 
-- [ ] Roll up dividend and interest events into monthly/yearly income views.
-- [ ] Expose income views through CLI/report artifacts.
+- [x] Roll up dividend and interest events into monthly/yearly native-currency income views.
+- [x] Expose income views through the `income` CLI and JSON/Markdown report artifacts.
 - [ ] Ensure all first-party importers map dividend/interest/cashflow events consistently.
 - [ ] Enable new users to run bootstrap + first import using a documented happy path in under 15 minutes.
 - [ ] Display paid and announced income separately; forecasts never enter actual balances or realized returns.
 - [ ] Match imported payments to announced events without double-counting reinvested distributions, corrections, or repeated provider refreshes.
 - [ ] Explain yield-on-cost inputs and flag unavailable cost basis; distinguish gross income from net receipts.
 - [ ] Complete onboarding with sample data and no account, paid API key, or AI service.
+
+
+### Small extension: collective dividend-receipt validation
+
+Recorded **2026-10-28**. **Status:** hypothesis to test, not a committed hosted
+product or validated business. **User question:** "Have other customers of my
+broker received this dividend, and is my result unusual?"
+
+- Reuse local imports and announced-versus-received reconciliation. Start with
+  one supported broker entity, one account category, and a few commonly held
+  distributing instruments; this experiment must not block core Phase 4A delivery.
+- First establish date semantics: distinguish the issuer's announced payment
+  date, the broker's accounting date, first observation in successive imports,
+  and actual cash availability only when explicitly supported by the source.
+  Import frequency bounds first observation; backdated entries are not proof of
+  availability. The current IBKR `effective_at` alone is insufficient.
+- Provide a useful local payment check before inviting an optional contribution.
+  Compare that result with aggregate peer observations to test whether collective
+  data resolves uncertainty that announcements and a personal statement cannot.
+  Missing records must surface statement coverage and entitlement uncertainty,
+  not automatically accuse a broker of a missing or delayed payment.
+- Keep statements and portfolios local. Preview explicitly opted-in contributions
+  limited to public distribution identity, broker entity, coarse timing, coverage,
+  and importer version; exclude balances, quantities, account/transaction IDs,
+  source references, and free text. Download aggregates for local matching.
+  Suppress sparse cohorts and public contributor histories; assess re-identification
+  and duplicate/fabricated contribution risks before claiming anonymity or trusted
+  peer counts. Connected operation follows Phase 5B safeguards.
+- Test organic discovery through shareable aggregate event pages that invite a
+  local check and optional contribution. Do not require sharing to use Rikdom's
+  free offline workflows. Fees, FX comparisons, subscriptions, and a general data
+  hub remain outside this initial experiment.
+
+**Validation gates (proposed thresholds, not observed results):**
+
+- [ ] Timebox a date/coverage feasibility check to two days; stop the timing hypothesis if available sources cannot support it reliably.
+- [ ] Run a four-to-six-week self-service experiment after feasibility passes: 30 independent users complete the workflow without personal onboarding, 15 contribute voluntarily, and 10 contribute again in another payment cycle.
+- [ ] Record at least five concrete uncertainties resolved by the collective result beyond the local-only report, and five additional activated users arriving through shared aggregate pages.
+- [ ] Record cohort coverage, repeat usage, contribution quality, and privacy limitations; synthetic fixtures validate mechanics only, never demand or network effects.
+- [ ] At the experiment's end, retain findings and remove the disposable collection setup and contributed records under a disclosed retention policy. Continue only if the gates pass; otherwise keep useful local reconciliation and stop the hub experiment. Passing these gates does not establish willingness to pay or commercial viability.
 
 ---
 

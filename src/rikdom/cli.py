@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .aggregate import aggregate_portfolio, compute_strategic_bucket_totals
+from .income import build_income_report
 from .activities import CORRECTION_SCHEMA_VERSION, check_financial_contract, correction, effective_activities
 from .reconciliation.reports import (
     build_trust_reports,
@@ -439,6 +440,60 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     if result.errors:
         print("Data quality check failed in strict mode", file=sys.stderr)
         return 1
+    return 0
+
+
+def _income_markdown(report: dict[str, Any]) -> str:
+    def cell(value: Any) -> str:
+        if value is None:
+            return "Unavailable"
+        return str(value).replace("|", "\\|").replace("\n", " ")
+
+    lines = ["# Received income", "", report["date_convention"], "",
+             f"Start: {report['start'] or 'unbounded'}; end: {report['end'] or 'unbounded'}.", ""]
+    for title, key in (("Monthly", "monthly"), ("Yearly", "yearly")):
+        lines.extend([f"## {title}", "",
+                      "Each amount shows its complete total, or its known subtotal and unavailable event count.", "",
+                      "| Period | Currency | Events | Gross | Withholding | Fees | Net |",
+                      "| --- | --- | ---: | ---: | ---: | ---: | ---: |"])
+        for bucket in report[key]:
+            values = []
+            for metric in ("gross", "withholding", "fees", "net"):
+                value = bucket[metric]
+                values.append(cell(value['total']) if value['total'] is not None else
+                              f"Unavailable (known {value['known_subtotal']}; missing {value['unavailable_count']})")
+            lines.append("| " + " | ".join([bucket['period'], bucket['currency'], str(bucket['event_count']), *values]) + " |")
+        if not report[key]:
+            lines.extend(["", "No received income in the selected period."])
+        lines.append("")
+    lines.extend(["## Events", "", "| Date | Activity | Type | Currency | Gross | Withholding | Fees | Net |",
+                  "| --- | --- | --- | --- | ---: | ---: | ---: | ---: |"])
+    for row in report['events']:
+        lines.append("| " + " | ".join(cell(row[key]) for key in
+                     ('date', 'activity_id', 'event_type', 'currency', 'gross', 'withholding', 'fees', 'net')) + " |")
+    lines.extend(["", "## Limitations", "", *[f"- {item}" for item in report['limitations']], "", "## Diagnostics", ""])
+    lines.extend(f"- {cell(item['activity_id'])}: {cell(item['message'])}" for item in report['diagnostics'])
+    if not report['diagnostics']:
+        lines.append("None.")
+    return "\n".join(lines) + "\n"
+
+
+def cmd_income(args: argparse.Namespace) -> int:
+    report = build_income_report(load_json(args.portfolio), start=args.start, end=args.end)
+    encoded = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+    out_dir = Path(args.out_dir)
+    artifacts = {}
+    if args.format in ("json", "both"):
+        artifacts[out_dir / "income.json"] = encoded
+    if args.format in ("markdown", "both"):
+        artifacts[out_dir / "income.md"] = _income_markdown(report)
+    canonical = Path(args.portfolio).resolve()
+    if any(path.resolve() == canonical for path in artifacts):
+        raise ValueError("Income artifact would overwrite the canonical portfolio")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for path, content in artifacts.items():
+        path.write_text(content, encoding="utf-8")
+    print(encoded, end="")
     return 0
 
 
@@ -2222,6 +2277,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_reconcile.set_defaults(func=cmd_reconcile)
 
+    p_income = sub.add_parser("income", help="Summarize received dividend and interest in native currencies")
+    p_income.add_argument("--portfolio", default=None)
+    p_income.add_argument("--start", help="Inclusive start date (YYYY-MM-DD)")
+    p_income.add_argument("--end", help="Inclusive end date (YYYY-MM-DD)")
+    p_income.add_argument("--out-dir", default=None, help="Report directory (default: <out-root>/reports[/<portfolio-name>])")
+    p_income.add_argument("--format", choices=("json", "markdown", "both"), default="both")
+    _add_workspace_options(p_income, with_out_root=True, with_portfolio_name=True, with_registry=True)
+    p_income.set_defaults(func=cmd_income)
+
     p_snapshot = sub.add_parser(
         "snapshot", help="Append one snapshot into JSONL history"
     )
@@ -2727,7 +2791,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         preview = args.command in ("import-statement", "activity") and (not getattr(args, "write", False) or getattr(args, "dry_run", False))
-        if not preview:
+        if not preview and args.command != "income":
             _bootstrap_default_workspace(args)
         return args.func(args)
     except (ValueError, OSError) as exc:
