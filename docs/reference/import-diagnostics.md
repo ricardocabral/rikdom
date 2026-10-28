@@ -67,6 +67,13 @@ the fingerprint from a sorted multiset of normalized rows, retaining identical-r
 multiplicity while ignoring row order and run timestamps. Core does not interpret
 source columns, ticker conventions, or account naming rules.
 
+When a parser adds source-identity evidence to a legacy stored event, reimport
+cannot change already asserted economic fields under the same ID or idempotency
+key. Conflicting signs, event types or charges block before writing; use an
+auditable correction after reviewing the original statement. New metadata and
+previously absent evidence can still be added. Events already backed by source
+identifiers retain the existing source-update behavior.
+
 The same document occurrence must retain its ID/key. Another document with
 overlapping anonymous signatures in the same scope blocks before writing.
 This preserves legitimate identical executions without guessing whether an
