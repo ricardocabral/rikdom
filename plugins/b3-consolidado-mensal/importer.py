@@ -688,6 +688,8 @@ def _parse_movements(rows: list[dict[str, str]], headers: set[str]) -> dict[str,
                 "rikdom_source_identity": {"version": 1, "scope": scope, "scope_kind": "institution", "document_fingerprint": document, "signature": signature, "occurrence": occurrence, "kind": "anonymous"},
             },
         }
+        if kind in {"dividend", "interest", "income"}:
+            activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": "unknown"}
         if quantity_event:
             activity["quantity"] = quantity
         elif quantity is not None:

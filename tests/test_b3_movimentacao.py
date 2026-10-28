@@ -45,6 +45,13 @@ class B3MovimentacaoTests(unittest.TestCase):
         self.assertTrue(all("from" not in c for c in diagnostic["history_coverage"]))
         self.assertEqual(len({a["id"] for a in payload["activities"]}), 8)
 
+    def test_income_preserves_unknown_reported_gross_net_basis(self):
+        income = [a for a in parse(FIXTURE)["activities"] if a["event_type"] in {"dividend", "interest", "income"}]
+        self.assertTrue(income)
+        for activity in income:
+            self.assertEqual(activity["metadata"]["rikdom_income"], {"version": 1, "amount_basis": "unknown"})
+            self.assertEqual(activity["metadata"]["amount_basis"], "reported_gross_net_unknown")
+
     def test_repeated_file_keeps_identical_executions_distinct_and_noops(self):
         payload = parse(FIXTURE)
         p = {"holdings": [], "activities": []}

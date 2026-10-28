@@ -70,3 +70,8 @@ payload = run_import_pipeline(
 print(payload["provider"], len(payload["holdings"]))
 PY
 ```
+
+Movement income whose reported amount does not establish gross/net now also emits
+`metadata.rikdom_income = {"version": 1, "amount_basis": "unknown"}`. The existing
+`amount_basis: reported_gross_net_unknown` evidence and source IDs are preserved.
+Reimport or explicitly correct older canonical rows to add the neutral marker.

@@ -34,7 +34,11 @@
         "ticker": "AAPL"
       },
       "metadata": {
-        "raw_activity_type": "dividend"
+        "raw_activity_type": "dividend",
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "net"
+        }
       },
       "money": {
         "amount": 12.4,
@@ -59,7 +63,7 @@
     },
     {
       "effective_at": "2026-03-21T00:00:00Z",
-      "event_type": "other",
+      "event_type": "tax_withheld",
       "id": "wealthfolio-wf-act-tax-1",
       "instrument": {
         "isin": "US0378331005",
@@ -74,8 +78,7 @@
         "currency": "USD"
       },
       "source_ref": "account-main",
-      "status": "posted",
-      "subtype": "wealthfolio:tax"
+      "status": "posted"
     },
     {
       "effective_at": "2026-04-01T00:00:00Z",
@@ -123,26 +126,19 @@
       "history_coverage": [
         {
           "scope": "wealthfolio_export_json:statement",
-          "status": "partial",
+          "status": "unknown",
           "event_types": [
             "buy",
             "dividend",
+            "tax_withheld",
             "transfer_in"
           ],
           "reasons": [
-            "unsupported_source_events"
+            "source_does_not_declare_complete_history"
           ]
         }
       ],
-      "unsupported_events": [
-        {
-          "source_ref": "account-main",
-          "source_event": "wealthfolio:tax",
-          "reason": "source_event_has_no_supported_taxonomy_mapping",
-          "affects_quantity": false,
-          "affects_cash": true
-        }
-      ]
+      "unsupported_events": []
     }
   }
 }

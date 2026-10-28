@@ -164,12 +164,13 @@ def _trade_event_type(row: dict[str, str]) -> str:
 
 def _cash_event_type(row: dict[str, str]) -> str:
     raw = " ".join((as_text(row.get("type")), as_text(row.get("description")))).lower()
+    # Tax descriptions commonly include the dividend or interest being taxed.
+    if "tax" in raw or "withholding" in raw:
+        return "tax_withheld"
     if "dividend" in raw:
         return "dividend"
     if "interest" in raw:
         return "interest"
-    if "tax" in raw or "withholding" in raw:
-        return "other"
     if "fee" in raw or "commission" in raw:
         return "fee"
     if "deposit" in raw or "transfer in" in raw or "incoming" in raw:

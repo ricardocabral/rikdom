@@ -194,7 +194,11 @@
           "kind": "anonymous"
         },
         "source_entitlement_quantity": 10.0,
-        "reported_unit_price": 0.43
+        "reported_unit_price": 0.43,
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "money": {
         "amount": 4.3,
@@ -229,7 +233,11 @@
           "kind": "anonymous"
         },
         "source_entitlement_quantity": 10.0,
-        "reported_unit_price": 0.17
+        "reported_unit_price": 0.17,
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "money": {
         "amount": 1.7,
@@ -265,7 +273,11 @@
           "kind": "anonymous"
         },
         "source_entitlement_quantity": 3.0,
-        "reported_unit_price": 0.39
+        "reported_unit_price": 0.39,
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
       },
       "money": {
         "amount": 1.17,

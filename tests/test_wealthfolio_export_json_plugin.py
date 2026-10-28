@@ -41,8 +41,7 @@ class WealthfolioExportJsonPluginTests(unittest.TestCase):
         self.assertEqual(deposit["money"], {"amount": 5000.0, "currency": "USD"})
 
         tax = next(a for a in payload["activities"] if a["id"] == "wealthfolio-wf-act-tax-1")
-        self.assertEqual(tax["event_type"], "other")
-        self.assertEqual(tax["subtype"], "wealthfolio:tax")
+        self.assertEqual(tax["event_type"], "tax_withheld")
         self.assertEqual(tax["money"], {"amount": -2.1, "currency": "USD"})
 
         draft = next(a for a in payload["activities"] if a["id"] == "wealthfolio-wf-act-draft-1")

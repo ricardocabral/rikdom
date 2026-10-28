@@ -103,9 +103,6 @@ _TYPE_MAP: dict[str, str] = {
     "umbuchung (ausgang)": "transfer_out",
 }
 
-_CASHFLOW_NEGATIVE = {"buy", "transfer_out", "fee"}
-
-
 def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -187,14 +184,6 @@ def _resolve_event_type(raw: str) -> str:
     return _TYPE_MAP.get(key, "other")
 
 
-def _signed_amount(event_type: str, magnitude: float, raw_value: float | None) -> float:
-    if raw_value is not None:
-        return raw_value
-    if event_type in _CASHFLOW_NEGATIVE:
-        return -abs(magnitude)
-    return abs(magnitude)
-
-
 def _normalize_row(row: dict[str, str], *, decimal_separator: str) -> dict[str, Any]:
     raw_type = row.get("type", "")
     if not raw_type:
@@ -203,30 +192,41 @@ def _normalize_row(row: dict[str, str], *, decimal_separator: str) -> dict[str, 
     row_id = _stable_id(row)
     effective_at = _parse_date(row, row_id)
 
-    currency = (
-        normalize_currency(row.get("currency"))
-        or normalize_currency(row.get("gross_currency"))
-    )
-    if not currency:
-        raise ValueError(
-            f"Portfolio Performance row '{row_id}' is missing transaction currency"
-        )
-
+    currency = normalize_currency(row.get("currency"))
+    gross_currency = normalize_currency(row.get("gross_currency"))
     raw_value = _parse_decimal(row.get("value"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
     gross_amount = _parse_decimal(row.get("gross_amount"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
-    magnitude = (
-        abs(raw_value) if raw_value is not None
-        else abs(gross_amount) if gross_amount is not None
-        else None
-    )
-    if magnitude is None:
-        raise ValueError(
-            f"Portfolio Performance row '{row_id}' has no parseable Value or Gross Amount"
-        )
-
-    amount = _signed_amount(event_type, magnitude, raw_value)
+    for field, value in (("value", raw_value), ("gross_amount", gross_amount)):
+        if field in row and value is None:
+            raise ValueError(f"Portfolio Performance row '{row_id}' has invalid {field}")
+    if raw_value is not None:
+        if not currency:
+            raise ValueError(f"Portfolio Performance row '{row_id}' is missing transaction currency")
+        amount = raw_value
+    elif gross_amount is not None:
+        if not gross_currency:
+            raise ValueError(f"Portfolio Performance row '{row_id}' has Gross Amount without its own currency")
+        currency = gross_currency
+        if event_type in {"dividend", "interest"}:
+            amount = gross_amount
+        else:
+            # Preserve the existing Gross-only trade/transfer direction convention.
+            amount = -abs(gross_amount) if event_type in {"buy", "transfer_out", "fee"} else abs(gross_amount)
+    else:
+        raise ValueError(f"Portfolio Performance row '{row_id}' has no parseable Value or Gross Amount")
 
     metadata: dict[str, Any] = {"raw_type": raw_type}
+    if event_type in {"dividend", "interest"}:
+        # PP Value is the final cash amount. Gross Amount can use another currency.
+        metadata["rikdom_income"] = {
+            "version": 1, "amount_basis": "net" if raw_value is not None else "gross",
+        }
+        metadata["source_money"] = {
+            key: row[key] for key in (
+                "value", "currency", "gross_amount", "gross_currency", "exchange_rate",
+                "fees", "fees_currency", "taxes", "taxes_currency",
+            ) if key in row
+        }
     note = as_text(row.get("note"))
     if note:
         metadata["note"] = note
@@ -249,17 +249,27 @@ def _normalize_row(row: dict[str, str], *, decimal_separator: str) -> dict[str, 
         activity["quantity"] = abs(quantity)
 
     fees = _parse_decimal(row.get("fees"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
-    if fees is not None and fees != 0:
-        fees_currency = normalize_currency(row.get("fees_currency")) or currency
-        activity["fees"] = {"amount": abs(fees), "currency": fees_currency}
+    if "fees" in row and fees is None:
+        raise ValueError(f"Portfolio Performance row '{row_id}' has invalid fees")
+    if fees is not None:
+        # Unlabelled PP charges use Transaction Currency, never Gross Amount Currency.
+        fees_currency = normalize_currency(row.get("fees_currency")) or normalize_currency(row.get("currency"))
+        if not fees_currency:
+            raise ValueError(f"Portfolio Performance row '{row_id}' has fees without currency")
+        activity["fees"] = {"amount": fees, "currency": fees_currency}
 
     taxes = _parse_decimal(row.get("taxes"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
-    if taxes is not None and taxes != 0:
-        taxes_currency = normalize_currency(row.get("taxes_currency")) or currency
-        activity.setdefault("metadata", {})["taxes"] = {
-            "amount": abs(taxes),
-            "currency": taxes_currency,
-        }
+    if "taxes" in row and taxes is None:
+        raise ValueError(f"Portfolio Performance row '{row_id}' has invalid taxes")
+    if taxes is not None:
+        taxes_currency = normalize_currency(row.get("taxes_currency")) or normalize_currency(row.get("currency"))
+        if not taxes_currency:
+            raise ValueError(f"Portfolio Performance row '{row_id}' has taxes without currency")
+        tax = {"amount": taxes, "currency": taxes_currency}
+        # Keep the previous source metadata, including explicit zero and signed refunds.
+        metadata["taxes"] = tax
+        if event_type in {"dividend", "interest"}:
+            activity["withholding_tax"] = dict(tax)
 
     instrument: dict[str, Any] = {}
     ticker = as_text(row.get("ticker"))

@@ -42,6 +42,7 @@ _HEADER_ALIASES: dict[str, str] = {
     "currency": "currency",
     "fee": "fee",
     "fees": "fee",
+    "tax": "tax",
     "account_id": "account_id",
     "accountid": "account_id",
     "account": "account_id",
@@ -70,9 +71,9 @@ _ACTIVITY_TYPE_MAP: dict[str, str] = {
     "split": "split",
     "add_holding": "transfer_in",
     "remove_holding": "transfer_out",
-    "tax": "other",
-    "tax_refund": "other",
-    "income": "dividend",
+    "tax": "tax_withheld",
+    "tax_refund": "tax_withheld",
+    "income": "income",
 }
 
 _NEGATIVE_CASHFLOW = {"buy", "transfer_out", "fee"}
@@ -120,6 +121,8 @@ def _read_rows(path: Path) -> tuple[list[dict[str, str]], str]:
 
 
 def _stable_id(row: dict[str, str]) -> str:
+    # Tax was ignored by the original dialect. Adding evidence must not rekey old rows.
+    row = {key: value for key, value in row.items() if key != "tax"}
     digest = hashlib.sha256(
         json.dumps(row, sort_keys=True, ensure_ascii=False).encode("utf-8")
     ).hexdigest()
@@ -170,6 +173,11 @@ def _normalize_row(row: dict[str, str], *, decimal_separator: str) -> dict[str, 
     explicit_amount = _parse_decimal(row.get("amount"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
     fee_amount = _parse_decimal(row.get("fee"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
 
+    tax_amount = _parse_decimal(row.get("tax"), decimal_separator=decimal_separator, grouping_separator="." if decimal_separator == "," else ",")
+    for field, value in (("amount", explicit_amount), ("fee", fee_amount), ("tax", tax_amount)):
+        if field in row and value is None:
+            raise ValueError(f"Wealthfolio activity CSV row '{activity_id}' has invalid {field}")
+
     if explicit_amount is not None:
         magnitude = abs(explicit_amount)
         raw_value = explicit_amount
@@ -209,14 +217,20 @@ def _normalize_row(row: dict[str, str], *, decimal_separator: str) -> dict[str, 
             "raw_activity_type": normalized_type,
         },
     }
+    if event_type in {"dividend", "interest", "income"}:
+        activity["metadata"]["rikdom_income"] = {
+            "version": 1, "amount_basis": "net" if explicit_amount is not None else "unknown",
+        }
+        if tax_amount is not None:
+            activity["withholding_tax"] = {"amount": tax_amount, "currency": currency}
     if event_type == "other" and normalized_type:
         activity["subtype"] = f"wealthfolio:{normalized_type}"
 
     if quantity is not None:
         activity["quantity"] = abs(quantity)
 
-    if fee_amount is not None and fee_amount != 0:
-        activity["fees"] = {"amount": abs(fee_amount), "currency": currency}
+    if fee_amount is not None:
+        activity["fees"] = {"amount": fee_amount, "currency": currency}
 
     instrument: dict[str, Any] = {}
     symbol = row.get("symbol")
