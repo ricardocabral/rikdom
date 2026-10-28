@@ -23,13 +23,13 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const scripts = [...input.source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
-const script = scripts.find(s => s.includes('const payload = window.RIKDOM_REPORT_DATA'));
+const script = scripts.find(s => s.includes('window.RIKDOM_REPORT.mount'));
 if (!script) throw new Error('Application script missing');
 const nodes = {};
 const document = {documentElement: {}, getElementById(id) {
     return nodes[id] ||= {innerHTML: '', textContent: ''};
 }};
-vm.runInNewContext(script, {window: {RIKDOM_REPORT_DATA: input.payload}, document,
+vm.runInNewContext(script, {window: {RIKDOM_REPORT: {mount: render => render(input.payload, 'en-US')}}, document,
     getComputedStyle: () => ({getPropertyValue: () => ''}), Intl, Date});
 process.stdout.write(JSON.stringify(nodes));
 """

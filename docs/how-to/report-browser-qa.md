@@ -27,7 +27,7 @@ page displays the charts and does **not** say “Fallback Portfolio Report”.
 
 Copy each **whole output directory** to a different location, then open its
 `dashboard.html` directly using a `file://` URL. The bundle includes
-`portfolio-report.html`, `report-data.js`, `quarto-input.json`, four trust
+`portfolio-report.html`, `report-data.js` (data plus the shared local runtime), `quarto-input.json`, four trust
 artifacts, and any Quarto-generated `*_files/` directories. Keep these together;
 copying a single HTML page is insufficient. No local web server is required.
 
@@ -47,12 +47,23 @@ the narrow sizes. Also inspect both light and dark system themes.
 | Navigation | Tab to “Open deep-dive report”, check visible focus, press Enter, and reach `portfolio-report.html`. Tab to “Open dashboard quickview” and return. |
 | Trust artifacts | Activate all four JSON/Markdown links. Each opens a local artifact with substantive content; Back returns to the report. |
 | Mobile overflow | The page itself does not scroll horizontally. Panels, text, and navigation remain visible. |
-| Holdings table | All five columns remain reachable by horizontal scroll. Tab to the named “Top holdings table” region, check visible focus, and use Right/Left arrows to scroll on narrow screens. Check touch/swipe scrolling on a real device when available. |
-| Fallback | Clearly says “Fallback Portfolio Report” and gives the rendering reason. Shows valuation, latest historical total, coverage, exclusions, warnings, and working local links. Charts and the detailed holdings table are intentionally unavailable. |
+| Holdings table | All five holdings columns remain reachable by horizontal scroll. Tab to the named “Top holdings table” region, check visible focus, and use Right/Left arrows to scroll on narrow screens. Check touch/swipe scrolling on a real device when available. |
+| Filters and languages | Select English/Português, account/type/currency and inclusive dates. Current values use the chosen scope; dates leave current valuation unchanged. Source rows and planning payment dates narrow honestly. Inverted dates show a validation message and no matching source rows. Language survives sibling navigation. |
+| Fallback | Clearly says “Fallback Portfolio Report” and gives the rendering reason. Shows valuation, latest historical total, coverage, exclusions, warnings, and working local links. Charts and the detailed holdings table are intentionally unavailable; filters, locale selection and income/planning tables remain available. |
 
-The charts are static. The visible controls are report navigation, trust links,
-and the holdings scroll region; there are no chart filters or date selectors.
-Do not record a nonexistent control as tested.
+Both modes have a language selector, a single-dimension scope selector, recorded
+start/end date inputs and a reset button. Test scope selection before and after
+date selection. Dates narrow source records and historical charts while current
+valuation/allocation stay current. For account/type/currency scopes, historical
+snapshot attribution and investment performance remain explicitly unavailable.
+Test an empty result and inverted dates; neither may display unfiltered income.
+
+Planning output keeps announced income, scenario estimates, reviewed matching
+and declared-cost yield in separate tables. Scope/payment-date filters select
+asserted planning rows. A yield's original period is preserved; selecting only
+part of the period makes the yield unavailable. Test both available and unknown
+coverage, plus an explicit reviewed link. No automatic payment inference or
+annualization belongs in the browser.
 
 For richer data states, repeat with locally constructed anonymous portfolios:
 no holdings, no history, missing FX, excluded holdings, long holding names, and
@@ -86,17 +97,30 @@ The browser check uses Chromium only. Native mobile touch, Safari, Firefox,
 screen readers, zoom, and the richer data states above require separate manual
 checks; screenshot or DOM assertions do not establish full accessibility.
 
-## English and Portuguese status
+## English and Portuguese checks
 
-Report labels currently use English. Dates, numbers, and currencies use browser
-`Intl` formatting, so their appearance can follow the browser locale. This is
-formatting behavior, **not** complete English/Portuguese localization: there is
-no report language selector, Portuguese label catalogue, or guaranteed language
-mapping from the profile country.
+The report has complete English/Portuguese interface labels and explicit
+`en-US`/`pt-BR` formatting, independent of the browser's default locale. Select
+Português, verify dates, decimal/group separators, percentages, control names,
+quality labels, empty states, holdings headings and all planning columns.
+Select English and verify the original labels and amounts return. Preserve
+source IDs, user holding names, source assumptions and raw diagnostics as text.
+Original provider diagnostics are labelled “Raw source text” / “Texto original
+da fonte”; translation must not alter their meaning.
 
-For locale QA, repeat the manual checks in `en-US` and `pt-BR` browser contexts.
-Check currency identity, decimal/group separators, dates, long text wrapping, and
-all controls. Record untranslated labels as an existing limitation. Do not mark
-the roadmap's English/Portuguese localization criterion complete on the basis
-of the offline checks. The automated regression uses `en-US`; complete Portuguese
-copy and locale coverage remain open.
+The initial language defaults to English. To test a Portuguese default, use a
+synthetic canonical extension `extensions.rikdom_report.locale = "pt"`. The
+sibling link carries `?lang=pt`, so locale survives navigation without storage.
+No new `settings` property or CLI language flag is required.
+
+The automated regression creates anonymous income and planning records, tests
+both languages at every viewport in both report modes, and checks a 5% Python
+computed yield, unknown coverage, separate scenario estimates, exact payment
+links, unavailable partial-period yield, empty scopes, invalid dates and escaped
+untrusted assumptions. It preserves checks for real chart geometry, current
+valuation, local links, keyboard navigation/scrolling, page overflow, missing
+resources and runtime/console errors. Saved screenshots include `-pt.png` views.
+
+An optional screenshot directory is local QA evidence, not a shared artifact
+containing real portfolio data. Native date-input chrome can follow the browser
+or operating-system locale; report date labels use the selected report locale.

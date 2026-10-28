@@ -13,7 +13,9 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from rikdom.activities import effective_activities
 from rikdom.aggregate import aggregate_portfolio
+from rikdom.income import build_income_report
 from rikdom.plugin_engine.hookspecs import hookimpl
 from rikdom.reconciliation.reports import build_trust_reports, write_trust_reports
 from rikdom.storage import load_json, load_jsonl
@@ -171,7 +173,8 @@ def _maturity_bucket(maturity_date: str | None, *, reference_date: datetime) -> 
 
 
 def _build_report_payload(
-    portfolio: dict[str, Any], snapshots: list[dict[str, Any]], *, generated_at: str | None = None
+    portfolio: dict[str, Any], snapshots: list[dict[str, Any]], *, generated_at: str | None = None,
+    _include_views: bool = True,
 ) -> dict[str, Any]:
     settings = portfolio.get("settings", {})
     profile = portfolio.get("profile", {})
@@ -182,6 +185,10 @@ def _build_report_payload(
         else []
     )
 
+    report_preferences = portfolio.get("extensions", {}).get("rikdom_report")
+    if not isinstance(report_preferences, dict):
+        report_preferences = {}
+    report_language = report_preferences.get("locale", settings.get("language", "en"))
     asset_type_catalog = portfolio.get("asset_type_catalog", [])
     base_currency = str(settings.get("base_currency", "USD")).upper().strip() or "USD"
 
@@ -277,12 +284,13 @@ def _build_report_payload(
         ],
     }
 
-    return {
+    payload = {
         "profile": {
             "display_name": profile.get("display_name", "Portfolio"),
             "country": profile.get("country"),
             "base_currency": base_currency,
             "timezone": settings.get("timezone"),
+            "language": "pt" if str(report_language).lower().startswith("pt") else "en",
         },
         "asset_type_catalog": asset_type_catalog,
         "trust_reports": trust_reports,
@@ -309,6 +317,94 @@ def _build_report_payload(
             },
         },
     }
+
+    # All displayed financial ratios and changes are computed here. JavaScript
+    # may scale chart coordinates, but never derives a return or income metric.
+    total = result.total_value_base
+    history_values = [row["portfolio_value_base"] for row in timeline]
+    first = history_values[0] if history_values else None
+    latest = history_values[-1] if history_values else None
+    previous = history_values[-2] if len(history_values) > 1 else None
+    presentation = {
+        "history": {
+            "interval_change": latest - previous if previous is not None else None,
+            "interval_change_fraction": (latest - previous) / previous if previous else None,
+            "total_change": latest - first if first is not None else None,
+            "total_change_fraction": (latest - first) / first if first else None,
+        },
+        "largest_holding_share": (top_holdings[0].get("base_amount") or 0) / total if total and top_holdings else None,
+        "largest_currency_share": max(quickview_currency["converted_base"].values(), default=0) / total if total else None,
+        "holding_shares": {row["id"]: row["base_amount"] / total if row["base_amount"] is not None and total else None for row in top_holdings},
+        "allocation_shares": {},
+    }
+    for title, amounts in (
+        ("Current currency allocation", quickview_currency["converted_base"]),
+        ("Asset type breakdown", by_asset_type), ("Geography", geo),
+        ("Current allocation by asset class", result.by_asset_class),
+    ):
+        positive_total = sum(value for value in amounts.values() if value > 0)
+        presentation["allocation_shares"][title] = {key: value / positive_total if positive_total else None for key, value in amounts.items()}
+    payload["sections"]["presentation"] = presentation
+    if _include_views:
+        income = build_income_report(portfolio)
+        contributions = []
+        for row in effective_activities(portfolio.get("activities", [])):
+            if row.get("status") != "posted" or row.get("event_type") not in {"contribution", "withdrawal", "deposit"}:
+                continue
+            money = row.get("money", {})
+            if not isinstance(money, dict) or _safe_float(money.get("amount")) is None:
+                continue
+            contributions.append({
+                "activity_id": row.get("id"), "event_type": row.get("event_type"),
+                "date": str(row.get("effective_at", ""))[:10],
+                "account_id": row.get("account_id"), "asset_type_id": row.get("asset_type_id"),
+                "currency": _normalize_currency_code(money.get("currency")), "amount": money["amount"],
+            })
+        payload["sections"].update(income=income, contributions=contributions, historical_status="recorded")
+        # A single asserted dimension per view keeps the artifact linear in the
+        # number of accounts/types/currencies. Today's holdings never attribute
+        # historical snapshots or activities to a scope.
+        views = []
+        for dimension in ("account_id", "asset_type_id", "currency"):
+            def identity(row):
+                if dimension == "currency":
+                    money = row.get("market_value")
+                    return money.get("currency") if isinstance(money, dict) else None
+                return row.get(dimension)
+            values = {identity(row) for row in normalized_holdings}
+            values.update(row.get(dimension) for row in income["events"])
+            values.update(row.get(dimension) for row in contributions)
+            for key in ("announced", "estimates", "reconciliation", "yield_on_cost"):
+                values.update((row.get("currency") if dimension == "currency" else row.get("scope", {}).get(dimension))
+                              for row in income.get("planning", {}).get(key, []))
+            for value in sorted(v for v in values if isinstance(v, str) and v):
+                scoped = copy.deepcopy(portfolio)
+                scoped["holdings"] = [row for row in normalized_holdings if identity(row) == value]
+                # Preserve the original FX lock for current scoped valuations.
+                context = [{"metadata": {"fx_lock": fx_lock}}] if fx_lock else []
+                scoped_sections = _build_report_payload(scoped, context, generated_at=generated_at, _include_views=False)["sections"]
+                scoped_income = copy.deepcopy(income)
+                scoped_income["events"] = [row for row in income["events"] if row.get(dimension) == value]
+                # Whole-portfolio received buckets cannot be relabelled as
+                # scoped totals. The UI renders individual asserted records.
+                scoped_income["monthly"] = []
+                scoped_income["yearly"] = []
+                selected_ids = {row["activity_id"] for row in scoped_income["events"]}
+                scoped_income["diagnostics"] = [row for row in income["diagnostics"] if row.get("activity_id") in selected_ids]
+                if "planning" in scoped_income:
+                    planning = scoped_income["planning"]
+                    for key in ("announced", "estimates", "reconciliation", "yield_on_cost"):
+                        planning[key] = [row for row in planning.get(key, []) if
+                                         (row.get("currency") if dimension == "currency" else row.get("scope", {}).get(dimension)) == value]
+                    planning["diagnostics"] = []
+                scoped_sections.update(
+                    income=scoped_income,
+                    contributions=[row for row in contributions if row.get(dimension) == value],
+                    historical_status="unavailable_for_scope",
+                )
+                views.append({"dimension": dimension, "value": value, "sections": scoped_sections})
+        payload["report_views"] = views
+    return payload
 
 
 def _write_fallback_html(
@@ -341,11 +437,11 @@ def _write_fallback_html(
             '<style>body{max-width:70rem;margin:0 auto;padding:1rem;overflow-wrap:anywhere;}'
             'a{display:inline-block;margin:.25rem 0;}'
             'a:focus-visible{outline:2px solid currentColor;outline-offset:2px;}</style>'
-            '</head><body><main>'
+            '</head><body><main id="fallback-app" ' + f'data-reason="{escape(reason, quote=True)}" data-sibling="{escape(link_href, quote=True)}">'
             "<h1>Fallback Portfolio Report</h1>"
             f"<p>{escape(reason)}</p>"
             f'<p><a href="{escape(link_href)}">{escape(link_label)}</a></p>'
-            + quality_html + "</main></body></html>"
+            + quality_html + '</main><script src="report-data.js"></script><script>if(window.RIKDOM_REPORT) window.RIKDOM_REPORT.mountFallback();</script></body></html>'
         ),
         encoding="utf-8",
     )
@@ -393,7 +489,7 @@ def _prepare_render_workspace(
     data_js.write_text(
         "window.RIKDOM_REPORT_DATA = "
         + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        + ";\n",
+        + ";\n" + (templates_dir / "report-runtime.js").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 
@@ -470,11 +566,13 @@ class Plugin:
             encoding="utf-8",
         )
 
+        runtime_path = Path(__file__).resolve().parent / "templates" / "report-runtime.js"
+        runtime = runtime_path.read_text(encoding="utf-8") if runtime_path.exists() else ""
         output_js_path = out_dir / "report-data.js"
         output_js_path.write_text(
             "window.RIKDOM_REPORT_DATA = "
             + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-            + ";\n",
+            + ";\n" + runtime,
             encoding="utf-8",
         )
 
@@ -486,6 +584,7 @@ class Plugin:
         required_templates = {
             "report.qmd": report_path,
             "dashboard.qmd": quickview_path,
+            "report-runtime.js": output_js_path,
         }
         missing_templates = [
             name for name in required_templates if not (templates_dir / name).exists()

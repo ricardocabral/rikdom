@@ -13,7 +13,7 @@ const {chromium} = require(process.env.RIKDOM_PLAYWRIGHT_MODULE || 'playwright')
   try {
     for (const width of [1440, 390, 320]) {
       for (const filename of ['dashboard.html', 'portfolio-report.html']) {
-        const context = await browser.newContext({viewport: {width, height: 900}, isMobile: width < 500, hasTouch: width < 500, locale: 'en-US', serviceWorkers: 'block'});
+        const context = await browser.newContext({viewport: {width, height: 900}, isMobile: width < 500, hasTouch: width < 500, locale: 'en-US', colorScheme:width === 320 ? 'dark' : 'light', serviceWorkers: 'block'});
         const page = await context.newPage();
         const errors = [];
         const remote = [];
@@ -40,6 +40,8 @@ const {chromium} = require(process.env.RIKDOM_PLAYWRIGHT_MODULE || 'playwright')
         check('identity', () => assert.equal(path.basename(fileURLToPath(page.url())), filename));
         const title = await page.title();
         check('meaningful title', () => assert.match(title, /rikdom|Portfolio Report/));
+        assert.equal(await page.locator('#report-language').inputValue(), 'pt', 'Configured extension locale is honored');
+        await page.locator('#report-language').selectOption('en');
         const text = await page.locator('body').innerText();
         check('nonblank content', () => assert.match(text, /Current valuation/i));
         check('quality', () => assert.match(text, /Data quality/i));
@@ -101,6 +103,85 @@ const {chromium} = require(process.env.RIKDOM_PLAYWRIGHT_MODULE || 'playwright')
             }
           }
         }
+        const language = page.locator('#report-language');
+        assert.equal(await language.count(), 1, 'Offline language selector is available');
+        await language.selectOption('pt');
+        assert.equal(await page.locator('html').getAttribute('lang'), 'pt-BR');
+        assert.match(await page.locator('body').innerText(), /Avaliação atual/i);
+        assert.match(await page.locator('#income-view').innerText(), /Rendimentos recebidos/);
+        assert.match(await page.locator('#income-view').innerText(), /12,50/);
+        const planText = await page.locator('#planning-view').innerText();
+        assert.match(planText, /Rendimentos anunciados/);
+        assert.match(planText, /Estimativas de cenário/);
+        assert.match(planText, /Conciliado/);
+        assert.match(planText, /5%/);
+        assert.match(planText, /Sistema de origem dos rendimentos: sample-broker/);
+        assert.match(planText, /Cobertura: Completa/);
+        assert.match(planText, /cobertura dos rendimentos não está completa/);
+        assert.match(planText, /999,00/);
+        assert.match(planText, /01 de abr. de 2026/);
+        assert.equal(await page.locator('img').count(), 0, 'Source assumptions render as text');
+        assert.equal(await page.evaluate(() => window.RIKDOM_XSS), undefined);
+        if (process.env.RIKDOM_QA_SCREENSHOTS) {
+          fs.mkdirSync(process.env.RIKDOM_QA_SCREENSHOTS, {recursive:true});
+          await page.screenshot({path:path.join(process.env.RIKDOM_QA_SCREENSHOTS, `${fallback ? 'fallback' : 'quarto'}-${filename}-${width}-pt.png`),fullPage:true});
+        }
+        await page.locator('#report-scope').selectOption('account_id:qa-a');
+        assert.match(await page.locator('#income-view').innerText(), /qa-income-april/);
+        assert.doesNotMatch(await page.locator('#income-view').innerText(), /qa-income-may/);
+        assert.match(await page.locator('#filter-status').innerText(), /indisponíve/);
+        const scopedValue = await page.locator('[data-current-value]').innerText();
+        assert.match(scopedValue, /13[.\s]?230,00/);
+        await page.locator('#report-scope').selectOption('currency:USD');
+        assert.equal(await page.locator('[data-current-value]').innerText(), scopedValue);
+        assert.match(await page.locator('#income-view').innerText(), /qa-income-april/);
+        assert.doesNotMatch(await page.locator('#income-view').innerText(), /qa-income-may/);
+        await page.locator('#report-scope').selectOption('asset_type_id:fund');
+        assert.match(await page.locator('[data-current-value]').innerText(), /45[.\s]?000,00/);
+        assert.match(await page.locator('#income-view').innerText(), /qa-income-may/);
+        assert.doesNotMatch(await page.locator('#income-view').innerText(), /qa-income-april/);
+        await page.locator('#report-scope').selectOption('account_id:qa-a');
+        await page.locator('#report-end').fill('2026-03-31');
+        assert.doesNotMatch(await page.locator('#income-view').innerText(), /qa-income-april/);
+        assert.doesNotMatch(await page.locator('#planning-view').innerText(), /ann-1/);
+        assert.doesNotMatch(await page.locator('#planning-view').innerText(), /5%/);
+        assert.match(await page.locator('#planning-view').innerText(), /não abrangem todo o período/);
+        assert.equal(await page.locator('[data-current-value]').innerText(), scopedValue, 'Dates leave current valuation current');
+        await page.locator('#report-scope').selectOption('account_id:qa-b');
+        assert.doesNotMatch(await page.locator('#planning-view').innerText(), /ann-1|scenario-1|cost-1/);
+        await page.locator('#report-scope').selectOption('all');
+        await page.locator('#report-end').fill('');
+        const incomeTable = page.getByRole('region', {name:'Rendimentos recebidos',exact:true});
+        await incomeTable.focus();
+        assert.notEqual(await incomeTable.evaluate(element => getComputedStyle(element).outlineStyle), 'none');
+        if (width < 500) {
+          await page.keyboard.press('ArrowRight');
+          await page.waitForTimeout(180);
+          assert.ok(await incomeTable.evaluate(element => element.scrollLeft > 0));
+        }
+        await language.selectOption('en');
+        assert.match(await page.locator('#contributions-view').innerText(), /qa-contribution/);
+        assert.match(await page.locator('#performance-view').innerText(), /unavailable/i);
+        // Date ranges narrow the real historical series as well as income.
+        await page.locator('#report-start').fill('2026-04-01');
+        assert.equal(await page.locator('[data-snapshot-count]').textContent(), '1');
+        await page.locator('#report-start').fill('2026-05-03');
+        assert.equal(await page.locator('[data-snapshot-count]').textContent(), '0');
+        await page.locator('#report-end').fill('2026-04-01');
+        assert.match(await page.locator('#filter-status').innerText(), /Start date must/);
+        await page.locator('#report-reset').focus();
+        await page.keyboard.press('Enter');
+        assert.equal(await page.locator('#report-start').inputValue(), '');
+        assert.equal(await page.locator('#report-end').inputValue(), '');
+        assert.equal(await page.locator('#report-scope').inputValue(), 'all');
+        assert.equal(await page.locator('[data-snapshot-count]').textContent(), '4');
+        // Language survives the sibling-navigation link without network/storage.
+        await language.selectOption('pt');
+        const sibling = filename === 'dashboard.html' ? 'portfolio-report.html' : 'dashboard.html';
+        await page.locator(`a[href^="${sibling}"]`).click();
+        assert.equal(await page.locator('#report-language').inputValue(), 'pt');
+        await page.goBack();
+        await page.locator('#report-language').selectOption('en');
         // Alongside table scrolling, the report controls are local navigation and trust links.
         const target = filename === 'dashboard.html' ? 'portfolio-report.html' : 'dashboard.html';
         const nav = page.locator(`a[href="${target}"]`);
@@ -137,6 +218,7 @@ const {chromium} = require(process.env.RIKDOM_PLAYWRIGHT_MODULE || 'playwright')
             await page.goBack();
           }
         }
+        await page.locator('#report-language').selectOption('en');
         if (process.env.RIKDOM_QA_SCREENSHOTS) {
           fs.mkdirSync(process.env.RIKDOM_QA_SCREENSHOTS, {recursive: true});
           await page.screenshot({path: path.join(process.env.RIKDOM_QA_SCREENSHOTS, `${fallback ? 'fallback' : 'quarto'}-${filename}-${width}.png`), fullPage: true});

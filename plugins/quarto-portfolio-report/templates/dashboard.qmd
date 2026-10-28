@@ -117,7 +117,7 @@ format:
   <div class="head">
     <div>
       <div class="brand"><span class="wordmark">rikdom</span><span class="dot"></span></div>
-      <div class="subtitle" id="subtitle"></div>
+      <div data-source-text class="subtitle" id="subtitle"></div>
     </div>
     <div class="head-actions">
       <a class="link" href="portfolio-report.html">Open deep-dive report</a>
@@ -159,8 +159,7 @@ format:
 </div>
 
 <script>
-  (() => {
-    const payload = window.RIKDOM_REPORT_DATA || {};
+  window.RIKDOM_REPORT.mount((payload, locale) => {
     const sections = payload.sections || {};
     const quick = sections.quickview || {};
     const valuation = sections.current_valuation || {};
@@ -198,19 +197,19 @@ format:
     const snapshots = Array.isArray(sections.timeline) ? sections.timeline : [];
     const latest = snapshots.length ? snapshots[snapshots.length - 1] : null;
 
-    const fmt = (value, ccy) => new Intl.NumberFormat(undefined, {
+    const fmt = (value, ccy) => new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: safeCcy(ccy),
       maximumFractionDigits: 2,
     }).format(value);
     const fmtCompact = (value, ccy) => {
-      const formatted = new Intl.NumberFormat(undefined, {
+      const formatted = new Intl.NumberFormat(locale, {
         notation: 'compact',
         maximumFractionDigits: 1,
       }).format(Number(value) || 0);
       return `${formatted} ${safeCcy(ccy)}`;
     };
-    const pct = (value, total) => total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '0.0%';
+    const pct = (share) => typeof share === 'number' ? new Intl.NumberFormat(locale, {style:'percent', minimumFractionDigits:1, maximumFractionDigits:1}).format(share) : '—';
 
     document.getElementById('subtitle').textContent = `${profileName} · base ${baseCurrency}`;
     document.getElementById('base-ccy').textContent = baseCurrency;
@@ -218,7 +217,7 @@ format:
       document.getElementById('total').textContent = fmt(valuation.total_value_base, baseCurrency);
     }
     document.getElementById('historical-context').textContent = latest
-      ? `Historical snapshot: ${fmt(latest.portfolio_value_base, baseCurrency)} on ${latest.timestamp || 'unknown date'}`
+      ? `Historical snapshot: ${fmt(latest.portfolio_value_base, baseCurrency)} on ${new Intl.DateTimeFormat(locale, {dateStyle:'medium',timeZone:'UTC'}).format(new Date(latest.timestamp))}`
       : 'Historical snapshot: none available';
     const coverage = quality.coverage || {};
     const quantity = quality.quantity || {};
@@ -226,10 +225,10 @@ format:
     const excluded = Array.isArray(quality.excluded_holding_ids) ? quality.excluded_holding_ids : [];
     document.getElementById('data-quality').innerHTML = `
       <div class="eyebrow">Data quality</div>
-      <p>History coverage: ${escapeHtml(coverage.status || 'unknown')} (${escapeHtml(JSON.stringify(coverage.by_status || {}))}). Zero findings do not prove complete history.</p>
+      <p>History coverage: ${escapeHtml(coverage.status || 'unknown')} (${Object.entries(coverage.by_status || {}).map(([status,count]) => `${escapeHtml(status)}: ${Number(count)}`).join(", ")}). Zero findings do not prove complete history.</p>
       <p>Quantity: ${Number(quantity.matched || 0)} matched, ${Number(quantity.mismatched || 0)} mismatched, ${Number(quantity.not_computable || 0)} not computable. Unsupported events: ${Number(coverage.unsupported_event_count || 0)}.</p>
-      <p>Excluded holdings: ${escapeHtml(excluded.join(', ') || 'none')}.</p>
-      <ul>${qualityWarnings.slice(0, 4).map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
+      <p>Excluded holdings: ${excluded.length ? `<span data-source-text>${escapeHtml(excluded.join(', '))}</span>` : 'none'}.</p>
+      <p>Raw source text</p><ul data-source-text>${qualityWarnings.slice(0, 4).map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
       ${qualityWarnings.length > 4 ? `<p>${qualityWarnings.length - 4} more warnings in the trust artifacts.</p>` : ''}
       <p>${(quality.artifacts || []).map(a => `<a class="link" href="${escapeHtml(a.href)}">${escapeHtml(a.label)}</a>`).join(' · ')}</p>`;
 
@@ -244,7 +243,7 @@ format:
       const W=700,H=240,padLeft=84,padRight=16,padTop=20,padBottom=40,innerW=W-padLeft-padRight,innerH=H-padTop-padBottom;
       const xFor = (i) => padLeft + (i / Math.max(points.length - 1, 1)) * innerW;
       const yFor = (v) => padTop + (1 - ((v - min) / range)) * innerH;
-      const formatYm = (ts, idx) => (typeof ts === 'string' && ts.length >= 7 ? ts.slice(0, 7) : `#${idx + 1}`);
+      const formatYm = (ts, idx) => (typeof ts === 'string' && ts.length >= 7 ? new Intl.DateTimeFormat(locale, {month:'short',year:'2-digit',timeZone:'UTC'}).format(new Date(ts.slice(0,7) + '-01T12:00:00Z')) : `#${idx + 1}`);
       const path = points.map((p, i) => `${i===0?'M':'L'} ${xFor(i).toFixed(1)} ${yFor(Number(p?.portfolio_value_base)||0).toFixed(1)}`).join(' ');
       const yTicks = 4;
       const yGrid = Array.from({ length: yTicks + 1 }).map((_, i) => {
@@ -287,14 +286,14 @@ format:
       legend.innerHTML = slices.map(slice => `
         <div class="legend-row">
           <span class="swatch" style="background:${escapeHtml(slice.color)}"></span>
-          <span class="legend-label">${escapeHtml(slice.label)} <span class="legend-pct">(${escapeHtml(pct(slice.value, total))})</span></span>
+          <span class="legend-label">${escapeHtml(slice.label)} <span class="legend-pct">(${escapeHtml(pct(slice.share))})</span></span>
           <span class="value-col">${escapeHtml(formatValue(slice))}</span>
         </div>
       `).join('');
     }
 
     const assetClass = Object.entries(valuation.by_asset_class || {})
-      .map(([label, value]) => ({ label, value: Number(value) || 0 }))
+      .map(([label, value]) => ({ label, value: Number(value) || 0, share: sections.presentation?.allocation_shares?.['Current allocation by asset class']?.[label] }))
       .filter(row => row.value > 0)
       .sort((a, b) => b.value - a.value);
     renderDistribution({
@@ -309,7 +308,7 @@ format:
     const native = quick?.currency?.native || {};
     const converted = quick?.currency?.converted_base || {};
     const currencyEntries = Object.entries(converted)
-      .map(([currency, value]) => ({ label: currency, value: Number(value) || 0, native: Number(native[currency] || 0) }))
+      .map(([currency, value]) => ({ label: currency, value: Number(value) || 0, native: Number(native[currency] || 0), share: sections.presentation?.allocation_shares?.['Current currency allocation']?.[currency] }))
       .filter(row => row.value > 0)
       .sort((a, b) => b.value - a.value);
     renderDistribution({
@@ -325,6 +324,6 @@ format:
     document.getElementById('currency-warning').textContent = missing.length ? `Missing FX rates for: ${missing.join(', ')}` : '';
 
     renderLineChart(snapshots);
-  })();
+  });
 </script>
 ```

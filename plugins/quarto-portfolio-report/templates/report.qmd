@@ -429,8 +429,7 @@ format:
 <div id="rk-app" class="rk-app"></div>
 
 <script>
-  (() => {
-    const payload = window.RIKDOM_REPORT_DATA || {};
+  window.RIKDOM_REPORT.mount((payload, locale) => {
     const profile = payload.profile || {};
     const sections = payload.sections || {};
     const valuation = sections.current_valuation || {};
@@ -477,31 +476,23 @@ format:
 
     const totalFromSplit = currentValue;
     const latestValue = timeline.length ? timeline[timeline.length - 1].value : totalFromSplit;
-    const previousValue = timeline.length > 1 ? timeline[timeline.length - 2].value : null;
-    const firstValue = timeline.length ? timeline[0].value : null;
 
-    const intervalChange = previousValue === null ? null : latestValue - previousValue;
-    const intervalChangePct = previousValue && previousValue !== 0
-      ? (latestValue - previousValue) / previousValue
-      : null;
-    const maxChange = firstValue === null ? null : latestValue - firstValue;
-    const maxChangePct = firstValue && firstValue !== 0 ? (latestValue - firstValue) / firstValue : null;
+    const historicalMetrics = sections.presentation?.history || {};
+    const intervalChange = historicalMetrics.interval_change ?? null;
+    const intervalChangePct = historicalMetrics.interval_change_fraction ?? null;
+    const maxChange = historicalMetrics.total_change ?? null;
+    const maxChangePct = historicalMetrics.total_change_fraction ?? null;
 
     const maxValue = timeline.length ? Math.max(...timeline.map((point) => point.value)) : latestValue;
     const minValue = timeline.length ? Math.min(...timeline.map((point) => point.value)) : latestValue;
 
-    const largestHolding = topHoldings.length
-      ? Number(topHoldings[0].base_amount || 0)
-      : 0;
-    const largestHoldingShare = currentValue > 0 ? largestHolding / currentValue : 0;
+    const largestHoldingShare = sections.presentation?.largest_holding_share ?? null;
 
     const currencyEntries = Object.entries(currencySplit)
       .map(([name, raw]) => [name, Number(raw || 0)])
       .filter(([, value]) => Number.isFinite(value) && value > 0)
       .sort((a, b) => b[1] - a[1]);
-    const maxCurrencyShare = currencyEntries.length && totalFromSplit > 0
-      ? currencyEntries[0][1] / totalFromSplit
-      : 0;
+    const maxCurrencyShare = sections.presentation?.largest_currency_share ?? null;
 
     const dateLabel = (isoDate) => {
       if (!isoDate) return "n/a";
@@ -509,7 +500,7 @@ format:
       if (!Number.isFinite(parsed)) {
         return isoDate;
       }
-      return new Date(parsed).toLocaleDateString(undefined, {
+      return new Date(parsed).toLocaleDateString(locale, {
         year: "numeric",
         month: "short",
         day: "2-digit"
@@ -522,7 +513,7 @@ format:
       if (!Number.isFinite(parsed)) {
         return isoDate;
       }
-      return new Date(parsed).toLocaleString(undefined, {
+      return new Date(parsed).toLocaleString(locale, {
         year: "numeric",
         month: "short",
         day: "2-digit",
@@ -537,7 +528,7 @@ format:
         return "-";
       }
       try {
-        return new Intl.NumberFormat(undefined, {
+        return new Intl.NumberFormat(locale, {
           style: "currency",
           currency: currency || "USD",
           maximumFractionDigits: 2
@@ -552,25 +543,7 @@ format:
       if (!Number.isFinite(amount)) {
         return "-";
       }
-      const abs = Math.abs(amount);
-      let scaled = amount;
-      let suffix = "";
-      if (abs >= 1_000_000_000) {
-        scaled = amount / 1_000_000_000;
-        suffix = "B";
-      } else if (abs >= 1_000_000) {
-        scaled = amount / 1_000_000;
-        suffix = "M";
-      } else if (abs >= 1_000) {
-        scaled = amount / 1_000;
-        suffix = "K";
-      }
-      const decimals = Math.abs(scaled) >= 100 ? 0 : 1;
-      const compact = new Intl.NumberFormat(undefined, {
-        maximumFractionDigits: decimals,
-        minimumFractionDigits: 0,
-      }).format(scaled);
-      return `${compact}${suffix} ${currency || ""}`.trim();
+      return `${new Intl.NumberFormat(locale, {notation: 'compact', maximumFractionDigits: 1}).format(amount)} ${currency || ''}`.trim();
     };
 
     const formatSignedMoney = (value, currency) => {
@@ -579,7 +552,7 @@ format:
         return "-";
       }
       try {
-        return new Intl.NumberFormat(undefined, {
+        return new Intl.NumberFormat(locale, {
           style: "currency",
           currency: currency || "USD",
           maximumFractionDigits: 2,
@@ -592,11 +565,12 @@ format:
     };
 
     const formatPct = (value, digits = 2) => {
+      if (value === null || value === undefined) return "—";
       const amount = Number(value);
       if (!Number.isFinite(amount)) {
         return "-";
       }
-      return `${(amount * 100).toFixed(digits)}%`;
+      return new Intl.NumberFormat(locale, {style:'percent', minimumFractionDigits:digits, maximumFractionDigits:digits}).format(amount);
     };
 
     const formatSignedPct = (value, digits = 2) => {
@@ -604,8 +578,7 @@ format:
       if (!Number.isFinite(amount)) {
         return "-";
       }
-      const sign = amount > 0 ? "+" : "";
-      return `${sign}${(amount * 100).toFixed(digits)}%`;
+      return new Intl.NumberFormat(locale, {style:'percent', signDisplay:'exceptZero', minimumFractionDigits:digits, maximumFractionDigits:digits}).format(amount);
     };
 
     const signClass = (value) => {
@@ -709,7 +682,7 @@ format:
 
       const rows = entries.map(([name, value], index) => {
         const color = palette[index % palette.length];
-        const share = total > 0 ? value / total : 0;
+        const share = sections.presentation?.allocation_shares?.[title]?.[name] ?? null;
         return `
           <div class="rk-list-row">
             <span class="rk-legend-dot" style="background:${color}"></span>
@@ -746,13 +719,13 @@ format:
         const amount = Number(item.amount || 0);
         const baseAmount = item.base_amount === null ? null : Number(item.base_amount);
         const width = Math.max(0, Math.min(100, ((baseAmount || 0) / maxAmount) * 100));
-        const exposure = currentValue > 0 && baseAmount !== null ? baseAmount / currentValue : null;
+        const exposure = sections.presentation?.holding_shares?.[item.id] ?? null;
         const holdingCurrency = normalizeCurrency(item.currency, baseCurrency);
         const label = item.label || item.id || "unknown";
 
         return `
           <tr>
-            <td title="${escapeHtml(label)}">${escapeHtml(label)}</td>
+            <td data-source-text title="${escapeHtml(label)}">${escapeHtml(label)}</td>
             <td>${formatMoney(amount, holdingCurrency)}</td>
             <td>${baseAmount === null ? `Excluded: ${escapeHtml(item.excluded_reason || 'unknown')}` : formatMoney(baseAmount, baseCurrency)}</td>
             <td>${exposure === null ? '—' : formatPct(exposure, 1)}</td>
@@ -788,7 +761,7 @@ format:
       <header class="rk-topbar">
         <div>
           <div class="rk-brand"><span class="rk-wordmark">rikdom</span><span class="rk-brand-dot"></span></div>
-          <h1 class="rk-title">${escapeHtml(portfolioName)}</h1>
+          <h1 data-source-text class="rk-title">${escapeHtml(portfolioName)}</h1>
           <div class="rk-subtitle">Static portfolio report · base ${escapeHtml(baseCurrency)}</div>
         </div>
         <div class="rk-chip-row">
@@ -804,7 +777,7 @@ format:
           <div class="rk-card-body">
             <div class="rk-label">Current valuation</div>
             <div class="rk-hero-value">${formatMoney(currentValue, baseCurrency)}</div>
-            <p class="rk-footnote">Current holdings; report generated ${escapeHtml(valuation.generated_at || "unknown")}. FX dates are recorded in the trust artifacts.</p>
+            <p class="rk-footnote">Current holdings; report generated ${escapeHtml(dateTimeLabel(valuation.generated_at))}. FX dates are recorded in the trust artifacts.</p>
             <p class="rk-footnote">Historical snapshot: ${timeline.length ? formatMoney(latestValue, baseCurrency) : "none"} as of ${escapeHtml(dateTimeLabel(timelineLast))}.</p>
             <div class="rk-signed ${signClass(maxChange)}">
               ${maxChange === null ? "—" : `${formatSignedMoney(maxChange, baseCurrency)} (${formatSignedPct(maxChangePct)})`}
@@ -863,10 +836,10 @@ format:
 
       <section class="rk-card"><div class="rk-card-body">
         <h2 class="rk-alloc-title">Data quality</h2>
-        <p>History coverage: ${escapeHtml(quality.coverage?.status || "unknown")} (${escapeHtml(JSON.stringify(quality.coverage?.by_status || {}))}). Zero findings do not prove complete history.</p>
+        <p>History coverage: ${escapeHtml(quality.coverage?.status || "unknown")} (${Object.entries(quality.coverage?.by_status || {}).map(([status,count]) => `${escapeHtml(status)}: ${Number(count)}`).join(", ")}). Zero findings do not prove complete history.</p>
         <p>Quantity: ${Number(quality.quantity?.matched || 0)} matched, ${Number(quality.quantity?.mismatched || 0)} mismatched, ${Number(quality.quantity?.not_computable || 0)} not computable. Unsupported events: ${Number(quality.coverage?.unsupported_event_count || 0)}.</p>
-        <p>Excluded holdings: ${escapeHtml((quality.excluded_holding_ids || []).join(", ") || "none")}.</p>
-        <ul>${(quality.warnings || []).slice(0, 4).map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul>
+        <p>Excluded holdings: ${(quality.excluded_holding_ids || []).length ? `<span data-source-text>${escapeHtml(quality.excluded_holding_ids.join(", "))}</span>` : "none"}.</p>
+        <p>Raw source text</p><ul data-source-text>${(quality.warnings || []).slice(0, 4).map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul>
         ${(quality.warnings || []).length > 4 ? `<p>${quality.warnings.length - 4} more warnings in the trust artifacts.</p>` : ""}
         <p>${(quality.artifacts || []).map(a => `<a href="${escapeHtml(a.href)}">${escapeHtml(a.label)}</a>`).join(" · ")}</p>
       </div></section>
@@ -890,6 +863,6 @@ format:
         </div>
       </section>
     `;
-  })();
+  });
 </script>
 ```
