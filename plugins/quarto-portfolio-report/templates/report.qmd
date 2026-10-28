@@ -443,15 +443,6 @@ format:
       }))
       .filter((row) => Number.isFinite(row.value));
 
-    timeline.sort((a, b) => {
-      const aTs = Date.parse(a.timestamp || "");
-      const bTs = Date.parse(b.timestamp || "");
-      if (Number.isFinite(aTs) && Number.isFinite(bTs)) {
-        return aTs - bTs;
-      }
-      return 0;
-    });
-
     const currencySplit = sections.quickview?.currency?.converted_base || {};
     const assetTypeBreakdown = sections.asset_type_breakdown || {};
     const geography = sections.geography || {};
@@ -494,33 +485,8 @@ format:
       .sort((a, b) => b[1] - a[1]);
     const maxCurrencyShare = sections.presentation?.largest_currency_share ?? null;
 
-    const dateLabel = (isoDate) => {
-      if (!isoDate) return "n/a";
-      const parsed = Date.parse(isoDate);
-      if (!Number.isFinite(parsed)) {
-        return isoDate;
-      }
-      return new Date(parsed).toLocaleDateString(locale, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit"
-      });
-    };
-
-    const dateTimeLabel = (isoDate) => {
-      if (!isoDate) return "n/a";
-      const parsed = Date.parse(isoDate);
-      if (!Number.isFinite(parsed)) {
-        return isoDate;
-      }
-      return new Date(parsed).toLocaleString(locale, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-    };
+    const dateLabel = window.RIKDOM_REPORT.sourceDate;
+    const dateTimeLabel = window.RIKDOM_REPORT.sourceDateTime;
 
     const formatMoney = (value, currency) => {
       const amount = Number(value || 0);
@@ -686,7 +652,7 @@ format:
         return `
           <div class="rk-list-row">
             <span class="rk-legend-dot" style="background:${color}"></span>
-            <span class="name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+            <span data-report-enum class="name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
             <span class="value">${formatPct(share, 1)} · ${formatMoneyCompact(value, currency)}</span>
           </div>
         `;

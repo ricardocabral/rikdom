@@ -38,7 +38,7 @@ class OfflineReportBrowserTests(unittest.TestCase):
                      "effective_at": "2026-05-02T10:00:00Z", "account_id": "qa-b", "asset_type_id": "fund",
                      "money": {"amount": 21, "currency": "BRL"}},
                     {"id": "qa-contribution", "event_type": "contribution", "status": "posted",
-                     "effective_at": "2026-04-03T10:00:00Z", "account_id": "qa-a",
+                     "effective_at": "2026-04-11T10:00:00Z", "account_id": "qa-a",
                      "money": {"amount": 30, "currency": "USD"}},
                 ])
                 plan = json.loads(Path("tests/fixtures/income_plan.json").read_text())
@@ -57,13 +57,19 @@ class OfflineReportBrowserTests(unittest.TestCase):
                 plan["cost_bases"].append(unavailable)
                 portfolio["activities"][-3]["source_system"] = "sample-broker"
                 portfolio["extensions"] = {"rikdom_income_plan": plan, "rikdom_report": {"locale": "pt"}}
+                # Synthetic valid history for the intended four-point chart.
+                # The repository sample has a non-leap Feb29; invalid-history
+                # behavior is covered separately without rewriting source data.
+                snapshots = Path("tests/fixtures/snapshots.jsonl").read_text().replace("2026-02-29", "2026-02-28")
+                snapshots_path = root / "snapshots.jsonl"
+                snapshots_path.write_text(snapshots)
                 portfolio_path = root / "portfolio.json"
                 portfolio_path.write_text(json.dumps(portfolio))
                 with patch.dict(os.environ, environment, clear=True):
                     result = run_output_pipeline(
                         plugin_name="quarto-portfolio-report", plugins_dir="plugins",
                         portfolio_path=str(portfolio_path),
-                        snapshots_path="tests/fixtures/snapshots.jsonl",
+                        snapshots_path=str(snapshots_path),
                         output_dir=str(generated),
                     )
                 if not fallback and result["warnings"]:
@@ -76,5 +82,41 @@ class OfflineReportBrowserTests(unittest.TestCase):
                     [shutil.which("node"), "tests/browser/report_offline.cjs", str(relocated),
                      "fallback" if fallback else "quarto"],
                     text=True, capture_output=True, timeout=120,
+                )
+                self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+
+    def test_source_calendar_dates_and_custom_asset_ids_are_stable(self):
+        for fallback in (True, False):
+            with self.subTest(fallback=fallback), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                portfolio = {
+                    'schema_version': '1.5.0', 'settings': {'base_currency': 'USD'},
+                    'asset_type_catalog': [{'id': name, 'asset_class': 'stocks'} for name in ('stock', 'stock_options')],
+                    'holdings': [{'id': name, 'label': name + ' source label', 'asset_type_id': name,
+                                  'market_value': {'amount': 100, 'currency': 'USD'}} for name in ('stock', 'stock_options')],
+                    'activities': [],
+                }
+                snapshots = [
+                    {'timestamp': '2026-02-02T00:15:00+03:00', 'totals': {'portfolio_value_base': 300}},
+                    {'timestamp': '2026-02-01T00:00:00Z', 'totals': {'portfolio_value_base': 200}},
+                    {'timestamp': '2026-01-01T00:00:00Z', 'totals': {'portfolio_value_base': 100}},
+                ]
+                (root / 'portfolio.json').write_text(json.dumps(portfolio))
+                (root / 'snapshots.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in snapshots))
+                environment = dict(os.environ)
+                environment.pop('RIKDOM_DISABLE_QUARTO', None)
+                if fallback:
+                    environment['RIKDOM_DISABLE_QUARTO'] = '1'
+                with patch.dict(os.environ, environment, clear=True):
+                    result = run_output_pipeline(
+                        plugin_name='quarto-portfolio-report', plugins_dir='plugins',
+                        portfolio_path=str(root / 'portfolio.json'), snapshots_path=str(root / 'snapshots.jsonl'),
+                        output_dir=str(root / 'generated'),
+                    )
+                if not fallback:
+                    self.assertEqual(result['warnings'], [])
+                checked = subprocess.run(
+                    [shutil.which('node'), 'tests/browser/report_calendar.cjs', str(root / 'generated'),
+                     'fallback' if fallback else 'quarto'], text=True, capture_output=True, timeout=120,
                 )
                 self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)

@@ -4,6 +4,7 @@ import copy
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -241,7 +242,8 @@ def _build_report_payload(
         reverse=True,
     )[:5]
 
-    timeline: list[dict[str, Any]] = []
+    chronological_snapshots: list[tuple[datetime, dict[str, Any]]] = []
+    unavailable_snapshots: list[dict[str, Any]] = []
     for snapshot in snapshots:
         if not isinstance(snapshot, dict):
             continue
@@ -251,13 +253,29 @@ def _build_report_payload(
         value = totals.get("portfolio_value_base")
         if not isinstance(value, (int, float)):
             continue
-        timeline.append(
-            {
-                "timestamp": snapshot.get("timestamp"),
-                "portfolio_value_base": float(value),
-                "by_asset_class": totals.get("by_asset_class", {}),
-            }
-        )
+        row = {
+            "timestamp": snapshot.get("timestamp"),
+            "portfolio_value_base": float(value),
+            "by_asset_class": totals.get("by_asset_class", {}),
+        }
+        timestamp = snapshot.get("timestamp")
+        try:
+            if not isinstance(timestamp, str) or not re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})", timestamp
+            ):
+                raise ValueError("Snapshot timestamp needs an explicit source offset")
+            instant = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError:
+            unavailable_snapshots.append(row)
+            quality_warnings.append(
+                f"Snapshot timestamp {timestamp!r} is missing or invalid; excluded from chronological history."
+            )
+            continue
+        chronological_snapshots.append((instant, row))
+    # All renderers and historical metrics consume this same order. Calendar
+    # filters/display retain the timestamp's written date and explicit offset.
+    chronological_snapshots.sort(key=lambda item: item[0])
+    timeline = [row for _, row in chronological_snapshots]
 
     latest_by_asset_class: dict[str, float] = {}
     if timeline:
@@ -304,6 +322,8 @@ def _build_report_payload(
             },
             "data_quality": quality,
             "timeline": timeline,
+            "unavailable_snapshots": unavailable_snapshots,
+            "snapshot_date_convention": "Source calendar date at the timestamp explicit offset; inclusive bounds; chronology ordered by instant.",
             "currency_split": by_currency,
             "asset_type_breakdown": by_asset_type,
             "geography": geo,
@@ -329,8 +349,8 @@ def _build_report_payload(
         "history": {
             "interval_change": latest - previous if previous is not None else None,
             "interval_change_fraction": (latest - previous) / previous if previous else None,
-            "total_change": latest - first if first is not None else None,
-            "total_change_fraction": (latest - first) / first if first else None,
+            "total_change": latest - first if len(history_values) > 1 else None,
+            "total_change_fraction": (latest - first) / first if first and len(history_values) > 1 else None,
         },
         "largest_holding_share": (top_holdings[0].get("base_amount") or 0) / total if total and top_holdings else None,
         "largest_currency_share": max(quickview_currency["converted_base"].values(), default=0) / total if total else None,

@@ -50,3 +50,31 @@ class ReportScopeTests(unittest.TestCase):
         self.assertEqual(account['presentation']['allocation_shares']['Asset type breakdown'], {'stock': 1})
         self.assertEqual(scopes[('currency', 'EUR')]['current_valuation']['total_value_base'], 0)
         self.assertEqual(scopes[('currency', 'EUR')]['income']['events'][0]['activity_id'], 'unattributed')
+
+    def test_snapshot_metrics_and_timeline_share_valid_timestamp_chronology(self):
+        portfolio = {'settings': {'base_currency': 'USD'}, 'activities': []}
+        snapshots = [
+            {'timestamp': '2026-02-01T00:00:00Z', 'totals': {'portfolio_value_base': 200}},
+            {'timestamp': '2026-01-01T00:00:00Z', 'totals': {'portfolio_value_base': 100}},
+        ]
+        sections = plugin._build_report_payload(portfolio, snapshots)['sections']
+        self.assertEqual([r['portfolio_value_base'] for r in sections['timeline']], [100, 200])
+        self.assertEqual(sections['presentation']['history']['total_change'], 100)
+        self.assertEqual(sections['presentation']['history']['interval_change'], 100)
+        self.assertEqual(sections['presentation']['history']['total_change_fraction'], 1)
+
+    def test_invalid_or_missing_snapshot_dates_never_acquire_chronology(self):
+        portfolio = {'settings': {'base_currency': 'USD'}, 'activities': []}
+        snapshots = [
+            {'timestamp': '2026-02-01T00:00:00Z', 'totals': {'portfolio_value_base': 200}},
+            {'timestamp': '2026-02-29T00:00:00Z', 'totals': {'portfolio_value_base': 999}},
+            {'timestamp': '2026-01-01T00:00:00', 'totals': {'portfolio_value_base': 888}},
+            {'totals': {'portfolio_value_base': 777}},
+        ]
+        sections = plugin._build_report_payload(portfolio, snapshots)['sections']
+        self.assertEqual(len(sections['timeline']), 1)
+        self.assertEqual(len(sections['unavailable_snapshots']), 3)
+        self.assertIsNone(sections['presentation']['history']['interval_change'])
+        self.assertIsNone(sections['presentation']['history']['total_change'])
+        self.assertEqual(sections['unavailable_snapshots'][0]['timestamp'], '2026-02-29T00:00:00Z')
+        self.assertTrue(any('timestamp' in warning for warning in sections['data_quality']['warnings']))

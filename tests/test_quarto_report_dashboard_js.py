@@ -29,7 +29,7 @@ const nodes = {};
 const document = {documentElement: {}, getElementById(id) {
     return nodes[id] ||= {innerHTML: '', textContent: ''};
 }};
-vm.runInNewContext(script, {window: {RIKDOM_REPORT: {mount: render => render(input.payload, 'en-US')}}, document,
+vm.runInNewContext(script, {window: {RIKDOM_REPORT: {mount: render => render(input.payload, 'en-US'), sourceDate: value => String(value || 'n/a'), sourceDateTime: value => String(value || 'n/a')}}, document,
     getComputedStyle: () => ({getPropertyValue: () => ''}), Intl, Date});
 process.stdout.write(JSON.stringify(nodes));
 """

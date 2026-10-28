@@ -68,8 +68,9 @@ const {chromium} = require(process.env.RIKDOM_PLAYWRIGHT_MODULE || 'playwright')
           if (filename === 'dashboard.html') {
             const codesStayTogether = await page.locator('#currency-legend .legend-label').evaluateAll(labels => labels.every(label => {
               const range = document.createRange();
-              range.setStart(label.firstChild, 0);
-              range.setEnd(label.firstChild, 3);
+              const code = label.querySelector('[data-report-enum]')?.firstChild || label.firstChild;
+              range.setStart(code, 0);
+              range.setEnd(code, 3);
               return range.getClientRects().length === 1;
             }));
             check('currency codes remain readable', () => assert.ok(codesStayTogether));

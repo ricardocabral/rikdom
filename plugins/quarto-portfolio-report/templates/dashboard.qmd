@@ -217,7 +217,7 @@ format:
       document.getElementById('total').textContent = fmt(valuation.total_value_base, baseCurrency);
     }
     document.getElementById('historical-context').textContent = latest
-      ? `Historical snapshot: ${fmt(latest.portfolio_value_base, baseCurrency)} on ${new Intl.DateTimeFormat(locale, {dateStyle:'medium',timeZone:'UTC'}).format(new Date(latest.timestamp))}`
+      ? `Historical snapshot: ${fmt(latest.portfolio_value_base, baseCurrency)} on ${window.RIKDOM_REPORT.sourceDate(latest.timestamp)}`
       : 'Historical snapshot: none available';
     const coverage = quality.coverage || {};
     const quantity = quality.quantity || {};
@@ -286,7 +286,7 @@ format:
       legend.innerHTML = slices.map(slice => `
         <div class="legend-row">
           <span class="swatch" style="background:${escapeHtml(slice.color)}"></span>
-          <span class="legend-label">${escapeHtml(slice.label)} <span class="legend-pct">(${escapeHtml(pct(slice.share))})</span></span>
+          <span class="legend-label"><span data-report-enum>${escapeHtml(slice.label)}</span> <span class="legend-pct">(${escapeHtml(pct(slice.share))})</span></span>
           <span class="value-col">${escapeHtml(formatValue(slice))}</span>
         </div>
       `).join('');

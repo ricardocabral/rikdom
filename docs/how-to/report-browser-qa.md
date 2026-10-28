@@ -42,7 +42,7 @@ the narrow sizes. Also inspect both light and dark system themes.
 | --- | --- |
 | Identity and loading | The tab has a meaningful title; valuation and data quality are visible. No blank screen, missing stylesheet, or framework error overlay. |
 | Offline resources | All scripts/styles load locally after moving the bundle. No remote requests, missing local resources, JavaScript errors, or relevant console warnings. |
-| Current and historical values | Sample current valuation is BRL 165,830.00. Four historical snapshots render as a trend; the chart is separate from current holdings valuation. |
+| Current and historical values | Sample current valuation is BRL 165,830.00. Valid source-dated historical snapshots render as a chronological trend; the chart is separate from current holdings valuation. |
 | Allocation | Full output shows asset and currency charts with readable labels and legends. No single-letter vertical currency codes at 320px. |
 | Navigation | Tab to “Open deep-dive report”, check visible focus, press Enter, and reach `portfolio-report.html`. Tab to “Open dashboard quickview” and return. |
 | Trust artifacts | Activate all four JSON/Markdown links. Each opens a local artifact with substantive content; Back returns to the report. |
@@ -124,3 +124,20 @@ resources and runtime/console errors. Saved screenshots include `-pt.png` views.
 An optional screenshot directory is local QA evidence, not a shared artifact
 containing real portfolio data. Native date-input chrome can follow the browser
 or operating-system locale; report date labels use the selected report locale.
+
+## Source-calendar and identifier regressions
+
+The browser suite also generates reversed source snapshots and checks both UTC
+and `America/Sao_Paulo` contexts. It selects a UTC-midnight date and a near-midnight
+`+03:00` source date. Every renderer must show the selected source calendar day;
+the detailed report must retain the source clock/offset. Browser timezone must
+not shift a selected February 1 source record to January 31. Python orders valid
+instants before both plotting and deriving historical changes. Missing, invalid,
+impossible and offsetless timestamps stay available as raw audit evidence and
+quality warnings, outside chronological charts and summaries. The repository
+sample's `2026-02-29` is invalid; browser QA corrects only its synthetic copy to
+February 28, while separate tests verify invalid-source exclusion.
+
+A custom canonical `stock_options` asset ID must remain `stock_options` in the
+selector and allocation chart in both languages. Exact known `stock` may render
+as `ação`; substring translation must never turn a custom ID into `ação_options`.

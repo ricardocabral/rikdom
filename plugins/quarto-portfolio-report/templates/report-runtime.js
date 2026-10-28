@@ -43,7 +43,7 @@
       dates: 'Dates narrow recorded snapshots, contributions and income records only. Current valuation and allocation always describe current holdings.',
       scoped: 'Historical breakdown and performance unavailable for this scope: snapshots lack asserted attribution. Unattributed income is excluded from dimension scopes.',
       artifacts: 'Trust artifact links retain the full portfolio context.',
-      all: 'Recorded historical portfolio facts; valuation changes are not investment returns.',
+      all: 'Recorded historical portfolio facts; valuation changes are not investment returns. Snapshot dates use the source calendar day and explicit offset, independent of browser timezone.',
       invalid: 'Start date must be on or before end date.',
       income: 'Received income', contributions: 'Recorded contributions and withdrawals', performance: 'Investment performance',
       unavailable: 'Unavailable: no attributable recorded return measure is supplied. Snapshot changes must not be interpreted as investment returns.',
@@ -59,7 +59,7 @@
       dates: 'As datas limitam apenas avaliações históricas, aportes e registros de rendimentos. A avaliação e a alocação atuais sempre descrevem as posições atuais.',
       scoped: 'Distribuição histórica e rentabilidade indisponíveis neste escopo: as avaliações não têm atribuição declarada. Rendimentos sem atribuição ficam fora dos escopos por dimensão.',
       artifacts: 'Os arquivos de verificação mantêm o contexto da carteira completa.',
-      all: 'Fatos históricos registrados da carteira; variações de avaliação não são rentabilidade.',
+      all: 'Fatos históricos registrados da carteira; variações de avaliação não são rentabilidade. As datas de avaliação usam o dia e o fuso declarados na origem, independentemente do fuso do navegador.',
       invalid: 'A data inicial deve ser anterior ou igual à data final.',
       income: 'Rendimentos recebidos', contributions: 'Aportes e retiradas registrados', performance: 'Rentabilidade dos investimentos',
       unavailable: 'Indisponível: nenhuma medida de rentabilidade registrada e atribuível foi fornecida. Variações de avaliação não devem ser interpretadas como rentabilidade.',
@@ -84,7 +84,13 @@
     const parsed = new Date(String(value).slice(0, 10) + 'T12:00:00Z');
     return Number.isNaN(parsed.getTime()) ? String(value) : new Intl.DateTimeFormat(locale(), {year: 'numeric', month: 'short', day: '2-digit', timeZone: 'UTC'}).format(parsed);
   };
-  const t = text => language === 'pt' ? (copy[text] || text) : text;
+  const sourceDateTime = value => {
+    if (!value) return labels[language].unknown;
+    // Preserve the source wall clock and offset; Intl only formats its calendar
+    // day. Converting the instant to UTC/browser time would change date meaning.
+    return `${date(value)} ${String(value).slice(11)}`.trim();
+  };
+  const t = text => language === 'pt' && Object.prototype.hasOwnProperty.call(copy, text) ? copy[text] : text;
   function translate(root) {
     if (language !== 'pt') return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -94,7 +100,9 @@
     // Portuguese output. Source/provider text is explicitly excluded.
     const pattern = new RegExp(ordered.map(key => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
     while ((node = walker.nextNode())) {
-      if (!node.parentElement.closest('[data-source-text],script,style')) node.textContent = node.textContent.replace(pattern, match => copy[match]);
+      if (node.parentElement.closest('[data-source-text],script,style')) continue;
+      node.textContent = node.parentElement.closest('[data-report-enum]')
+        ? t(node.textContent) : node.textContent.replace(pattern, match => copy[match]);
     }
     root.querySelectorAll('[aria-label]').forEach(node => node.setAttribute('aria-label', t(node.getAttribute('aria-label'))));
   }
@@ -225,5 +233,5 @@
       host.innerHTML = `<h1>${t('Fallback Portfolio Report')}</h1><p>${t('Fallback mode; charts and detailed holdings table are unavailable.')}</p><details><summary>${t('Raw source text')}</summary><p data-source-text>${escapeHtml(host.dataset.reason)}</p></details><p><a href="${escapeHtml(host.dataset.sibling)}">${t(host.dataset.sibling === 'dashboard.html' ? 'Open dashboard quickview' : 'Open deep-dive report')}</a></p><section class="report-panel"><h2>${t('Current valuation')}</h2><p data-current-value>${escapeHtml(money(v.total_value_base, v.base_currency))}</p><h2>${t('Historical snapshot')}</h2><p>${history.length ? `${escapeHtml(money(history.at(-1).portfolio_value_base, v.base_currency))} · ${escapeHtml(date(history.at(-1).timestamp))}` : labels[language].unknown}</p><h2>${t('Data quality')}</h2><p>${t('History coverage')}: ${t(q.coverage?.status || 'unknown')}. ${t('Zero findings do not prove complete history.')}</p><p>${t('Quantity')}: ${Number(q.quantity?.matched || 0)} ${t('matched')}, ${Number(q.quantity?.mismatched || 0)} ${t('mismatched')}, ${Number(q.quantity?.not_computable || 0)} ${t('not computable')}.</p><p>${t('Excluded holdings')}: <span data-source-text>${escapeHtml((q.excluded_holding_ids || []).join(', ') || t('none'))}</span></p><p>${t('Raw source text')}</p><ul data-source-text>${(q.warnings || []).map(row => `<li>${escapeHtml(row)}</li>`).join('')}</ul><p>${(q.artifacts || []).map(row => `<a href="${escapeHtml(row.href)}">${escapeHtml(row.label)}</a>`).join(' · ')}</p></section>`;
     });
   }
-  window.RIKDOM_REPORT = {mount, mountFallback};
+  window.RIKDOM_REPORT = {mount, mountFallback, sourceDate:date, sourceDateTime};
 })();

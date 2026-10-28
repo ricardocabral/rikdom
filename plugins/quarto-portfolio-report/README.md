@@ -108,3 +108,12 @@ when date limits omit part of that period. Gross/net basis and unknown reasons
 stay visible; yields are not annualized. With no plan, the unavailable state is
 explicit. Raw diagnostics and source assumptions retain their original text;
 interface labels, numeric formatting and dates follow the selected language.
+
+Snapshot chronology follows valid timestamp instants, and all renderers consume
+that same Python order. Snapshot date filters and labels use the calendar day
+written at the source offset, independent of browser timezone. Detailed times
+retain the written source clock and offset. Missing, malformed, offsetless or
+impossible dates remain in `sections.unavailable_snapshots` with a quality warning;
+they do not enter chronological charts or change summaries. No canonical history
+is rewritten. Custom asset identifiers remain opaque; Portuguese translates
+only exact known enum labels.
