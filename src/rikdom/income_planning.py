@@ -21,7 +21,7 @@ from .income import _bound, _event_date, _json_number
 
 _COST_EVENTS = {'buy', 'sell', 'transfer_in', 'transfer_out', 'split', 'reverse_split',
                 'merger', 'spinoff', 'return_of_capital', 'amortization', 'corporate_action',
-                'cost_basis_adjustment', 'reinvestment'}
+                'cost_basis_adjustment', 'reinvestment', 'contribution', 'withdrawal', 'deposit'}
 
 
 @lru_cache(maxsize=1)

@@ -137,8 +137,13 @@ silently dropping it. Missing dimensions that could belong to the scope also mak
 it unavailable. A source scope and `income_source_system` must agree. A complete
 source declaration with no candidate payments can yield zero.
 
-Posted buys, sells, transfers, splits, amortization, corporate actions, and explicit
-cost-basis adjustments during the period make constant-cost yield unavailable.
+Posted buys, sells, transfers, contributions, withdrawals, deposits, splits,
+amortization, corporate actions, and explicit cost-basis adjustments during the
+period make constant-cost yield unavailable. Capital changes with missing
+historical attribution that could belong to the declared scope also make it
+unavailable; known unrelated accounts or explicitly different source scopes remain
+excluded. v1 does not establish that account cash is outside the declared cost,
+and cannot assume a constant denominator after those changes.
 Unclassified generic income also prevents a complete numerator. Corrections are
 applied before these checks. v1 has no changing-cost denominator method. A selected
 date window must include the entire declared cost period; a shorter window yields

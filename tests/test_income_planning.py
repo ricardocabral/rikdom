@@ -182,6 +182,41 @@ class IncomePlanningTests(unittest.TestCase):
                 self.assertIn('cost', row['reason'].lower())
                 self.assertIsNone(row['ratio'])
 
+    def test_account_constant_cost_rejects_capital_changes_and_ambiguous_attribution(self):
+        for event_type in ('contribution', 'withdrawal', 'deposit'):
+            for change_account in ('a', None):
+                with self.subTest(event_type=event_type, change_account=change_account):
+                    declaration = cost(scope={'account_id': 'a'}, money={'amount': 1000, 'currency': 'USD'})
+                    config = plan(cost_bases=[declaration])
+                    p = portfolio(payment(amount=50), payment('capital-change', amount=30,
+                                  event_type=event_type, account_id=change_account))
+                    before = copy.deepcopy((p, config))
+                    row = build(p, config)['yield_on_cost'][0]
+                    self.assertEqual(row['status'], 'unavailable')
+                    self.assertIsNone(row['ratio'])
+                    self.assertIsNone(row['received_amount'])
+                    self.assertEqual(row['coverage'], 'complete')
+                    self.assertEqual(row['income_source_system'], 'broker')
+                    self.assertIn('cost', row['reason'].lower())
+                    self.assertEqual((p, config), before)
+
+    def test_constant_cost_ignores_known_unrelated_account_or_source_capital_changes(self):
+        for event_type in ('contribution', 'withdrawal', 'deposit'):
+            for scope, change in [
+                ({'account_id': 'a'}, {'account_id': 'other'}),
+                ({'account_id': 'a', 'source_system': 'broker'},
+                 {'provenance': {'source_system': 'other-source'}}),
+            ]:
+                with self.subTest(event_type=event_type, scope=scope, change=change):
+                    config = plan(cost_bases=[cost(scope=scope, money={'amount': 1000, 'currency': 'USD'})])
+                    p = portfolio(payment(amount=50), payment('capital-change', amount=30,
+                                  event_type=event_type, **change))
+                    before = copy.deepcopy((p, config))
+                    row = build(p, config)['yield_on_cost'][0]
+                    self.assertEqual((row['status'], row['received_amount'], row['ratio']), ('available', 50, .05))
+                    self.assertEqual(row['activity_ids'], ['pay'])
+                    self.assertEqual((p, config), before)
+
     def test_declared_cost_cannot_hide_explicit_delta_or_unclassified_income(self):
         for activity in (payment('change', event_type='other',
                                 cost_basis_adjustment={'amount': -5, 'currency': 'USD'}),
