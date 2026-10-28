@@ -12,6 +12,26 @@ dates. Source-calendar dates are inclusive; timezone interpretation belongs to
 the source plugin. Core validates declared facts rather than guessing a locale.
 See the [quantity evidence example](../how-to/enter-and-correct-activities.md#declare-the-evidence-for-a-quantity-comparison).
 
+Quantity comparison additionally requires a single declaration bound to the
+holding's verified `account_id` and `holding_id`, `status: "complete"`,
+`history_origin: "inception"`, `opening_quantity: 0`, an IANA `timezone`, an
+`evidence` reference, and compatible event categories including `buy` and `sell`.
+The holding's timestamped `as_of` must lie within the declared source-calendar
+coverage. Unsupported quantity events in the scope block comparison.
+
+`position_basis: "trade"` selects `trade_at`; `position_basis: "settled"` selects
+`settled_at`. Only a matching explicit `effective_at_basis` permits an absent
+matching timestamp to use `effective_at`. Settled comparisons never use
+`trade_at`. A present malformed or timezone-naive settlement timestamp is
+ambiguous and yields `not_computable`, even with a usable effective timestamp.
+Valid movements after the position timestamp are excluded; those exactly at it
+are included. Unknown position basis and nonzero opening history remain
+`not_computable`.
+
+Raw B3 `Movimentação` preserves unknown timing basis, unverified account binding,
+and partial history. Enrichment belongs in an explicitly reviewed normalized
+statement; see the [B3 workflow](../how-to/enter-and-correct-activities.md#review-b3-movimentação-evidence).
+
 Observed transaction limits do not prove the source's coverage. Import coverage
 does not automatically mark a holding's instrument-return history complete.
 Independent statements remain separate evidence; overlapping periods are not

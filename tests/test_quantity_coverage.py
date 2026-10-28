@@ -15,11 +15,63 @@ class QuantityCoverageTests(unittest.TestCase):
         self.assertEqual(result.quantity_reconciliation[0]["status"], "matched")
         self.assertAlmostEqual(result.total_value_base, 1.2246)
 
-    def test_expired_or_settled_coverage_never_claims_a_match(self):
-        for field, value in (("through", "2026-01-30"), ("position_basis", "settled"), ("opening_quantity", 10)):
+    def test_incomplete_or_nonzero_opening_coverage_never_claims_a_match(self):
+        for field, value in (("through", "2026-01-30"), ("position_basis", "unknown"), ("opening_quantity", 10)):
             p = portfolio()
             p["extensions"]["rikdom_import_diagnostics"]["statements"]["doc"]["history_coverage"][0][field] = value
             self.assertEqual(aggregate_portfolio(p, fx_rates_to_base={"JPY": .006}).quantity_reconciliation[0]["status"], "not_computable")
+
+    def test_settled_position_excludes_trade_that_settles_after_position(self):
+        p = portfolio()
+        declaration = p["extensions"]["rikdom_import_diagnostics"]["statements"]["doc"]["history_coverage"][0]
+        declaration["position_basis"] = "settled"
+        p["activities"][0]["trade_at"] = "2026-01-02T10:00:00+09:00"
+        p["activities"].append({**p["activities"][0], "id": "settled", "quantity": 3, "settled_at": "2026-01-31T11:00:00Z"})
+        p["holdings"][0]["quantity"] = 3
+        comparison = aggregate_portfolio(p, fx_rates_to_base={"JPY": .006}).quantity_reconciliation[0]
+        self.assertEqual(comparison["status"], "matched")
+        self.assertEqual(comparison["ledger_quantity"], 3)
+        self.assertEqual(comparison["activity_ids"], ["settled"])
+
+    def test_settled_quantity_mismatch_still_produces_a_finding(self):
+        p = portfolio()
+        p["extensions"]["rikdom_import_diagnostics"]["statements"]["doc"]["history_coverage"][0]["position_basis"] = "settled"
+        result = aggregate_portfolio(p, fx_rates_to_base={"JPY": .006})
+        self.assertEqual(result.quantity_reconciliation[0]["status"], "mismatched")
+        self.assertEqual(result.quantity_reconciliation[0]["ledger_quantity"], 0)
+        self.assertIn("RECON_QTY_LEDGER_MISMATCH", [f.code for f in result.findings])
+
+    def test_settled_effective_timestamp_requires_explicit_compatible_basis(self):
+        for basis, expected in ((None, "not_computable"), ("trade", "not_computable"), ("unknown", "not_computable"), ("settled", "matched")):
+            with self.subTest(basis=basis):
+                p = portfolio()
+                declaration = p["extensions"]["rikdom_import_diagnostics"]["statements"]["doc"]["history_coverage"][0]
+                declaration.update(position_basis="settled", effective_at_basis=basis)
+                p["activities"][0].pop("settled_at")
+                p["activities"][0]["trade_at"] = "2026-01-02T10:00:00+09:00"
+                self.assertEqual(aggregate_portfolio(p, fx_rates_to_base={"JPY": .006}).quantity_reconciliation[0]["status"], expected)
+
+    def test_invalid_settled_timestamp_never_falls_back_to_other_dates(self):
+        for timestamp in (None, "", "not-a-timestamp", "2026-01-02T10:00:00", "2026-01-02"):
+            with self.subTest(timestamp=timestamp):
+                p = portfolio()
+                p["extensions"]["rikdom_import_diagnostics"]["statements"]["doc"]["history_coverage"][0].update(position_basis="settled", effective_at_basis="settled")
+                p["activities"][0].update(settled_at=timestamp, trade_at="2026-01-02T10:00:00+09:00")
+                self.assertEqual(aggregate_portfolio(p, fx_rates_to_base={"JPY": .006}).quantity_reconciliation[0]["status"], "not_computable")
+
+    def test_settled_comparison_keeps_history_binding_and_unsupported_event_guards(self):
+        for changes in ({"status": "partial"}, {"history_origin": "unknown"}, {"opening_quantity": 1}, {"through": "2026-01-30"}, {"account_id": "other"}, {"holding_id": "other"}, {"event_types": []}, {"from": "2026-01-03"}):
+            with self.subTest(changes=changes):
+                p = portfolio()
+                declaration = p["extensions"]["rikdom_import_diagnostics"]["statements"]["doc"]["history_coverage"][0]
+                declaration.update(position_basis="settled", **changes)
+                p["activities"][0]["settled_at"] = "2026-01-02T10:00:00+09:00"
+                self.assertEqual(aggregate_portfolio(p, fx_rates_to_base={"JPY": .006}).quantity_reconciliation[0]["status"], "not_computable")
+        p = portfolio()
+        diagnostic = p["extensions"]["rikdom_import_diagnostics"]["statements"]["doc"]
+        diagnostic["history_coverage"][0]["position_basis"] = "settled"
+        diagnostic["unsupported_events"] = [{"scope": "account-jp", "source_ref": "row-2", "source_event": "unknown", "reason": "Unmapped quantity event"}]
+        self.assertEqual(aggregate_portfolio(p, fx_rates_to_base={"JPY": .006}).quantity_reconciliation[0]["status"], "not_computable")
 
     def test_later_and_other_account_trades_do_not_change_position(self):
         p = portfolio()

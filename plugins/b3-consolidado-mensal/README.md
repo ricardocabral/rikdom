@@ -43,6 +43,23 @@ Essas informações não são inventadas. A instituição define somente um esco
 conservador de origem, não uma conta comprovada. A reconciliação de posições
 permanece não computável até haver evidência compatível de conta, período e datas.
 
+Para comparar uma posição verificada, prepare um JSON revisado para
+`normalized-statement-json`, copiando a posição e as movimentações já armazenadas
+com os mesmos IDs/chaves e metadados de origem. Confirme a vinculação à conta,
+`as_of` da posição e a base `trade` ou `settled`. Na base `settled`, informe
+`settled_at` com fuso; `effective_at` só pode substituí-lo quando a declaração
+`effective_at_basis: "settled"` foi verificada explicitamente. A data de negociação
+nunca substitui a liquidação. Movimentos com liquidação posterior a `as_of` ficam
+fora da quantidade comparada.
+
+Declare cobertura completa desde a origem e abertura zero somente com evidência
+para isso; o primeiro movimento observado não comprova nenhuma dessas condições.
+Não remova eventos não suportados nem infira datas, contas ou abertura zero.
+Pré-visualize com `--dry-run --reconcile` antes de usar `--write --reconcile`.
+O [passo a passo de revisão](../../docs/how-to/enter-and-correct-activities.md#review-b3-movimentação-evidence)
+mostra os campos e comandos. Reutilize o JSON revisado: uma nova importação do
+arquivo bruto pode substituir campos enriquecidos pelas observações originais.
+
 Operações idênticas legítimas são preservadas separadamente. Reimportar o mesmo
 arquivo ou reordenar suas linhas conserva as identidades. Exportações anônimas
 sobrepostas são bloqueadas para [revisão explícita](../../docs/reference/import-diagnostics.md#reviewed-recovery).
