@@ -104,12 +104,14 @@ class SourceIdentityUpgradeCliTests(unittest.TestCase):
 
     def test_source_upgrade_cannot_remove_asserted_money_or_charges(self):
         for kind in ('anonymous', 'source'):
-            for field in ('money', 'fees'):
-                with self.subTest(kind=kind, field=field), TemporaryDirectory() as tmp:
+            for field, amount in (('money', 10), ('fees', 0), ('fees', 2),
+                                  ('withholding_tax', 0), ('withholding_tax', 3)):
+                with self.subTest(kind=kind, field=field, amount=amount), TemporaryDirectory() as tmp:
                     root = Path(tmp)
                     portfolio, log = root / 'portfolio.json', root / 'import_log.jsonl'
                     portfolio.write_text(json.dumps({'holdings': [], 'activities': []}))
                     original = self.activity()
+                    original[field] = {'amount': amount, 'currency': 'USD'}
                     code, _, err = self.import_activity(root, original)
                     self.assertEqual(code, 0, err)
                     revised = copy.deepcopy(original)
