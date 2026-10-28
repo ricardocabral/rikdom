@@ -208,9 +208,8 @@ Sequencing override:
 - [x] Surface reconciliation/data-quality warnings in generated reports.
 - [x] Keep deprecated visualization aliases covered until removal policy is decided (`viz`, `visualize`, and `render-report` exercise real output, warnings, legacy/custom paths, and local artifact links).
 - [x] Open generated reports with networking disabled and retain existing charts, navigation, and explanations (Quarto 1.9.37 verified after bundle relocation; fallback remains a summary without charts).
-- [ ] Add consistent report filters for allocation, contributions/growth, performance, and income as Phases 4A/4B deliver their results; verify those controls offline (neither view currently offers chart/date filters).
-- [ ] Verify keyboard navigation, readable mobile layouts, and localized labels/date/number formatting; begin with English and Portuguese.
-  Keyboard navigation, horizontal table scrolling, focus, and mobile layout are covered; full EN/PT labels and locale verification remain open.
+- [x] Add consistent report filters for allocation, contributions/growth, performance, and income as Phases 4A/4B deliver their results; verify those controls offline (account, asset-type, and currency scopes plus recorded-date controls; current valuation remains current, and missing scoped history/return measures remain explicitly unavailable pending Phase 4B).
+- [x] Verify keyboard navigation, readable mobile layouts, and localized labels/date/number formatting; begin with English and Portuguese (full/fallback Chromium checks at 1440, 390, and 320 px, EN/PT selectors and locale formatting; provider diagnostics retain labeled original source text).
 
 ---
 
@@ -239,9 +238,9 @@ Sequencing override:
 - [x] Expose income views through the `income` CLI and JSON/Markdown report artifacts.
 - [x] Ensure all first-party importers map dividend/interest/cashflow events consistently ([source coverage matrix](plugins/README.md#posted-income-coverage-by-source); signed corrections, separate tax/refunds, gross/net/unknown basis, and zero versus missing evidence are tested through import/replay; unsupported and holdings-only sources remain explicit).
 - [x] Enable new users to run bootstrap + first import using a documented happy path in under 15 minutes (10–15 minute walkthrough estimate after installation, not a measured usability result).
-- [ ] Display paid and announced income separately; forecasts never enter actual balances or realized returns.
-- [ ] Match imported payments to announced events without double-counting reinvested distributions, corrections, or repeated provider refreshes.
-- [ ] Explain yield-on-cost inputs and flag unavailable cost basis; distinguish gross income from net receipts.
+- [x] Display paid and announced income separately; forecasts never enter actual balances or realized returns (local [income plan v1](docs/reference/income-plan.md), separate actual/announced/scenario sections in CLI and offline reports; source and ex/record/payment-date evidence remain explicit).
+- [x] Match imported payments to announced events without double-counting reinvested distributions, corrections, or repeated provider refreshes (reviewed explicit links resolve effective corrections and deduplicate payments/revisions; no inferred entitlement or automatic amount/date match).
+- [x] Explain yield-on-cost inputs and flag unavailable cost basis; distinguish gross income from net receipts (`declared_constant_cost` requires positive native-currency basis, source, coverage, method, and full explicit period; changing-cost or incomplete inputs remain unavailable, with no FX substitution or automatic annualization).
 - [x] Complete onboarding with sample data and no account, paid API key, or AI service (local import/replay, trust, income, snapshot, and fallback HTML verified with network connections denied).
 
 
