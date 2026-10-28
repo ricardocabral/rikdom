@@ -23,13 +23,13 @@ To add a synthetic snapshot for "right now" in addition to the recorded
 history:
 
 ```bash
-uv run rikdom visualize --data-dir data --out-root out --include-current
+uv run rikdom viz --data-dir data --out-root out --include-current
 ```
 
 ## Use a different output plugin
 
 ```bash
-uv run rikdom render-report \
+uv run rikdom viz \
   --plugin quarto-portfolio-report \
   --plugins-dir plugins \
   --data-dir data --out-root out
@@ -50,5 +50,19 @@ uv run rikdom plugins list --plugins-dir plugins
 
 ## See also
 
+- [Received-income JSON/Markdown reports](summarize-income.md) — separate artifacts generated with `rikdom income`.
 - [CLI reference: visualization](../reference/cli.md#visualization)
 - [Plugin architecture](../explanation/plugin-architecture.md)
+
+## Inspect data quality
+
+Both views and the fallback HTML show current valuation separately from historical
+snapshot totals, quantity-comparison coverage, warnings, and excluded holdings.
+Current converted values come from core trust records. The output also includes
+`holding_trust.json`, `holding_trust.md`, `reconciliation.json`, and
+`reconciliation.md`, linked locally from the report. Missing source history never
+becomes a successful comparison merely because no mismatch was found.
+
+Rendering uses supplied snapshot FX locks and holding metadata fallback without
+network acquisition. Inspect the recorded effective dates; an old or undated rate
+is not made current by generating a new report.

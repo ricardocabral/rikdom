@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from typing import Any
+from datetime import date, datetime
+import math
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .import_normalization import (
     as_text,
     normalize_currency,
-    normalize_datetime,
-    parse_decimal,
 )
 
 _ERROR = "error"
@@ -103,7 +104,7 @@ def _validate_amount_field(
 ) -> None:
     if value is None:
         return
-    if parse_decimal(value) is None:
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
         issues.append(
             _new_issue(
                 code="INVALID_NUMBER",
@@ -235,7 +236,7 @@ def _validate_activity(
                 field="effective_at",
             )
         )
-    elif normalize_datetime(effective_at) is None:
+    elif not normalized_timestamp(effective_at):
         issues.append(
             _new_issue(
                 code="DATE_PARSE_FAILED",
@@ -565,6 +566,15 @@ def build_preflight_report(
             )
         )
 
+    for message in validate_import_diagnostics(import_diagnostics(imported)):
+        issues.append(_new_issue(code="INVALID_IMPORT_DIAGNOSTICS", severity=_ERROR, message=message, row_key="statement:*"))
+    for message in identity_conflicts(portfolio, imported):
+        issues.append(_new_issue(code="AMBIGUOUS_IMPORT_IDENTITY", severity=_ERROR, message=message, row_key="activity:*"))
+    from .activities import validate_activity_import
+    try:
+        validate_activity_import(portfolio, imported)
+    except ValueError as exc:
+        issues.append(_new_issue(code="CORRECTION_CONFLICT", severity=_ERROR, message=str(exc), row_key="activity:*"))
     blocking_issues = [issue for issue in issues if issue.get("blocking")]
     summary = {
         "rows_total": len(rows_payload),
@@ -577,3 +587,144 @@ def build_preflight_report(
         "rows": rows_payload,
         "issues": issues,
     }
+
+
+def normalized_timestamp(value: Any) -> bool:
+    if not isinstance(value, str) or "T" not in value:
+        return False
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).tzinfo is not None
+    except ValueError:
+        return False
+
+
+def import_diagnostics(imported: dict[str, Any]) -> dict[str, Any]:
+    """Read source-declared evidence, with honest fallback for older plugins."""
+    metadata = imported.get("metadata") or {}
+    if isinstance(metadata, dict) and "rikdom_import_diagnostics" in metadata:
+        return metadata["rikdom_import_diagnostics"]
+    return {"version": 1, "history_coverage": [{"scope": str(imported.get("provider") or "unknown"), "status": "unknown", "event_types": [], "reasons": ["Source did not declare history coverage"]}], "unsupported_events": []}
+
+
+def validate_import_diagnostics(value: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(value, dict) or type(value.get("version")) is not int or value["version"] != 1:
+        return ["Import diagnostics must declare version 1"]
+    coverage = value.get("history_coverage")
+    unsupported = value.get("unsupported_events")
+    if not isinstance(coverage, list) or not isinstance(unsupported, list):
+        return ["Import diagnostics require history_coverage and unsupported_events arrays"]
+    for i, entry in enumerate(coverage):
+        path = f"history_coverage[{i}]"
+        if not isinstance(entry, dict):
+            errors.append(f"{path} must be an object")
+            continue
+        if not isinstance(entry.get("scope"), str) or not entry["scope"].strip():
+            errors.append(f"{path}.scope must be an opaque nonempty string")
+        if entry.get("status") not in ("complete", "partial", "unknown"):
+            errors.append(f"{path}.status must be complete, partial, or unknown")
+        events = entry.get("event_types")
+        if not isinstance(events, list) or any(not isinstance(e, str) for e in events):
+            errors.append(f"{path}.event_types must be an array of strings")
+        dates = {}
+        for key in ("from", "through"):
+            if key not in entry and entry.get("status") != "complete":
+                continue
+            raw = entry.get(key)
+            try:
+                if not isinstance(raw, str) or len(raw) != 10:
+                    raise ValueError
+                dates[key] = date.fromisoformat(raw)
+            except ValueError:
+                errors.append(f"{path}.{key} must be YYYY-MM-DD")
+        if len(dates) == 2 and dates["from"] > dates["through"]:
+            errors.append(f"{path} has reversed dates")
+        if "timezone" in entry:
+            try:
+                ZoneInfo(entry["timezone"])
+            except (ZoneInfoNotFoundError, TypeError, ValueError):
+                errors.append(f"{path}.timezone must be a known IANA timezone")
+        if "opening_quantity" in entry:
+            opening = entry["opening_quantity"]
+            if not isinstance(opening, (int, float)) or isinstance(opening, bool) or not math.isfinite(opening):
+                errors.append(f"{path}.opening_quantity must be finite")
+        if "position_basis" in entry and entry["position_basis"] not in ("trade", "settled", "unknown"):
+            errors.append(f"{path}.position_basis is unsupported")
+        if "evidence" in entry:
+            evidence = entry["evidence"]
+            if not isinstance(evidence, dict) or evidence.get("kind") not in ("source", "user_declaration") or not evidence.get("source_ref"):
+                errors.append(f"{path}.evidence needs kind and source_ref")
+    for i, event in enumerate(unsupported):
+        if not isinstance(event, dict) or not all(isinstance(event.get(key), str) and event[key] for key in ("source_ref", "source_event", "reason")):
+            errors.append(f"unsupported_events[{i}] needs source_ref, source_event, and reason")
+    return errors
+
+
+def identity_conflicts(portfolio: dict[str, Any], imported: dict[str, Any]) -> list[str]:
+    """Compare opaque source facts; a source parser never needs portfolio access."""
+    errors: list[str] = []
+    existing = {a.get("id"): a for a in portfolio.get("activities", []) if isinstance(a, dict)}
+    incoming = [a for a in imported.get("activities", []) if isinstance(a, dict)]
+    resolution = import_diagnostics(imported)
+    resolution = resolution.get("identity_resolution", {}) if isinstance(resolution, dict) else {}
+    old_ids = resolution.get("existing_activity_ids", [])
+    new_ids = resolution.get("new_activity_ids", [])
+    if resolution:
+        if not isinstance(old_ids, list) or not isinstance(new_ids, list) or not resolution.get("reason") or not resolution.get("scope") or not resolution.get("document_fingerprint"):
+            return ["Identity resolution requires scope, document fingerprint, ID lists, and reason"]
+        if any(aid not in existing for aid in old_ids):
+            errors.append("Identity resolution references an unknown existing activity")
+        if set(old_ids) & set(new_ids):
+            errors.append("Reviewed existing and new identity lists must be disjoint")
+        incoming_by_id = {a.get("id"): a for a in incoming}
+        if any(aid not in incoming_by_id for aid in [*old_ids, *new_ids]):
+            errors.append("Identity resolution must include its mapped events in the input")
+        for aid in old_ids:
+            if aid in existing and aid in incoming_by_id and existing[aid].get("idempotency_key") != incoming_by_id[aid].get("idempotency_key"):
+                errors.append("Reviewed existing events must retain their idempotency keys")
+            if aid in existing and (existing[aid].get("metadata") or {}).get("rikdom_source_identity", {}).get("scope") != resolution.get("scope"):
+                errors.append("Reviewed identity does not belong to the declared scope")
+        for aid in new_ids:
+            a = incoming_by_id.get(aid, {})
+            collision = existing.get(aid)
+            if collision is None and a.get("idempotency_key"):
+                collision = next((old for old in existing.values() if old.get("idempotency_key") == a["idempotency_key"]), None)
+            def stable(row):
+                return {k: v for k, v in row.items() if k not in ("import_run_id", "ingested_at")}
+            if collision and stable(collision) != stable(a):
+                errors.append("Reviewed new identity collides with a stored event")
+    for activity in incoming:
+        metadata = activity.get("metadata") or {}
+        identity = metadata.get("rikdom_source_identity") if isinstance(metadata, dict) else None
+        if identity is None:
+            continue
+        if not isinstance(identity, dict) or identity.get("version") != 1 or not all(isinstance(identity.get(k), str) and identity[k] for k in ("scope", "document_fingerprint", "signature")) or not isinstance(identity.get("occurrence"), int) or isinstance(identity.get("occurrence"), bool) or identity["occurrence"] < 0 or identity.get("kind") not in ("anonymous", "source", "reviewed"):
+            errors.append(f"Invalid source identity for activity {activity.get('id')}")
+            continue
+        if identity["kind"] == "source":
+            continue
+        previous = existing.get(activity.get("id"))
+        if previous is not None and previous.get("idempotency_key") == activity.get("idempotency_key"):
+            old_content = {k: v for k, v in previous.items() if k not in ("import_run_id", "ingested_at")}
+            new_content = {k: v for k, v in activity.items() if k not in ("import_run_id", "ingested_at")}
+            old_content.setdefault("status", "posted")
+            new_content.setdefault("status", "posted")
+            if old_content == new_content:
+                continue
+        overlaps = []
+        for previous in existing.values():
+            old = (previous.get("metadata") or {}).get("rikdom_source_identity", {})
+            if old.get("scope") == identity["scope"] and old.get("signature") == identity["signature"]:
+                if old.get("document_fingerprint") == identity["document_fingerprint"] and old.get("occurrence") == identity["occurrence"]:
+                    if previous.get("id") != activity.get("id") or previous.get("idempotency_key") != activity.get("idempotency_key"):
+                        errors.append("A source occurrence must retain its existing ID and idempotency key")
+                elif old.get("document_fingerprint") != identity["document_fingerprint"]:
+                    overlaps.append(previous.get("id"))
+        if not overlaps:
+            continue
+        resolved = (not errors and resolution.get("scope") == identity["scope"]
+                    and resolution.get("document_fingerprint") == identity["document_fingerprint"]
+                    and activity.get("id") in new_ids and set(overlaps).issubset(set(old_ids)))
+        if not resolved:
+            errors.append(f"Anonymous source overlap for activity {activity.get('id')}; review existing identities {overlaps}")
+    return errors

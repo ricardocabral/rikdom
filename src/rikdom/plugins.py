@@ -168,6 +168,19 @@ def _merged_holding(existing: dict[str, Any], entry: dict[str, Any]) -> dict[str
     return _merge_asserted_fields(existing, entry)
 
 
+def _canonical_position_match(holdings: list[dict[str, Any]], entry: dict[str, Any]) -> int | None:
+    """An instrument key identifies a position only inside an explicit account."""
+    key = holding_canonical_key(entry)
+    account = entry.get("account_id")
+    if not key or not isinstance(account, str) or not account.strip():
+        return None
+    matches = [i for i, holding in enumerate(holdings)
+               if isinstance(holding, dict)
+               and holding_canonical_key(holding) == key
+               and holding.get("account_id") == account]
+    return matches[0] if len(matches) == 1 else None
+
+
 def merge_holdings(
     portfolio: dict[str, Any],
     imported: dict[str, Any],
@@ -204,8 +217,9 @@ def merge_holdings(
         collapsed_via_key: str | None = None
         if target_pos is None and collapse_canonical:
             ckey = holding_canonical_key(entry)
-            if ckey and ckey in canonical_index:
-                target_pos = canonical_index[ckey]
+            match = _canonical_position_match(holdings, entry)
+            if ckey and match is not None:
+                target_pos = match
                 collapsed_via_key = ckey
 
         if target_pos is not None:
@@ -376,8 +390,9 @@ def build_import_diff(
         collapsed_via_key: str | None = None
         if existing is None and collapse_canonical:
             ckey = holding_canonical_key(entry)
-            if ckey and ckey in canonical_index:
-                existing = canonical_index[ckey]
+            match = _canonical_position_match(existing_holdings, entry)
+            if ckey and match is not None:
+                existing = existing_holdings[match]
                 collapsed_via_key = ckey
         if existing is None:
             rows.append(
@@ -717,6 +732,9 @@ def merge_tax_lots(
 def merge_activities(
     portfolio: dict[str, Any], imported: dict[str, Any]
 ) -> tuple[dict[str, Any], MergeCounts]:
+    from .activities import validate_activity_import
+
+    validate_activity_import(portfolio, imported)
     imported_activities = list(imported.get("activities", []) or [])
     for idx, entry in enumerate(imported_activities):
         if isinstance(entry, dict):
@@ -811,3 +829,21 @@ def merge_activities(
 
     portfolio["activities"] = activities
     return portfolio, counts
+
+
+def merge_import_diagnostics(portfolio: dict[str, Any], imported: dict[str, Any]) -> dict[str, Any]:
+    """Persist source evidence independently of the current holding projection."""
+    from .import_preflight import import_diagnostics, validate_import_diagnostics
+
+    diagnostics = copy.deepcopy(import_diagnostics(imported))
+    errors = validate_import_diagnostics(diagnostics)
+    if errors:
+        raise ValueError("; ".join(errors))
+    fingerprint = diagnostics.get("document_fingerprint")
+    if not fingerprint:
+        content = {k: _strip_run_scoped_fields(imported.get(k, [])) for k in ("holdings", "activities", "statement_observations")}
+        fingerprint = hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
+    key = f"{imported.get('provider', 'unknown')}:{fingerprint}"
+    state = portfolio.setdefault("extensions", {}).setdefault("rikdom_import_diagnostics", {"version": 1, "statements": {}})
+    state["statements"][key] = diagnostics
+    return portfolio

@@ -31,7 +31,8 @@ Most commands accept these workspace flags:
 
 `snapshot` flags:
 
-- `--no-fx-auto-ingest` — disable automatic FX ingestion (history lookup only).
+- `--fx-provider <plugin>` — explicitly enable the selected connector for missing FX (`daily-rates` operation). Without it, snapshot uses local history only.
+- `--no-fx-auto-ingest` — disable acquisition even when a provider is selected.
 - `--fx-history <path>` — use a custom FX history file.
 - `--rotate-bytes <N>` — rotate `data/snapshots.jsonl` when it exceeds N bytes.
 
@@ -48,6 +49,69 @@ most recent.
 `funded-ratio` uses the current portfolio aggregate, `policy.objectives[]`,
 `cashflow_policy.contributions[]`, retirement spending assumptions, and real
 return assumptions. Pass `--as-of YYYY-MM-DD` to pin the projection start date.
+
+## Income
+
+`rikdom income` reads the effective activity ledger and reports posted dividends
+and interest, grouped by calendar month/year and native currency. It runs offline.
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--portfolio <path>` | Resolved workspace portfolio | Canonical JSON input. |
+| `--start YYYY-MM-DD` | Unbounded | Inclusive first calendar date. |
+| `--end YYYY-MM-DD` | Unbounded | Inclusive last calendar date. |
+| `--out-dir <path>` | `<out-root>/reports[/<portfolio-name>]` | Artifact destination. |
+| `--format json\|markdown\|both` | `both` | Selects `income.json`, `income.md`, or both. |
+
+Standard workspace flags select the data/output roots, registry and portfolio.
+Successful execution returns status `0` and prints the full report as JSON,
+regardless of artifact format. Invalid report inputs return status `1` with a diagnostic
+on stderr before report writes; argument parsing errors return status `2`. Missing inputs are not bootstrapped by this
+command. Canonical files and import logs are not modified.
+
+Output version `1` includes `start`, `end`, `date_convention`, `limitations`,
+`diagnostics`, `events`, `monthly` and `yearly`. Each event retains its activity ID,
+event type, date, currency, asserted account/holding/asset-type/instrument
+references, amount basis and nullable `gross`, `withholding`, `fees`, and `net`.
+Missing references remain `null`. Each period/currency bucket contains
+`event_count` and one object per monetary metric:
+
+- `total`: complete sum, or `null` if any event's amount is unavailable.
+- `known_subtotal`: sum of available amounts, including signed adjustments.
+- `unavailable_count`: events without a usable amount for that metric.
+
+The reporting date is the calendar day in `effective_at` at its explicit offset,
+without conversion to UTC. It does not assert actual cash availability. Different
+currencies are never combined. Corrections are projected before filtering;
+cancelled/pending events, buys, transfers, principal returns and generic `income`
+are excluded from received dividends/interest. Generic-income exclusions produce
+a diagnostic counted across the effective history, even outside the date filter.
+Each ledger activity must have a unique nonempty ID and an explicit valid status;
+any supplied idempotency keys must also be unique and nonempty. An empty history
+does not establish complete statement coverage.
+
+Income metadata uses an optional versioned declaration:
+
+```json
+"metadata": {"rikdom_income": {"version": 1, "amount_basis": "net"}}
+```
+
+`amount_basis` is `gross`, `net`, or `unknown`. Without the declaration, the
+existing schema convention treats `money` as gross. The older generic marker
+`metadata.amount_basis: "reported_gross_net_unknown"` means unknown when no modern
+marker is present. A modern declaration takes precedence. Unknown basis leaves
+both gross and net unavailable.
+
+For gross money, net is gross minus declared same-currency withholding and fees.
+For net money, gross is net plus those charges. Missing withholding prevents this
+derivation; explicit zero withholding is known. Absent fees are reported as
+unavailable and no undeclared fee is applied. Cross-currency charges prevent
+derivation; they are not converted with current FX. Separately posted tax events
+are not matched to payments. These conventions also prevent net-marked
+instrument-return receipts from having their charges deducted twice; explicitly
+unknown distribution basis makes full instrument returns unavailable.
+
+See [summarize income](../how-to/summarize-income.md) for usage and import limits.
 
 ## Visualization
 
@@ -152,3 +216,20 @@ make validate DATA_DIR=workspace-data OUT_DIR=workspace-out PORTFOLIO_NAME=paper
 
 - [Tutorials](../tutorials/) — guided walkthroughs.
 - [How-to guides](../how-to/) — task-oriented recipes.
+
+## Import trust and manual corrections
+
+`import-statement --reconcile --write` writes the normal import and the four
+trust artifacts under `<out-root>/reports/`. Preview includes candidate summaries
+but creates no artifacts/log/canonical writes. `--fx-history` selects cached inputs.
+See [import diagnostics](import-diagnostics.md) for coverage and blocking codes.
+
+`activity correct <id> --input <complete-activity.json> --reason <text>` previews
+an immutable replacement. `--write` applies; `--dry-run` overrides `--write`;
+`--reconcile` adds trust artifacts. Workspace flags, `--import-log`,
+`--import-run-id`, `--ingested-at`, `--fx-history`, and `--plugins-dir` apply.
+The first correction writes schema 2.0.0 with the linked event atomically.
+Uncorrected 1.x files remain supported. Older raw-ledger calculators are unsafe
+for correction-bearing data.
+
+`viz --plugin <name> --plugins-dir <dir>` selects an output plugin explicitly.

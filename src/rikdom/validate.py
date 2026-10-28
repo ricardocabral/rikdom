@@ -118,7 +118,7 @@ def _check_schema_compatibility(portfolio: dict[str, Any], errors: list[str]) ->
         return
 
     current_major = CURRENT_SCHEMA_VERSION[0]
-    if parsed[0] != current_major:
+    if parsed[0] != current_major and parsed != (2, 0, 0):
         errors.append(
             f"schema_version '{raw_version}' is incompatible: "
             f"reader supports major {current_major}.x "
@@ -134,7 +134,7 @@ def _check_schema_compatibility(portfolio: dict[str, Any], errors: list[str]) ->
         )
         return
 
-    if parsed > CURRENT_SCHEMA_VERSION:
+    if parsed > CURRENT_SCHEMA_VERSION and parsed != (2, 0, 0):
         errors.append(
             f"schema_version '{raw_version}' is newer than current "
             f"{'.'.join(str(p) for p in CURRENT_SCHEMA_VERSION)}; "
@@ -806,7 +806,11 @@ def validate_portfolio(portfolio: dict[str, Any]) -> list[str]:
     if schema_uri is not None and not isinstance(schema_uri, str):
         errors.append("'schema_uri' must be a string")
 
-    _check_schema_compatibility(portfolio, errors)
+    from .activities import check_financial_contract
+    try:
+        check_financial_contract(portfolio)
+    except ValueError as exc:
+        errors.append(str(exc))
 
     profile = portfolio.get("profile")
     if not isinstance(profile, dict):

@@ -11,7 +11,27 @@
         "account_name": "Vanguard Roth IRA",
         "account_type": "Roth IRA"
       }
-    ]
+    ],
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "vanguard:statement",
+          "status": "unknown",
+          "event_types": [
+            "buy",
+            "dividend",
+            "fee",
+            "sell",
+            "transfer_in"
+          ],
+          "reasons": [
+            "source_does_not_declare_complete_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
   },
   "holdings": [
     {
@@ -32,7 +52,8 @@
         "country": "US"
       },
       "metadata": {
-        "security_type": "Mutual Fund"
+        "security_type": "Mutual Fund",
+        "canonical_key": "us:fund:vtsax"
       }
     },
     {
@@ -53,7 +74,8 @@
         "country": "US"
       },
       "metadata": {
-        "security_type": "Mutual Fund"
+        "security_type": "Mutual Fund",
+        "canonical_key": "us:fund:vbtlx"
       }
     },
     {
@@ -70,6 +92,9 @@
       },
       "jurisdiction": {
         "country": "US"
+      },
+      "metadata": {
+        "canonical_key": "cash:usd"
       }
     }
   ],

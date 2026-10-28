@@ -5,10 +5,15 @@ import hashlib
 import json
 import sys
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime, parse_decimal
+from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime as _normalize_datetime, parse_decimal as _parse_decimal
+
+# This export dialect uses ISO dates and UTC for dates without a zone.
+normalize_datetime = partial(_normalize_datetime, naive_timezone=timezone.utc)
+parse_decimal = partial(_parse_decimal, decimal_separator=".", grouping_separator=None)
 
 PROVIDER = "wealthfolio_export_json"
 
@@ -29,9 +34,9 @@ _ACTIVITY_TYPE_MAP: dict[str, str] = {
     "split": "split",
     "add_holding": "transfer_in",
     "remove_holding": "transfer_out",
-    "tax": "other",
-    "tax_refund": "other",
-    "income": "dividend",
+    "tax": "tax_withheld",
+    "tax_refund": "tax_withheld",
+    "income": "income",
 }
 
 _ASSET_TYPE_MAP: dict[str, str] = {
@@ -170,8 +175,15 @@ def _normalize_activity(item: dict[str, Any], assets: dict[str, dict[str, Any]])
 
     quantity = parse_decimal(_pick(item, "quantity", "shares", "units"))
     unit_price = parse_decimal(_pick(item, "unit_price", "unitPrice", "price"))
-    explicit_amount = parse_decimal(_pick(item, "amount", "value", "net_amount", "total"))
-    fee_amount = parse_decimal(_pick(item, "fee", "fees", "feeAmount"))
+    raw_amount = _pick(item, "amount", "value", "net_amount", "total")
+    raw_fee = _pick(item, "fee", "fees", "feeAmount")
+    raw_tax = _pick(item, "tax")
+    explicit_amount = parse_decimal(raw_amount)
+    fee_amount = parse_decimal(raw_fee)
+    tax_amount = parse_decimal(raw_tax)
+    for field, raw, value in (("amount", raw_amount, explicit_amount), ("fee", raw_fee, fee_amount), ("tax", raw_tax, tax_amount)):
+        if raw is not None and raw != "" and value is None:
+            raise ValueError(f"Wealthfolio activity '{activity_id}' has invalid {field}")
 
     if explicit_amount is not None:
         magnitude = abs(explicit_amount)
@@ -200,14 +212,20 @@ def _normalize_activity(item: dict[str, Any], assets: dict[str, dict[str, Any]])
             "raw_activity_type": raw_type,
         },
     }
+    if event_type in {"dividend", "interest", "income"}:
+        activity["metadata"]["rikdom_income"] = {
+            "version": 1, "amount_basis": "net" if explicit_amount is not None else "unknown",
+        }
+        if tax_amount is not None:
+            activity["withholding_tax"] = {"amount": tax_amount, "currency": currency}
     if event_type == "other" and raw_type:
         activity["subtype"] = f"wealthfolio:{raw_type}"
 
     if quantity is not None:
         activity["quantity"] = abs(quantity)
 
-    if fee_amount is not None and fee_amount != 0:
-        activity["fees"] = {"amount": abs(fee_amount), "currency": currency}
+    if fee_amount is not None:
+        activity["fees"] = {"amount": fee_amount, "currency": currency}
 
     instrument = _instrument_from(item, asset_meta)
     if instrument:
@@ -273,6 +291,9 @@ def _normalize_holding(item: dict[str, Any], assets: dict[str, dict[str, Any]]) 
     source_ref = as_text(_pick(item, "account_id", "accountId"))
     if source_ref:
         holding["provenance"] = {"source_ref": source_ref}
+
+    if isinstance(item.get("metadata"), dict):
+        holding["metadata"] = dict(item["metadata"])
 
     return holding
 

@@ -58,13 +58,11 @@ long-lived portfolios stay readable across years of tooling evolution.
 
 **Reader obligations**
 
-- Accept any `schema_version` within the current major, down to
-  `MIN_COMPATIBLE_SCHEMA_VERSION`.
+- Accept the supported legacy 1.x contracts through 1.7.0 and the correction-aware 2.0.0 contract. Legacy migration defaults remain 1.7.0.
 - Reject (or warn loudly on) payloads from a different major: a major bump
   signals intentional breakage.
-- Tolerate unknown top-level or nested fields under `metadata`/`extensions`:
-  forward-compatible readers must not error on newer minor versions.
-- Warn when encountering a `schema_version` newer than `CURRENT_SCHEMA_VERSION`.
+- Preserve unknown fields under `metadata`/`extensions`; structural preservation does not imply support for unknown financial semantics.
+- Reject unsupported contract versions before first-party financial calculations.
 
 **Version-bump rules**
 
@@ -161,3 +159,38 @@ These fields reduce duplicate imports and make reconciliation auditable.
 - [Schemas reference](../reference/schemas.md)
 - [Migration version history](../reference/migrations.md)
 - [Calculation trust](calculation-trust.md)
+
+### Correction-aware contract 2.0.0
+
+Rikdom 0.2.0 is the first correction-aware application version. Uncorrected 1.x
+portfolios remain supported without forced migration. The first successful manual
+or normalized-input correction writes `schema_version: "2.0.0"` and its linked
+replacement in the same atomic update; previews show the transition without
+writing. Existing 1.x schema-migration paths/defaults remain unchanged.
+
+A correction is a complete activity with its own ID/key and
+`extensions.rikdom_correction = {version: 1, supersedes_activity_id, reason}`.
+The original remains stored. Only the unsuperseded event participates in financial
+calculations; cancellation uses a cancelled replacement. A 1.x file containing
+correction links is invalid. Unknown correction versions, forks, cycles, missing
+references, and colliding immutable identities fail before writing/calculating.
+
+Updated financial readers check portfolio contracts; activity-list APIs validate
+and project correction chains. Raw exports retain the ledger/version. A major
+stamp cannot retroactively change old code: older or third-party readers that
+bypass version validation may double-count corrections. They are unsupported for
+corrected data. No automatic downgrade or backward-calculation guarantee is made.
+
+### Neutral core and source interpretation
+
+Core consumes explicit normalized numbers, dates, identities, currencies, coverage,
+and policy parameters. Source plugins select locale/timezone conventions, account
+mappings, and regional instrument identity rules. Regional catalog definitions and
+constants remain with their plugins. A reporting currency is required, and monetary
+calculation precision is retained rather than forcing two decimal places for every
+currency. Output plugins choose display formatting.
+
+Canonical instrument keys are opaque, source-produced metadata. Stored keys are
+preserved; core no longer invents Brazilian/US identities or defaults unknown
+markets to the US. Optional canonical collapse also requires an explicit matching
+account and unique candidate. Different accounts remain separate positions.

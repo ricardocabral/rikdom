@@ -426,6 +426,9 @@ format:
     const payload = window.RIKDOM_REPORT_DATA || {};
     const profile = payload.profile || {};
     const sections = payload.sections || {};
+    const valuation = sections.current_valuation || {};
+    const quality = sections.data_quality || {};
+    const currentValue = Number(valuation.total_value_base) || 0;
 
     const timeline = (Array.isArray(sections.timeline) ? sections.timeline : [])
       .map((row) => ({
@@ -443,7 +446,7 @@ format:
       return 0;
     });
 
-    const currencySplit = sections.currency_split || {};
+    const currencySplit = sections.quickview?.currency?.converted_base || {};
     const assetTypeBreakdown = sections.asset_type_breakdown || {};
     const geography = sections.geography || {};
     const topHoldings = sections.risk && Array.isArray(sections.risk.top_holdings)
@@ -465,12 +468,7 @@ format:
       return;
     }
 
-    const sumValues = (obj) => Object.values(obj || {}).reduce((acc, raw) => {
-      const value = Number(raw || 0);
-      return acc + (Number.isFinite(value) ? value : 0);
-    }, 0);
-
-    const totalFromSplit = sumValues(currencySplit);
+    const totalFromSplit = currentValue;
     const latestValue = timeline.length ? timeline[timeline.length - 1].value : totalFromSplit;
     const previousValue = timeline.length > 1 ? timeline[timeline.length - 2].value : null;
     const firstValue = timeline.length ? timeline[0].value : null;
@@ -485,15 +483,10 @@ format:
     const maxValue = timeline.length ? Math.max(...timeline.map((point) => point.value)) : latestValue;
     const minValue = timeline.length ? Math.min(...timeline.map((point) => point.value)) : latestValue;
 
-    const holdingsTotal = topHoldings.reduce((acc, item) => {
-      const value = Number(item && item.amount);
-      return acc + (Number.isFinite(value) ? value : 0);
-    }, 0);
-
     const largestHolding = topHoldings.length
-      ? Number(topHoldings[0].amount || 0)
+      ? Number(topHoldings[0].base_amount || 0)
       : 0;
-    const largestHoldingShare = latestValue > 0 ? largestHolding / latestValue : 0;
+    const largestHoldingShare = currentValue > 0 ? largestHolding / currentValue : 0;
 
     const currencyEntries = Object.entries(currencySplit)
       .map(([name, raw]) => [name, Number(raw || 0)])
@@ -740,12 +733,13 @@ format:
         return '<p class="rk-empty">No holdings available.</p>';
       }
 
-      const maxAmount = Math.max(...topHoldings.map((item) => Number(item.amount || 0)), 1);
+      const maxAmount = Math.max(...topHoldings.map((item) => Number(item.base_amount || 0)), 1);
 
       const rows = topHoldings.map((item) => {
         const amount = Number(item.amount || 0);
-        const width = Math.max(0, Math.min(100, (amount / maxAmount) * 100));
-        const exposure = holdingsTotal > 0 ? amount / holdingsTotal : 0;
+        const baseAmount = item.base_amount === null ? null : Number(item.base_amount);
+        const width = Math.max(0, Math.min(100, ((baseAmount || 0) / maxAmount) * 100));
+        const exposure = currentValue > 0 && baseAmount !== null ? baseAmount / currentValue : null;
         const holdingCurrency = normalizeCurrency(item.currency, baseCurrency);
         const label = item.label || item.id || "unknown";
 
@@ -753,7 +747,8 @@ format:
           <tr>
             <td title="${escapeHtml(label)}">${escapeHtml(label)}</td>
             <td>${formatMoney(amount, holdingCurrency)}</td>
-            <td>${formatPct(exposure, 1)}</td>
+            <td>${baseAmount === null ? `Excluded: ${escapeHtml(item.excluded_reason || 'unknown')}` : formatMoney(baseAmount, baseCurrency)}</td>
+            <td>${exposure === null ? '—' : formatPct(exposure, 1)}</td>
             <td style="min-width:160px;">
               <div class="rk-bar-track"><div class="rk-bar-fill" style="width:${width.toFixed(1)}%"></div></div>
             </td>
@@ -767,8 +762,9 @@ format:
             <thead>
               <tr>
                 <th>Holding</th>
-                <th>Amount</th>
-                <th>Share (Top List)</th>
+                <th>Source amount</th>
+                <th>Current base amount</th>
+                <th>Current share</th>
                 <th>Relative Size</th>
               </tr>
             </thead>
@@ -798,11 +794,13 @@ format:
       <section class="rk-grid-main">
         <article class="rk-card">
           <div class="rk-card-body">
-            <div class="rk-label">Total amount</div>
-            <div class="rk-hero-value">${formatMoney(latestValue, baseCurrency)}</div>
+            <div class="rk-label">Current valuation</div>
+            <div class="rk-hero-value">${formatMoney(currentValue, baseCurrency)}</div>
+            <p class="rk-footnote">Current holdings; report generated ${escapeHtml(valuation.generated_at || "unknown")}. FX dates are recorded in the trust artifacts.</p>
+            <p class="rk-footnote">Historical snapshot: ${timeline.length ? formatMoney(latestValue, baseCurrency) : "none"} as of ${escapeHtml(dateTimeLabel(timelineLast))}.</p>
             <div class="rk-signed ${signClass(maxChange)}">
               ${maxChange === null ? "—" : `${formatSignedMoney(maxChange, baseCurrency)} (${formatSignedPct(maxChangePct)})`}
-              <span style="color:var(--rk-graphite);font-weight:400;"> since first snapshot</span>
+              <span style="color:var(--rk-graphite);font-weight:400;"> change across historical snapshots</span>
             </div>
 
             <div class="rk-period-strip">
@@ -835,7 +833,7 @@ format:
           <article class="rk-kpi">
             <div class="rk-label">Top holding concentration</div>
             <div class="value">${formatPct(largestHoldingShare, 1)}</div>
-            <div class="rk-footnote">Largest holding relative to latest total value.</div>
+            <div class="rk-footnote">Largest included holding relative to current valuation.</div>
           </article>
           <article class="rk-kpi">
             <div class="rk-label">Currencies tracked</div>
@@ -855,8 +853,18 @@ format:
         </aside>
       </section>
 
+      <section class="rk-card"><div class="rk-card-body">
+        <h2 class="rk-alloc-title">Data quality</h2>
+        <p>History coverage: ${escapeHtml(quality.coverage?.status || "unknown")} (${escapeHtml(JSON.stringify(quality.coverage?.by_status || {}))}). Zero findings do not prove complete history.</p>
+        <p>Quantity: ${Number(quality.quantity?.matched || 0)} matched, ${Number(quality.quantity?.mismatched || 0)} mismatched, ${Number(quality.quantity?.not_computable || 0)} not computable. Unsupported events: ${Number(quality.coverage?.unsupported_event_count || 0)}.</p>
+        <p>Excluded holdings: ${escapeHtml((quality.excluded_holding_ids || []).join(", ") || "none")}.</p>
+        <ul>${(quality.warnings || []).slice(0, 4).map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul>
+        ${(quality.warnings || []).length > 4 ? `<p>${quality.warnings.length - 4} more warnings in the trust artifacts.</p>` : ""}
+        <p>${(quality.artifacts || []).map(a => `<a href="${escapeHtml(a.href)}">${escapeHtml(a.label)}</a>`).join(" · ")}</p>
+      </div></section>
+
       <section class="rk-grid-mid">
-        ${renderAllocation("Currency split", currencySplit, baseCurrency)}
+        ${renderAllocation("Current currency allocation", currencySplit, baseCurrency)}
         ${renderAllocation("Asset type breakdown", assetTypeBreakdown, baseCurrency)}
         ${renderAllocation("Geography", geography, baseCurrency)}
       </section>

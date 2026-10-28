@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from rikdom.plugin_engine.contracts import (
-    BRAZIL_B3_ETF_TICKER_REGEX,
-    BRAZIL_B3_TICKER_REGEX,
-    BRAZIL_CNPJ_REGEX,
-    BRAZIL_INDEXER_ENUM,
-    BRAZIL_ISIN_REGEX,
-)
 from rikdom.plugin_engine.hookspecs import hookimpl
+
+BRAZIL_CNPJ_REGEX = r"^\d{14}$"
+BRAZIL_ISIN_REGEX = r"^BR[A-Z0-9]{9}\d$"
+BRAZIL_B3_TICKER_REGEX = r"^[A-Z]{4}\d{2}[A-Z]?$"
+BRAZIL_B3_ETF_TICKER_REGEX = r"^[A-Z0-9]{4}\d{2}[A-Z]?$"
+BRAZIL_INDEXER_ENUM = ["CDI_DI_OVER", "IPCA", "SELIC", "PREFIXADO"]
 
 
 _REMUNERATION_ENUM = ["PREFIXADO", "POS", "HIBRIDO"]

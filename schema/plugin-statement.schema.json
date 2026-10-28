@@ -257,6 +257,7 @@
           },
           "extensions": {
             "type": "object",
+            "properties": {"rikdom_correction": {"$ref": "#/$defs/ActivityCorrection"}},
             "additionalProperties": true
           },
           "trade_at": {
@@ -279,6 +280,7 @@
     },
     "metadata": {
       "type": "object",
+      "properties": {"rikdom_import_diagnostics": {"$ref": "#/$defs/ImportDiagnostics"}},
       "additionalProperties": true
     },
     "tax_lots": {
@@ -295,6 +297,158 @@
     }
   },
   "$defs": {
+    "ActivityCorrection": {
+      "type": "object",
+      "required": [
+        "version",
+        "supersedes_activity_id",
+        "reason"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "supersedes_activity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "ImportDiagnostics": {
+      "type": "object",
+      "required": [
+        "version",
+        "history_coverage",
+        "unsupported_events"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "history_coverage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "scope",
+              "status",
+              "event_types"
+            ],
+            "properties": {
+              "scope": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "unknown"
+                ]
+              },
+              "event_types": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "through": {
+                "type": "string",
+                "format": "date"
+              },
+              "timezone": {
+                "type": "string"
+              },
+              "position_basis": {
+                "enum": [
+                  "trade",
+                  "settled",
+                  "unknown"
+                ]
+              },
+              "opening_quantity": {
+                "type": "number"
+              },
+              "history_origin": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "source_ref"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "source",
+                      "user_declaration"
+                    ]
+                  },
+                  "source_ref": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "complete"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "from",
+                    "through"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "unsupported_events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "source_ref",
+              "source_event",
+              "reason"
+            ],
+            "properties": {
+              "source_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_event": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
     "Money": {
       "type": "object",
       "required": [

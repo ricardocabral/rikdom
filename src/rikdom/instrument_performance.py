@@ -14,6 +14,8 @@ import math
 from typing import Any
 
 from .performance import Cashflow, xirr
+from .activities import check_financial_contract, effective_activities
+from .income import income_amount_basis
 
 
 _DISTRIBUTIONS = {"dividend", "interest", "income", "amortization", "reimbursement"}
@@ -43,7 +45,7 @@ def _number(value: Any) -> Decimal:
     return Decimal(str(value))
 
 
-def _money(value: Any, currency: str | None = None) -> tuple[Decimal, str]:
+def _money(value: Any, currency: str | None = None, *, signed: bool = False) -> tuple[Decimal, str]:
     if not isinstance(value, dict):
         raise ValueError("Missing money")
     amount = _number(value.get("amount"))
@@ -60,7 +62,7 @@ def _money(value: Any, currency: str | None = None) -> tuple[Decimal, str]:
         raise ValueError(
             f"Currency {code} differs from {currency}; no FX conversion applied"
         )
-    if amount < 0:
+    if amount < 0 and not signed:
         raise ValueError("Money and costs must be nonnegative")
     return amount, code
 
@@ -133,6 +135,7 @@ def compute_instrument_performance(
     is usable only at ``holding.as_of``. Invalid explicit inputs and unknown
     holding IDs raise ValueError; ledger defects produce incomplete diagnostics.
     """
+    check_financial_contract(portfolio)
     holdings = [h for h in portfolio.get("holdings", []) if isinstance(h, dict)]
     matches = [h for h in holdings if h.get("id") == holding_id]
     if len(matches) != 1:
@@ -218,7 +221,7 @@ def compute_instrument_performance(
     quantity_after_cutoff_on_valuation_day = False
     seen: dict[str, dict] = {}
     seen_imports: dict[str, dict] = {}
-    for activity in portfolio.get("activities", []):
+    for activity in effective_activities(portfolio.get("activities") or []):
         if not isinstance(activity, dict):
             continue
         status = activity.get("status", "posted")
@@ -337,19 +340,29 @@ def compute_instrument_performance(
                 )
             continue
         try:
-            amount, code = _money(activity.get("money"), currency)
+            income_basis = income_amount_basis(activity) if event in _DISTRIBUTIONS else "gross"
+            if income_basis == "unknown":
+                raise ValueError("Income amount basis is unknown; investor receipts unavailable")
+            net_distribution = event in _DISTRIBUTIONS and income_basis == "net"
+            amount, code = _money(activity.get("money"), currency, signed=net_distribution)
             if currency is None:
                 currency = code
-            fees = (
-                _money(activity["fees"], currency)[0]
-                if "fees" in activity
-                else Decimal(0)
-            )
-            taxes = (
-                _money(activity["withholding_tax"], currency)[0]
-                if "withholding_tax" in activity
-                else Decimal(0)
-            )
+            costs = {}
+            for field in ("fees", "withholding_tax"):
+                try:
+                    costs[field] = (
+                        _money(activity[field], currency, signed=net_distribution)[0]
+                        if field in activity else Decimal(0)
+                    )
+                except ValueError as exc:
+                    if not net_distribution:
+                        raise
+                    costs[field] = Decimal(0)
+                    warnings.append(
+                        f"Activity {activity_id}: known net receipt retained; "
+                        f"{field} breakdown unavailable ({exc})"
+                    )
+            fees, taxes = costs["fees"], costs["withholding_tax"]
         except ValueError as exc:
             warnings.append(f"Activity {activity_id}: invalid money ({exc}); skipped")
             continue
@@ -363,7 +376,7 @@ def compute_instrument_performance(
             cash = amount - fees - taxes
             observed["observed_sell_inflows"] += cash
         elif event in _DISTRIBUTIONS:
-            cash = amount - fees - taxes
+            cash = amount if income_basis == "net" else amount - fees - taxes
             observed["observed_distributions"] += cash
         else:
             cash = -(amount + fees + taxes)

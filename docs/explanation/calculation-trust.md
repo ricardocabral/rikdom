@@ -23,9 +23,9 @@ FX-specific behavior, see
 | `src/rikdom/reconciliation/codes.py` | Frozen registry of issue codes + default severities | shipped |
 | `src/rikdom/reconciliation/findings.py` | `Finding` dataclass and `record_finding` helper | shipped |
 | `aggregate_portfolio()` `findings` field | Structured siblings of the existing `warnings` strings | shipped |
-| `out/reports/holding_trust.{json,md}` | Per-holding traceability artifact | planned |
-| `out/reports/reconciliation.{json,md}` | Aggregated reconciliation report | planned |
-| `rikdom reconcile` CLI | Generates the two reports above | planned |
+| `out/reports/holding_trust.{json,md}` | Per-holding traceability artifact | shipped |
+| `out/reports/reconciliation.{json,md}` | Aggregated reconciliation report | shipped |
+| `rikdom reconcile` CLI | Generates the two reports above | shipped |
 
 ## The `Finding` shape
 
@@ -60,13 +60,13 @@ The aggregation pipeline computes each holding's base-currency value as:
 base_amount = holding.market_value.amount × fx_rate(currency → base, at timestamp)
 ```
 
-For each holding, the trust report (planned) will record:
+For each holding, the trust report records:
 
 - `source_amount`, `source_currency` from `holding.market_value`
 - `fx_rate`, `fx_timestamp`, `fx_source` resolved from `fx_rates_to_base`
   (preferred) or `metadata.fx_rate_to_base` (compatibility fallback —
   flagged as `TRUST_FX_FALLBACK_USED`)
-- `base_amount`, `computed_at`
+- `base_amount`; report-level `generated_at` records generation, not a quote date
 
 Summing `base_amount` across holdings yields `total_value_base`. Any FX
 gap is reported as `RECON_FX_MISSING` and the affected holding is excluded
@@ -83,3 +83,41 @@ inputs.
 - [Reconciliation codes reference](../reference/reconciliation-codes.md) — every issue code.
 - [Multi-currency engine](multi-currency-engine.md) — FX resolution.
 - `src/rikdom/aggregate.py` — emission sites for each finding.
+
+## Current values, history, and corrected events
+
+Current total is the sum of included holdings' market values converted with the
+selected FX context. Quantities and activities check consistency; their cashflows
+are not added again to the current holdings total. Core retains calculation
+precision; output plugins choose display formatting. Missing/invalid reporting
+currency is an error, not an implicit USD selection.
+
+For example, 200 JPY at an explicitly cached 0.006123 EUR/JPY contributes
+1.2246 EUR. A second 10 EUR holding gives 11.2246 EUR. A 100 GBP holding without
+FX is excluded and receives `RECON_FX_MISSING`; its value is not silently assumed
+to be zero. Reproduce the total by summing the non-excluded `base_amount` entries
+in `holding_trust.json` and inspecting its invariant. Available FX dates/providers
+come from the lock; metadata-only rates can have an unknown effective date.
+Report generation time never fills that gap.
+
+For a quantity check, a dated position of 3 units against an explicitly covered
+buy of 2 is a mismatch. Without the account scope, source period, inception/zero
+opening evidence, and compatible trade basis, it is `not_computable`, even when
+numbers happen to match. Reports distinguish these states. The current workflow
+does not infer settled quantities, a settlement calendar, or missing purchases.
+
+A manual correction appends a linked replacement and preserves the original.
+Correction-aware calculations count the latest replacement once. This introduces
+schema 2.0 financial semantics; uncorrected 1.x remains supported. See the
+[manual-entry guide](../how-to/enter-and-correct-activities.md) for preview/write,
+replays, and dependent-lot limitations.
+
+Reports distinguish current holdings from historical snapshot totals. To reproduce
+a historical observation, use its original holdings and saved `metadata.fx_lock`.
+Today's `reconcile` against a current portfolio does not reconstruct older holdings.
+Missing archived inputs remain a limitation, even if the rate lock survives.
+
+Run `rikdom reconcile --data-dir data --out-root out` for the four trust artifacts,
+or add `--reconcile` to a successful import. Import previews include candidate
+quality/coverage summaries and write no artifacts. Quarto renders the same core
+aggregate/trust results and links to the local JSON/Markdown files.

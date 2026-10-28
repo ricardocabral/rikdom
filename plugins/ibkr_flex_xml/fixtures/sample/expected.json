@@ -114,5 +114,28 @@
       "status": "posted"
     }
   ],
-  "provider": "ibkr_flex_xml"
+  "provider": "ibkr_flex_xml",
+  "metadata": {
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "ibkr_flex_xml:statement",
+          "status": "unknown",
+          "event_types": [
+            "buy",
+            "dividend",
+            "fee",
+            "interest",
+            "sell",
+            "transfer_in"
+          ],
+          "reasons": [
+            "source_does_not_declare_complete_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
+  }
 }

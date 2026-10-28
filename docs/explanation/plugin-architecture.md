@@ -225,3 +225,25 @@ claim live market-data determinism or offline provider-cache replay.
 - [Plugin manifest reference](../reference/plugin-manifest.md)
 - [Plugin hooks reference](../reference/plugin-hooks.md)
 - [Author your first plugin tutorial](../tutorials/first-plugin.md)
+
+## Calculation and source boundaries
+
+Source plugins own file layouts, locale/date/timezone parsing, institutional account
+mapping, source-event interpretation, and identity evidence construction. They emit
+normalized facts without reading portfolio state. Core validates contracts, compares
+opaque identities/scopes, enforces ledger/reference integrity, persists provenance,
+and performs deterministic calculations. Output plugins own labels, language, layout,
+and grouping while consuming core valuation/trust results. User selections and
+preferences remain portfolio/policy data, not per-user branches in core.
+
+The optional Frankfurter connector illustrates provider isolation: HTTP operations
+live in `plugins/frankfurter`; core selects cached FX history and only acquires data
+through an explicitly injected provider. Import diagnostics, reconciliation and
+report generation keep acquisition disabled.
+
+The shared parsing primitives require explicit source conventions:
+`parse_decimal(..., decimal_separator=..., grouping_separator=...)` and
+`normalize_datetime(..., naive_timezone=..., date_formats=...)`. Source plugins
+remove their own currency decorations and choose ambiguous date ordering; core
+preflight validates normalized JSON numbers and timezone-aware ISO timestamps.
+The stable `source_input` hook signature is unchanged.

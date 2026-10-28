@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any
 from xml.etree.ElementTree import Element, ParseError
@@ -12,7 +14,11 @@ from xml.etree.ElementTree import Element, ParseError
 from defusedxml import ElementTree as DefusedET
 from defusedxml.common import DefusedXmlException
 
-from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime, parse_decimal
+from rikdom.import_normalization import as_text, normalize_currency, normalize_datetime as _normalize_datetime, parse_decimal as _parse_decimal
+
+# This export dialect uses ISO dates and UTC for dates without a zone.
+normalize_datetime = partial(_normalize_datetime, naive_timezone=timezone.utc)
+parse_decimal = partial(_parse_decimal, decimal_separator=".", grouping_separator=None)
 
 PROVIDER = "ibkr_flex_xml"
 MAX_XML_BYTES = 64 * 1024 * 1024
@@ -158,19 +164,24 @@ def _trade_event_type(row: dict[str, str]) -> str:
 
 
 def _cash_event_type(row: dict[str, str]) -> str:
-    raw = " ".join((as_text(row.get("type")), as_text(row.get("description")))).lower()
-    if "dividend" in raw:
-        return "dividend"
-    if "interest" in raw:
-        return "interest"
-    if "tax" in raw or "withholding" in raw:
-        return "other"
-    if "fee" in raw or "commission" in raw:
-        return "fee"
-    if "deposit" in raw or "transfer in" in raw or "incoming" in raw:
-        return "transfer_in"
-    if "withdraw" in raw or "transfer out" in raw or "outgoing" in raw:
-        return "transfer_out"
+    # A recognized source type wins over ticker/name words in the description.
+    # Only unclassified types fall back to the bounded description checks.
+    for field in ("type", "description"):
+        raw = as_text(row.get(field)).lower()
+        # Withholding descriptions may mention dividends/interest. Tax-exempt is
+        # an instrument property, not evidence of a tax cash movement.
+        if re.search(r"\bwithholding\b|\btax(?:es)?\b(?![-\s]+exempt\b)", raw):
+            return "tax_withheld"
+        if re.search(r"\bdividends?\b", raw):
+            return "dividend"
+        if re.search(r"\binterest\b", raw):
+            return "interest"
+        if re.search(r"\b(?:fees?|commissions?)\b", raw):
+            return "fee"
+        if re.search(r"\b(?:deposits?|incoming)\b|\btransfer[ -]+in\b", raw):
+            return "transfer_in"
+        if re.search(r"\b(?:withdraw(?:al)?s?|outgoing)\b|\btransfer[ -]+out\b", raw):
+            return "transfer_out"
     return "other"
 
 
@@ -387,7 +398,9 @@ def _cash_activity(row: dict[str, str], account_id: str) -> dict[str, Any]:
     return activity
 
 
-def parse_statement(path: Path) -> dict[str, Any]:
+def parse_statement(path: Path, *, unsupported_events: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    if unsupported_events is None:
+        unsupported_events = []
     root = _load_xml(path)
     account_id = _statement_account_id(root)
 
@@ -418,6 +431,14 @@ def parse_statement(path: Path) -> dict[str, Any]:
         row = {k: v for k, v in ca_row.attrib.items()}
         activity = _corporate_action_activity(row, account_id)
         if activity is None:
+            if not _is_cancel_like_trade(row):
+                unsupported_events.append({
+                    "source_ref": f"ibkr:{account_id}#corporate-action:{_corporate_action_id(row)}",
+                    "source_event": as_text(row.get("type")) or "CorporateAction",
+                    "reason": "non_cash_corporate_action_has_no_supported_mapping",
+                    "affects_quantity": bool(parse_decimal(row.get("quantity"))),
+                    "affects_cash": False,
+                })
             continue
         aid = activity["id"]
         if aid in seen_ids:
@@ -425,7 +446,7 @@ def parse_statement(path: Path) -> dict[str, Any]:
         seen_ids.add(aid)
         activities.append(activity)
 
-    if not activities:
+    if not activities and not unsupported_events:
         raise ValueError("IBKR Flex XML did not contain usable Trade or CashTransaction rows")
 
     return {

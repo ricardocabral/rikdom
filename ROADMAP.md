@@ -66,7 +66,8 @@ they are not prerequisites for the free offline workflow.
 - Importers for Portfolio Performance, Wealthfolio, IBKR, and other providers are
   already present; see [plugin catalog](plugins/README.md). B3's existing
   [monthly consolidated importer](plugins/b3-consolidado-mensal/README.md) imports
-  holdings, which does not establish a complete trade history.
+  holdings and `Movimentação` history. Source movement dates and institutions do
+  not by themselves establish full history, account identity, or a trade-date basis.
 - Holding provenance and reconciliation JSON/Markdown reports already ship through
   `reconcile`: [report implementation](src/rikdom/reconciliation/reports.py) and
   [CLI coverage](tests/test_cli_reconcile.py).
@@ -159,9 +160,10 @@ Sequencing override:
 - [x] Ship first-party `wealthfolio_export_json` importer with enum mapping and fallback tests.
 - [x] Ship `wealthfolio_activity_csv` fallback importer path with fixtures.
 - [x] Add IBKR cancellation/corporate-action edge-case tests.
-- [ ] Import a B3 trade-history file twice without duplicating activities and reconcile it with a holdings statement.
-- [ ] Enter and correct a manual activity with preview/validation and an auditable correction trail.
-- [ ] Surface explicit history coverage and unsupported events for every first-party importer.
+- [x] Import a B3 `Movimentação` history file twice without duplicating recognized activities; report unsupported movements and partial coverage.
+- [ ] Reconcile B3 positions with verified account/opening coverage and compatible execution/settlement-date evidence.
+- [x] Enter and correct a manual activity with preview/validation and an auditable correction trail.
+- [x] Surface explicit history coverage and unsupported events for every first-party importer.
 
 ---
 
@@ -181,7 +183,7 @@ Sequencing override:
 - [x] Make each computed holding value traceable to source amount + FX + timestamp in an exported report.
 - [x] Ensure reconciliation reports flag amount/quantity inconsistencies with actionable diagnostics.
 - [x] Provide stable issue codes for reconciliation findings.
-- [ ] Document how to reproduce a portfolio total from raw holdings, activities, and FX history.
+- [x] Document how to reproduce a portfolio total from raw holdings, activities, and FX history.
 
 ---
 
@@ -203,7 +205,7 @@ Sequencing override:
 ### Acceptance criteria
 
 - [ ] Add mobile/desktop report usability checks or documented manual QA criteria.
-- [ ] Surface reconciliation/data-quality warnings in generated reports.
+- [x] Surface reconciliation/data-quality warnings in generated reports.
 - [ ] Keep deprecated visualization aliases covered until removal policy is decided.
 - [ ] Open generated reports with networking disabled and retain charts, filters, and explanations.
 - [ ] Verify keyboard navigation, readable mobile layouts, and localized labels/date/number formatting; begin with English and Portuguese.
@@ -231,8 +233,8 @@ Sequencing override:
 
 ### Acceptance criteria
 
-- [ ] Roll up dividend and interest events into monthly/yearly income views.
-- [ ] Expose income views through CLI/report artifacts.
+- [x] Roll up dividend and interest events into monthly/yearly native-currency income views.
+- [x] Expose income views through the `income` CLI and JSON/Markdown report artifacts.
 - [ ] Ensure all first-party importers map dividend/interest/cashflow events consistently.
 - [ ] Enable new users to run bootstrap + first import using a documented happy path in under 15 minutes.
 - [ ] Display paid and announced income separately; forecasts never enter actual balances or realized returns.

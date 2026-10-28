@@ -60,7 +60,9 @@ def compute_funded_ratios(
     as_of_date = _coerce_date(as_of) or date.today()
     warnings: list[str] = []
     if base_currency is None:
-        base_currency = _policy_base_currency(policy) or "USD"
+        base_currency = _policy_base_currency(policy)
+    if not isinstance(base_currency, str) or not base_currency.strip():
+        raise ValueError("An explicit base_currency is required")
     base_currency = base_currency.upper()
     fx_rates = _normalize_fx_rates(fx_rates_to_base)
     account_values = by_account or {}
@@ -71,7 +73,7 @@ def compute_funded_ratios(
         return FundedRatioSummary(
             base_currency=base_currency,
             as_of=as_of_date.isoformat(),
-            portfolio_value_base=round(float(portfolio_value_base), 2),
+            portfolio_value_base=float(portfolio_value_base),
             results=[],
             warnings=warnings,
         )
@@ -154,13 +156,13 @@ def compute_funded_ratios(
                 target_amount_today_base=_round_money(target_amount)
                 if target_amount is not None
                 else None,
-                projected_value_base=round(float(projected), 2),
+                projected_value_base=float(projected),
                 ratio=round(ratio, 6) if ratio is not None else None,
-                shortfall_base=round(float(shortfall), 2)
+                shortfall_base=float(shortfall)
                 if shortfall is not None
                 else None,
-                current_value_base=round(float(current_value), 2),
-                net_annual_contribution_base=round(float(net_annual), 2),
+                current_value_base=float(current_value),
+                net_annual_contribution_base=float(net_annual),
                 expected_real_return_pct=round(expected_return_pct, 6),
                 warnings=obj_warnings,
             )
@@ -169,7 +171,7 @@ def compute_funded_ratios(
     return FundedRatioSummary(
         base_currency=base_currency,
         as_of=as_of_date.isoformat(),
-        portfolio_value_base=round(float(portfolio_value_base), 2),
+        portfolio_value_base=float(portfolio_value_base),
         results=results,
         warnings=warnings,
     )
@@ -782,4 +784,4 @@ def _string_or_default(value: Any, default: str) -> str:
 def _round_money(value: float | None) -> float | None:
     if value is None:
         return None
-    return round(float(value), 2)
+    return float(value)

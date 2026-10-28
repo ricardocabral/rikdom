@@ -99,11 +99,11 @@ class ValidateTests(unittest.TestCase):
     def test_major_version_mismatch_is_reported(self) -> None:
         portfolio = load_json("tests/fixtures/portfolio.json")
         candidate = copy.deepcopy(portfolio)
-        candidate["schema_version"] = "2.0.0"
+        candidate["schema_version"] = "3.0.0"
 
         errors = validate_portfolio(candidate)
         self.assertTrue(
-            any("schema_version '2.0.0' is incompatible" in e for e in errors),
+            any("schema_version '3.0.0' is incompatible" in e for e in errors),
             msg=f"Expected major mismatch error, got: {errors}",
         )
 

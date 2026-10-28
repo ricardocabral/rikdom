@@ -59,6 +59,10 @@ def _to_holding(row: dict[str, str | None]) -> dict:
     if fx_rate:
         holding["metadata"] = {"fx_rate_to_base": float(fx_rate)}
 
+    canonical_key = _cell(row, "canonical_key")
+    if canonical_key:
+        holding.setdefault("metadata", {})["canonical_key"] = canonical_key
+
     return holding
 
 

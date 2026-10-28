@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import copy
-import json
-from datetime import datetime, timezone
+import math
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from typing import Any, Callable, TypedDict
 
 from .storage import append_jsonl, load_jsonl
 
 
-FxFetcher = Callable[..., dict[str, float]]
+class FxRate(TypedDict):
+    """An acquired quote-to-base rate with its actual effective date and origin."""
+
+    rate_to_base: float
+    as_of_date: str
+    source: str
+
+
+# Float entries remain supported for existing explicitly injected fetchers.
+FxFetcher = Callable[..., dict[str, float | FxRate]]
 
 
 def _utc_now_iso() -> str:
@@ -72,10 +79,11 @@ def _best_history_rates(
     base_currency: str,
     quote_currencies: list[str],
     as_of_date: str,
-) -> tuple[dict[str, float], dict[str, str]]:
+) -> tuple[dict[str, float], dict[str, str], dict[str, str]]:
     quote_set = set(quote_currencies)
     rates: dict[str, float] = {}
     rate_dates: dict[str, str] = {}
+    sources: dict[str, str] = {}
 
     for row in rows:
         if not isinstance(row, dict):
@@ -87,44 +95,37 @@ def _best_history_rates(
 
         if row_base != base_currency or row_quote not in quote_set:
             continue
-        if len(row_date) != 10 or row_date > as_of_date:
+        if not _valid_rate_date(row_date, as_of_date=as_of_date):
             continue
-        if not isinstance(row_rate, (int, float)) or row_rate <= 0:
+        if not _valid_rate(row_rate):
             continue
 
         current_date = rate_dates.get(row_quote)
         if current_date is None or row_date > current_date:
             rates[row_quote] = float(row_rate)
             rate_dates[row_quote] = row_date
+            source = row.get("source")
+            sources[row_quote] = source if isinstance(source, str) and source else "history"
 
-    return rates, rate_dates
+    return rates, rate_dates, sources
 
 
-def fetch_daily_fx_rates_from_frankfurter(
-    *,
-    base_currency: str,
-    quote_currencies: list[str],
-    as_of_date: str,
-) -> dict[str, float]:
-    rates: dict[str, float] = {}
-    for quote_currency in quote_currencies:
-        params = urlencode({"from": quote_currency, "to": base_currency})
-        url = f"https://api.frankfurter.app/{as_of_date}?{params}"
-        request = Request(
-            url,
-            headers={
-                # Frankfurter can reject the default urllib user-agent with 403.
-                "User-Agent": "rikdom/1.0 (+https://github.com/ricardocabral/rikdom)",
-                "Accept": "application/json",
-            },
-        )
-        # Bandit B310 false positive: endpoint host/scheme are fixed and query params are encoded.
-        with urlopen(request, timeout=10) as response:  # nosec B310
-            payload = json.loads(response.read().decode("utf-8"))
-        value = payload.get("rates", {}).get(base_currency)
-        if isinstance(value, (int, float)) and value > 0:
-            rates[quote_currency] = float(value)
-    return rates
+def _valid_rate(value: Any) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value > 0
+    )
+
+
+def _valid_rate_date(value: Any, *, as_of_date: str) -> bool:
+    if not isinstance(value, str) or len(value) != 10 or value > as_of_date:
+        return False
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
 
 
 def ensure_snapshot_fx_lock(
@@ -132,15 +133,24 @@ def ensure_snapshot_fx_lock(
     *,
     fx_history_path: str | Path,
     snapshot_timestamp: str,
-    auto_ingest: bool = True,
+    auto_ingest: bool = False,
     fetcher: FxFetcher | None = None,
     extra_quote_currencies: list[str] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
+    """Lock cached FX rates, acquiring missing rates only with explicit opt-in.
+
+    Acquisition requires both ``auto_ingest=True`` and an injected fetcher.
+    Fetchers return currency-keyed ``FxRate`` entries with the provider's actual
+    effective date and source. Legacy numeric entries use the requested date
+    and the generic ``auto_ingest`` source.
+    """
     settings = portfolio.get("settings") if isinstance(portfolio, dict) else {}
     if not isinstance(settings, dict):
         settings = {}
 
-    base_currency = _normalize_currency(settings.get("base_currency")) or "USD"
+    base_currency = _normalize_currency(settings.get("base_currency"))
+    if len(base_currency) != 3 or not base_currency.isascii() or not base_currency.isalpha():
+        raise ValueError("settings.base_currency is required for an FX lock")
     as_of_date = _snapshot_as_of_date(snapshot_timestamp)
     quote_currencies = _required_quote_currencies(
         portfolio, base_currency=base_currency
@@ -154,23 +164,21 @@ def ensure_snapshot_fx_lock(
         quote_currencies = sorted(merged)
 
     rows = load_jsonl(fx_history_path)
-    rates_to_base, rate_dates = _best_history_rates(
+    rates_to_base, rate_dates, sources = _best_history_rates(
         rows,
         base_currency=base_currency,
         quote_currencies=quote_currencies,
         as_of_date=as_of_date,
     )
-    sources = {currency: "history" for currency in rates_to_base}
     warnings: list[str] = []
 
     missing = [
         currency for currency in quote_currencies if currency not in rates_to_base
     ]
-    if missing and auto_ingest:
-        fetch_fn = fetcher or fetch_daily_fx_rates_from_frankfurter
+    if missing and auto_ingest and fetcher is not None:
         for currency in missing:
             try:
-                fetched = fetch_fn(
+                fetched = fetcher(
                     base_currency=base_currency,
                     quote_currencies=[currency],
                     as_of_date=as_of_date,
@@ -178,24 +186,35 @@ def ensure_snapshot_fx_lock(
             except Exception as exc:
                 warnings.append(f"FX auto-ingest failed for {currency}: {exc}")
                 continue
-            fetched_rate = fetched.get(currency) if isinstance(fetched, dict) else None
-            if not isinstance(fetched_rate, (int, float)) or fetched_rate <= 0:
+            entry = fetched.get(currency) if isinstance(fetched, dict) else None
+            if isinstance(entry, dict):
+                fetched_rate = entry.get("rate_to_base")
+                rate_date = entry.get("as_of_date")
+                source = entry.get("source")
+                source = source if isinstance(source, str) and source else "auto_ingest"
+            else:
+                fetched_rate = entry
+                rate_date = as_of_date
+                source = "auto_ingest"
+            if not _valid_rate(fetched_rate) or not _valid_rate_date(
+                rate_date, as_of_date=as_of_date
+            ):
                 continue
             rate_value = float(fetched_rate)
             append_jsonl(
                 fx_history_path,
                 {
-                    "as_of_date": as_of_date,
+                    "as_of_date": rate_date,
                     "base_currency": base_currency,
                     "quote_currency": currency,
                     "rate_to_base": rate_value,
-                    "source": "frankfurter",
+                    "source": source,
                     "ingested_at": _utc_now_iso(),
                 },
             )
             rates_to_base[currency] = rate_value
-            rate_dates[currency] = as_of_date
-            sources[currency] = "auto_ingest"
+            rate_dates[currency] = rate_date
+            sources[currency] = source
 
     for currency in quote_currencies:
         if currency not in rates_to_base:

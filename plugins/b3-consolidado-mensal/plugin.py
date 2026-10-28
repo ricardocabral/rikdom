@@ -4,6 +4,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
+from rikdom.import_normalization import with_import_diagnostics
 from rikdom.plugin_engine.hookspecs import hookimpl
 
 
@@ -25,4 +26,16 @@ importer_impl = _load_importer_module()
 class Plugin:
     @hookimpl
     def source_input(self, ctx, input_path):
-        return importer_impl.parse_workbook(Path(input_path))
+        payload = importer_impl.parse_workbook(Path(input_path))
+        if "rikdom_import_diagnostics" in payload.get("metadata", {}):
+            return payload
+        return with_import_diagnostics(
+            payload,
+            history_coverage=[{
+                "scope": "b3-consolidado-mensal:statement",
+                "status": "unknown",
+                "event_types": [],
+                "reasons": ["positions_only_source_does_not_supply_activity_history"],
+            }],
+            unsupported_events=[],
+        )

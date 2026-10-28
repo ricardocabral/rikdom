@@ -46,6 +46,21 @@
         "taxes": {
           "amount": 2.2,
           "currency": "EUR"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "net"
+        },
+        "source_money": {
+          "value": "7,80",
+          "currency": "EUR",
+          "gross_amount": "10,00",
+          "gross_currency": "EUR",
+          "exchange_rate": "1,0000",
+          "fees": "0,00",
+          "fees_currency": "EUR",
+          "taxes": "2,20",
+          "taxes_currency": "EUR"
         }
       },
       "money": {
@@ -53,7 +68,15 @@
         "currency": "EUR"
       },
       "source_ref": "portfolio_performance_csv#pp-d4c2c46e4f0ba4d5",
-      "status": "posted"
+      "status": "posted",
+      "fees": {
+        "amount": 0.0,
+        "currency": "EUR"
+      },
+      "withholding_tax": {
+        "amount": 2.2,
+        "currency": "EUR"
+      }
     },
     {
       "effective_at": "2026-04-01T00:00:00Z",
@@ -87,5 +110,33 @@
       "subtype": "pp:steuern"
     }
   ],
-  "provider": "portfolio_performance_csv"
+  "provider": "portfolio_performance_csv",
+  "metadata": {
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "portfolio_performance_csv:statement",
+          "status": "partial",
+          "event_types": [
+            "buy",
+            "dividend",
+            "transfer_in"
+          ],
+          "reasons": [
+            "unsupported_source_events"
+          ]
+        }
+      ],
+      "unsupported_events": [
+        {
+          "source_ref": "portfolio_performance_csv#pp-79eba726b7e242d6",
+          "source_event": "pp:steuern",
+          "reason": "source_event_has_no_supported_taxonomy_mapping",
+          "affects_quantity": false,
+          "affects_cash": true
+        }
+      ]
+    }
+  }
 }

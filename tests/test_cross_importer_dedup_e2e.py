@@ -241,64 +241,18 @@ class CrossImporterDedupE2ETests(unittest.TestCase):
                     "2026-05-02T00:00:00Z",
                 ]
             )
-            self.assertEqual(
-                dry_collapse["dry_run_diff"]["summary"]["holdings"],
-                {"create": 0, "update": 1, "noop": 0},
-            )
-            row = dry_collapse["dry_run_diff"]["rows"][0]
-            self.assertEqual(row["collapsed_canonical_key"], "br:acao:bbdc4")
-            self.assertEqual(row["collapsed_into_id"], b3_id)
-            changed_fields = {change["field"] for change in row["changes"]}
-            self.assertNotIn("id", changed_fields)
-            self.assertIn("metadata.collapsed_from", changed_fields)
-            self.assertEqual(dry_collapse["holdings"]["collapsed"], 1)
-            self.assertEqual(
-                dry_collapse["holdings"]["collapses"],
-                [
-                    {
-                        "canonical_key": "br:acao:bbdc4",
-                        "from_id": "irpf-0301-tk-bbdc4",
-                        "into_id": b3_id,
-                    }
-                ],
-            )
-
-            write_collapse = self._run_cli(
-                [
-                    "import-statement",
-                    "--portfolio",
-                    str(portfolio_path),
-                    "--plugin",
-                    "irpf-xml",
-                    "--input",
-                    str(irpf_path),
-                    "--plugins-dir",
-                    str(PLUGINS_DIR),
-                    "--collapse-canonical",
-                    "--write",
-                    "--import-run-id",
-                    "run-irpf-bbdc4-write-collapse",
-                    "--ingested-at",
-                    "2026-05-02T00:00:00Z",
-                ]
-            )
-            self.assertTrue(write_collapse["write"])
-            self.assertEqual(write_collapse["holdings"]["collapsed"], 1)
-
-            final_portfolio = json.loads(portfolio_path.read_text(encoding="utf-8"))
-            self.assertEqual(len(final_portfolio["holdings"]), 1)
-            final_holding = final_portfolio["holdings"][0]
-            self.assertEqual(final_holding["id"], b3_id)
-            self.assertEqual(final_holding["asset_type_id"], "acao")
-            self.assertEqual(
-                final_holding["market_value"], {"amount": 175.0, "currency": "BRL"}
-            )
-            self.assertEqual(
-                final_holding["metadata"]["canonical_key"], "br:acao:bbdc4"
-            )
-            self.assertIn(
-                "irpf-0301-tk-bbdc4", final_holding["metadata"]["collapsed_from"]
-            )
+            self.assertEqual(dry_collapse["dry_run_diff"]["summary"]["holdings"], {"create": 1, "update": 0, "noop": 0})
+            self.assertEqual(dry_collapse["holdings"].get("collapsed", 0), 0)
+            written = self._run_cli([
+                "import-statement", "--portfolio", str(portfolio_path),
+                "--plugin", "irpf-xml", "--input", str(irpf_path),
+                "--plugins-dir", str(PLUGINS_DIR), "--collapse-canonical", "--write",
+            ])
+            self.assertEqual(written["holdings"].get("collapsed", 0), 0)
+            final = json.loads(portfolio_path.read_text())
+            self.assertEqual(len(final["holdings"]), 2)
+            self.assertEqual(final["holdings"][0]["id"], b3_id)
+            self.assertEqual(final["holdings"][0]["market_value"]["amount"], 150.0)
 
 
 if __name__ == "__main__":

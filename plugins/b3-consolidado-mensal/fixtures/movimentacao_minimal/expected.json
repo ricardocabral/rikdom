@@ -1,0 +1,348 @@
+{
+  "provider": "b3-consolidado-mensal",
+  "generated_at": "2001-02-14T12:00:00Z",
+  "base_currency": "BRL",
+  "holdings": [],
+  "metadata": {
+    "source_file": "input.xlsx",
+    "parsed_position_sheets": [],
+    "layout_profile": "b3-movimentacao-v1",
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+      "history_coverage": [
+        {
+          "scope": "b3-movimentacao:institution:68bb57c213450a10b20d6880",
+          "status": "partial",
+          "event_types": [
+            "transfer_in",
+            "transfer_out"
+          ],
+          "reasons": [
+            "statement_period_not_declared",
+            "institution_does_not_identify_account",
+            "trade_or_settlement_date_basis_unknown"
+          ]
+        },
+        {
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "status": "partial",
+          "event_types": [
+            "buy",
+            "dividend",
+            "income",
+            "sell"
+          ],
+          "reasons": [
+            "statement_period_not_declared",
+            "institution_does_not_identify_account",
+            "trade_or_settlement_date_basis_unknown"
+          ]
+        }
+      ],
+      "unsupported_events": [
+        {
+          "source_ref": "Movimentação:row:10",
+          "source_event": "Bonificação em Ativos",
+          "reason": "Unsupported source movement/direction; no economic event inferred",
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "affects_quantity": true,
+          "affects_cash": true
+        },
+        {
+          "source_ref": "Movimentação:row:11",
+          "source_event": "Evento Sintético Não Suportado",
+          "reason": "Unsupported source movement/direction; no economic event inferred",
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "affects_quantity": true,
+          "affects_cash": true
+        }
+      ]
+    }
+  },
+  "activities": [
+    {
+      "id": "b3-mov-9344f6b0f2d75d00cbc622b6-0",
+      "idempotency_key": "b3-mov-9344f6b0f2d75d00cbc622b6-0",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2001-02-03T02:00:00Z",
+      "instrument": {
+        "provider_product": "ZZZA3 - EMPRESA SINTETICA A",
+        "ticker": "ZZZA3"
+      },
+      "source_ref": "Movimentação:9344f6b0f2d75d00cbc622b6:0",
+      "metadata": {
+        "source_movement": "Transferência - Liquidação",
+        "source_direction": "Entrada",
+        "institution": "CORRETORA FICTICIA ALFA",
+        "date_precision": "day",
+        "date_basis": "source_movement_date",
+        "amount_basis": "reported_gross_net_unknown",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "scope_kind": "institution",
+          "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+          "signature": "9344f6b0f2d75d00cbc622b681d6d1697ed24befb1e849964835b070b7ca8aa4",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "reported_unit_price": 13.37
+      },
+      "quantity": 7.0,
+      "money": {
+        "amount": 93.59,
+        "currency": "BRL"
+      }
+    },
+    {
+      "id": "b3-mov-9344f6b0f2d75d00cbc622b6-1",
+      "idempotency_key": "b3-mov-9344f6b0f2d75d00cbc622b6-1",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2001-02-03T02:00:00Z",
+      "instrument": {
+        "provider_product": "ZZZA3 - EMPRESA SINTETICA A",
+        "ticker": "ZZZA3"
+      },
+      "source_ref": "Movimentação:9344f6b0f2d75d00cbc622b6:1",
+      "metadata": {
+        "source_movement": "Transferência - Liquidação",
+        "source_direction": "Entrada",
+        "institution": "CORRETORA FICTICIA ALFA",
+        "date_precision": "day",
+        "date_basis": "source_movement_date",
+        "amount_basis": "reported_gross_net_unknown",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "scope_kind": "institution",
+          "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+          "signature": "9344f6b0f2d75d00cbc622b681d6d1697ed24befb1e849964835b070b7ca8aa4",
+          "occurrence": 1,
+          "kind": "anonymous"
+        },
+        "reported_unit_price": 13.37
+      },
+      "quantity": 7.0,
+      "money": {
+        "amount": 93.59,
+        "currency": "BRL"
+      }
+    },
+    {
+      "id": "b3-mov-2b84b5ca32b739608c363e77-0",
+      "idempotency_key": "b3-mov-2b84b5ca32b739608c363e77-0",
+      "event_type": "sell",
+      "status": "posted",
+      "effective_at": "2001-02-04T02:00:00Z",
+      "instrument": {
+        "provider_product": "ZZZA3 - EMPRESA SINTETICA A",
+        "ticker": "ZZZA3"
+      },
+      "source_ref": "Movimentação:2b84b5ca32b739608c363e77:0",
+      "metadata": {
+        "source_movement": "Transferência - Liquidação",
+        "source_direction": "Saída",
+        "institution": "CORRETORA FICTICIA ALFA",
+        "date_precision": "day",
+        "date_basis": "source_movement_date",
+        "amount_basis": "reported_gross_net_unknown",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "scope_kind": "institution",
+          "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+          "signature": "2b84b5ca32b739608c363e778aa2cb809d84ac3b229f973bcc319404c4398965",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "reported_unit_price": 14.15
+      },
+      "quantity": 4.0,
+      "money": {
+        "amount": 56.6,
+        "currency": "BRL"
+      }
+    },
+    {
+      "id": "b3-mov-a5ec549d77f4e73984a8ae12-0",
+      "idempotency_key": "b3-mov-a5ec549d77f4e73984a8ae12-0",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2001-02-05T02:00:00Z",
+      "instrument": {
+        "provider_product": "ZZZA3 - EMPRESA SINTETICA A",
+        "ticker": "ZZZA3"
+      },
+      "source_ref": "Movimentação:a5ec549d77f4e73984a8ae12:0",
+      "metadata": {
+        "source_movement": "Dividendo",
+        "source_direction": "Entrada",
+        "institution": "CORRETORA FICTICIA ALFA",
+        "date_precision": "day",
+        "date_basis": "source_movement_date",
+        "amount_basis": "reported_gross_net_unknown",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "scope_kind": "institution",
+          "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+          "signature": "a5ec549d77f4e73984a8ae12f40820ff792989ac62d47e10cd4d7276c5ed4f7a",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "source_entitlement_quantity": 10.0,
+        "reported_unit_price": 0.43,
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
+      },
+      "money": {
+        "amount": 4.3,
+        "currency": "BRL"
+      }
+    },
+    {
+      "id": "b3-mov-4d366fd7c78087d82b339b82-0",
+      "idempotency_key": "b3-mov-4d366fd7c78087d82b339b82-0",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2001-02-06T02:00:00Z",
+      "instrument": {
+        "provider_product": "ZZZA3 - EMPRESA SINTETICA A",
+        "ticker": "ZZZA3"
+      },
+      "source_ref": "Movimentação:4d366fd7c78087d82b339b82:0",
+      "metadata": {
+        "source_movement": "Juros Sobre Capital Próprio",
+        "source_direction": "Entrada",
+        "institution": "CORRETORA FICTICIA ALFA",
+        "date_precision": "day",
+        "date_basis": "source_movement_date",
+        "amount_basis": "reported_gross_net_unknown",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "scope_kind": "institution",
+          "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+          "signature": "4d366fd7c78087d82b339b82765e9b2d3aff4bf958e72cf113f88753b8882493",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "source_entitlement_quantity": 10.0,
+        "reported_unit_price": 0.17,
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
+      },
+      "money": {
+        "amount": 1.7,
+        "currency": "BRL"
+      },
+      "subtype": "jcp"
+    },
+    {
+      "id": "b3-mov-89912a88cd4d207b5a2cff3c-0",
+      "idempotency_key": "b3-mov-89912a88cd4d207b5a2cff3c-0",
+      "event_type": "income",
+      "status": "posted",
+      "effective_at": "2001-02-07T02:00:00Z",
+      "instrument": {
+        "provider_product": "ZZZB11 - FUNDO SINTETICO B",
+        "ticker": "ZZZB11"
+      },
+      "source_ref": "Movimentação:89912a88cd4d207b5a2cff3c:0",
+      "metadata": {
+        "source_movement": "Rendimento",
+        "source_direction": "Entrada",
+        "institution": "CORRETORA FICTICIA ALFA",
+        "date_precision": "day",
+        "date_basis": "source_movement_date",
+        "amount_basis": "reported_gross_net_unknown",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "b3-movimentacao:institution:b1dcf11a07fa1a8d40421f78",
+          "scope_kind": "institution",
+          "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+          "signature": "89912a88cd4d207b5a2cff3ca448a2b2b9fbfc18d441ba72ec07a3774cb4c484",
+          "occurrence": 0,
+          "kind": "anonymous"
+        },
+        "source_entitlement_quantity": 3.0,
+        "reported_unit_price": 0.39,
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "unknown"
+        }
+      },
+      "money": {
+        "amount": 1.17,
+        "currency": "BRL"
+      }
+    },
+    {
+      "id": "b3-mov-c20418309634962dcad4b01d-0",
+      "idempotency_key": "b3-mov-c20418309634962dcad4b01d-0",
+      "event_type": "transfer_in",
+      "status": "posted",
+      "effective_at": "2001-02-08T02:00:00Z",
+      "instrument": {
+        "provider_product": "ZZZC4 - EMPRESA SINTETICA C",
+        "ticker": "ZZZC4"
+      },
+      "source_ref": "Movimentação:c20418309634962dcad4b01d:0",
+      "metadata": {
+        "source_movement": "Transferência",
+        "source_direction": "Entrada",
+        "institution": "CORRETORA FICTICIA BETA",
+        "date_precision": "day",
+        "date_basis": "source_movement_date",
+        "amount_basis": "reported_gross_net_unknown",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "b3-movimentacao:institution:68bb57c213450a10b20d6880",
+          "scope_kind": "institution",
+          "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+          "signature": "c20418309634962dcad4b01df876703e2f668b56d392321a79733619bf28a829",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
+      },
+      "quantity": 2.5
+    },
+    {
+      "id": "b3-mov-a93307dec40f1071f9097fce-0",
+      "idempotency_key": "b3-mov-a93307dec40f1071f9097fce-0",
+      "event_type": "transfer_out",
+      "status": "posted",
+      "effective_at": "2001-02-09T02:00:00Z",
+      "instrument": {
+        "provider_product": "ZZZC4 - EMPRESA SINTETICA C",
+        "ticker": "ZZZC4"
+      },
+      "source_ref": "Movimentação:a93307dec40f1071f9097fce:0",
+      "metadata": {
+        "source_movement": "Transferência",
+        "source_direction": "Saída",
+        "institution": "CORRETORA FICTICIA BETA",
+        "date_precision": "day",
+        "date_basis": "source_movement_date",
+        "amount_basis": "reported_gross_net_unknown",
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "b3-movimentacao:institution:68bb57c213450a10b20d6880",
+          "scope_kind": "institution",
+          "document_fingerprint": "9b5c54aa4395a51181ec15540e5df19d7f1c9cbfbf149799b9dd46fc8afbec56",
+          "signature": "a93307dec40f1071f9097fce983b09634589159a5da95fe8958247d6ffce1228",
+          "occurrence": 0,
+          "kind": "anonymous"
+        }
+      },
+      "quantity": 0.5
+    }
+  ]
+}

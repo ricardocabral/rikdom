@@ -8,7 +8,9 @@ portfolios remain readable; the additive migration preserves their contents.
 
 - `buy`: `money` is purchase consideration; `fees` contains allocated costs.
 - `sell`: `money` is gross proceeds; fees and reported withholding reduce cash.
-- `dividend`: gross reported distributions, with `withholding_tax` when known.
+- `dividend`: reported distributions, with `withholding_tax` when known.
+  Unmarked `money` follows the gross convention; use the
+  [income amount-basis declaration](cli.md#income) for net or unknown amounts.
 - `amortization`: cash returned to the investor. A reported signed basis delta
   can be recorded separately in `cost_basis_adjustment`.
 - `fee` and `tax_withheld`: separate charges. Do not duplicate a charge that is

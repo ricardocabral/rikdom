@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
+
+from rikdom.reconciliation import reports
 
 from rikdom.aggregate import aggregate_portfolio
 from rikdom.reconciliation.reports import (
@@ -125,6 +130,78 @@ class ReconciliationReportTests(unittest.TestCase):
             result, portfolio_id="p1", generated_at="2026-04-28T00:00:00Z"
         )
         self.assertGreater(report["summary"]["error_count"], 0)
+
+
+class SharedTrustReportTests(unittest.TestCase):
+    def test_shared_reports_keep_coverage_quantity_and_actual_fx_context(self):
+        result = aggregate_portfolio(_portfolio(), fx_rates_to_base={"EUR": 1.1})
+        result.fx_lock = {"base_currency": "USD", "rates_to_base": {"EUR": 1.1},
+                          "rate_dates": {"EUR": "2026-04-24"},
+                          "sources": {"EUR": "custom-bank"}}
+        result.import_diagnostics = {
+            "history_coverage": [{"status": "partial", "reasons": ["positions only"]}],
+            "unsupported_events": [{"source_ref": "row:7", "reason": "unsupported quantity"}],
+        }
+        result.quantity_reconciliation = [
+            {"holding_id": "h-usd", "status": "matched"},
+            {"holding_id": "h-eur", "status": "not_computable"},
+        ]
+        payloads = reports.build_trust_reports(result, portfolio_id="p1", generated_at="2026-04-28T00:00:00Z")
+        trust = payloads["holding_trust"]
+        recon = payloads["reconciliation"]
+        self.assertEqual(trust["fx_context"], result.fx_lock)
+        eur = next(h for h in trust["holdings"] if h["holding_id"] == "h-eur")
+        self.assertEqual(eur["fx_timestamp"], "2026-04-24")
+        self.assertEqual(eur["fx_provider"], "custom-bank")
+        self.assertEqual(recon["import_diagnostics"], result.import_diagnostics)
+        self.assertEqual(recon["coverage_summary"]["by_status"]["partial"], 1)
+        self.assertEqual(recon["coverage_summary"]["unsupported_event_count"], 1)
+        self.assertEqual(recon["quantity_summary"]["matched"], 1)
+        self.assertEqual(recon["quantity_summary"]["not_computable"], 1)
+        self.assertEqual(recon["quantity_reconciliation"], result.quantity_reconciliation)
+
+    def test_invalid_or_incompatible_lock_dates_do_not_become_provenance(self):
+        for context in (
+            {"base_currency": "USD", "rates_to_base": {"EUR": 1.1}, "rate_dates": {"EUR": "not-a-date"}},
+            {"base_currency": "GBP", "rates_to_base": {"EUR": 1.1}, "rate_dates": {"EUR": "2026-04-24"}},
+        ):
+            with self.subTest(context=context):
+                result = aggregate_portfolio(_portfolio(), fx_rates_to_base={"EUR": 1.1})
+                result.fx_lock = context
+                report = reports.build_trust_reports(result, portfolio_id="p1", generated_at="2026-04-28T00:00:00Z")
+                eur = next(h for h in report["holding_trust"]["holdings"] if h["holding_id"] == "h-eur")
+                self.assertNotIn("fx_timestamp", eur)
+
+    def test_metadata_rate_never_inherits_a_lock_timestamp(self):
+        portfolio = _portfolio()
+        portfolio["holdings"][1]["metadata"] = {"fx_rate_to_base": 1.2}
+        result = aggregate_portfolio(portfolio)
+        result.fx_lock = {"base_currency": "USD", "rate_dates": {"EUR": "2026-04-24"}}
+        payload = reports.build_trust_reports(result, portfolio_id="p1", generated_at="2026-04-28T00:00:00Z")
+        eur = next(h for h in payload["holding_trust"]["holdings"] if h["holding_id"] == "h-eur")
+        self.assertNotIn("fx_timestamp", eur)
+        self.assertNotIn("fx_provider", eur)
+        self.assertEqual(payload["reconciliation"]["coverage_summary"]["status"], "unknown")
+
+    def test_writer_preserves_four_existing_formats_and_roundtrips_payloads(self):
+        result = aggregate_portfolio(_portfolio())
+        payloads = reports.build_trust_reports(result, portfolio_id="p1", generated_at="2026-04-28T00:00:00Z")
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = reports.write_trust_reports(payloads, Path(tmp) / "reports")
+            self.assertEqual({Path(a["path"]).name for a in artifacts}, {
+                "holding_trust.json", "reconciliation.json", "holding_trust.md", "reconciliation.md",
+            })
+            for key in ("holding_trust", "reconciliation"):
+                self.assertEqual(json.loads((Path(tmp) / "reports" / f"{key}.json").read_text()), payloads[key])
+            markdown = (Path(tmp) / "reports" / "reconciliation.md").read_text()
+            self.assertIn("unknown", markdown)
+            self.assertIn("not computable", markdown.lower())
+            just_json = reports.write_trust_reports(payloads, Path(tmp) / "json", format="json")
+            self.assertEqual(len(just_json), 2)
+            self.assertTrue(all(Path(a["path"]).suffix == ".json" for a in just_json))
+            with self.assertRaises(ValueError):
+                reports.write_trust_reports(payloads, Path(tmp) / "invalid", format="invalid")
+            self.assertFalse((Path(tmp) / "invalid").exists())
 
 
 if __name__ == "__main__":

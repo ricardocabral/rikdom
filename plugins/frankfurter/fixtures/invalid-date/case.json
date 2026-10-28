@@ -1,0 +1,1 @@
+{"hook": "connector_query", "operation": "daily-rates", "params": {"base_currency": "BRL", "quote_currencies": ["USD"], "as_of_date": "2026-02-30"}}

@@ -58,5 +58,24 @@
       "quantity": 10.0
     }
   ],
-  "provider": "ghostfolio_export_json"
+  "provider": "ghostfolio_export_json",
+  "metadata": {
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "ghostfolio_export_json:statement",
+          "status": "unknown",
+          "event_types": [
+            "buy",
+            "dividend"
+          ],
+          "reasons": [
+            "source_does_not_declare_complete_history"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
+  }
 }

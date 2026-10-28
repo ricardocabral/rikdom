@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, TypeGuard
+from datetime import date, datetime, time, timedelta
+import math
+from zoneinfo import ZoneInfo
+
+from .activities import check_financial_contract, effective_activities
 
 from rikdom.reconciliation import (
     Finding,
@@ -28,6 +33,8 @@ class AggregateResult:
     by_strategic_bucket: dict[str, float] = field(default_factory=dict)
     findings: list[Finding] = field(default_factory=list)
     trust_records: list[HoldingTrustRecord] = field(default_factory=list)
+    quantity_reconciliation: list[dict[str, Any]] = field(default_factory=list)
+    import_diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 UNCLASSIFIED = "__unclassified__"
@@ -89,7 +96,7 @@ def compute_strategic_bucket_totals(
             continue
         breakdown = dim_breakdowns.get(dim) or {}
         value = breakdown.get(bucket, 0.0)
-        out[strategic_bucket_key(dim, bucket)] = round(float(value), 2)
+        out[strategic_bucket_key(dim, bucket)] = float(value)
         allocated_by_dim[dim] = allocated_by_dim.get(dim, 0.0) + float(value)
         seen_dims.add(dim)
 
@@ -103,7 +110,7 @@ def compute_strategic_bucket_totals(
         total_in_dim = sum((dim_breakdowns.get(dominant) or {}).values())
         leftover = total_in_dim - allocated_by_dim.get(dominant, 0.0)
         if abs(leftover) > 0.005:
-            out[UNALLOCATED_BUCKET] = round(leftover, 2)
+            out[UNALLOCATED_BUCKET] = leftover
     return out
 
 
@@ -134,7 +141,10 @@ _CASH_EVENT_SIGNS: dict[str, float] = {
 
 
 def _is_numeric(value: Any) -> TypeGuard[int | float]:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    try:
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def _catalog_exposure_index(
@@ -596,136 +606,6 @@ def _is_posted_activity(activity: dict[str, Any]) -> bool:
     return not status or status == "posted"
 
 
-def _build_quantity_ledger_index(
-    activities: list[dict[str, Any]],
-) -> tuple[
-    list[float | None],
-    dict[tuple[str, str, str], set[int]],
-    list[set[str]],
-]:
-    deltas: list[float | None] = []
-    key_index: dict[tuple[str, str, str], set[int]] = {}
-    activity_identifier_fields: list[set[str]] = []
-
-    for idx, activity in enumerate(activities):
-        if not _is_posted_activity(activity):
-            deltas.append(None)
-            activity_identifier_fields.append(set())
-            continue
-        event_type = str(activity.get("event_type", "")).strip().lower()
-        sign = _QUANTITY_EVENT_SIGNS.get(event_type)
-        if sign is None:
-            deltas.append(None)
-            activity_identifier_fields.append(set())
-            continue
-
-        quantity = activity.get("quantity")
-        if not _is_numeric(quantity):
-            deltas.append(None)
-            activity_identifier_fields.append(set())
-            continue
-
-        keys = _activity_instrument_keys(activity)
-        activity_identifier_fields.append({field for _, field, _ in keys})
-        if not keys:
-            deltas.append(None)
-            continue
-
-        deltas.append(sign * float(quantity))
-        for key in keys:
-            key_index.setdefault(key, set()).add(idx)
-
-    return deltas, key_index, activity_identifier_fields
-
-
-def _append_quantity_consistency_warnings(
-    holdings: list[dict[str, Any]],
-    activities: list[dict[str, Any]],
-    warnings: list[str],
-    *,
-    tolerance: float,
-    findings: list[Finding] | None = None,
-) -> None:
-    deltas, key_index, activity_identifier_fields = _build_quantity_ledger_index(
-        activities
-    )
-    if not key_index:
-        return
-
-    for holding in holdings:
-        quantity = holding.get("quantity")
-        if not _is_numeric(quantity):
-            continue
-
-        keys = _holding_instrument_keys(holding)
-        if not keys:
-            continue
-
-        keys_by_field: dict[str, list[tuple[str, str, str]]] = {}
-        for key in keys:
-            keys_by_field.setdefault(key[1], []).append(key)
-
-        matching_indices: set[int] = set()
-        for identifier_field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS:
-            for key in keys_by_field.get(identifier_field, ()):
-                matching_indices.update(key_index.get(key, ()))
-
-        holding_has_high_confidence = any(
-            identifier_field in keys_by_field
-            for identifier_field in _HIGH_CONFIDENCE_IDENTIFIER_FIELDS
-        )
-        if not matching_indices and not holding_has_high_confidence:
-            for identifier_field in _LOW_CONFIDENCE_IDENTIFIER_FIELDS:
-                indices_for_field: set[int] = set()
-                for key in keys_by_field.get(identifier_field, ()):
-                    indices_for_field.update(key_index.get(key, ()))
-                if not indices_for_field:
-                    continue
-                matching_indices = {
-                    idx
-                    for idx in indices_for_field
-                    if not (
-                        activity_identifier_fields[idx]
-                        & _HIGH_CONFIDENCE_IDENTIFIER_FIELDS_SET
-                    )
-                }
-                if matching_indices:
-                    break
-        if not matching_indices:
-            continue
-
-        ledger_qty = sum(
-            delta
-            for i in matching_indices
-            for delta in (deltas[i],)
-            if delta is not None
-        )
-        holding_qty = float(quantity)
-        drift = holding_qty - ledger_qty
-        if abs(drift) <= tolerance:
-            continue
-
-        hid = str(holding.get("id", "unknown"))
-        message = (
-            f"Quantity drift for holding '{hid}': "
-            f"holding={holding_qty:.6f}, ledger={ledger_qty:.6f}, drift={drift:+.6f}"
-        )
-        warnings.append(message)
-        record_finding(
-            findings,
-            "RECON_QTY_LEDGER_MISMATCH",
-            message,
-            scope="holding",
-            refs={"holding_id": hid},
-            observed={"holding_quantity": holding_qty, "ledger_quantity": ledger_qty},
-            expected={"drift_within": tolerance},
-            suggested_fix=(
-                "Reconcile activity ledger entries against the declared holding quantity: "
-                "fix missing buy/sell/transfer/split events or correct the holding quantity."
-            ),
-        )
-
-
 def _to_base_activity_money_delta(
     activity: dict[str, Any],
     base_currency: str,
@@ -932,9 +812,9 @@ def _append_cash_drift_warnings(
         message,
         scope="portfolio",
         observed={
-            "holdings_cash_base": round(holdings_cash_base, 2),
-            "ledger_cash_base": round(ledger_cash_base, 2),
-            "drift_base": round(drift, 2),
+            "holdings_cash_base": (holdings_cash_base),
+            "ledger_cash_base": (ledger_cash_base),
+            "drift_base": (drift),
             "base_currency": base_currency,
         },
         expected={"drift_within_base": tolerance_base},
@@ -953,6 +833,7 @@ def aggregate_portfolio(
     quantity_tolerance: float = 1e-6,
     cash_drift_tolerance_base: float = 0.01,
 ) -> AggregateResult:
+    check_financial_contract(portfolio)
     settings = portfolio.get("settings", {})
     raw_base_currency = (
         settings.get("base_currency") if isinstance(settings, dict) else None
@@ -960,11 +841,11 @@ def aggregate_portfolio(
     if isinstance(raw_base_currency, str) and raw_base_currency.strip():
         base_currency = raw_base_currency.strip().upper()
     else:
-        base_currency = "USD"
+        raise ValueError("settings.base_currency is required for valuation")
 
     catalog = portfolio.get("asset_type_catalog", [])
     holdings = portfolio.get("holdings", [])
-    activities = portfolio.get("activities", [])
+    activities = effective_activities(portfolio.get("activities") or [])
     class_index = _asset_class_index(catalog if isinstance(catalog, list) else [])
     catalog_exposures = _catalog_exposure_index(
         catalog if isinstance(catalog, list) else []
@@ -1047,13 +928,13 @@ def aggregate_portfolio(
         else []
     )
 
-    _append_quantity_consistency_warnings(
-        normalized_holdings,
-        normalized_activities,
-        warnings,
-        tolerance=quantity_tolerance,
-        findings=findings,
-    )
+    diagnostics = portfolio_import_diagnostics(portfolio)
+    quantity_results = reconcile_quantities(normalized_holdings, normalized_activities, diagnostics, tolerance=quantity_tolerance)
+    for comparison in quantity_results:
+        if comparison["status"] == "mismatched":
+            message = f"Quantity drift for holding '{comparison['holding_id']}': holding={comparison['holding_quantity']}, ledger={comparison['ledger_quantity']}"
+            warnings.append(message)
+            record_finding(findings, "RECON_QTY_LEDGER_MISMATCH", message, scope="holding", refs={"holding_id": comparison["holding_id"]}, observed=comparison, expected={"drift_within": quantity_tolerance}, suggested_fix="Review dated movements, source coverage, and the reported position.")
     _append_cash_drift_warnings(
         class_index,
         normalized_holdings,
@@ -1081,17 +962,131 @@ def aggregate_portfolio(
     total_value = sum(by_asset_class.values())
     return AggregateResult(
         base_currency=base_currency,
-        total_value_base=round(total_value, 2),
-        by_asset_class={k: round(v, 2) for k, v in sorted(by_asset_class.items())},
+        total_value_base=total_value,
+        by_asset_class=dict(sorted(by_asset_class.items())),
         warnings=warnings,
         errors=errors,
-        by_region={k: round(v, 2) for k, v in sorted(breakdowns["region"].items())},
-        by_currency={k: round(v, 2) for k, v in sorted(breakdowns["currency"].items())},
-        by_duration={k: round(v, 2) for k, v in sorted(breakdowns["duration"].items())},
+        by_region=dict(sorted(breakdowns["region"].items())),
+        by_currency=dict(sorted(breakdowns["currency"].items())),
+        by_duration=dict(sorted(breakdowns["duration"].items())),
         by_liquidity_tier={
-            k: round(v, 2) for k, v in sorted(breakdowns["liquidity_tier"].items())
+            k: v for k, v in sorted(breakdowns["liquidity_tier"].items())
         },
-        by_account={k: round(v, 2) for k, v in sorted(by_account.items())},
+        by_account=dict(sorted(by_account.items())),
         findings=findings,
         trust_records=trust_records,
+        quantity_reconciliation=quantity_results,
+        import_diagnostics=diagnostics,
     )
+
+
+def portfolio_import_diagnostics(portfolio: dict[str, Any]) -> dict[str, Any]:
+    state = (portfolio.get("extensions") or {}).get("rikdom_import_diagnostics", {})
+    result: dict[str, Any] = {"version": 1, "history_coverage": [], "unsupported_events": []}
+    for diagnostics in state.get("statements", {}).values():
+        from .import_preflight import validate_import_diagnostics
+        errors = validate_import_diagnostics(diagnostics)
+        if errors:
+            raise ValueError("; ".join(errors))
+        result["history_coverage"].extend(diagnostics["history_coverage"])
+        result["unsupported_events"].extend(diagnostics["unsupported_events"])
+    return result
+
+
+def reconcile_quantities(holdings: list[dict[str, Any]], activities: list[dict[str, Any]], diagnostics: dict[str, Any], *, tolerance: float) -> list[dict[str, Any]]:
+    """Compare only account-scoped, dated positions backed by explicit evidence."""
+    results = []
+    for holding in holdings:
+        if not _is_numeric(holding.get("quantity")):
+            continue
+        hid, account = holding.get("id"), holding.get("account_id")
+        result: dict[str, Any] = {"holding_id": hid, "status": "not_computable", "reason": "Explicit account-scoped history and dated trade-basis position required"}
+        results.append(result)
+        declarations = [c for c in diagnostics["history_coverage"] if c.get("holding_id") == hid and account and c.get("account_id") == account]
+        if len(declarations) != 1:
+            continue
+        c = declarations[0]
+        if c.get("status") != "complete" or c.get("history_origin") != "inception" or c.get("opening_quantity") != 0 or c.get("position_basis") != "trade" or not c.get("evidence") or not {"buy", "sell"}.issubset(set(c.get("event_types", []))):
+            continue
+        try:
+            zone = ZoneInfo(c["timezone"])
+            position = datetime.fromisoformat(holding["as_of"].replace("Z", "+00:00"))
+            if position.tzinfo is None:
+                continue
+            start = datetime.combine(date.fromisoformat(c["from"]), time.min, zone)
+            end = datetime.combine(date.fromisoformat(c["through"]) + timedelta(days=1), time.min, zone)
+            if not start <= position < end:
+                result["reason"] = "Declared coverage does not reach the position timestamp"
+                continue
+        except (KeyError, ValueError, TypeError):
+            continue
+        if any(e.get("affects_quantity", True) and e.get("scope", c["scope"]) == c["scope"] for e in diagnostics["unsupported_events"]):
+            result["reason"] = "Unsupported quantity movements in the source scope"
+            continue
+        ledger = 0.0
+        invalid = False
+        refs = []
+        for a in activities:
+            if not _is_posted_activity(a):
+                continue
+            action = a.get("corporate_action")
+            leg_match = isinstance(action, dict) and any(isinstance(leg, dict) and leg.get("holding_id") == hid for leg in action.get("legs", []))
+            if a.get("account_id") != account:
+                if a.get("holding_id") == hid or leg_match or (not a.get("account_id") and set(_holding_instrument_keys(holding)) & set(_activity_instrument_keys(a))):
+                    invalid = True
+                continue
+            if leg_match:
+                matches = True
+            elif a.get("holding_id"):
+                matches = a["holding_id"] == hid
+            else:
+                keys = set(_holding_instrument_keys(holding)) & set(_activity_instrument_keys(a))
+                owners = [h for h in holdings if h.get("account_id") == account and set(_holding_instrument_keys(h)) & set(_activity_instrument_keys(a))]
+                matches = bool(keys) and len(owners) == 1
+                if keys and len(owners) != 1:
+                    invalid = True
+            if not matches:
+                continue
+            h_isin = (holding.get("identifiers") or {}).get("isin")
+            a_isin = (a.get("instrument") or {}).get("isin")
+            if h_isin and a_isin and str(h_isin).strip().upper() != str(a_isin).strip().upper():
+                invalid = True
+                continue
+            event = a.get("event_type")
+            if event not in _QUANTITY_EVENT_SIGNS and "corporate_action" not in a:
+                if a.get("quantity"):
+                    invalid = True
+                continue
+            if event not in c.get("event_types", []):
+                invalid = True
+                continue
+            when = a.get("trade_at") or (a.get("effective_at") if c.get("effective_at_basis") == "trade" else None)
+            try:
+                timestamp = datetime.fromisoformat(when.replace("Z", "+00:00"))
+                if timestamp.tzinfo is None:
+                    raise ValueError("Ambiguous movement timestamp")
+                if timestamp < start:
+                    invalid = True
+                    continue
+                if timestamp > position:
+                    continue
+                action = a.get("corporate_action")
+                if action:
+                    legs = [leg for leg in action["legs"] if leg.get("holding_id") == hid]
+                    delta = sum(float(leg["quantity_delta"]) for leg in legs)
+                    if not legs:
+                        raise ValueError("Missing quantity legs")
+                else:
+                    quantity = a["quantity"]
+                    if not _is_numeric(quantity):
+                        raise ValueError("Invalid quantity")
+                    delta = _QUANTITY_EVENT_SIGNS[event] * float(quantity)
+                ledger += delta
+                refs.append(a.get("id"))
+            except (KeyError, ValueError, TypeError, AttributeError):
+                invalid = True
+        if invalid:
+            result["reason"] = "Ambiguous or unsupported quantity movement"
+            continue
+        result.update(status="matched" if abs(float(holding["quantity"]) - ledger) <= tolerance else "mismatched", reason="Declared history compared on trade basis", ledger_quantity=ledger, holding_quantity=float(holding["quantity"]), activity_ids=refs)
+    return results

@@ -59,7 +59,8 @@ class CliSnapshotFxTests(unittest.TestCase):
                 portfolio,
                 fx_history_path=str(fx_history_path),
                 snapshot_timestamp="2026-04-21T10:00:00Z",
-                auto_ingest=True,
+                auto_ingest=False,
+                fetcher=None,
             )
 
             rows = load_jsonl(snapshots_path)

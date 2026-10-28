@@ -2,15 +2,37 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import math
 import re
 import sys
+import unicodedata
 import zipfile
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from defusedxml import ElementTree as DefusedET
+
+
+def _assign_canonical_key(holding: dict, *, ticker_kind: str | None = None) -> None:
+    """Use this source's explicit Brazilian identifiers; never guess a country."""
+    metadata = holding.setdefault("metadata", {})
+    if "canonical_key" in metadata:
+        return
+    identifiers = holding.get("identifiers", {})
+    kind = holding.get("asset_type_id")
+    ticker = str(identifiers.get("ticker") or "").strip().lower()
+    if holding.get("jurisdiction", {}).get("country") == "BR":
+        ticker_kind = ticker_kind or {"stock": "acao", "reit": "fii"}.get(kind, kind)
+        if ticker_kind in {"acao", "fii", "etf", "bdr"} and ticker and ticker != "cash":
+            metadata["canonical_key"] = f"br:{ticker_kind}:{ticker}"
+            return
+
+
 
 def _load_known_tickers_enricher():
     import importlib.util as _iu
@@ -81,6 +103,17 @@ SHEET_SPECS: tuple[SheetSpec, ...] = (
         value_headers=("Valor Atualizado", "Valor líquido", "Valor bruto"),
     ),
 )
+
+# These are layout aliases, not new holding identities. Keep the canonical
+# SheetSpec names in IDs so newer exports update existing monthly positions.
+POSITION_SHEET_ALIASES = {
+    "Posição - Ações": "Acoes",
+    "Posição - BDR": "BDR",
+    "Posição - ETF": "ETF",
+    "Posição - Fundos": "Fundo de Investimento",
+    "Posição - Renda Fixa": "Renda Fixa",
+    "Posição - Tesouro Direto": "Tesouro Direto",
+}
 
 RENDA_FIXA_PREFIX_TO_ASSET_TYPE: dict[str, str] = {
     "CDB": "cdb",
@@ -304,7 +337,7 @@ def _read_sheet_rows(
     header_row: dict[int, str] | None = None
     header_names: set[str] = set()
     rows: list[dict[str, str]] = []
-    for row in row_nodes:
+    for row_index, row in enumerate(row_nodes, 1):
         cols: dict[int, str] = {}
         for cell in row.findall("x:c", NS):
             ref = cell.attrib.get("r", "")
@@ -332,6 +365,8 @@ def _read_sheet_rows(
             mapped[header_name] = _normalize_text(cols.get(col_idx, ""))
 
         if any(v for v in mapped.values()):
+            first_ref = next((cell.attrib.get("r", "") for cell in row.findall("x:c", NS)), "")
+            mapped["__source_row_number"] = row.attrib.get("r") or re.sub(r"^[A-Za-z]+", "", first_ref) or str(row_index)
             rows.append(mapped)
 
     return rows, header_names
@@ -463,6 +498,8 @@ def _to_holding(spec: SheetSpec, row: dict[str, str]) -> dict[str, Any] | None:
 
     holding["metadata"] = metadata
     _enrich_from_ticker(holding)
+    ticker_kind = {"Posição - Ações": "acao", "Posição - ETF": "etf", "Posição - BDR": "bdr"}.get(spec.name)
+    _assign_canonical_key(holding, ticker_kind=ticker_kind)
     return holding
 
 
@@ -483,10 +520,18 @@ def parse_workbook(path: Path) -> dict[str, Any]:
 
         holdings: list[dict[str, Any]] = []
         parsed_sheets: list[str] = []
+        movements = None
+        if "Movimentação" in targets:
+            rows, headers = _read_sheet_rows(zf, targets["Movimentação"], shared_strings)
+            movements = _parse_movements(rows, headers)
         for spec in SHEET_SPECS:
-            target = targets.get(spec.name)
-            if not target:
+            names = [name for name in (spec.name, POSITION_SHEET_ALIASES[spec.name]) if name in targets]
+            if len(names) > 1:
+                raise ValueError(f"workbook is incompatible: multiple position sheets for '{spec.name}'")
+            if not names:
                 continue
+            sheet_name = names[0]
+            target = targets[sheet_name]
             rows, headers = _read_sheet_rows(zf, target, shared_strings)
 
             missing_required = []
@@ -503,25 +548,26 @@ def parse_workbook(path: Path) -> dict[str, Any]:
                     f"({', '.join(missing)})"
                 )
 
-            parsed_sheets.append(spec.name)
+            parsed_sheets.append(sheet_name)
             for row in rows:
                 holding = _to_holding(spec, row)
                 if holding is not None:
+                    holding["metadata"]["source_sheet"] = sheet_name
                     holdings.append(holding)
 
-    if not parsed_sheets:
+    if not parsed_sheets and movements is None:
         expected = ", ".join(spec.name for spec in SHEET_SPECS)
         raise ValueError(
             "workbook is incompatible: expected at least one supported B3 position sheet "
             f"({expected})"
         )
 
-    if not holdings:
+    if not holdings and movements is None:
         raise ValueError(
             "workbook is incompatible: parsed supported B3 position sheets but produced zero holdings"
         )
 
-    return {
+    payload = {
         "provider": "b3-consolidado-mensal",
         "generated_at": _now_iso(),
         "base_currency": "BRL",
@@ -531,6 +577,138 @@ def parse_workbook(path: Path) -> dict[str, Any]:
             "parsed_position_sheets": parsed_sheets,
         },
     }
+    if movements is not None:
+        payload["activities"] = movements["activities"]
+        payload["metadata"].update(movements["metadata"])
+    return payload
+
+
+_MOVEMENT_HEADERS = {
+    "Entrada/Saída", "Data", "Movimentação", "Produto", "Instituição",
+    "Quantidade", "Preço unitário", "Valor da Operação",
+}
+
+
+def _fold(value: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", value.casefold()) if not unicodedata.combining(c))
+
+
+def _digest(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _parse_movements(rows: list[dict[str, str]], headers: set[str]) -> dict[str, Any]:
+    """B3 source conventions, isolated from the normalized core contract.
+
+    Data is a source movement date. Neither execution/settlement timing nor
+    an account number or a complete historical period is inferred from it.
+    """
+    if _MOVEMENT_HEADERS - headers:
+        raise ValueError("Movimentação workbook is missing required columns")
+    if not rows:
+        raise ValueError("Movimentação workbook contains no source rows")
+    normalized = []
+    for row_number, row in enumerate(rows, 2):
+        source_ref = f"Movimentação:row:{row.get('__source_row_number', row_number)}"
+        day = _parse_date_br(row["Data"])
+        if day is None:
+            raise ValueError(f"Invalid Data at {source_ref}")
+        numbers = {}
+        for field in ("Quantidade", "Preço unitário", "Valor da Operação"):
+            raw = row[field]
+            value = _parse_number(raw)
+            if value is None and raw.strip() not in ("", "-", "—", "–"):
+                raise ValueError(f"Invalid {field} at {source_ref}")
+            if value is not None and not math.isfinite(value):
+                raise ValueError(f"Nonfinite {field} at {source_ref}")
+            numbers[field] = value
+        institution = row["Instituição"]
+        scope = "b3-movimentacao:institution:" + _digest(_fold(institution))[:24]
+        identity = {
+            "day": day, "direction": _fold(row["Entrada/Saída"]),
+            "movement": _fold(row["Movimentação"]), "product": row["Produto"],
+            "scope": scope, **numbers,
+        }
+        normalized.append((row, identity, source_ref))
+
+    # Sorted rows retain multiplicity; row order and export filenames are not IDs.
+    document = _digest(sorted(json.dumps(identity, ensure_ascii=False, sort_keys=True) for _, identity, _ in normalized))
+    occurrences: Counter[str] = Counter()
+    activities, unsupported = [], []
+    scopes: set[str] = set()
+    for row, identity, source_ref in normalized:
+        side = identity["direction"]
+        movement = identity["movement"]
+        scope = identity["scope"]
+        scopes.add(scope)
+        kind = None
+        if movement == "transferencia - liquidacao":
+            kind = {"entrada": "buy", "saida": "sell"}.get(side)
+        elif movement in ("compra", "venda"):
+            kind = {("compra", "entrada"): "buy", ("venda", "saida"): "sell"}.get((movement, side))
+        elif movement in ("dividendo", "juros sobre capital proprio", "rendimento") and side == "entrada":
+            kind = "income" if movement == "rendimento" else "dividend"
+        elif movement == "transferencia":
+            kind = {"entrada": "transfer_in", "saida": "transfer_out"}.get(side)
+        quantity = identity["Quantidade"]
+        amount = identity["Valor da Operação"]
+        quantity_event = kind in ("buy", "sell", "transfer_in", "transfer_out")
+        reason = None
+        if kind is None:
+            reason = "Unsupported source movement/direction; no economic event inferred"
+        elif not row["Produto"]:
+            reason = "Source product identity is missing"
+        elif quantity_event and (quantity is None or quantity <= 0):
+            reason = "A positive source quantity is required"
+        elif kind not in ("transfer_in", "transfer_out") and (amount is None or amount < 0):
+            reason = "Reported monetary amount is missing or requires reversal review"
+        if reason:
+            unsupported.append({"source_ref": source_ref, "source_event": row["Movimentação"] or "unlabelled", "reason": reason, "scope": scope, "affects_quantity": True, "affects_cash": True})
+            continue
+
+        signature = _digest(identity)
+        occurrence = occurrences[signature]
+        occurrences[signature] += 1
+        aid = f"b3-mov-{signature[:24]}-{occurrence}"
+        when = datetime.fromisoformat(identity["day"]).replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+        product = row["Produto"]
+        ticker = re.match(r"^([A-Z0-9]{4}\d{1,2})\s*(?:-|$)", product)
+        instrument = {"provider_product": product}
+        if ticker:
+            instrument["ticker"] = ticker.group(1)
+        activity: dict[str, Any] = {
+            "id": aid, "idempotency_key": aid, "event_type": kind,
+            "status": "posted", "effective_at": when.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "instrument": instrument,
+            "source_ref": f"Movimentação:{signature[:24]}:{occurrence}",
+            "metadata": {
+                "source_movement": row["Movimentação"], "source_direction": row["Entrada/Saída"],
+                "institution": row["Instituição"], "date_precision": "day",
+                "date_basis": "source_movement_date", "amount_basis": "reported_gross_net_unknown",
+                "rikdom_source_identity": {"version": 1, "scope": scope, "scope_kind": "institution", "document_fingerprint": document, "signature": signature, "occurrence": occurrence, "kind": "anonymous"},
+            },
+        }
+        if kind in {"dividend", "interest", "income"}:
+            activity["metadata"]["rikdom_income"] = {"version": 1, "amount_basis": "unknown"}
+        if quantity_event:
+            activity["quantity"] = quantity
+        elif quantity is not None:
+            activity["metadata"]["source_entitlement_quantity"] = quantity
+        if kind not in ("transfer_in", "transfer_out"):
+            activity["money"] = {"amount": amount, "currency": "BRL"}
+        elif amount is not None:
+            activity["metadata"]["reported_transfer_value"] = {"amount": amount, "currency": "BRL"}
+        if identity["Preço unitário"] is not None:
+            activity["metadata"]["reported_unit_price"] = identity["Preço unitário"]
+        if movement == "juros sobre capital proprio":
+            activity["subtype"] = "jcp"
+        activities.append(activity)
+
+    event_types = {scope: sorted({a["event_type"] for a in activities if a["metadata"]["rikdom_source_identity"]["scope"] == scope}) for scope in scopes}
+    return {"activities": activities, "metadata": {
+        "layout_profile": "b3-movimentacao-v1",
+        "rikdom_import_diagnostics": {"version": 1, "document_fingerprint": document, "history_coverage": [{"scope": scope, "status": "partial", "event_types": event_types[scope], "reasons": ["statement_period_not_declared", "institution_does_not_identify_account", "trade_or_settlement_date_basis_unknown"]} for scope in sorted(scopes)], "unsupported_events": unsupported},
+    }}
 
 
 def main() -> int:

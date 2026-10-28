@@ -11,6 +11,68 @@ from rikdom.plugin_engine.pipeline import run_output_pipeline
 
 
 class QuartoPluginTests(unittest.TestCase):
+    def test_current_values_and_fallback_links_share_core_trust_results(self) -> None:
+        from html.parser import HTMLParser
+
+        class Links(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.hrefs = []
+            def handle_starttag(self, tag, attrs):
+                if tag == "a":
+                    self.hrefs.extend(v for k, v in attrs if k == "href")
+
+        portfolio = {
+            "id": "test-quality", "profile": {"display_name": "Trust regression"},
+            "settings": {"base_currency": "EUR"},
+            "asset_type_catalog": [{"id": "stock", "asset_class": "equity"}],
+            "holdings": [
+                {"id": "h-jpy", "asset_type_id": "stock", "market_value": {"amount": 1000, "currency": "JPY"}},
+                {"id": "h-eur", "asset_type_id": "stock", "market_value": {"amount": 20, "currency": "EUR"}},
+                {"id": "h-invalid", "asset_type_id": "stock", "market_value": {"amount": "100", "currency": "EUR"}},
+                {"id": "h-missing", "asset_type_id": "stock", "market_value": {"amount": 50, "currency": "GBP"}},
+            ], "activities": [],
+        }
+        snapshot = {"timestamp": "2026-04-25T00:00:00Z", "totals": {"portfolio_value_base": 999},
+                    "metadata": {"fx_lock": {"base_currency": "EUR", "rates_to_base": {"JPY": 0.006},
+                                             "rate_dates": {"JPY": "2026-04-24"}, "sources": {"JPY": "seed-bank"}}}}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict("os.environ", {"RIKDOM_DISABLE_QUARTO": "1"}):
+            root = Path(tmp)
+            (root / "portfolio.json").write_text(json.dumps(portfolio))
+            (root / "snapshots.jsonl").write_text(json.dumps(snapshot) + "\n")
+            with patch("urllib.request.OpenerDirector.open", side_effect=AssertionError("network forbidden")) as network:
+                result = run_output_pipeline(
+                    plugin_name="quarto-portfolio-report", plugins_dir="plugins",
+                    portfolio_path=str(root / "portfolio.json"), snapshots_path=str(root / "snapshots.jsonl"),
+                    output_dir=str(root / "reports"),
+                )
+            network.assert_not_called()
+            payload = json.loads((root / "reports" / "quarto-input.json").read_text())
+            trust = json.loads((root / "reports" / "holding_trust.json").read_text())
+            recon = json.loads((root / "reports" / "reconciliation.json").read_text())
+            self.assertEqual(payload["sections"]["current_valuation"]["total_value_base"], 26.0)
+            self.assertEqual(trust["total_value_base"], 26.0)
+            self.assertTrue(trust["invariant"]["matches"])
+            self.assertEqual(payload["sections"]["quickview"]["currency"]["converted_base"], {"EUR": 20.0, "JPY": 6.0})
+            self.assertEqual(payload["sections"]["asset_type_breakdown"], {"stock": 26.0})
+            self.assertEqual(payload["sections"]["timeline"][0]["portfolio_value_base"], 999.0)
+            self.assertEqual(set(trust["invariant"]["excluded_holding_ids"]), {"h-invalid", "h-missing"})
+            self.assertEqual(recon["coverage_summary"]["status"], "unknown")
+            self.assertEqual(trust["fx_context"]["rate_dates"], {"JPY": "2026-04-24"})
+            for filename in ("dashboard.html", "portfolio-report.html"):
+                html = (root / "reports" / filename).read_text()
+                self.assertIn("Data quality", html)
+                self.assertIn("Current valuation", html)
+                self.assertIn("Historical snapshot", html)
+                self.assertIn("unknown", html)
+                self.assertIn("h-missing", html)
+                links = Links()
+                links.feed(html)
+                for href in ("holding_trust.json", "reconciliation.json", "holding_trust.md", "reconciliation.md"):
+                    self.assertIn(href, links.hrefs)
+                    self.assertTrue((root / "reports" / href).exists())
+            self.assertEqual(len(result["artifacts"]), 8)
+
     def test_quarto_plugin_returns_expected_artifact_metadata(self) -> None:
         result = run_output_pipeline(
             plugin_name="quarto-portfolio-report",
