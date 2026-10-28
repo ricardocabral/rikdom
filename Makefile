@@ -107,7 +107,7 @@ classify-fiis:
 		--mapping $(DATA_DIR)/fii_classification.json
 
 test:
-	uv run python -m unittest discover -s tests -v
+	uv run python -m unittest discover -s tests -t . -v
 
 lint:
 	uv run ruff check .

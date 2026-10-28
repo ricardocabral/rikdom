@@ -45,7 +45,7 @@ uv run rikdom validate --portfolio tests/fixtures/portfolio.json
 Run the test suite:
 
 ```bash
-uv run python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -t . -v
 ```
 
 Run lint checks:
@@ -85,7 +85,7 @@ PR checklist:
 - [ ] Tests added/updated for new behavior.
 - [ ] `make lint` passes.
 - [ ] `uv run rikdom validate --portfolio tests/fixtures/portfolio.json` passes.
-- [ ] `uv run python -m unittest discover -s tests -v` passes.
+- [ ] `uv run python -m unittest discover -s tests -t . -v` passes.
 - [ ] Docs updated when behavior, schema, or CLI changes.
 - [ ] Added/updated fixtures are sanitized (no real PII or real statement exports).
 

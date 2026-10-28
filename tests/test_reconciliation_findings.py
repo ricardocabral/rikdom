@@ -160,7 +160,7 @@ class AggregateFindingsShimTests(unittest.TestCase):
                 }
             ],
         }
-        from test_quantity_coverage import portfolio as declared_portfolio
+        from tests.test_quantity_coverage import portfolio as declared_portfolio
         portfolio = declared_portfolio()
         portfolio["holdings"][0]["quantity"] = 3
         result = aggregate_portfolio(portfolio)

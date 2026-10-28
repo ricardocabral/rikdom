@@ -13,7 +13,7 @@ from rikdom.import_preflight import build_preflight_report
 from rikdom.plugin_engine.pipeline import run_import_pipeline
 from rikdom.plugins import merge_activities, stamp_provenance
 from rikdom.storage import load_json, save_json
-from test_b3_consolidado_mensal_importer import _write_workbook
+from tests.test_b3_consolidado_mensal_importer import _write_workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]

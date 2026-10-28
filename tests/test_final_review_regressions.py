@@ -16,9 +16,9 @@ from rikdom.import_preflight import build_preflight_report
 from rikdom.performance import compute_performance
 from rikdom.plugins import merge_activities
 from rikdom.storage import save_json, append_jsonl, load_json
-from test_activity_corrections import activity
-from test_import_diagnostics import event, diagnostics
-from test_quantity_coverage import portfolio
+from tests.test_activity_corrections import activity
+from tests.test_import_diagnostics import event, diagnostics
+from tests.test_quantity_coverage import portfolio
 
 
 ROOT = Path(__file__).resolve().parents[1]

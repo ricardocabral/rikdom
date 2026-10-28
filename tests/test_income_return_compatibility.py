@@ -2,7 +2,7 @@
 import unittest
 
 from rikdom.instrument_performance import compute_instrument_performance
-from test_instrument_performance import _activity, _portfolio
+from tests.test_instrument_performance import _activity, _portfolio
 
 
 class IncomeReturnCompatibilityTests(unittest.TestCase):
