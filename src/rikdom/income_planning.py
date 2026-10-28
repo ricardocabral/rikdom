@@ -168,6 +168,8 @@ def _reconcile(announcement: dict[str, Any], payments: list[dict[str, Any]], out
     else:
         difference = subtotal - Decimal(str(expected))
         status = 'matched' if difference == 0 else 'partial' if difference < 0 else 'overpaid'
+        if outside:
+            reason = 'Additional reviewed payments are outside the selected period; this comparison includes selected received payments only.'
     return {key: copy.deepcopy(announcement[key]) for key in
             ('scope', 'income_type', 'payment_date', 'currency', 'amount_basis', 'expected_amount')} | {
         'announcement_id': announcement['id'], 'received_amount': _json_number(subtotal) if payments else None,
@@ -287,7 +289,8 @@ def build_income_planning_report(
         if _inside(row['payment_date'], start, end):
             row.update(currency=row['money']['currency'], estimated_amount=row['money']['amount'])
             selected_estimates.append(row)
+    effective = sorted(effective_activities(portfolio.get('activities', [])), key=lambda activity: activity['id'])
     return {'version': 1, 'start': start, 'end': end, 'announced': announced, 'estimates': selected_estimates,
             'reconciliation': [_reconcile(row, matched.get(row['id'], []), row['id'] in outside) for row in announced],
-            'yield_on_cost': [_yield(row, received, effective_activities(portfolio.get('activities', [])), start, end) for row in costs],
+            'yield_on_cost': [_yield(row, received, effective, start, end) for row in costs],
             'diagnostics': diagnostics}

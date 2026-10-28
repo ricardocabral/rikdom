@@ -1,6 +1,7 @@
 """Financial behavior of evidence-backed planning, separate from received income."""
 import copy
 import json
+from pathlib import Path
 import unittest
 
 from rikdom.income import build_income_report
@@ -200,6 +201,29 @@ class IncomePlanningTests(unittest.TestCase):
         self.assertEqual(result['reconciliation'][0]['received_amount'], None)
         self.assertIn('outside', result['reconciliation'][0]['reason'].lower())
         self.assertEqual(len(result['diagnostics']), 1)
+
+    def test_filtered_partial_comparison_explains_additional_outside_window_receipts(self):
+        config = plan(announcements=[announcement()], payment_links=[{
+            'announcement_id': 'ann', 'activity_id': aid, 'source': source()} for aid in ('pay', 'later')])
+        p = portfolio(payment(amount=4), payment('later', amount=6, effective_at='2026-02-01T00:00:00Z'))
+        row = build(p, config, start='2026-01-01', end='2026-01-31')['reconciliation'][0]
+        self.assertEqual((row['status'], row['received_amount']), ('partial', 4))
+        self.assertIn('outside', row['reason'].lower())
+
+    def test_shipped_synthetic_plan_calculates_fifty_received_over_one_thousand_cost(self):
+        config = json.loads((Path(__file__).parent / 'fixtures' / 'income_plan.json').read_text())
+        p = portfolio(payment('payment-1', amount=50, holding_id='holding-1',
+                              provenance={'source_system': 'sample-broker'},
+                              effective_at='2026-02-01T00:00:00Z'))
+        result = build(p, config)
+        self.assertEqual(result['reconciliation'][0]['status'], 'matched')
+        self.assertEqual(result['yield_on_cost'][0]['ratio'], .05)
+        self.assertEqual(result['estimates'][0]['estimated_amount'], 999)
+
+    def test_unavailable_reason_is_independent_of_ledger_order(self):
+        changes = [payment('z-buy', event_type='buy'), payment('a-generic', event_type='income')]
+        config = plan(cost_bases=[cost()])
+        self.assertEqual(build(portfolio(*changes), config), build(portfolio(*reversed(changes)), config))
 
     def test_yield_unknown_cost_coverage_basis_source_and_currency_are_unavailable(self):
         cases = [({'money': None}, payment(), 'cost'), ({'coverage': 'unknown'}, payment(), 'coverage'),
