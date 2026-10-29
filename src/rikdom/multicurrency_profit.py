@@ -41,7 +41,7 @@ def _known_by(value: object, cutoff: datetime) -> None:
         for field, child in value.items():
             if field in ('effective_at', 'retrieved_at', 'reviewed_at', 'ingested_at', 'created_at'):
                 when = _timestamp(child)
-                if field in ('retrieved_at', 'ingested_at', 'created_at') and when > cutoff:
+                if field in ('retrieved_at', 'reviewed_at', 'ingested_at', 'created_at') and when > cutoff:
                     raise ValueError('Source/revision provenance exceeds reviewed retrieval cutoff')
             _known_by(child, cutoff)
     elif isinstance(value, list):

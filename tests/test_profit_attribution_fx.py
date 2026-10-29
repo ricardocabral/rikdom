@@ -364,3 +364,43 @@ class MulticurrencyProfitTests(unittest.TestCase):
                     self.assertEqual(result['decomposition']['status'], 'unavailable')
                     self.assertIsNone(result['decomposition']['explained_result_base'])
                     self.assertTrue(result['diagnostics'])
+
+    def test_nested_source_review_after_cutoff_fails_but_later_basis_review_is_valid(self):
+        p, b = fixture()
+        b['review']['reviewed_at'] = '2026-02-11T00:00:00Z'
+        self.complete(self.calculate(p, b))
+        p['activities'][0]['extensions'] = {'source': {'review': {
+            'status': 'reviewed', 'reviewed_at': '2026-02-10T00:00:00Z'}}}
+        result = self.calculate(p, b)
+        self.assertEqual(result['bridge']['status'], 'complete')
+        self.assertEqual(result['decomposition']['status'], 'unavailable')
+        self.assertIsNone(result['decomposition']['explained_result_base'])
+        self.assertIn('retrieval cutoff', '; '.join(result['diagnostics']))
+
+    def test_nested_split_correction_review_is_knowledge_even_without_ingestion_dates(self):
+        p, b = fixture()
+        p['activities'][0]['quantity'] = 8
+        b['closing_positions'][0]['quantity'] = 12
+        b['review']['reviewed_at'] = '2026-02-11T00:00:00Z'
+        old = {'id': 'old-split', 'event_type': 'split', 'account_id': 'a', 'holding_id': 'h',
+               'effective_at': '2026-01-10T00:00:00Z',
+               'corporate_action': {'kind': 'split', 'exchange_ratio': 3,
+                                    'legs': [{'holding_id': 'h', 'quantity_delta': 20}]}}
+        new = copy.deepcopy(old)
+        new.update(id='new-split',
+                   corporate_action={'kind': 'split', 'exchange_ratio': 2,
+                                     'legs': [{'holding_id': 'h', 'quantity_delta': 10}]},
+                   extensions={
+                       'rikdom_correction': {'version': 1, 'supersedes_activity_id': 'old-split',
+                                             'reason': 'reviewed ratio correction'},
+                       'rikdom_market_event': {'review': {'version': '1.1',
+                           'reviewed_at': CUTOFF}}})
+        p['activities'] += [old, new]
+        self.complete(self.calculate(p, b))
+        # The final projection has no generic knowledge timestamps; its nested
+        # review still proves that this correction was not known at the cutoff.
+        new['extensions']['rikdom_market_event']['review']['reviewed_at'] = '2026-02-10T00:00:00Z'
+        result = self.calculate(p, b)
+        self.assertEqual(result['bridge']['status'], 'complete')
+        self.assertEqual(result['decomposition']['status'], 'unavailable')
+        self.assertIsNone(result['decomposition']['explained_result_base'])
