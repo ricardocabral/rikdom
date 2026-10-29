@@ -12,6 +12,7 @@ from .historical_fx import HistoricalFx
 
 from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
+from decimal import Decimal, ROUND_HALF_EVEN, localcontext
 from typing import Any, Iterable
 import math
 import json
@@ -87,6 +88,7 @@ class PerformanceResult:
     legacy_twr_method: str = "modified_dietz"
     fx_evidence: list[dict[str, Any]] = field(default_factory=list)
     fx_status: str = "legacy_approximate"
+    growth_bridge: dict[str, Any] = field(default_factory=dict)
 
 
 def _parse_iso(value: str) -> datetime:
@@ -1397,6 +1399,112 @@ def compute_performance_by_account(
     return results, top_warnings
 
 
+def _growth_bridge(
+    base_currency: str,
+    start_snap: dict[str, Any] | None,
+    end_snap: dict[str, Any] | None,
+    activities: list[dict[str, Any]],
+    cashflows: list[Cashflow],
+    data_warnings: list[str],
+) -> dict[str, Any]:
+    """Reconcile supported inputs, never turn skipped flows into apparent gains.
+
+    This is a residual of supplied valuations, not profit/FX or lot attribution.
+    Eligibility is stricter than the legacy return calculation; its compatible
+    partial totals cannot establish a complete bridge. Financial arithmetic and
+    reconciliation adjustments use decimal half-even rounding to six places.
+    """
+    start_value = _snap_value(start_snap) if start_snap is not None else None
+    end_value = _snap_value(end_snap) if end_snap is not None else None
+    bridge: dict[str, Any] = {
+        "status": "unavailable",
+        "method": "residual_growth",
+        "completeness_scope": "arithmetic_reconciliation_of_supplied_inputs",
+        "caveat": "Does not independently verify transaction history, snapshot FX, reported valuations, or lot gains.",
+        "base_currency": base_currency,
+        "period_start": start_snap.get("timestamp", "") if start_snap is not None else "",
+        "period_end": end_snap.get("timestamp", "") if end_snap is not None else "",
+        "opening_value_base": start_value,
+        "closing_value_base": end_value,
+        "net_external_cashflow_base": None,
+        "investment_result_base": None,
+        "rounding_adjustment_base": None,
+        "rounding_decimals": 6,
+        "rounding_method": "half_even",
+        "income_treatment": "embedded_in_snapshot_values_not_added_again",
+        "fees_and_taxes": "embedded_in_snapshot_values_not_separately_calculated",
+        "reasons": list(dict.fromkeys(data_warnings)),
+    }
+    reasons = bridge["reasons"]
+    if start_value is None or end_value is None:
+        reasons.append("Finite opening and closing portfolio valuations are required")
+    elif start_value < 0 or end_value < 0:
+        reasons.append("Negative bookend capital is unsupported")
+    instants: list[datetime] = []
+    for label, snap in (("Opening", start_snap), ("Closing", end_snap)):
+        if snap is None:
+            reasons.append(f"{label} snapshot is missing")
+            continue
+        if snap.get("base_currency") != base_currency:
+            reasons.append(f"{label} snapshot currency must match the reporting currency")
+        raw = snap.get("timestamp")
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                raise ValueError("undated valuation")
+            instants.append(parsed.astimezone(timezone.utc))
+        except (AttributeError, TypeError, ValueError):
+            reasons.append(f"{label} snapshot requires a timestamp with explicit timezone")
+    if len(instants) == 2:
+        start, end = instants
+        if end <= start:
+            reasons.append("Two bookend instants defining a positive window are required")
+        for act in activities:
+            if not _is_posted(act) or _event_type(act) not in _EXTERNAL_FLOW_SIGNS:
+                continue
+            raw = act.get("effective_at")
+            try:
+                when = _parse_iso(raw)
+                if when < start or when > end:
+                    continue
+                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                if parsed.tzinfo is None or parsed.utcoffset() is None:
+                    raise ValueError("undated cashflow")
+            except (AttributeError, TypeError, ValueError):
+                reasons.append(
+                    f"Activity '{act.get('id', 'unknown')}' requires effective_at with explicit timezone"
+                )
+    net_flow = _finite_number(sum(cf.amount_base for cf in cashflows))
+    if net_flow is None:
+        reasons.append("Aggregate external cashflow exceeds the finite supported range")
+    if reasons:
+        return bridge
+    # Float string values preserve the public calculation's numeric inputs;
+    # 400 digits cover the supported finite float range plus six decimal places.
+    with localcontext() as context:
+        context.prec = 400
+        opening, closing, net = (Decimal(str(value)) for value in (start_value, end_value, net_flow))
+        investment = closing - opening - net
+        if not math.isfinite(float(investment)):
+            reasons.append("Residual investment result exceeds the finite supported range")
+            return bridge
+        unit = Decimal("0.000001")
+        opening, closing, net, investment = (
+            value.quantize(unit, rounding=ROUND_HALF_EVEN)
+            for value in (opening, closing, net, investment)
+        )
+        adjustment = closing - opening - net - investment
+    bridge.update(
+        status="complete",
+        opening_value_base=float(opening),
+        closing_value_base=float(closing),
+        net_external_cashflow_base=float(net),
+        investment_result_base=float(investment),
+        rounding_adjustment_base=float(adjustment),
+    )
+    return bridge
+
+
 def compute_performance(
     snapshots: list[dict[str, Any]],
     activities: list[dict[str, Any]],
@@ -1438,6 +1546,9 @@ def compute_performance(
             cashflow_count=0,
             warnings=warnings,
             fx_status="unavailable" if historical_fx is not None else "legacy_approximate",
+            growth_bridge=_growth_bridge(
+                base_currency, start_snap, end_snap, activities, [], warnings
+            ),
         )
 
     start_ts = _parse_iso(start_snap["timestamp"])
@@ -1460,6 +1571,9 @@ def compute_performance(
             cashflow_count=0,
             warnings=warnings,
             fx_status="unavailable" if historical_fx is not None else "legacy_approximate",
+            growth_bridge=_growth_bridge(
+                base_currency, start_snap, end_snap, activities, [], warnings
+            ),
         )
 
     fx_evidence: list[dict[str, Any]] = []
@@ -1582,6 +1696,67 @@ def compute_performance(
         linked_twr_pct=selected_pct if method == "linked_subperiod" else None,
         twr_fallback_reason=fallback_reason,
         fx_evidence=fx_evidence,
+        growth_bridge=_growth_bridge(
+            base_currency, start_snap, end_snap, activities, cashflows, cf_warnings
+        ),
         fx_status=("unavailable" if fx_unavailable else "complete")
         if historical_fx is not None else "legacy_approximate",
     )
+
+
+def performance_result_to_dict(result: PerformanceResult) -> dict[str, Any]:
+    """Serialize the shared CLI/report contract, including optional benchmarks."""
+    output: dict[str, Any] = {
+        "base_currency": result.base_currency,
+        "period_start": result.period_start,
+        "period_end": result.period_end,
+        "start_value_base": result.start_value_base,
+        "end_value_base": result.end_value_base,
+        "net_external_cashflow_base": result.net_external_cashflow_base,
+        "twr_pct": result.twr_pct,
+        "legacy_twr_method": result.legacy_twr_method,
+        "twr_return_pct": result.twr_return_pct,
+        "linked_twr_pct": result.linked_twr_pct,
+        "twr_method": result.twr_method,
+        "twr_fallback_reason": result.twr_fallback_reason,
+        "twr_return_basis": result.twr_return_basis,
+        "mwr_method": "xirr",
+        "mwr_return_basis": result.mwr_return_basis,
+        "mwr_pct": result.mwr_pct,
+        "cashflow_count": result.cashflow_count,
+        "warnings": result.warnings,
+        "fx_status": result.fx_status,
+        "fx_evidence": result.fx_evidence,
+        "growth_bridge": result.growth_bridge,
+    }
+    if result.benchmarks:
+        output["benchmarks"] = [
+            _benchmark_comparison_to_dict(b) for b in result.benchmarks
+        ]
+
+    return output
+
+
+def _benchmark_comparison_to_dict(comp: BenchmarkComparison) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "benchmark_id": comp.benchmark_id,
+        "label": comp.label,
+        "kind": comp.kind,
+        "currency": comp.currency,
+        "twr_pct": comp.twr_pct,
+        "excess_pct": comp.excess_pct,
+    }
+    if comp.comparison_status != "legacy":
+        payload.update(
+            period_start=comp.period_start, period_end=comp.period_end,
+            native_currency=comp.native_currency, native_twr_pct=comp.native_twr_pct,
+            return_convention=comp.return_convention, fx_evidence=comp.fx_evidence,
+            data_provenance=comp.data_provenance, comparison_status=comp.comparison_status,
+        )
+    if comp.warnings:
+        payload["warnings"] = list(comp.warnings)
+    if comp.components:
+        payload["components"] = [
+            _benchmark_comparison_to_dict(c) for c in comp.components
+        ]
+    return payload

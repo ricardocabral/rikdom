@@ -86,6 +86,7 @@ from .performance import (
     compute_performance_by_strategic_bucket,
     external_cashflow_currencies,
     performance_period_bounds,
+    performance_result_to_dict,
     parse_flow_valuations,
     read_flow_valuations,
 )
@@ -699,32 +700,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
     )
     result.warnings.extend(fx_warnings)
 
-    output: dict[str, Any] = {
-        "base_currency": result.base_currency,
-        "period_start": result.period_start,
-        "period_end": result.period_end,
-        "start_value_base": result.start_value_base,
-        "end_value_base": result.end_value_base,
-        "net_external_cashflow_base": result.net_external_cashflow_base,
-        "twr_pct": result.twr_pct,
-        "legacy_twr_method": result.legacy_twr_method,
-        "twr_return_pct": result.twr_return_pct,
-        "linked_twr_pct": result.linked_twr_pct,
-        "twr_method": result.twr_method,
-        "twr_fallback_reason": result.twr_fallback_reason,
-        "twr_return_basis": result.twr_return_basis,
-        "mwr_method": "xirr",
-        "mwr_return_basis": result.mwr_return_basis,
-        "mwr_pct": result.mwr_pct,
-        "cashflow_count": result.cashflow_count,
-        "warnings": result.warnings,
-        "fx_status": result.fx_status,
-        "fx_evidence": result.fx_evidence,
-    }
-    if result.benchmarks:
-        output["benchmarks"] = [
-            _benchmark_comparison_to_dict(b) for b in result.benchmarks
-        ]
+    output = performance_result_to_dict(result)
 
     by = getattr(args, "by", None)
     if by == "strategic_bucket":
@@ -1015,31 +991,6 @@ def policy_money_currencies_for_funded_ratio(
         add_money(emergency.get("amount"))
 
     return sorted(currencies)
-
-
-def _benchmark_comparison_to_dict(comp: Any) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "benchmark_id": comp.benchmark_id,
-        "label": comp.label,
-        "kind": comp.kind,
-        "currency": comp.currency,
-        "twr_pct": comp.twr_pct,
-        "excess_pct": comp.excess_pct,
-    }
-    if comp.comparison_status != "legacy":
-        payload.update(
-            period_start=comp.period_start, period_end=comp.period_end,
-            native_currency=comp.native_currency, native_twr_pct=comp.native_twr_pct,
-            return_convention=comp.return_convention, fx_evidence=comp.fx_evidence,
-            data_provenance=comp.data_provenance, comparison_status=comp.comparison_status,
-        )
-    if comp.warnings:
-        payload["warnings"] = list(comp.warnings)
-    if comp.components:
-        payload["components"] = [
-            _benchmark_comparison_to_dict(c) for c in comp.components
-        ]
-    return payload
 
 
 def cmd_viz(args: argparse.Namespace) -> int:
