@@ -216,11 +216,12 @@ Only **external** activity events count as cashflows for performance:
 | `withdrawal`   |  -   | money taken out of portfolio       |
 | `transfer_out` |  -   | assets/cash moved out              |
 
-Transfer events retain the legacy external-flow treatment. The current ledger
-has no supported internal-transfer pairing identity; the calculator does not
-pair transfers by equal amount/date. Transfer-containing periods therefore
-use a disclosed approximate Dietz result, even when evidence is supplied.
-Internal-transfer reconciliation remains unresolved.
+Verified [explicit internal cash pairs](internal-transfers.md) are excluded only
+at the portfolio boundary. Both legs remain in account/bucket calculations.
+Portfolio output adds detached `internal_transfers` pairing provenance. Invalid
+claimed pairs make portfolio TWR/MWR and growth bridges unavailable. Unmarked
+transfer events retain the legacy external-flow treatment and disclosed
+approximate Dietz result. Equal amounts/dates never establish identity.
 
 All other event types — `buy`, `sell`, `dividend`, `interest`, `fee`,
 `income`, `reimbursement`, `tax_withheld`, `fx_conversion`, `split`,
