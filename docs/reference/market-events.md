@@ -127,7 +127,13 @@ The proposal copies the current payment leaf, preserves unknown metadata,
 fees and withholding, sets the reviewed money and amount basis, and appends
 `extensions.rikdom_correction` against the current leaf. It preserves all original
 ledger entries. A new provider revision can append another explicitly reviewed
-correction. Existing dependent tax lots or corporate actions block correction
+correction only when every previously applied revision of that event appears in
+its retained ancestry with identical source evidence. An unseen older revision,
+a file that omits the applied revision, or an unrelated replacement chain returns
+`stale_or_unrelated_revision`; a retrieval cutoff cannot downgrade a newer payment.
+The entire payment correction chain is checked, even when a later manual leaf has
+no event marker. Exact replays of previously applied reviews still return noop.
+Existing dependent tax lots or corporate actions block correction
 with `dependent_activity_review_required`. Changing money does not infer a tax
 correction, settlement, cash account movement, or available-cash balance.
 

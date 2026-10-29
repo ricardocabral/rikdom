@@ -368,7 +368,17 @@ def preview_market_event(
                     'extensions': {'rikdom_market_event': marker}}
     else:
         successors = {link['supersedes_activity_id']: a for a in activities.values() if (link := correction(a))}
-        while target['id'] in successors:
+        ancestors = {row['id']: row for row in selection['superseded']}
+        while True:
+            applied = _marker(target)
+            if applied.get('event_id') == event_id:
+                previous = ancestors.get(applied.get('revision_id'))
+                if previous is None:
+                    return unavailable('stale_or_unrelated_revision')
+                if applied.get('announcement') != previous:
+                    return unavailable('applied_revision_conflict')
+            if target['id'] not in successors:
+                break
             target = successors[target['id']]
         if target.get('status') != 'posted' or target.get('event_type') not in ('dividend', 'interest'):
             return unavailable('observed_payment_not_posted')

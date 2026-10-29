@@ -311,6 +311,50 @@ class MarketEventsTests(unittest.TestCase):
         self.assertEqual(old_replay, second)
         self.assertEqual(result['status'], 'noop')
 
+    def test_distribution_cannot_apply_unseen_ancestor_or_unrelated_revision_after_newer_review(self):
+        payload = document('distribution')
+        root = payload['events'][0]['revisions'][0]
+        payload['events'][0]['revisions'].append({**root, 'id': 'r2', 'supersedes': 'r1',
+            'retrieved_at': '2026-01-22T00:00:00Z'})
+        p = portfolio()
+        p['activities'] = [payment()]
+        store = parse_market_events(payload)
+        newer, _ = apply_market_event(p, store, event_id='notice', as_of=AS_OF,
+            review=distribution_review(revision_id='r2', money={'amount': 6, 'currency': 'USD'}))
+        unrelated = document('distribution')
+        unrelated['events'][0]['revisions'][0].update(id='r3', retrieved_at='2026-01-23T00:00:00Z')
+        for candidate in (newer, self.with_unmarked_payment_correction(newer)):
+            before = copy.deepcopy(candidate)
+            cases = [
+                (store, distribution_review(), '2026-01-21T00:00:00Z'),
+                (parse_market_events(document('distribution')), distribution_review(), None),
+                (parse_market_events(unrelated), distribution_review(revision_id='r3'), None),
+            ]
+            for events, review, cutoff in cases:
+                with self.subTest(revision=review['revision_id'], cutoff=cutoff,
+                                  activities=len(candidate['activities'])):
+                    preview = preview_market_event(candidate, events, event_id='notice', as_of=AS_OF,
+                        review=review, retrieved_before=cutoff)
+                    self.assertEqual((preview['status'], preview['reason'], preview['activities']),
+                                     ('unavailable', 'stale_or_unrelated_revision', []))
+                    with self.assertRaisesRegex(ValueError, 'stale_or_unrelated_revision'):
+                        apply_market_event(candidate, events, event_id='notice', as_of=AS_OF,
+                            review=review, retrieved_before=cutoff)
+                    self.assertEqual(candidate, before)
+            self.assertEqual([a['money']['amount'] for a in effective_activities(candidate['activities'])],
+                             [6] if len(candidate['activities']) == 2 else [7])
+
+    @staticmethod
+    def with_unmarked_payment_correction(portfolio):
+        candidate = copy.deepcopy(portfolio)
+        leaf = copy.deepcopy(candidate['activities'][-1])
+        leaf.update(id='manual-leaf', idempotency_key='manual-leaf', money={'amount': 7, 'currency': 'USD'})
+        leaf['extensions'].pop('rikdom_market_event')
+        leaf['extensions']['rikdom_correction'] = {'version': 1,
+            'supersedes_activity_id': candidate['activities'][-1]['id'], 'reason': 'Reviewed manually'}
+        candidate['activities'].append(leaf)
+        return candidate
+
     def test_distribution_announcements_cannot_invent_entitlement_or_payment(self):
         payload = document('distribution')
         p = portfolio()
