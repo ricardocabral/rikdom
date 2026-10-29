@@ -21,7 +21,8 @@ const {chromium} = require(process.env.RIKDOM_PLAYWRIGHT_MODULE || 'playwright')
     assert.match(await section.innerText(), /\$26\.00/);
     assert.match(await section.innerText(), /Jan 01, 2026/);
     assert.match(await section.innerText(), /Jan 11, 2026/);
-    assert.match(await section.innerText(), /not separately calculated/);
+    assert.match(await section.innerText(), /FIFO profit decomposition/);
+    assert.match(await section.innerText(), /FIFO decomposition unavailable/);
     assert.match(await section.innerText(), /audit warning/);
     assert.equal(await section.locator('img').count(), 0);
     assert.equal(await page.evaluate(() => window.RIKDOM_XSS), undefined);
