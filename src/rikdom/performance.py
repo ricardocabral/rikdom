@@ -1,11 +1,8 @@
-"""Portfolio performance: time-weighted (Modified Dietz) and money-weighted (XIRR) returns.
+"""Portfolio linked TWR, disclosed Modified Dietz approximations, and XIRR.
 
-MVP scope (Phase 2 / Step 5):
-- Portfolio-level only. Per-account / per-bucket attribution and benchmark
-  comparison are deferred to follow-up slices.
-- Pure functions on already-base-converted cashflows; the orchestrator
-  ``compute_performance`` handles snapshot/activity wiring and FX with the
-  same fallback rules used by ``aggregate_portfolio``.
+Explicit before/after flow evidence supports portfolio linking only. Account
+and strategic bucket attribution retain the existing Dietz approximation.
+Legacy undated FX and unresolved transfer identity remain approximate.
 """
 
 from __future__ import annotations
@@ -15,6 +12,7 @@ from .activities import effective_activities
 from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 from typing import Any, Iterable
+import math
 
 from .benchmarks import (
     BenchmarkComparison,
@@ -53,6 +51,15 @@ class PerformanceResult:
     cashflow_count: int
     warnings: list[str] = field(default_factory=list)
     benchmarks: list[BenchmarkComparison] = field(default_factory=list)
+    # twr_pct remains the legacy Modified Dietz result. These fields select
+    # the best supported period return without changing that contract.
+    twr_method: str = "unavailable"
+    twr_return_pct: float | None = None
+    linked_twr_pct: float | None = None
+    twr_fallback_reason: str | None = None
+    twr_return_basis: str = "period"
+    mwr_return_basis: str = "annualized_365_day"
+    legacy_twr_method: str = "modified_dietz"
 
 
 def _parse_iso(value: str) -> datetime:
@@ -63,6 +70,180 @@ def _parse_iso(value: str) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+@dataclass(frozen=True)
+class FlowValuation:
+    when: datetime
+    pre_flow_value_base: float
+    post_flow_value_base: float
+    source: str
+
+
+@dataclass(frozen=True)
+class FlowValuations:
+    """Validated, explicit portfolio cashflow boundaries; never daily snapshots."""
+
+    rounding_tolerance_base: float
+    valuations: tuple[FlowValuation, ...]
+
+
+def parse_flow_valuations(document: Any, base_currency: str) -> FlowValuations:
+    """Validate version 1 read-only evidence, including unique UTC instants.
+
+    Structural errors reject the sidecar. Missing/mismatched financial evidence
+    is handled separately as a disclosed fallback by the return selector.
+    """
+
+    def fail(message: str) -> None:
+        raise ValueError(f"flow-valuations: {message}")
+
+    def number(value: Any, path: str) -> float:
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+        ):
+            fail(f"{path} must be a finite number")
+        return float(value)
+
+    fields = {
+        "version",
+        "scope",
+        "base_currency",
+        "rounding_tolerance_base",
+        "valuations",
+    }
+    if not isinstance(document, dict) or set(document) != fields:
+        fail(
+            "expected exactly version, scope, base_currency, rounding_tolerance_base, valuations"
+        )
+    if type(document["version"]) is not int or document["version"] != 1:
+        fail("version must be 1")
+    if document["scope"] != "portfolio":
+        fail("scope must be portfolio; account and bucket evidence is unsupported")
+    if document["base_currency"] != base_currency:
+        fail(f"base_currency must match portfolio currency {base_currency}")
+    tolerance = number(document["rounding_tolerance_base"], "rounding_tolerance_base")
+    if tolerance < 0:
+        fail("rounding_tolerance_base must be non-negative")
+    if not isinstance(document["valuations"], list):
+        fail("valuations must be an array")
+    rows = []
+    seen: set[datetime] = set()
+    row_fields = {
+        "timestamp",
+        "base_currency",
+        "pre_flow_value_base",
+        "post_flow_value_base",
+        "source",
+    }
+    for index, row in enumerate(document["valuations"]):
+        path = f"valuations[{index}]"
+        if not isinstance(row, dict) or set(row) != row_fields:
+            fail(f"{path} requires exactly {', '.join(sorted(row_fields))}")
+        raw = row["timestamp"]
+        try:
+            if (
+                not isinstance(raw, str)
+                or "T" not in raw
+                or datetime.fromisoformat(raw.replace("Z", "+00:00")).tzinfo is None
+            ):
+                fail(f"{path}.timestamp must be an ISO datetime with timezone")
+            when = _parse_iso(raw)
+        except (TypeError, ValueError):
+            fail(f"{path}.timestamp must be an ISO datetime with timezone")
+        if when in seen:
+            fail(f"{path}.timestamp duplicates another boundary instant")
+        seen.add(when)
+        if row["base_currency"] != base_currency:
+            fail(f"{path}.base_currency must match {base_currency}")
+        if not isinstance(row["source"], str) or not row["source"].strip():
+            fail(f"{path}.source must identify the valuation source")
+        rows.append(
+            FlowValuation(
+                when,
+                number(row["pre_flow_value_base"], f"{path}.pre_flow_value_base"),
+                number(row["post_flow_value_base"], f"{path}.post_flow_value_base"),
+                row["source"].strip(),
+            )
+        )
+    return FlowValuations(tolerance, tuple(sorted(rows, key=lambda row: row.when)))
+
+
+def _select_twr(
+    start_value: float,
+    end_value: float,
+    flows: list[Cashflow],
+    start: datetime,
+    end: datetime,
+    evidence: FlowValuations | None,
+    data_warnings: list[str],
+    dietz: float | None,
+) -> tuple[float | None, str, str | None]:
+    """Choose a supported return and hide boundary reconciliation/linking rules."""
+
+    def fallback(reason: str) -> tuple[float | None, str, str]:
+        return dietz, "modified_dietz" if dietz is not None else "unavailable", reason
+
+    if end <= start or start_value <= 0 or end_value < 0:
+        return (
+            None,
+            "unavailable",
+            "Positive opening capital, non-negative terminal value and a positive window are required",
+        )
+    if any("invalid financial" in warning.lower() for warning in data_warnings):
+        return None, "unavailable", "Invalid financial inputs in external cashflows"
+    if data_warnings:
+        return fallback(
+            "External cashflow data is incomplete or approximate: "
+            + "; ".join(data_warnings)
+        )
+    grouped: dict[datetime, float] = {}
+    for cf in flows:
+        grouped[cf.when] = grouped.get(cf.when, 0.0) + cf.amount_base
+    rows = (
+        {row.when: row for row in evidence.valuations if start <= row.when <= end}
+        if evidence
+        else {}
+    )
+    if not grouped and not rows:
+        return end_value / start_value - 1, "bookend_ratio", None
+    if set(rows) != set(grouped):
+        return fallback(
+            "Missing or unmatched explicit before/after cashflow valuation boundaries"
+        )
+    tolerance = evidence.rounding_tolerance_base if evidence else 0.0
+    capital = start_value
+    factor = 1.0
+    for when, row in sorted(rows.items()):
+        pre, post = row.pre_flow_value_base, row.post_flow_value_base
+        if pre < 0 or post < 0:
+            return None, "unavailable", "Negative capital in flow valuation evidence"
+        if abs((post - pre) - grouped[when]) > tolerance:
+            return fallback(
+                f"Valuation difference does not match aggregate signed cashflow at {when.isoformat()}"
+            )
+        if when == start and abs(pre - start_value) > tolerance:
+            return fallback(
+                "Start snapshot must equal pre-flow value at a start-boundary cashflow"
+            )
+        if when == end and abs(post - end_value) > tolerance:
+            return fallback(
+                "End snapshot must equal post-flow value at an end-boundary cashflow"
+            )
+        if capital <= 0:
+            return None, "unavailable", "Zero capital prevents a subperiod return"
+        factor *= pre / capital
+        capital = post
+    if end not in rows:
+        if capital <= 0:
+            return None, "unavailable", "Zero capital prevents a subperiod return"
+        factor *= end_value / capital
+    result = factor - 1
+    if not math.isfinite(result):
+        return None, "unavailable", "Non-finite linked return"
+    return result, "linked_subperiod", None
 
 
 def _is_date_only(value: str) -> bool:
@@ -94,6 +275,8 @@ def modified_dietz(
     over the period) — a return is undefined in that case.
     """
 
+    if not math.isfinite(start_value) or not math.isfinite(end_value):
+        return None
     total_seconds = (period_end - period_start).total_seconds()
     if total_seconds <= 0:
         return None
@@ -103,13 +286,16 @@ def modified_dietz(
     for cf in flows:
         if cf.when < period_start or cf.when > period_end:
             continue
+        if not math.isfinite(cf.amount_base):
+            return None
         weight = (period_end - cf.when).total_seconds() / total_seconds
         weighted += weight * cf.amount_base
         net_flow += cf.amount_base
     denom = start_value + weighted
-    if denom <= 0:
+    if denom <= 0 or not math.isfinite(denom):
         return None
-    return (end_value - start_value - net_flow) / denom
+    result = (end_value - start_value - net_flow) / denom
+    return result if math.isfinite(result) else None
 
 
 def xirr(
@@ -129,6 +315,8 @@ def xirr(
     Returns ``None`` if a root cannot be bracketed or convergence fails.
     """
 
+    if any(not math.isfinite(cf.amount_base) for cf in cashflows):
+        return None
     if len(cashflows) < 2:
         return None
     has_pos = any(cf.amount_base > 0 for cf in cashflows)
@@ -206,13 +394,14 @@ def _resolve_to_base(
     if code == base_currency:
         return amount
     rate = fx_rates_to_base.get(code)
-    if rate is not None and rate > 0:
+    if rate is not None and math.isfinite(rate) and rate > 0:
         return amount * rate
     if isinstance(metadata, dict):
         meta_fx = metadata.get("fx_rate_to_base")
         if (
             isinstance(meta_fx, (int, float))
             and not isinstance(meta_fx, bool)
+            and math.isfinite(meta_fx)
             and meta_fx > 0
         ):
             return amount * float(meta_fx)
@@ -233,7 +422,10 @@ def _normalize_fx_rates(fx_rates_to_base: dict[str, float] | None) -> dict[str, 
     return {
         k.strip().upper(): float(v)
         for k, v in (fx_rates_to_base or {}).items()
-        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+        if isinstance(v, (int, float))
+        and not isinstance(v, bool)
+        and math.isfinite(v)
+        and v > 0
     }
 
 
@@ -348,17 +540,11 @@ def extract_external_cashflows(
         sign = _EXTERNAL_FLOW_SIGNS.get(event_type)
         if sign is None:
             continue
-        money = act.get("money")
-        if not isinstance(money, dict):
-            continue
-        amount = money.get("amount")
-        currency = money.get("currency")
-        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
-            continue
-        if not isinstance(currency, str) or not currency.strip():
-            continue
         when_raw = act.get("effective_at")
         if not isinstance(when_raw, str):
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing effective_at; cashflow skipped"
+            )
             continue
         try:
             when = _parse_iso(when_raw)
@@ -371,6 +557,23 @@ def extract_external_cashflows(
             continue
         if period_end is not None and when > period_end:
             continue
+        money = act.get("money")
+        amount = money.get("amount") if isinstance(money, dict) else None
+        currency = money.get("currency") if isinstance(money, dict) else None
+        if (
+            not isinstance(amount, (int, float))
+            or isinstance(amount, bool)
+            or not math.isfinite(amount)
+        ):
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount; cashflow skipped"
+            )
+            continue
+        if not isinstance(currency, str) or len(currency.strip()) != 3:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing valid currency; cashflow skipped"
+            )
+            continue
         base_amount = _resolve_to_base(
             abs(float(amount)),
             currency,
@@ -378,12 +581,21 @@ def extract_external_cashflows(
             metadata=act.get("metadata"),
             fx_rates_to_base=rates,
         )
+        if base_amount is not None and not math.isfinite(base_amount):
+            warnings.append(
+                "Invalid financial amount after FX conversion; cashflow skipped"
+            )
+            continue
         if base_amount is None:
             warnings.append(
                 f"Activity '{act.get('id', 'unknown')}' missing FX rate "
                 f"for {currency!r} -> {base_currency!r}; cashflow skipped"
             )
             continue
+        if currency.strip().upper() != base_currency:
+            warnings.append(
+                "Foreign cashflow uses undated FX approximation; historical return is approximate"
+            )
         flows.append(Cashflow(when=when, amount_base=sign * base_amount))
     flows.sort(key=lambda cf: cf.when)
     return flows, warnings
@@ -444,7 +656,11 @@ def _snap_value(snap: dict[str, Any]) -> float | None:
     if not isinstance(totals, dict):
         return None
     value = totals.get("portfolio_value_base")
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    if (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    ):
         return float(value)
     return None
 
@@ -951,7 +1167,13 @@ def compute_performance(
     until: str | datetime | None = None,
     policy: dict[str, Any] | None = None,
     benchmark_loader: BenchmarkLoader | None = None,
+    flow_valuations: dict[str, Any] | None = None,
 ) -> PerformanceResult:
+    evidence = (
+        parse_flow_valuations(flow_valuations, base_currency)
+        if flow_valuations is not None
+        else None
+    )
     activities = effective_activities(activities)
     since_dt = _parse_iso(since) if isinstance(since, str) else since
     until_dt = _parse_until_bound(until) if isinstance(until, str) else until
@@ -980,7 +1202,7 @@ def compute_performance(
     end_value = _snap_value(end_snap)
     if start_value is None or end_value is None:
         warnings.append(
-            "Snapshot is missing portfolio_value_base; cannot compute return"
+            "Snapshot has missing or nonfinite portfolio_value_base; cannot compute return"
         )
         return PerformanceResult(
             base_currency=base_currency,
@@ -1002,6 +1224,32 @@ def compute_performance(
         period_start=start_ts,
         period_end=end_ts,
     )
+    # Transfers have no stable pairing identity in the current contract. Keep
+    # the legacy external-flow treatment and disclose the unresolved boundary.
+    for activity in activities:
+        if not isinstance(activity, dict) or not _is_posted(activity):
+            continue
+        if activity.get("event_type") not in {"transfer_in", "transfer_out"}:
+            continue
+        try:
+            when = _parse_iso(activity.get("effective_at", ""))
+        except (TypeError, ValueError):
+            continue
+        if start_ts <= when <= end_ts:
+            cf_warnings.append(
+                "Transfer identity unresolved: no supported internal-transfer pairing convention; treated as external, approximate"
+            )
+            break
+    for snapshot in (start_snap, end_snap):
+        currency = snapshot.get("base_currency")
+        if currency is None:
+            cf_warnings.append(
+                "Snapshot has no base_currency; valuation currency is unverified and approximate"
+            )
+        elif currency != base_currency:
+            cf_warnings.append(
+                "Invalid financial input: snapshot base_currency does not match portfolio base currency"
+            )
     warnings.extend(cf_warnings)
 
     twr_fraction = modified_dietz(start_value, end_value, cashflows, start_ts, end_ts)
@@ -1011,6 +1259,20 @@ def compute_performance(
         xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
     xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
     mwr_fraction = xirr(xirr_series)
+    if any("invalid financial" in warning.lower() for warning in cf_warnings):
+        twr_fraction = mwr_fraction = None
+    selected, method, fallback_reason = _select_twr(
+        start_value,
+        end_value,
+        cashflows,
+        start_ts,
+        end_ts,
+        evidence,
+        cf_warnings,
+        twr_fraction,
+    )
+    if fallback_reason:
+        warnings.append(f"TWR {method}: {fallback_reason}")
 
     net_flow = sum(cf.amount_base for cf in cashflows)
 
@@ -1040,4 +1302,10 @@ def compute_performance(
         cashflow_count=len(cashflows),
         warnings=warnings,
         benchmarks=benchmark_comparisons,
+        twr_method=method,
+        twr_return_pct=None if selected is None else round(selected * 100, 6),
+        linked_twr_pct=round(selected * 100, 6)
+        if selected is not None and method == "linked_subperiod"
+        else None,
+        twr_fallback_reason=fallback_reason,
     )

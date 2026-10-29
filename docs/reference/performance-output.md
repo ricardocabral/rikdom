@@ -11,6 +11,8 @@ the recipe, see [compute portfolio TWR / MWR](../how-to/compute-performance.md).
 - `data/portfolio.json` — for `settings.base_currency`, `activities[]`, and FX
   fallbacks (`metadata.fx_rate_to_base`).
 - `data/snapshots.jsonl` — period-end portfolio values.
+- `--flow-valuations PATH` (optional) — explicit before/after external cashflow
+  evidence; version 1 portfolio-only contract below. This file is read-only.
 - `data/fx_rates.jsonl` (optional) — used to resolve foreign-currency
   cashflows to base currency via the same fallback chain as `aggregate`.
 
@@ -25,13 +27,31 @@ the recipe, see [compute portfolio TWR / MWR](../how-to/compute-performance.md).
   "end_value_base": 165830.0,
   "net_external_cashflow_base": 0,
   "twr_pct": 11.071668,
+  "legacy_twr_method": "modified_dietz",
+  "twr_return_pct": 11.071668,
+  "linked_twr_pct": null,
+  "twr_method": "bookend_ratio",
+  "twr_return_basis": "period",
+  "twr_fallback_reason": null,
+  "mwr_method": "xirr",
+  "mwr_return_basis": "annualized_365_day",
   "mwr_pct": 63.455683,
   "cashflow_count": 0,
   "warnings": []
 }
 ```
 
-`twr_pct` and `mwr_pct` are percentages (e.g. `10.0` == +10%). MWR is
+`twr_pct` retains the legacy **Modified Dietz approximation**, including when
+linked evidence is supplied. `twr_return_pct` selects the best supported return;
+its `twr_method` is `linked_subperiod`, `bookend_ratio`, `modified_dietz`, or
+`unavailable`. `linked_twr_pct` is populated only for `linked_subperiod`.
+`twr_fallback_reason` and `warnings[]` disclose missing/inconsistent boundaries,
+skipped or malformed flows, undated FX, and unresolved transfer identities.
+Account and strategic-bucket rows always identify their Dietz method (or
+unavailable), period basis and annualized XIRR basis. Benchmark comparisons
+continue using the legacy `twr_pct` Dietz result.
+
+`twr_pct`, `twr_return_pct`, `linked_twr_pct`, and `mwr_pct` are percentages (e.g. `10.0` == +10%). MWR is
 annualized (365-day years); short windows therefore extrapolate to a yearly
 rate. TWR is the period return — not annualized.
 
@@ -41,6 +61,60 @@ Either field is `null` if the input does not support a return:
   (no invested capital over the period).
 - `mwr_pct` is `null` when the cashflow series has no sign change or XIRR
   fails to converge.
+
+## Explicit cashflow valuation evidence
+
+```json
+{
+  "version": 1,
+  "scope": "portfolio",
+  "base_currency": "BRL",
+  "rounding_tolerance_base": 0.01,
+  "valuations": [
+    {
+      "timestamp": "2026-01-06T00:00:00Z",
+      "base_currency": "BRL",
+      "pre_flow_value_base": 110.0,
+      "post_flow_value_base": 160.0,
+      "source": "Custodian valuation report, before and after contribution"
+    }
+  ]
+}
+```
+
+All fields shown are required; extra fields are rejected at both levels.
+`version` is integer `1`, `scope` is `portfolio`, and both currency fields must
+match the portfolio base currency. Numeric fields must be finite numbers, not
+booleans. `rounding_tolerance_base` must be non-negative and declares an absolute
+rounding allowance in base-currency units. `source` must be nonblank.
+`timestamp` must be an ISO datetime with explicit timezone; dates alone and
+naive datetimes are rejected. Duplicate instants are rejected even if expressed
+with different timezone offsets. Array order is irrelevant.
+
+Each row values the **whole portfolio immediately before and after** the
+aggregate of all signed external cashflows at that instant. The difference
+`post_flow_value_base - pre_flow_value_base` must equal the signed ledger total
+within the declared tolerance. One row covers all same-instant flows, including
+net-zero groups. Retain the source report and evidence file for auditing.
+Ordinary daily snapshots never imply these before/after semantics.
+
+Only evidence inside the selected snapshot window is used; other rows are
+validated but ignored. The window includes both bookend instants. At a start
+cashflow the start snapshot must equal the **pre-flow** value; at an end
+cashflow the end snapshot must equal the **post-flow** value, within the same
+tolerance. An incompatible bookend produces a labeled Dietz fallback. Every
+in-window cashflow instant needs a row, and every in-window row needs a matching
+cashflow instant. Missing or inconsistent evidence gives Dietz plus a reason.
+Malformed sidecars fail with an actionable error and nonzero CLI exit status.
+`--flow-valuations` with `--by account`, `strategic_bucket`, or `instrument` is
+rejected explicitly.
+
+No-flow periods use a bookend ratio if the input data is complete. Positive
+opening capital and a positive-duration window are required; terminal capital
+may be zero (a -100% loss). Negative capital and nonfinite financial values
+make the selected return unavailable. Zero capital between subperiods also
+makes linking unavailable. A zero post-flow value at the terminal boundary is
+allowed, since there is no subsequent subperiod to divide by it.
 
 ## Bookend snapshot selection
 
@@ -60,6 +134,12 @@ Only **external** activity events count as cashflows for performance:
 | `withdrawal`   |  -   | money taken out of portfolio       |
 | `transfer_out` |  -   | assets/cash moved out              |
 
+Transfer events retain the legacy external-flow treatment. The current ledger
+has no supported internal-transfer pairing identity; the calculator does not
+pair transfers by equal amount/date. Transfer-containing periods therefore
+use a disclosed approximate Dietz result, even when evidence is supplied.
+Internal-transfer reconciliation remains unresolved.
+
 All other event types — `buy`, `sell`, `dividend`, `interest`, `fee`,
 `income`, `reimbursement`, `tax_withheld`, `fx_conversion`, `split`,
 `merger`, `other` — are **internal**: they reshuffle value within the
@@ -78,6 +158,10 @@ fallback chain as `aggregate_portfolio`:
 1. `fx_rates_to_base[CCY]` from the snapshot FX lock (loaded from
    `--fx-history`).
 2. `metadata.fx_rate_to_base` on the activity itself.
+
+These rates are undated for this calculation. A converted foreign cashflow
+always warns that history is approximate and prevents an exact linked-return
+claim; a sidecar cannot supply or repair missing historical FX.
 
 If neither resolves, the cashflow is **skipped with a warning** rather than
 blocking the whole computation; the resulting TWR/MWR is still emitted but
