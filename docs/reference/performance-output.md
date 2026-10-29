@@ -62,6 +62,88 @@ Either field is `null` if the input does not support a return:
 - `mwr_pct` is `null` when the cashflow series has no sign change or XIRR
   fails to converge.
 
+## Residual growth bridge
+
+Portfolio output adds `growth_bridge`. Python consumers, including reports, use
+`performance_result_to_dict(compute_performance(...))` from `rikdom.performance`
+for the same JSON contract as the CLI. Existing fields retain their meanings and
+precision; optional benchmark fields retain their conditional legacy/historical
+shape. Account, bucket, and instrument rows do not gain portfolio growth bridges.
+
+For example, opening value 100, contributions 30, withdrawals 10 and closing
+value 150 give:
+
+```json
+{
+  "status": "complete",
+  "method": "residual_growth",
+  "completeness_scope": "arithmetic_reconciliation_of_supplied_inputs",
+  "caveat": "Does not independently verify transaction history, snapshot FX, reported valuations, or lot gains.",
+  "base_currency": "BRL",
+  "period_start": "2026-01-01T00:00:00Z",
+  "period_end": "2027-01-01T00:00:00Z",
+  "opening_value_base": 100.0,
+  "net_external_cashflow_base": 20.0,
+  "investment_result_base": 30.0,
+  "closing_value_base": 150.0,
+  "rounding_adjustment_base": 0.0,
+  "rounding_decimals": 6,
+  "rounding_method": "half_even",
+  "income_treatment": "embedded_in_snapshot_values_not_added_again",
+  "fees_and_taxes": "embedded_in_snapshot_values_not_separately_calculated",
+  "reasons": []
+}
+```
+
+The bridge reuses the selected portfolio bookends, effective corrected posted
+activities, signed external cashflows, and dated FX completeness. Its actual
+window is `period_start` through `period_end`, including both instants. The
+opening snapshot is assumed to precede an external flow exactly at its instant;
+the closing snapshot is assumed to follow one at its instant, matching the
+existing performance boundary convention.
+
+`investment_result_base` is the **aggregate residual**:
+`closing - opening - signed net external cashflow`. Dividends, interest and other
+income already embedded in snapshots are never added again. Fees and taxes
+reduce the result only to the extent they are reflected in supplied valuations
+and flows; the bridge does not calculate, gross up, or separately attribute them.
+A dividend receipt of 7 in the example does not change the residual from 30 to 37.
+
+`status: complete` means only that the supplied inputs support this arithmetic
+reconciliation. `completeness_scope` and `caveat` explicitly limit that claim:
+ledger coverage, reported valuations and snapshot FX are not independently
+verified. It is not a complete profit total, a realized/unrealized gain split,
+a tax-lot calculation, or attribution of FX effects versus investment effects.
+Those require additional history and valuation evidence.
+
+`status: unavailable` sets `investment_result_base`,
+`net_external_cashflow_base` and `rounding_adjustment_base` to `null`, with
+`reasons[]`. Known finite bookend values remain visible; missing/invalid values
+stay `null`. The bridge requires two timezone-qualified, currency-verified,
+non-negative bookend valuations and a positive-duration window. Zero opening
+capital and a total loss can reconcile even when a return is undefined.
+Skipped/malformed external flows, naive flow timestamps, missing/stale dated FX,
+undated foreign conversion and unresolved transfer identities prevent a complete
+bridge. This deliberately remains conservative even where legacy compatibility
+fields retain partial or approximate numeric results. Missing flow-boundary
+sidecars alone do not block residual arithmetic: they are needed for linked TWR,
+not the aggregate residual.
+
+Bridge amounts are rounded to six decimal places in base-currency units with
+decimal half-even rounding of the calculation's public numeric inputs. The
+residual is calculated before rounding. `rounding_adjustment_base` is the signed
+difference needed for the independently rounded components to reconcile:
+
+```text
+opening + net external cashflow + investment result + rounding adjustment = closing
+```
+
+Normally the adjustment is zero. For opening `1.0000004`, flow `0.0000004` and
+closing `2.0000006`, the rounded bridge is `1 + 0 + 1 + 0.000001 = 2.000001`.
+Amounts exceeding the finite supported numeric range make the bridge unavailable.
+Consumers should use the provided fields rather than recalculate financial values
+in the frontend; minor binary float representation differences are possible.
+
 ## Explicit cashflow valuation evidence
 
 ```json

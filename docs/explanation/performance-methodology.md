@@ -98,6 +98,31 @@ composite components. A window with only one snapshot cannot establish a return;
 a malformed optional benchmark becomes unavailable without discarding usable
 portfolio results.
 
+## Contributions versus residual investment growth
+
+The portfolio growth bridge answers how much of the change in supplied values
+remains after recorded net contributions:
+
+```text
+investment result = closing value - opening value - net external cashflow
+```
+
+For opening 100, contributions 30, withdrawals 10 and closing 150, this residual
+is 30. Income already reflected in closing value is part of that 30; adding a
+separate dividend total would count it twice. Fees and taxes affect the residual
+only as embedded in supplied valuations and cashflows. No separate net-of-fee,
+net-of-tax or gross return is inferred.
+
+A residual needs no subperiod valuation boundaries. It does need usable bookends
+and complete, unapproximated recorded external cashflow conversion. It therefore
+can be available alongside a disclosed Dietz approximation, while skipped flows,
+undated FX and unresolved transfers make the bridge unavailable. The bridge's
+`complete` status describes supplied-input arithmetic, not independently verified
+ledger coverage, snapshot FX, valuations, realized gains or tax-lot history.
+It is an aggregate growth reconciliation, not full profit attribution.
+See the [bridge contract](../reference/performance-output.md#residual-growth-bridge)
+for eligibility, explicit limitations and rounding adjustments.
+
 ## Why legacy FX gaps warn instead of fail
 
 Without `--historical-fx`, a missing FX rate for a single foreign-currency
