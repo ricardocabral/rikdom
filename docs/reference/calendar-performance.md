@@ -64,3 +64,11 @@ native-currency contract. Interactive report date or dimension filters suppress
 performance tables until reset because filtered historical attribution has not
 been asserted. Generate a new report with explicit calculation dates to obtain
 calendar rows for another window.
+
+Verified internal cash pairs are classified against the entire effective ledger
+before calendar slicing. They do not appear as portfolio external flows and
+retain their reviewed pair provenance. Conflicting replay identities outside a
+calendar row can invalidate a claimed pair inside it; such rows remain
+unavailable. The portfolio contributions display follows the same full-ledger
+classification. Scoped account/bucket calculations still retain individual legs
+and require their own FX conversions.

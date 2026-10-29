@@ -13,7 +13,7 @@ from typing import Any
 
 from rfc3339_validator import validate_rfc3339
 
-from .activities import effective_activities
+from .internal_transfers import resolve_internal_transfers
 from .benchmarks import BenchmarkLoader
 from .historical_fx import HistoricalFx
 from .performance import compute_performance, parse_flow_valuations
@@ -93,7 +93,7 @@ def compute_calendar_performance(
 
     # Resolve ledger reversals before slicing. A correction outside a row can
     # change which original event is effective inside the row.
-    ledger = effective_activities(activities)
+    ledger = resolve_internal_transfers(activities).external_activities
 
     def row_for(left: datetime, right: datetime, label: str, complete: bool) -> dict[str, Any]:
         row = {'label': label, 'period_start': _iso(left), 'period_end': _iso(right),
@@ -105,6 +105,12 @@ def compute_calendar_performance(
             return row
         if valuation_replay is not None and valuation_replay['status'] != 'complete':
             row['warnings'].append('Historical valuation unavailable; no recorded snapshot fallback was used')
+            return row
+        # Classify against the entire raw ledger before selecting this row.
+        # A conflicting replay outside the row can invalidate a leg inside it.
+        transfers = resolve_internal_transfers(activities, left + timedelta(microseconds=1), right)
+        if transfers.warnings:
+            row['warnings'].extend(transfers.warnings)
             return row
         selected = []
         for activity in ledger:
@@ -128,6 +134,7 @@ def compute_calendar_performance(
             fx_rates_to_base=fx_rates_to_base, historical_fx=historical_fx,
             flow_valuations=row_flow_valuations, policy=policy, benchmark_loader=benchmark_loader,
         )
+        calculated.internal_transfers = transfers.provenance
         row['performance'] = performance_to_dict(
             calculated, historical_fx=historical_fx, valuation_replay=valuation_replay,
         )

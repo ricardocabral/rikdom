@@ -91,6 +91,8 @@ class PerformanceResult:
     fx_evidence: list[dict[str, Any]] = field(default_factory=list)
     fx_status: str = "legacy_approximate"
     growth_bridge: dict[str, Any] = field(default_factory=dict)
+    return_convention: str = "unspecified"
+    return_convention_evidence: list[dict[str, Any]] = field(default_factory=list)
     internal_transfers: dict[str, Any] = field(default_factory=dict)
 
 
@@ -293,6 +295,23 @@ def _select_twr(
     if not math.isfinite(result):
         return None, "unavailable", "Non-finite linked return"
     return result, "linked_subperiod", None
+
+
+def _bookend_return_convention(*snapshots: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    """Validate explicit source declarations; NAV alone cannot prove total return."""
+    evidence = []
+    for snapshot in snapshots:
+        metadata = snapshot.get("metadata")
+        declaration = metadata.get("rikdom_return_convention") if isinstance(metadata, dict) else None
+        if (not isinstance(declaration, dict)
+                or set(declaration) != {"version", "kind", "source"}
+                or type(declaration["version"]) is not int or declaration["version"] != 1
+                or declaration["kind"] not in ("total_return", "price_return")
+                or not isinstance(declaration["source"], str) or not declaration["source"].strip()):
+            return "unspecified", []
+        evidence.append({"timestamp": snapshot["timestamp"], **declaration})
+    kinds = {item["kind"] for item in evidence}
+    return (next(iter(kinds)) if len(kinds) == 1 else "unspecified"), evidence
 
 
 def _is_date_only(value: str) -> bool:
@@ -505,8 +524,10 @@ def external_cashflow_currencies(
     fx_rates_to_base: dict[str, float] | None = None,
     period_start: datetime | None = None,
     period_end: datetime | None = None,
+    include_internal_transfers: bool = False,
 ) -> list[str]:
-    activities = resolve_internal_transfers(activities).external_activities
+    transfers = resolve_internal_transfers(activities)
+    activities = transfers.activities if include_internal_transfers else transfers.external_activities
     base = base_currency.strip().upper()
     rates = _normalize_fx_rates(fx_rates_to_base)
     currencies: set[str] = set()
@@ -1609,6 +1630,8 @@ def compute_performance(
 
     transfers = resolve_internal_transfers(activities, start_ts, end_ts)
     portfolio_activities = transfers.external_activities
+    return_convention, convention_evidence = _bookend_return_convention(start_snap, end_snap)
+
     fx_evidence: list[dict[str, Any]] = []
     fx_unavailable = False
     if historical_fx is not None:
@@ -1702,6 +1725,7 @@ def compute_performance(
                 start_snap.get("timestamp", ""),
                 end_snap.get("timestamp", ""),
                 selected_pct if historical_fx is not None else twr_pct,
+                portfolio_return_convention=return_convention,
                 **({"historical_fx": historical_fx} if historical_fx is not None else {}),
             )
 
@@ -1723,6 +1747,8 @@ def compute_performance(
         twr_fallback_reason=fallback_reason,
         fx_evidence=fx_evidence,
         internal_transfers=transfers.provenance,
+        return_convention=return_convention,
+        return_convention_evidence=convention_evidence,
         growth_bridge=_growth_bridge(
             base_currency, start_snap, end_snap, portfolio_activities, cashflows, cf_warnings
         ),
@@ -1755,6 +1781,8 @@ def performance_result_to_dict(result: PerformanceResult) -> dict[str, Any]:
         "fx_status": result.fx_status,
         "fx_evidence": result.fx_evidence,
         "growth_bridge": result.growth_bridge,
+        "return_convention": result.return_convention,
+        "return_convention_evidence": copy.deepcopy(result.return_convention_evidence),
         "internal_transfers": copy.deepcopy(result.internal_transfers),
     }
     if result.benchmarks:

@@ -10,7 +10,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .activities import effective_activities
 from .historical_fx import HistoricalFx
 from .performance import PerformanceResult, extract_external_cashflows, performance_result_to_dict
 
@@ -188,8 +187,10 @@ def recorded_contributions(activities: list[dict[str, Any]]) -> list[dict[str, A
     The extractor controls event taxonomy, posting status, signs and effective
     dates. Native-currency display makes no implicit FX or entitlement claim.
     """
+    from .internal_transfers import resolve_internal_transfers
+
     rows = []
-    for activity in effective_activities(activities):
+    for activity in resolve_internal_transfers(activities).external_activities:
         money = activity.get('money')
         currency = money.get('currency') if isinstance(money, dict) else None
         if not isinstance(currency, str) or len(currency.strip()) != 3:

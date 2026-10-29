@@ -684,6 +684,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
                 base_currency,
                 period_start=period_start,
                 period_end=period_end,
+                include_internal_transfers=getattr(args, "by", None) in ("account", "strategic_bucket"),
             ),
         )
 
@@ -2928,6 +2929,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_workspace_rollup.set_defaults(func=cmd_workspace_rollup)
 
+    from .market_events_cli import register_market_events_command
+    register_market_events_command(sub)
     return parser
 
 
@@ -2944,7 +2947,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         preview = args.command in ("import-statement", "activity") and (not getattr(args, "write", False) or getattr(args, "dry_run", False))
-        if not preview and args.command != "income":
+        if not preview and args.command not in ("income", "market-events"):
             _bootstrap_default_workspace(args)
         return args.func(args)
     except (ValueError, OSError) as exc:

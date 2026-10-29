@@ -193,3 +193,36 @@ fixtures to an actual portfolio.
 No provider plugin or remote enrichment acquisition is included. Future
 providers must preserve this strict event identity and revision contract; raw
 provider announcements must not bypass host review or become received income.
+
+## CLI workflow
+
+All commands use explicit local files. They do not bootstrap a workspace, access
+providers, infer entitlement, or fetch prices. Lookup and preview preserve input
+bytes. `apply` also previews unless `--write` is supplied; `--dry-run` overrides
+`--write`. Applying validates the current and proposed portfolio and uses the
+canonical atomic JSON writer. A no-op replay does not rewrite the portfolio.
+The ledger carries the action/review provenance; this command does not append a
+separate import log, rebuild holdings/tax lots, or rewrite snapshots/prices.
+
+```bash
+uv run rikdom market-events lookup --input data-sample/market-events/us.json \
+  --event synthetic-us-split --as-of 2026-02-01T00:00:00Z
+
+uv run rikdom market-events preview --input data-sample/market-events/us.json \
+  --event synthetic-us-split --as-of 2026-02-01T00:00:00Z \
+  --portfolio data-sample/market-events/portfolio.json \
+  --review data-sample/market-events/split-review.json
+
+# Copy the synthetic portfolio to a scratch path before trying --write.
+uv run rikdom market-events apply --input data-sample/market-events/us.json \
+  --event synthetic-us-split --as-of 2026-02-01T00:00:00Z \
+  --portfolio /tmp/reviewed-portfolio.json \
+  --review data-sample/market-events/split-review.json --write
+```
+
+Source event/review files cannot alias the written portfolio, including symlinks
+and hard links. Lookup/preview can return missing or unavailable evidence as
+successful JSON; applying an unavailable action exits nonzero without a write.
+Invalid files or failed persistence also exit nonzero. No background action is
+scheduled. Both application paths require explicit schema 2.0.0 adoption because
+older readers must not ignore immutable correction history.
