@@ -137,6 +137,23 @@ and the retrieval cutoff must cover the period and precede or equal review.
 `review.source` identifies the reviewed evidence; this declaration records user
 review, not independent attestation by Rikdom.
 
+The cutoff is enforced against every supplied `ingested_at` and `created_at`
+on raw period events and their complete connected correction lineage. This
+includes superseded events, cancellations and corrections whose effective dates
+move outside the period. Malformed or timezone-naive knowledge timestamps and
+any known timestamp after `retrieved_before` make the decomposition unavailable.
+The valid residual bridge can remain available because it describes the supplied
+latest ledger rather than an as-known historical snapshot.
+
+This version does not reconstruct an earlier ledger as known at the cutoff.
+Unrelated future events outside the period and its correction lineage do not
+block the period decomposition. Absent ingestion/creation timestamps are not
+inferred; their temporal coverage remains part of the explicit reviewer
+assertion. A completed decomposition retains detached raw rows, including
+correction links and source/ingestion fields, in `history_evidence.activities`,
+along with the cutoff and scope. This evidence records exactly which supplied
+lineage passed the conservative temporal check.
+
 All FIFO position values, transaction cash and costs must be in the reporting
 currency. This makes `*_native` and `*_base` amounts identical for the supported
 breakdown. Foreign positions, foreign trading/fee/tax currencies and FX gain
@@ -171,7 +188,10 @@ the performance engine's inclusive boundary convention.
 - Contributions/withdrawals with no holding reference, quantity or embedded
   costs can reconcile cash. In-kind flows, transfers, splits, mergers,
   amortization, reimbursement, FX conversion, other movements, and any
-  `corporate_action` field block decomposition. No unsupported event is ignored
+  `corporate_action` or `cost_basis_adjustment` field block decomposition.
+  Signed cost-basis adjustments require unsupported basis-carryover accounting,
+  including when attached to an otherwise supported sale or income event.
+  No unsupported event is ignored
   merely because it reports zero money.
 
 Opening lot quantities must match opening positions. Reconstructed closing

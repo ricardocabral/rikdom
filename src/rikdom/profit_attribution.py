@@ -17,7 +17,7 @@ from pathlib import Path
 import math
 from typing import Any
 
-from .activities import check_financial_contract, effective_activities
+from .activities import check_financial_contract, correction, effective_activities
 from .historical_fx import HistoricalFx
 from .income import income_amount_basis
 from .performance import PerformanceResult, extract_external_cashflows
@@ -268,8 +268,71 @@ def _bridge(
     }
 
 
+def _reviewed_history(
+    activities: list[dict], start: datetime, end: datetime, cutoff: datetime
+) -> dict:
+    """Reject known post-cutoff evidence, including omitted correction lineage.
+
+    The latest ledger projection cannot answer an as-known historical query.
+    Inspect raw period rows and their entire connected correction lineage before
+    trusting that projection; do not silently select an older revision instead.
+    """
+    relevant = set()
+    lineage: dict[str, set[str]] = {}
+    for activity in activities:
+        aid = activity.get("id")
+        try:
+            when = _timestamp(activity.get("effective_at"))
+        except (ValueError, TypeError) as exc:
+            raise ValueError(
+                f"Activity {aid!r} has invalid effective_at in reviewed history"
+            ) from exc
+        if start <= when <= end:
+            relevant.add(aid)
+        link = correction(activity)
+        if link is not None:
+            target = link["supersedes_activity_id"]
+            lineage.setdefault(aid, set()).add(target)
+            lineage.setdefault(target, set()).add(aid)
+    pending = list(relevant)
+    while pending:
+        for related in lineage.get(pending.pop(), set()):
+            if related not in relevant:
+                relevant.add(related)
+                pending.append(related)
+    selected = []
+    for activity in activities:
+        aid = activity.get("id")
+        if aid not in relevant:
+            continue
+        for field in ("ingested_at", "created_at"):
+            if field not in activity:
+                continue
+            try:
+                known_at = _timestamp(activity[field])
+            except (ValueError, TypeError) as exc:
+                raise ValueError(
+                    f"Activity {aid!r} has invalid {field} in reviewed history"
+                ) from exc
+            if known_at > cutoff:
+                raise ValueError(
+                    f"Activity {aid!r} {field}={activity[field]!r} exceeds reviewed retrieval cutoff {cutoff.isoformat()}"
+                )
+        selected.append(copy.deepcopy(activity))
+    return {
+        "retrieved_before": cutoff.isoformat().replace("+00:00", "Z"),
+        "scope": "period_and_connected_correction_lineage",
+        "selection": "latest_projection_rejected_if_known_after_cutoff",
+        "activities": selected,
+    }
+
+
 def _fifo_decomposition(
-    basis: dict, ledger: list[dict], performance: PerformanceResult, bridge: dict
+    basis: dict,
+    ledger: list[dict],
+    performance: PerformanceResult,
+    bridge: dict,
+    raw_activities: list[dict],
 ) -> dict:
     fields = {
         "contract_version",
@@ -329,6 +392,7 @@ def _fifo_decomposition(
         raise ValueError(
             "Basis review and retrieval cutoff must cover the valuation period"
         )
+    history_evidence = _reviewed_history(raw_activities, start, end, cutoff)
     history = _keys(
         basis["history"], {"status", "from", "through", "missing_periods"}, "history"
     )
@@ -451,6 +515,10 @@ def _fifo_decomposition(
         chronological, key=lambda item: (item[0], item[1]["id"])
     ):
         event = str(activity.get("event_type", "")).strip().lower()
+        if "cost_basis_adjustment" in activity:
+            raise ValueError(
+                "Unsupported cost_basis_adjustment requires reviewed basis carryover"
+            )
         if (
             "corporate_action" in activity
             or event not in {"buy", "sell", "fee", "tax_withheld"} | _INCOME | _EXTERNAL
@@ -626,6 +694,7 @@ def _fifo_decomposition(
         "holdings": holding_evidence,
         "activity_evidence": activity_evidence,
         "basis_evidence": copy.deepcopy(basis),
+        "history_evidence": history_evidence,
     }
 
 
@@ -659,6 +728,7 @@ def compute_profit_attribution(
         "holdings": [],
         "activity_evidence": [],
         "basis_evidence": None,
+        "history_evidence": None,
     }
     result = {
         "contract_version": "1.0",
@@ -694,7 +764,11 @@ def compute_profit_attribution(
         return result
     try:
         result["decomposition"] = _fifo_decomposition(
-            basis, ledger, performance, result["bridge"]
+            basis,
+            ledger,
+            performance,
+            result["bridge"],
+            portfolio.get("activities", []),
         )
     except (ValueError, TypeError, KeyError, ArithmeticError) as exc:
         result["diagnostics"].append(f"FIFO decomposition unavailable: {exc}")

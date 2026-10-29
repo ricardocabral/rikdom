@@ -269,6 +269,174 @@ class ProfitAttributionTests(unittest.TestCase):
             "unavailable",
         )
 
+    def test_cost_basis_adjustments_on_supported_events_block_fifo(self):
+        for index in (1, 2):
+            for adjustment in (10, 0, -10):
+                acts = trades()
+                acts[index]["cost_basis_adjustment"] = {
+                    "amount": adjustment,
+                    "currency": "BRL",
+                }
+                p = portfolio(acts)
+                with self.subTest(
+                    event=acts[index]["event_type"], adjustment=adjustment
+                ):
+                    result = compute_profit_attribution(
+                        p, performance(p), basis=evidence()
+                    )
+                    self.assertEqual(result["bridge"]["investment_result_base"], 80)
+                    self.assertEqual(result["decomposition"]["status"], "unavailable")
+                    self.assertIsNone(result["decomposition"]["realized_gain_base"])
+                    self.assertTrue(
+                        any(
+                            "cost_basis_adjustment" in message
+                            for message in result["diagnostics"]
+                        )
+                    )
+
+    def test_period_evidence_after_cutoff_or_with_invalid_knowledge_dates_blocks_fifo(
+        self,
+    ):
+        for field in ("ingested_at", "created_at"):
+            for timestamp in (
+                "2026-03-01T00:00:00Z",
+                "bad",
+                "2026-02-01T12:00:00",
+                None,
+            ):
+                acts = trades()
+                acts[2][field] = timestamp
+                p = portfolio(acts)
+                with self.subTest(field=field, timestamp=timestamp):
+                    result = compute_profit_attribution(
+                        p, performance(p), basis=evidence()
+                    )
+                    self.assertEqual(result["bridge"]["investment_result_base"], 80)
+                    self.assertEqual(result["decomposition"]["status"], "unavailable")
+                    self.assertIsNone(result["decomposition"]["explained_result_base"])
+                    self.assertTrue(
+                        any(
+                            "income" in message and field in message
+                            for message in result["diagnostics"]
+                        )
+                    )
+
+    def test_post_cutoff_corrected_receipt_cannot_satisfy_earlier_review(self):
+        acts = trades()
+        original = copy.deepcopy(acts[2])
+        original.update(id="old-income", ingested_at="2026-02-01T00:00:00Z")
+        original["money"]["amount"] = 9
+        acts[2]["ingested_at"] = "2026-03-01T00:00:00Z"
+        acts[2]["extensions"] = {
+            "rikdom_correction": {
+                "version": 1,
+                "supersedes_activity_id": "old-income",
+                "reason": "synthetic late correction",
+            }
+        }
+        p = portfolio([original, *acts])
+        result = compute_profit_attribution(p, performance(p), basis=evidence())
+        self.assertEqual(result["bridge"]["investment_result_base"], 80)
+        self.assertEqual(result["decomposition"]["status"], "unavailable")
+        self.assertTrue(
+            any(
+                "income" in message and "cutoff" in message
+                for message in result["diagnostics"]
+            )
+        )
+
+    def test_raw_correction_lineage_cannot_hide_late_or_malformed_evidence(self):
+        for late_row in ("superseded", "intermediate", "cancelled", "shifted"):
+            original = event("old-extra", "dividend", 999)
+            correction = event(
+                "new-extra",
+                "dividend",
+                999,
+                ingested_at="2026-03-01T00:00:00Z",
+                extensions={
+                    "rikdom_correction": {
+                        "version": 1,
+                        "supersedes_activity_id": "old-extra",
+                        "reason": "synthetic",
+                    }
+                },
+            )
+            acts = trades()
+            if late_row == "superseded":
+                original = copy.deepcopy(acts[2])
+                original.update(id="old-extra", ingested_at="2026-03-01T00:00:00Z")
+                acts[2]["extensions"] = correction["extensions"]
+                acts[2]["ingested_at"] = "2026-02-01T00:00:00Z"
+                p = portfolio([original, *acts])
+            elif late_row == "intermediate":
+                original = copy.deepcopy(acts[2])
+                original["id"] = "old-extra"
+                correction["money"]["amount"] = 10
+                correction["metadata"] = copy.deepcopy(acts[2]["metadata"])
+                acts[2]["extensions"] = {
+                    "rikdom_correction": {
+                        "version": 1,
+                        "supersedes_activity_id": "new-extra",
+                        "reason": "synthetic second correction",
+                    }
+                }
+                p = portfolio([original, correction, *acts])
+            else:
+                correction["effective_at"] = "2026-03-01T00:00:00Z"
+                if late_row == "cancelled":
+                    correction["status"] = "cancelled"
+                    correction["ingested_at"] = "not-a-date"
+                p = portfolio([original, correction, *acts])
+            with self.subTest(late_row=late_row):
+                result = compute_profit_attribution(p, performance(p), basis=evidence())
+                self.assertEqual(result["bridge"]["status"], "complete")
+                self.assertEqual(result["decomposition"]["status"], "unavailable")
+                self.assertTrue(result["diagnostics"])
+
+    def test_accepted_cutoff_retains_raw_lineage_provenance_and_ignores_unrelated_future(
+        self,
+    ):
+        acts = trades()
+        original = copy.deepcopy(acts[2])
+        original["id"] = "old-income"
+        original["ingested_at"] = "2026-02-01T00:00:00Z"
+        acts[2]["extensions"] = {
+            "rikdom_correction": {
+                "version": 1,
+                "supersedes_activity_id": "old-income",
+                "reason": "synthetic reviewed correction",
+            }
+        }
+        acts[2]["ingested_at"] = "2026-02-02T00:00:00Z"
+        acts[2]["source_system"] = "synthetic-source"
+        unrelated = event(
+            "future",
+            "dividend",
+            999,
+            effective_at="2026-03-01T00:00:00Z",
+            ingested_at="2026-03-02T00:00:00Z",
+        )
+        p = portfolio([original, *acts, unrelated])
+        before = copy.deepcopy(p)
+        result = compute_profit_attribution(p, performance(p), basis=evidence())
+        self.assertEqual(
+            result["decomposition"]["status"], "complete", result["diagnostics"]
+        )
+        audit = result["decomposition"]["history_evidence"]
+        self.assertEqual(audit["retrieved_before"], "2026-02-02T00:00:00Z")
+        self.assertEqual(
+            {row["id"] for row in audit["activities"]},
+            {"old-income", "buy", "sell", "income", "fee", "tax"},
+        )
+        accepted = next(row for row in audit["activities"] if row["id"] == "income")
+        self.assertEqual(accepted["source_system"], "synthetic-source")
+        self.assertEqual(
+            accepted["extensions"]["rikdom_correction"]["supersedes_activity_id"],
+            "old-income",
+        )
+        accepted["source_system"] = "modified output"
+        self.assertEqual(p, before)
+
     def test_signed_flow_bridge_is_period_residual_without_basis(self):
         p = portfolio(
             [event("in", "contribution", 50), event("out", "withdrawal", -20)]
