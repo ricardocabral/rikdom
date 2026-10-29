@@ -11,6 +11,7 @@ rationale, see [schema design](../explanation/schema-design.md).
 | `schema/portfolio.schema.json` | Canonical current-state portfolio model. Reproducible fixture: `data-sample/portfolio.json`. Core sections: `profile`, `settings`, `asset_type_catalog`, `holdings`. Optional ledgers: `activities`, `operations`, `liabilities`, `tax_lots`. |
 | `schema/snapshot.schema.json` | One historical snapshot record. Reproducible fixture: `data-sample/snapshots.jsonl`. Required: `timestamp`, `base_currency`, aggregated totals. |
 | `schema/plugin-statement.schema.json` | Normalized provider/plugin import payload contract before merge into canonical state. |
+| `schema/income-plan.schema.json` | Optional local income planning evidence, independently versioned with integer `version: 1`; also bundled under `rikdom._resources`. Used by `income --income-plan` or `extensions.rikdom_income_plan`. See [income plan reference](income-plan.md). |
 | `schema/default-asset-types.json` | Starter catalog of asset-type definitions (e.g. `stock`, `reit`, `fund`) mapped to top-level `asset_class` values. |
 | `src/rikdom/_resources/policy.schema.json` | Investment Policy Statement (IPS) schema. Bundled as a package resource. |
 | `src/rikdom/_resources/plugin.manifest.schema.json` | Plugin manifest contract. See [plugin manifest reference](plugin-manifest.md). |

@@ -13,10 +13,27 @@ directory (default `data/`). For the durability rules, see
 | `data/import_log.jsonl` | Append-only JSONL | `import-statement` | Import audit trail. |
 | `data/fx_rates.jsonl` | Append-only JSONL | `snapshot` (auto-ingest), manual edits | FX history used at snapshot time. |
 | `data/policy.json` | Whole doc | `migrate-policy`, manual edits | Investment Policy Statement (optional). |
+| `data/income-plan.json` (example path) | Whole doc | User-supplied local file | Optional announcements, estimates, reviewed payment links and declared cost evidence; pass the chosen path with `income --income-plan`. |
 | `data/portfolio_registry.json` | Whole doc | `workspace init` | Multi-portfolio registry (optional). |
 | `data/portfolios/<name>/` | Directory | Workspace mode | Per-portfolio isolated data files. |
 
 Files marked optional are absent from a fresh bootstrap; commands create them on first use.
+
+Income plan files are an exception to automatic creation: their path and contents
+are supplied explicitly, and `income` never creates or updates the input plan.
+The same plan object can instead be embedded in
+`portfolio.extensions.rikdom_income_plan`; an explicit `--income-plan` file takes
+precedence. Both forms use the independent integer plan `version: 1`, not the
+portfolio's semantic `schema_version`. See the [income plan reference](income-plan.md)
+and [schema design](../explanation/schema-design.md#optional-income-planning-evidence).
+
+The income command writes only the requested JSON/Markdown report artifacts,
+protects portfolio and plan inputs from output aliases, and leaves the actual
+activity ledger, holdings, snapshots and import log unchanged. Announcements and
+estimates do not become received cash or realized returns. Include any separate
+plan file in a workspace backup yourself; the interchange bundle does not
+automatically collect arbitrary sidecar paths. An embedded plan travels with
+the portfolio document as extension data.
 
 ## Tracked starter templates
 

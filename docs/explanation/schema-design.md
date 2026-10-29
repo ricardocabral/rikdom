@@ -33,6 +33,26 @@ Extensibility slots:
 This keeps baseline interoperability while allowing local customization
 without forks.
 
+### Optional income planning evidence
+
+The [income plan contract](../reference/income-plan.md) is a separate, optional
+document validated by `schema/income-plan.schema.json`, also shipped as a package
+resource. Its integer `version: 1` evolves independently of the portfolio's
+`schema_version`; supplying a plan does not migrate the portfolio contract.
+
+The same object can live in a user-selected JSON file passed with
+`income --income-plan`, or under `portfolio.extensions.rikdom_income_plan`.
+An explicit file takes precedence. The income calculation validates the supported plan
+version before producing artifacts; the ordinary portfolio schema preserves
+extension data without interpreting that separate financial contract.
+
+Announcements, scenario estimates, reviewed payment links and declared cost
+evidence are distinct from actual activities and holdings. Plan revision
+selection and payment matching derive report results without creating or
+rewriting ledger events. Actual corrections still use the correction-aware
+portfolio contract described below. See [storage layout](../reference/storage-layout.md)
+for the optional file and embedded forms.
+
 ### 1.1 Contract identity
 
 Top-level schema contract fields:
