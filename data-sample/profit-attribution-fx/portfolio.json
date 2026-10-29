@@ -1,6 +1,5 @@
 {
   "schema_version": "2.0.0",
-  "base_currency": "BRL",
   "activities": [
     {
       "id": "sale",
@@ -11,6 +10,51 @@
       "quantity": 4,
       "money": {
         "amount": 60,
+        "currency": "USD"
+      },
+      "status": "posted",
+      "source_system": "manual:synthetic-profit-example",
+      "asset_type_id": "synthetic-stock"
+    }
+  ],
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "synthetic-fx-profit",
+    "owner_kind": "person",
+    "display_name": "Synthetic multicurrency example"
+  },
+  "settings": {
+    "base_currency": "BRL"
+  },
+  "asset_type_catalog": [
+    {
+      "id": "synthetic-stock",
+      "asset_class": "stocks"
+    },
+    {
+      "id": "synthetic-cash",
+      "asset_class": "cash"
+    }
+  ],
+  "holdings": [
+    {
+      "id": "h",
+      "asset_type_id": "synthetic-stock",
+      "label": "Synthetic foreign stock",
+      "account_id": "a",
+      "quantity": 6,
+      "market_value": {
+        "amount": 90,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "cash-a-usd",
+      "asset_type_id": "synthetic-cash",
+      "label": "Synthetic USD cash",
+      "account_id": "a",
+      "market_value": {
+        "amount": 110,
         "currency": "USD"
       }
     }
