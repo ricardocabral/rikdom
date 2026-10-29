@@ -125,42 +125,75 @@
     }
     return `<section class="report-panel" id="income-view"><h2>${escapeHtml(l.income)}</h2><p>${escapeHtml(l.native)}</p>${table([l.date, l.source, l.kind, l.gross, l.withholding, l.fees, l.net], eventRows, l.income)}</section>
       <section class="report-panel" id="contributions-view"><h2>${escapeHtml(l.contributions)}</h2>${table([l.date, l.source, l.kind, l.amount], contributions, l.contributions)}</section>
-      <section class="report-panel" id="performance-view"><h2>${escapeHtml(l.performance)}</h2>${performancePanel(sections.performance)}</section>
+      ${performancePanel(sections)}
       <section class="report-panel" id="planning-view">${plan}</section>
       ${diagnostics.length ? `<details class="report-panel"><summary>${escapeHtml(l.original)}</summary><ul data-source-text>${diagnostics.map(row => `<li>${escapeHtml(row.activity_id || row.id || '')}: ${escapeHtml(row.message || JSON.stringify(row))}</li>`).join('')}</ul></details>` : ''}`;
   }
-  function performancePanel(performance) {
-    const l = labels[language], pt = language === 'pt';
+  function performancePanel(sections) {
+    const p = sections.performance, context = sections.performance_context || {}, l = labels[language];
+    const pt = language === 'pt';
     const label = (en, br) => pt ? br : en;
-    if (!performance) return `<p>${escapeHtml(l.unavailable)}</p>`;
-    const p = performance, ccy = p.base_currency;
-    const percentage = value => typeof value === 'number' && Number.isFinite(value)
-      ? new Intl.NumberFormat(locale(), {maximumFractionDigits:4}).format(value) + '%' : l.unknown;
-    const rows = [
-      [label('Selected TWR', 'TWR selecionado'), percentage(p.twr_return_pct), p.twr_method, p.twr_return_basis],
-      [label('MWR (XIRR)', 'MWR (XIRR)'), percentage(p.mwr_pct), 'xirr', p.mwr_return_basis],
-      [label('Opening value', 'Valor inicial'), money(p.start_value_base, ccy), '', ''],
-      [label('Net external contributions', 'Aportes externos líquidos'), money(p.net_external_cashflow_base, ccy), '', ''],
-      [label('Closing value', 'Valor final'), money(p.end_value_base, ccy), '', ''],
-    ];
-    const a = p.profit_attribution, bridge = a?.bridge, d = a?.decomposition;
-    if (bridge) rows.push([label('Investment result', 'Resultado dos investimentos'), money(bridge.investment_result_base, ccy), bridge.status, label('Residual from supplied bookends and external flows', 'Resíduo das avaliações e dos fluxos externos fornecidos')]);
-    if (d) {
-      for (const [key, en, br] of [
-        ['realized_gain_base', 'Realized gain', 'Ganho realizado'],
-        ['unrealized_change_base', 'Unrealized gain change', 'Variação do ganho não realizado'],
-        ['net_income_base', 'Net income', 'Rendimentos líquidos'],
-        ['standalone_fees_base', 'Separate fees', 'Taxas separadas'],
-        ['standalone_taxes_base', 'Separate taxes', 'Impostos separados'],
-      ]) rows.push([label(en, br), money(d[key], ccy), d.method, d.status]);
+    const text = value => escapeHtml(value ?? l.unknown);
+    const raw = value => `<span data-source-text>${text(value)}</span>`;
+    const percent = value => typeof value === 'number' && Number.isFinite(value)
+      ? new Intl.NumberFormat(locale(), {maximumFractionDigits:6}).format(value) + '%' : l.unknown;
+    const warnings = [...(p?.warnings || []), ...(context.warnings || [])];
+    const auditWarnings = warnings.length ? `<p>${escapeHtml(l.original)}</p><ul data-source-text>${warnings.map(w => `<li>${text(w)}</li>`).join('')}</ul>` : '';
+    const title = `<h2>${text(l.performance)}</h2>`;
+    if (!p) {
+      const message = context.status === 'unavailable_for_dates'
+        ? label('Unavailable for selected dates: performance uses the original snapshot window. Reset date filters to view that window.', 'Indisponível nas datas selecionadas: a rentabilidade usa o período original das avaliações. Limpe os filtros para exibir esse período.')
+        : context.status === 'unavailable_for_scope' ? l.scoped : l.unavailable;
+      return `<section class="report-panel" id="performance-view">${title}<p>${text(message)}</p>${auditWarnings}</section>`;
     }
-    let html = `<p>${escapeHtml(sourceDateTime(p.period_start))} – ${escapeHtml(sourceDateTime(p.period_end))}</p>`;
-    html += table([label('Metric', 'Medida'), label('Value', 'Valor'), label('Method / status', 'Método / situação'), label('Convention', 'Convenção')], rows.map(row => row.map(escapeHtml)), l.performance);
-    if (p.benchmarks?.length) html += table([label('Benchmark', 'Referência'), label('Return', 'Retorno'), label('Excess', 'Excesso'), label('Comparability', 'Comparabilidade')], p.benchmarks.map(b => [escapeHtml(b.label || b.benchmark_id), escapeHtml(percentage(b.twr_pct)), escapeHtml(percentage(b.excess_pct)), escapeHtml(b.comparison_status || 'legacy')]), label('Benchmarks', 'Referências'));
-    const notes = [...Object.values(p.treatment || {}), ...(p.warnings || []), ...(a?.diagnostics || [])];
-    if (p.twr_fallback_reason) notes.push(p.twr_fallback_reason);
-    if (notes.length) html += `<details open><summary>${escapeHtml(l.original)}</summary><ul data-source-text>${notes.map(note => `<li>${escapeHtml(typeof note === 'string' ? note : JSON.stringify(note))}</li>`).join('')}</ul></details>`;
-    return html;
+    const method = {
+      linked_subperiod:label('Linked subperiod TWR','TWR por subperíodos encadeados'),
+      bookend_ratio:label('Bookend ratio; no external flows','Razão entre avaliações; sem fluxos externos'),
+      modified_dietz:label('Modified Dietz approximation','Aproximação de Modified Dietz'),
+      unavailable:l.unknown,
+    };
+    const basis = value => ({period:label('Period; not annualized','Período; sem anualização'), annualized_365_day:label('Annualized; 365-day years','Anualizado; anos de 365 dias')})[value] || value;
+    const rows = [
+      [text(label('Selected TWR','TWR selecionado')), text(percent(p.twr_return_pct)), text(method[p.twr_method] || p.twr_method), text(basis(p.twr_return_basis))],
+      [text(label('Legacy Dietz','Dietz legado')), text(percent(p.twr_pct)), text(method.modified_dietz), text(basis('period'))],
+      [text('MWR'), text(percent(p.mwr_pct)), text('XIRR'), text(basis(p.mwr_return_basis))],
+    ];
+    const bridge = p.growth_bridge;
+    let growth = '';
+    if (bridge) {
+      growth = `<h3>${text(label('Growth bridge','Conciliação do crescimento'))}</h3><p>${text(label('Residual investment result; reviewed lot decomposition is disclosed separately when supported.', 'Resultado residual dos investimentos; a decomposição revisada por lotes é apresentada separadamente quando suportada.'))}</p>`;
+      if (bridge.status === 'complete') {
+        const bridgeLabels = {
+          opening_value_base:label('Opening value','Valor inicial'), net_external_cashflow_base:label('Net external cashflow','Fluxo externo líquido'),
+          investment_result_base:label('Investment result','Resultado dos investimentos'), rounding_adjustment_base:label('Rounding adjustment','Ajuste de arredondamento'), closing_value_base:label('Closing value','Valor final'),
+        };
+        growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(bridgeLabels).map(([key,name]) => [text(name), text(money(bridge[key], bridge.base_currency))]));
+      } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(bridge.reasons || []).map(reason => `<li>${text(reason)}</li>`).join('')}</ul>`;
+    }
+    const benchmarkRows = (p.benchmarks || []).map(row => [raw(row.label || row.benchmark_id), text(row.currency), text(percent(row.twr_pct)), text(percent(row.excess_pct)), raw(row.comparison_status), raw(row.return_convention), text(`${sourceDateTime(row.period_start)} – ${sourceDateTime(row.period_end)}`)]);
+    const attribution = p.profit_attribution, decomposition = attribution?.decomposition;
+    if (decomposition) {
+      growth += `<h3>${text(label('Reviewed FIFO profit decomposition','Decomposição de lucro FIFO revisada'))}</h3>`;
+      if (decomposition.status === 'complete') {
+        const components = {
+          realized_gain_base:label('Realized gain','Ganho realizado'),
+          unrealized_change_base:label('Unrealized gain change','Variação do ganho não realizado'),
+          net_income_base:label('Net income','Rendimentos líquidos'),
+          standalone_fees_base:label('Separate fees','Taxas separadas'),
+          standalone_taxes_base:label('Separate taxes','Impostos separados'),
+        };
+        growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(components).map(([key,name]) => [text(name),text(money(decomposition[key], p.base_currency))]));
+      } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(attribution.diagnostics || []).map(note => `<li>${text(typeof note === 'string' ? note : JSON.stringify(note))}</li>`).join('')}</ul>`;
+    }
+    const benchmarks = benchmarkRows.length ? `<h3>${text(label('Benchmarks','Referências'))}</h3>${table([label('Benchmark','Referência'),label('Currency','Moeda'),label('Return','Retorno'),label('Excess','Excesso'),label('Comparability','Comparabilidade'),label('Return convention','Convenção de retorno'),label('Actual window','Período efetivo')], benchmarkRows)}` : `<p>${text(label('Benchmark comparison unavailable: no benchmark result supplied.', 'Comparação com referência indisponível: nenhum resultado fornecido.'))}</p>`;
+    return `<section class="report-panel" id="performance-view">${title}
+      <p>${text(label('All portfolio · Actual snapshot window','Carteira completa · Período efetivo das avaliações'))}: ${text(sourceDateTime(p.period_start))} – ${text(sourceDateTime(p.period_end))} · ${text(p.base_currency)}</p>
+      ${table([label('Metric','Métrica'),label('Return','Retorno'),label('Method','Método'),label('Basis','Base')], rows)}
+      ${p.twr_fallback_reason ? `<p>${text(label('Fallback reason','Motivo da aproximação'))}: ${raw(p.twr_fallback_reason)}</p>` : ''}
+      <p>${text(label('Fees, taxes and income are embedded in supplied valuations. Supported reviewed FIFO evidence can explain their components; income is never added twice.', 'Taxas, impostos e rendimentos estão incorporados nas avaliações fornecidas. A evidência FIFO revisada pode explicar seus componentes; rendimentos nunca são somados duas vezes.'))}</p>
+      <p>${text(label('Cashflow FX status','Situação cambial dos fluxos'))}: ${raw(p.fx_status)}</p>
+      ${growth}${benchmarks}${auditWarnings}
+      <details><summary>${text(label('Calculation inputs and provenance (raw source text)','Dados de cálculo e proveniência (texto original da fonte)'))}</summary><pre data-source-text>${text(JSON.stringify({context, performance:p}, null, 2))}</pre></details></section>`;
   }
   function planningRows(key, rows) {
     const pt = language === 'pt', l = labels[language];
@@ -223,12 +256,12 @@
       const sections = {...(selected?.sections || payload.sections || {})};
       const within = row => !invalid && (!start || String(row.date || row.timestamp).slice(0,10) >= start) && (!end || String(row.date || row.timestamp).slice(0,10) <= end);
       sections.timeline = (sections.timeline || []).filter(within);
-      // Returns are precomputed for their disclosed whole window. A narrower
-      // date selection cannot reuse that number as a new financial calculation.
-      const performance = sections.performance;
-      if (performance && (invalid || (start && start > String(performance.period_start).slice(0,10)) || (end && end < String(performance.period_end).slice(0,10)))) sections.performance = null;
       sections.income = {...sections.income, events: (sections.income?.events || []).filter(within)};
       sections.contributions = (sections.contributions || []).filter(within);
+      if (start || end) {
+        sections.performance = null;
+        sections.performance_context = {status:'unavailable_for_dates'};
+      }
       if (sections.income.planning) {
         const planning = {...sections.income.planning};
         for (const key of ['announced', 'estimates', 'reconciliation']) planning[key] = (planning[key] || []).filter(row => within({date:row.payment_date}));

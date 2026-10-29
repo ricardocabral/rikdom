@@ -68,6 +68,5 @@ class PerformanceReportTests(unittest.TestCase):
         snapshots[0]['timestamp'] = '2026-02-29T00:00:00Z'
         payload = report_plugin()._build_report_payload(portfolio, snapshots, generated_at=END)
         output = payload['sections']['performance']
-        self.assertEqual(output['twr_method'], 'unavailable')
-        self.assertTrue(output['warnings'])
-        self.assertIsNone(output['twr_return_pct'])
+        self.assertIsNone(output)
+        self.assertTrue(payload['sections']['performance_context']['warnings'])

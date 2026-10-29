@@ -18,6 +18,7 @@ class PerformanceReportBrowserTests(unittest.TestCase):
                 'period_end': '2027-01-01T00:00:00Z', 'twr_return_pct': 21,
                 'twr_method': 'linked_subperiod', 'twr_return_basis': 'period',
                 'mwr_pct': 25, 'mwr_return_basis': 'annualized_365_day',
+                'growth_bridge': {'status': 'complete', 'base_currency': 'BRL', 'investment_result_base': 26},
                 'profit_attribution': {'bridge': {'status': 'complete', 'investment_result_base': 26}},
                 'warnings': ['<img src=x onerror="window.XSS=true">'],
                 'treatment': {'income': 'Included in portfolio valuations'}},
@@ -26,6 +27,6 @@ class PerformanceReportBrowserTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'payload.json'
             path.write_text(json.dumps(payload))
-            result = subprocess.run([shutil.which('node'), 'tests/browser/report_performance.cjs', str(path)],
+            result = subprocess.run([shutil.which('node'), 'tests/browser/report_profit_attribution.cjs', str(path)],
                                     text=True, capture_output=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

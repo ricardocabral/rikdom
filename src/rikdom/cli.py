@@ -1047,6 +1047,12 @@ def cmd_viz(args: argparse.Namespace) -> int:
         'historical_fx', 'flow_valuations', 'historical_valuations', 'profit_basis',
         'policy', 'since', 'until',
     ) if getattr(args, name, None) is not None}
+    if getattr(args, '_fx_history_explicit', False) or getattr(args, 'command', None) == 'viz':
+        preferences = load_json(args.portfolio).get('extensions', {}).get('rikdom_report', {})
+        embedded_performance = preferences.get('performance') if isinstance(preferences, dict) else None
+        embedded_fx = isinstance(embedded_performance, dict) and 'fx_history_path' in embedded_performance
+        if getattr(args, '_fx_history_explicit', False) or not embedded_fx:
+            report_options['fx_history'] = args.fx_history
     if report_options.get('policy'):
         report_options['benchmarks_dir'] = getattr(args, 'benchmarks_dir', 'data/benchmarks')
     try:
@@ -2550,7 +2556,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_viz.add_argument("--portfolio", default=None)
     p_viz.add_argument("--snapshots", default=None)
-    p_viz.add_argument("--fx-history", default=None)
+    p_viz.add_argument("--fx-history", default=None, action=_StoreExplicitAction)
     p_viz.add_argument("--out", default=None)
     p_viz.add_argument("--include-current", action="store_true")
     for option in ('historical-fx', 'flow-valuations', 'historical-valuations', 'profit-basis', 'policy', 'since', 'until'):

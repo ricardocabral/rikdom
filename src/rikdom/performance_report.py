@@ -9,28 +9,8 @@ from copy import deepcopy
 from typing import Any
 
 from .activities import effective_activities
-from .benchmarks import BenchmarkComparison
 from .historical_fx import HistoricalFx
-from .performance import PerformanceResult, extract_external_cashflows
-
-
-def benchmark_comparison_to_dict(comp: BenchmarkComparison) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        'benchmark_id': comp.benchmark_id, 'label': comp.label, 'kind': comp.kind,
-        'currency': comp.currency, 'twr_pct': comp.twr_pct, 'excess_pct': comp.excess_pct,
-    }
-    if comp.comparison_status != 'legacy':
-        payload.update(
-            period_start=comp.period_start, period_end=comp.period_end,
-            native_currency=comp.native_currency, native_twr_pct=comp.native_twr_pct,
-            return_convention=comp.return_convention, fx_evidence=comp.fx_evidence,
-            data_provenance=comp.data_provenance, comparison_status=comp.comparison_status,
-        )
-    if comp.warnings:
-        payload['warnings'] = comp.warnings
-    if comp.components:
-        payload['components'] = [benchmark_comparison_to_dict(c) for c in comp.components]
-    return deepcopy(payload)
+from .performance import PerformanceResult, extract_external_cashflows, performance_result_to_dict
 
 
 def performance_to_dict(
@@ -39,13 +19,7 @@ def performance_to_dict(
     valuation_replay: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Serialize a detached result without changing legacy Dietz fields."""
-    payload = {name: getattr(result, name) for name in (
-        'base_currency', 'period_start', 'period_end', 'start_value_base', 'end_value_base',
-        'net_external_cashflow_base', 'twr_pct', 'legacy_twr_method', 'twr_return_pct',
-        'linked_twr_pct', 'twr_method', 'twr_fallback_reason', 'twr_return_basis',
-        'mwr_return_basis', 'mwr_pct', 'cashflow_count', 'warnings', 'fx_status', 'fx_evidence',
-    )}
-    payload['mwr_method'] = 'xirr'
+    payload = performance_result_to_dict(result)
     payload['treatment'] = {
         'income': 'Included in portfolio valuations; never added to investment result again',
         'fees_taxes': 'Included to the extent reflected in supplied valuations and cashflows; no hypothetical liquidation tax',
@@ -54,8 +28,6 @@ def performance_to_dict(
         'twr': 'Selected period return; twr_pct retains the legacy Modified Dietz approximation',
         'mwr': 'Annualized XIRR on a 365-day year; short periods extrapolate',
     }
-    if result.benchmarks:
-        payload['benchmarks'] = [benchmark_comparison_to_dict(b) for b in result.benchmarks]
     if portfolio is not None:
         from .profit_attribution import compute_profit_attribution
         payload['profit_attribution'] = compute_profit_attribution(

@@ -14,11 +14,15 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from rikdom.activities import effective_activities
 from rikdom.aggregate import aggregate_portfolio
-from rikdom.income import build_income_report
-from rikdom.performance import compute_performance
-from rikdom.performance_report import performance_to_dict, recorded_contributions, load_performance_inputs
 from rikdom.benchmarks import make_dir_loader
+from rikdom.fx import ensure_snapshot_fx_lock
+from rikdom.income import build_income_report
+from rikdom.performance_report import performance_to_dict, recorded_contributions, load_performance_inputs
+from rikdom.performance import (
+    compute_performance, external_cashflow_currencies, performance_period_bounds,
+)
 from rikdom.plugin_engine.hookspecs import hookimpl
 from rikdom.reconciliation.reports import build_trust_reports, write_trust_reports
 from rikdom.storage import load_json, load_jsonl
@@ -175,9 +179,102 @@ def _maturity_bucket(maturity_date: str | None, *, reference_date: datetime) -> 
     return ">5y"
 
 
+def _build_performance_section(
+    portfolio: dict[str, Any], snapshots: list[dict[str, Any]], preferences: dict[str, Any],
+    *, source_dir: Path, generated_at: str, overrides: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    """Resolve explicit local evidence and present the same result as the CLI.
+
+    Failed evidence rejects this section, never the valuation/report as a whole.
+    No current-valuation FX lock is substituted for historical return inputs.
+    """
+    context = {"status": "available", "scope": "portfolio", "inputs": {}, "warnings": [],
+               "fees_and_taxes": "Embedded in snapshot values; not separately calculated. Income is embedded in valuations and is not added again."}
+    try:
+        options = preferences.get("performance", {})
+        allowed = {"flow_valuations_path", "historical_fx_path", "fx_history_path", "policy_path", "benchmarks_dir", "since", "until", "historical_valuations_path", "profit_basis_path"}
+        if not isinstance(options, dict) or set(options) - allowed:
+            raise ValueError("rikdom_report.performance must contain only documented local input options")
+        options = dict(options)
+        aliases = {'flow_valuations':'flow_valuations_path', 'historical_fx':'historical_fx_path',
+                   'historical_valuations':'historical_valuations_path', 'profit_basis':'profit_basis_path',
+                   'fx_history':'fx_history_path', 'policy':'policy_path'}
+        for name, value in (overrides or {}).items():
+            key = aliases.get(name, name)
+            if key not in allowed:
+                raise ValueError(f'Unknown report calculation option: {name}')
+            if key.endswith('_path') or key == 'benchmarks_dir':
+                if not isinstance(value, str) or not value.strip() or '://' in value:
+                    raise ValueError(f'{name} must be a local filesystem path')
+                value = str(Path(value).resolve())
+            options[key] = value
+
+        def local_path(key: str, default: str | None = None) -> Path | None:
+            raw = options.get(key, default)
+            if raw is None and key not in options:
+                return None
+            if not isinstance(raw, str) or not raw.strip() or "://" in raw:
+                raise ValueError(f"{key} must be a local filesystem path")
+            path = Path(raw)
+            if not path.is_absolute():
+                path = source_dir / path
+            if key in options:
+                context["inputs"][key] = path.name
+            return path
+
+        base = str(portfolio.get("settings", {}).get("base_currency", "USD")).strip().upper() or "USD"
+        paths = {}
+        for name, key in (('flow_valuations','flow_valuations_path'), ('historical_fx','historical_fx_path'),
+                          ('historical_valuations','historical_valuations_path'), ('profit_basis','profit_basis_path')):
+            selected = local_path(key)
+            if selected is not None:
+                paths[name] = str(selected)
+        inputs = load_performance_inputs(paths, base_currency=base)
+        flow, historical = inputs['flow_valuations'], inputs['historical_fx']
+        replay = inputs['valuation_replay']
+        if replay is not None:
+            snapshots = replay['snapshots']
+        policy_path = local_path("policy_path")
+        policy = load_json(str(policy_path)) if policy_path else None
+        if policy_path is not None and not isinstance(policy, dict):
+            raise ValueError("policy_path must contain a policy JSON object")
+        benchmark_dir = local_path("benchmarks_dir", "benchmarks")
+        activities = portfolio.get("activities") or []
+        since, until = options.get("since"), options.get("until")
+        for key, value in (("since", since), ("until", until)):
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"{key} must be an ISO date or timestamp")
+        context["requested_window"] = {"since": since, "until": until}
+        lock, fx_warnings = {}, []
+        if historical is None:
+            start, end = performance_period_bounds(snapshots, since=since, until=until)
+            lock, fx_warnings = ensure_snapshot_fx_lock(
+                portfolio, fx_history_path=str(local_path("fx_history_path", "fx_rates.jsonl")),
+                snapshot_timestamp=generated_at, auto_ingest=False,
+                extra_quote_currencies=external_cashflow_currencies(
+                    effective_activities(activities), base, period_start=start, period_end=end),
+            )
+        result = compute_performance(
+            snapshots, activities, base_currency=base, fx_rates_to_base=lock.get("rates_to_base"),
+            historical_fx=historical, since=since, until=until, policy=policy,
+            benchmark_loader=make_dir_loader(benchmark_dir) if policy is not None else None,
+            flow_valuations=flow,
+        )
+        result.warnings.extend(fx_warnings)
+        if flow is not None:
+            context["flow_valuations"] = flow
+        return performance_to_dict(result, portfolio=portfolio, profit_basis=inputs['profit_basis'],
+                                   historical_fx=historical, valuation_replay=replay), context
+    except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
+        # OSError text contains absolute filenames; report only its explanation.
+        detail = exc.strerror if isinstance(exc, OSError) else str(exc)
+        context.update(status="unavailable", warnings=[f"Performance unavailable: {detail}"])
+        return None, context
+
+
 def _build_report_payload(
     portfolio: dict[str, Any], snapshots: list[dict[str, Any]], *, generated_at: str | None = None,
-    _include_views: bool = True, performance_options: dict[str, Any] | None = None,
+    _include_views: bool = True, source_dir: Path | None = None, performance_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     settings = portfolio.get("settings", {})
     profile = portfolio.get("profile", {})
@@ -244,13 +341,9 @@ def _build_report_payload(
         reverse=True,
     )[:5]
 
-    performance_options = performance_options or {}
-    valuation_replay = performance_options.get('valuation_replay')
-    history_snapshots = valuation_replay['snapshots'] if valuation_replay is not None else snapshots
     chronological_snapshots: list[tuple[datetime, dict[str, Any]]] = []
-    performance_snapshots: list[dict[str, Any]] = []
     unavailable_snapshots: list[dict[str, Any]] = []
-    for snapshot in history_snapshots:
+    for snapshot in snapshots:
         if not isinstance(snapshot, dict):
             continue
         totals = snapshot.get("totals", {})
@@ -278,7 +371,6 @@ def _build_report_payload(
             )
             continue
         chronological_snapshots.append((instant, row))
-        performance_snapshots.append(snapshot)
     # All renderers and historical metrics consume this same order. Calendar
     # filters/display retain the timestamp's written date and explicit offset.
     chronological_snapshots.sort(key=lambda item: item[0])
@@ -373,21 +465,24 @@ def _build_report_payload(
         presentation["allocation_shares"][title] = {key: value / positive_total if positive_total else None for key, value in amounts.items()}
     payload["sections"]["presentation"] = presentation
     if _include_views:
+        configured = report_preferences.get('performance')
+        explicit_replay = bool((performance_options or {}).get('historical_valuations')) or (
+            isinstance(configured, dict) and 'historical_valuations_path' in configured)
+        if unavailable_snapshots and not explicit_replay:
+            performance, performance_context = None, {
+                "status": "unavailable", "scope": "portfolio",
+                "warnings": ["Performance unavailable: snapshot history contains invalid or missing timestamps; review data-quality warnings."],
+            }
+        else:
+            performance, performance_context = _build_performance_section(
+                portfolio, snapshots, report_preferences, source_dir=source_dir or Path("."), generated_at=generated_at, overrides=performance_options,
+            )
+        payload["sections"].update(performance=performance, performance_context=performance_context)
+    else:
+        payload["sections"].update(performance=None, performance_context={"status": "unavailable_for_scope"})
+    if _include_views:
         income = build_income_report(portfolio)
-        contributions = recorded_contributions(portfolio.get("activities", []))
-        performance = compute_performance(
-            performance_snapshots, portfolio.get("activities", []), base_currency=base_currency,
-            fx_rates_to_base=fx_lock.get("rates_to_base"),
-            historical_fx=performance_options.get('historical_fx'),
-            flow_valuations=performance_options.get('flow_valuations'),
-            policy=performance_options.get('policy'),
-            benchmark_loader=performance_options.get('benchmark_loader'),
-            since=performance_options.get('since'), until=performance_options.get('until'),
-        )
-        payload["sections"]["performance"] = performance_to_dict(
-            performance, portfolio=portfolio, profit_basis=performance_options.get('profit_basis'),
-            historical_fx=performance_options.get('historical_fx'), valuation_replay=valuation_replay,
-        )
+        contributions = recorded_contributions(portfolio.get('activities', []))
         payload["sections"].update(income=income, contributions=contributions, historical_status="recorded")
         # A single asserted dimension per view keeps the artifact linear in the
         # number of accounts/types/currencies. Today's holdings never attribute
@@ -586,14 +681,8 @@ class Plugin:
         out_dir = Path(request.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        options = request.options or {}
-        base_currency = str(portfolio.get('settings', {}).get('base_currency', 'USD')).strip().upper()
-        performance_options = load_performance_inputs(options, base_currency=base_currency)
-        if options.get('policy'):
-            performance_options['policy'] = load_json(options['policy'])
-            performance_options['benchmark_loader'] = make_dir_loader(options.get('benchmarks_dir', 'data/benchmarks'))
-        performance_options.update(since=options.get('since'), until=options.get('until'))
-        payload = _build_report_payload(portfolio, snapshots, performance_options=performance_options)
+        payload = _build_report_payload(portfolio, snapshots, source_dir=Path(request.portfolio_path).resolve().parent,
+                                        performance_options=request.options)
         trust_artifacts = write_trust_reports(payload["trust_reports"], out_dir)
         payload_path = out_dir / "quarto-input.json"
         payload_path.write_text(

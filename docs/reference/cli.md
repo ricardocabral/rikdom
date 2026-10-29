@@ -58,8 +58,9 @@ Optional portfolio calculation inputs, also accepted by `viz`:
 
 `--historical-valuations` and `--profit-basis` require `--by portfolio`.
 `--flow-valuations` also supports portfolio scope only. Missing price/FX data
-produces explicit unavailable JSON (exit 0); malformed sidecars produce a
-stderr diagnostic (exit 1). Invalid/incomplete reviewed cost evidence produces
+produces explicit unavailable JSON (exit 0) in `performance`; malformed sidecars
+produce a stderr diagnostic (exit 1). In `viz`, invalid calculation inputs make
+the performance section unavailable while retaining other report sections. Invalid/incomplete reviewed cost evidence produces
 an unavailable decomposition with diagnostics. See [offline replay and profit](../how-to/replay-performance-data.md).
 
 `funded-ratio` uses the current portfolio aggregate, `policy.objectives[]`,

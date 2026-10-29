@@ -82,7 +82,21 @@ Rendering uses supplied snapshot FX locks and holding metadata fallback without
 network acquisition. Inspect the recorded effective dates; an old or undated rate
 is not made current by generating a new report.
 
-## Show performance and profit evidence
+
+## Include offline investment performance
+
+The Quarto plugin and fallback HTML display the same performance contract as
+`rikdom performance`, with the actual snapshot window, return method,
+annualization, fees/taxes convention, growth bridge and warnings. Select local
+flow-valuation, historical FX, policy and benchmark inputs through
+`extensions.rikdom_report.performance`; see the
+[plugin's performance preferences](../../plugins/quarto-portfolio-report/README.md#offline-investment-performance).
+Use the same files and window as the CLI to reproduce its figures. Interactive
+date or dimension filters make unsupported performance unavailable until reset;
+they do not relabel the full-portfolio calculation as a filtered return.
+
+
+## Show profit and historical valuation evidence
 
 Pass `--historical-fx`, `--flow-valuations`, `--historical-valuations`,
 `--profit-basis`, `--policy`, `--benchmarks-dir`, `--since`, and `--until` to

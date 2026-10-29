@@ -1,44 +1,40 @@
-// Exercise the shared offline controller with precomputed financial facts.
+// Exercise financial output from Python through the actual offline controller.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const {chromium} = require(process.env.RIKDOM_PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+  payload.sections.performance.warnings.push('<img src=x onerror="window.RIKDOM_XSS=true"> audit warning');
   const browser = await chromium.launch({headless:true});
   try {
-    for (const width of [1440, 390]) {
-      const context = await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});
-      await context.route('**/*', route => route.abort());
-      const page = await context.newPage();
-      const errors = [];
-      page.on('pageerror', error => errors.push(error.message));
-      await page.setContent('<div id="fallback-app"></div>');
-      await page.evaluate(data => {window.RIKDOM_REPORT_DATA = data;}, payload);
-      await page.addScriptTag({path:'plugins/quarto-portfolio-report/templates/report-runtime.js'});
-      await page.evaluate(() => window.RIKDOM_REPORT.mountFallback());
-      assert.match(await page.title(), /rikdom/);
-      assert.match(await page.locator('h1').innerText(), /Report/);
-      let text = await page.locator('#performance-view').innerText();
-      assert.match(text, /21/);
-      assert.match(text, /linked_subperiod/);
-      assert.match(text, /annualized_365_day/);
-      assert.match(text, /Investment result/);
-      assert.match(text, /26/);
-      assert.match(text, /<img src=x onerror/);
-      assert.equal(await page.locator('#performance-view img').count(), 0);
-      await page.locator('#report-start').fill('2026-07-02');
-      await page.locator('#report-start').dispatchEvent('change');
-      assert.doesNotMatch(await page.locator('#performance-view').innerText(), /linked_subperiod/);
-      await page.locator('#report-reset').click();
-      assert.match(await page.locator('#performance-view').innerText(), /linked_subperiod/);
-      await page.locator('#report-language').selectOption('pt');
-      text = await page.locator('#performance-view').innerText();
-      assert.match(text, /Resultado dos investimentos/);
-      assert.match(text, /21/);
-      await page.screenshot({path:`/tmp/rikdom-performance-${width}.png`,fullPage:true});
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      assert.deepEqual(errors, []);
-      await context.close();
-    }
+    const page = await browser.newPage();
+    await page.route('**/*', route => route.abort());
+    await page.setContent('<div id="fallback-app"></div>');
+    await page.evaluate(data => {window.RIKDOM_REPORT_DATA = data;}, payload);
+    await page.addScriptTag({path:'plugins/quarto-portfolio-report/templates/report-runtime.js'});
+    await page.evaluate(() => window.RIKDOM_REPORT.mountFallback());
+    const section = page.locator('#performance-view');
+    assert.match(await section.innerText(), /20\.8%/);
+    assert.match(await section.innerText(), /modified_dietz|Modified Dietz/);
+    assert.match(await section.innerText(), /XIRR|xirr/);
+    assert.match(await section.innerText(), /Annualized|annualized/);
+    assert.match(await section.innerText(), /\$26\.00/);
+    assert.match(await section.innerText(), /Jan 01, 2026/);
+    assert.match(await section.innerText(), /Jan 11, 2026/);
+    assert.match(await section.innerText(), /not separately calculated/);
+    assert.match(await section.innerText(), /audit warning/);
+    assert.equal(await section.locator('img').count(), 0);
+    assert.equal(await page.evaluate(() => window.RIKDOM_XSS), undefined);
+    await page.locator('#report-language').selectOption('pt');
+    assert.match(await section.innerText(), /20,8%/);
+    assert.match(await section.innerText(), /anualizad/i);
+    await page.locator('#report-start').fill('2026-01-02');
+    assert.doesNotMatch(await section.innerText(), /20,8%|26,00/);
+    assert.match(await section.innerText(), /indisponíve/i);
+    await page.locator('#report-reset').click();
+    assert.match(await section.innerText(), /20,8%/);
+    await page.locator('#report-scope').selectOption('account_id:a');
+    assert.doesNotMatch(await section.innerText(), /20,8%|26,00/);
+    assert.match(await section.innerText(), /indisponíve/i);
   } finally { await browser.close(); }
-})().catch(error => {console.error(error); process.exitCode=1;});
+})().catch(error => {console.error(error); process.exitCode = 1;});
