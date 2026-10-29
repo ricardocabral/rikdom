@@ -181,6 +181,12 @@ class MulticurrencyProfitTests(unittest.TestCase):
         d = self.complete(self.calculate(p, b, opening=250, closing=420))
         self.assertEqual(d['net_income_base'], 60)
         self.assertEqual(d['cash_fx_gain_base'], 110)
+        income = d['activity_evidence'][0]
+        self.assertEqual(income['applied_charges_base'], 0)
+        self.assertEqual(income['reported_fees'], {'amount': 1, 'currency': 'USD'})
+        self.assertEqual(income['reported_taxes'], {'amount': 2, 'currency': 'USD'})
+        self.assertEqual(income['cash_movements'], [
+            {'currency': 'USD', 'amount_native': 10, 'amount_base': 60}])
         p['activities'][0]['fees']['currency'] = 'BRL'
         self.assertEqual(self.calculate(p, b, opening=250, closing=420)['decomposition']['status'], 'unavailable')
 
@@ -336,3 +342,25 @@ class MulticurrencyProfitTests(unittest.TestCase):
         self.assertEqual(result['bridge']['investment_result_base'], expected.pop('investment_result_base'))
         for key, value in expected.items():
             self.assertEqual(d[key], value, key)
+
+    def test_malformed_split_cash_evidence_preserves_bridge_and_fails_decomposition(self):
+        malformed = [None, [], 'zero', 0, {}, {'amount': 0},
+                     {'amount': 0, 'currency': 'usd'}, {'amount': 0, 'currency': ''},
+                     {'amount': 0, 'currency': 'USD', 'extra': True}]
+        for field in ('money', 'fees', 'withholding_tax'):
+            for value in malformed:
+                p, b = fixture()
+                p['activities'][0]['quantity'] = 8
+                b['closing_positions'][0]['quantity'] = 12
+                p['activities'].append({
+                    'id': 'split', 'event_type': 'split', 'account_id': 'a', 'holding_id': 'h',
+                    'effective_at': '2026-01-10T00:00:00Z', field: value,
+                    'corporate_action': {'kind': 'split', 'exchange_ratio': 2,
+                                         'legs': [{'holding_id': 'h', 'quantity_delta': 10}]}})
+                with self.subTest(field=field, value=value):
+                    result = self.calculate(p, b)
+                    self.assertEqual(result['bridge']['status'], 'complete')
+                    self.assertEqual(result['bridge']['investment_result_base'], 550)
+                    self.assertEqual(result['decomposition']['status'], 'unavailable')
+                    self.assertIsNone(result['decomposition']['explained_result_base'])
+                    self.assertTrue(result['diagnostics'])

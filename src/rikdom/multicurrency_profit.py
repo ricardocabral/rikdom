@@ -281,8 +281,11 @@ def decompose_multicurrency(
             if 'quantity' in activity and _number(activity['quantity'], signed=True) != delta:
                 raise ValueError('Split activity quantity disagrees with reviewed delta')
             for field in ('money', 'fees', 'withholding_tax'):
-                if field in activity and _number(activity[field].get('amount')) != 0:
-                    raise ValueError('Split cash/basis adjustments are unsupported')
+                if field in activity:
+                    cash = _keys(activity[field], {'amount', 'currency'}, 'split ' + field)
+                    _currency(cash['currency'])
+                    if _number(cash['amount']) != 0:
+                        raise ValueError('Split cash/basis adjustments are unsupported')
             for lot in lots[key]:
                 lot['quantity'] *= ratio
             row.update(quantity_before=_json(quantity), quantity_after=_json(quantity * ratio), exchange_ratio=_json(ratio))
@@ -313,8 +316,7 @@ def decompose_multicurrency(
         fees, taxes = charges
         charge_base = fees[2] + taxes[2]
         row.update(reported_amount_native=_json(amount), native_currency=code,
-                   reported_fees=activity.get('fees'), reported_taxes=activity.get('withholding_tax'),
-                   applied_charges_base=_json(charge_base))
+                   reported_fees=activity.get('fees'), reported_taxes=activity.get('withholding_tax'))
         apply_charges = True
         if event in ('buy', 'sell'):
             key = (account, _text(activity.get('holding_id')), code)
@@ -400,6 +402,7 @@ def decompose_multicurrency(
                 raise ValueError('External/internal flows require cash-only evidence without charges')
             direction = -1 if event in ('withdrawal', 'transfer_out') else 1
             movement(code, abs(amount) * direction, 'external_or_internal_cash')
+        row['applied_charges_base'] = _json(charge_base if apply_charges else ZERO)
         if apply_charges:
             for ccode, charge_amount, _ in charges:
                 if charge_amount:
