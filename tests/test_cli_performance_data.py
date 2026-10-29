@@ -43,6 +43,10 @@ class PerformanceDataCliTests(unittest.TestCase):
             self.assertEqual((rc, stderr), (0, ''))
             cli = json.loads(stdout)
             self.assertEqual(cli['twr_return_pct'], 21)
+            calendar = cli['calendar_performance']
+            self.assertEqual(len(calendar['monthly']), 12)
+            self.assertEqual(calendar['yearly'][0]['coverage'], 'complete')
+            self.assertEqual(calendar['yearly'][0]['performance']['twr_return_pct'], 21)
             self.assertEqual(cli['benchmarks'][0]['twr_pct'],32)
             self.assertEqual(cli['benchmarks'][0]['comparison_status'],'comparable')
             self.assertEqual(cli['profit_attribution']['bridge']['investment_result_base'], 26)
@@ -52,6 +56,36 @@ class PerformanceDataCliTests(unittest.TestCase):
             report = json.loads((root / 'report/quarto-input.json').read_text())
             self.assertEqual(report['sections']['performance'], cli)
             self.assertEqual(before, {p: p.read_bytes() for p in sample.iterdir() if p.is_file()})
+
+    def test_calendar_months_match_offline_report_and_preserve_scope_contract(self):
+        from tests.test_performance_periods import snapshot, contribution
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            portfolio = json.loads(Path('tests/fixtures/portfolio.json').read_text())
+            portfolio['settings']['base_currency'] = 'BRL'
+            portfolio['activities'] = [contribution('2024-02-01T00:00:00Z', 50)]
+            snapshots = [snapshot('2024-01-01T00:00:00Z', 100),
+                         snapshot('2024-02-01T00:00:00Z', 160),
+                         snapshot('2024-03-01T00:00:00Z', 176)]
+            (root / 'portfolio.json').write_text(json.dumps(portfolio))
+            (root / 'snapshots.jsonl').write_text(''.join(json.dumps(s) + '\n' for s in snapshots))
+            common = ['--portfolio', str(root / 'portfolio.json'), '--snapshots', str(root / 'snapshots.jsonl'),
+                      '--data-dir', str(root / 'data')]
+            rc, stdout, stderr = self.invoke(['performance', *common])
+            self.assertEqual((rc, stderr), (0, ''))
+            cli = json.loads(stdout)['calendar_performance']
+            self.assertEqual([r['performance']['net_external_cashflow_base'] for r in cli['monthly']], [50, 0])
+            for row in cli['monthly']:
+                self.assertAlmostEqual(row['performance']['twr_return_pct'], 10)
+            with patch.dict(os.environ, {'RIKDOM_DISABLE_QUARTO': '1'}):
+                rc, stdout, stderr = self.invoke(['viz', *common, '--out', str(root / 'report/dashboard.html')])
+            self.assertEqual((rc, stderr), (0, ''))
+            report = json.loads((root / 'report/quarto-input.json').read_text())
+            self.assertEqual(report['sections']['performance']['calendar_performance'], cli)
+            for scope in ('account', 'strategic_bucket'):
+                rc, stdout, stderr = self.invoke(['performance', *common, '--by', scope])
+                self.assertEqual((rc, stderr), (0, ''))
+                self.assertEqual(json.loads(stdout)['calendar_performance']['status'], 'unavailable_for_scope')
 
     def test_new_sidecars_are_rejected_for_instrument_scope(self):
         rc, stdout, stderr = self.invoke(['performance', '--by', 'instrument', '--historical-valuations', 'missing.json'])

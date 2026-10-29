@@ -717,6 +717,19 @@ def cmd_performance(args: argparse.Namespace) -> int:
         historical_fx=historical_fx, valuation_replay=valuation_replay,
     )
 
+    from .performance_periods import compute_calendar_performance
+    output['calendar_performance'] = compute_calendar_performance(
+        snapshots, activities, base_currency=base_currency,
+        since=getattr(args, 'since', None), until=getattr(args, 'until', None),
+        fx_rates_to_base=fx_lock.get('rates_to_base'), historical_fx=historical_fx,
+        flow_valuations=flow_evidence, valuation_replay=valuation_replay,
+        policy=policy, benchmark_loader=benchmark_loader,
+    ) if getattr(args, 'by', 'portfolio') == 'portfolio' else {
+        'status': 'unavailable_for_scope', 'scope': getattr(args, 'by', None),
+        'monthly': [], 'yearly': [],
+        'warnings': ['Calendar performance supports portfolio scope only'],
+    }
+
     by = getattr(args, "by", None)
     if by == "strategic_bucket":
         if policy is None:

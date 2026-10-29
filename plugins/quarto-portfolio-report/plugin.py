@@ -264,8 +264,16 @@ def _build_performance_section(
         result.warnings.extend(fx_warnings)
         if flow is not None:
             context["flow_valuations"] = flow
-        return performance_to_dict(result, portfolio=portfolio, profit_basis=inputs['profit_basis'],
-                                   historical_fx=historical, valuation_replay=replay), context
+        payload = performance_to_dict(result, portfolio=portfolio, profit_basis=inputs['profit_basis'],
+                                      historical_fx=historical, valuation_replay=replay)
+        from rikdom.performance_periods import compute_calendar_performance
+        payload['calendar_performance'] = compute_calendar_performance(
+            snapshots, activities, base_currency=base, since=since, until=until,
+            fx_rates_to_base=lock.get('rates_to_base'), historical_fx=historical,
+            flow_valuations=flow, valuation_replay=replay, policy=policy,
+            benchmark_loader=make_dir_loader(benchmark_dir) if policy is not None else None,
+        )
+        return payload, context
     except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
         # OSError text contains absolute filenames; report only its explanation.
         detail = exc.strerror if isinstance(exc, OSError) else str(exc)
