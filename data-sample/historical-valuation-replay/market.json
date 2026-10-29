@@ -1,0 +1,82 @@
+{
+  "contract_version": "1.0",
+  "series": [
+    {
+      "id": "stock-us",
+      "kind": "price",
+      "currency": "USD",
+      "instrument": {
+        "namespace": "synthetic",
+        "id": "US-ONE",
+        "currency": "USD"
+      },
+      "adjustment": "unadjusted",
+      "coverage": {
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2027-01-01T00:00:00Z"
+      },
+      "license": {
+        "name": "CC0",
+        "uri": "https://example.invalid/cc0"
+      },
+      "observations": [
+        {
+          "id": "stock-us-0",
+          "effective_at": "2026-01-02T00:00:00Z",
+          "retrieved_at": "2026-01-02T00:00:00Z",
+          "source": "hand-calculated synthetic example",
+          "value": 10,
+          "currency": "USD",
+          "supersedes": null
+        },
+        {
+          "id": "stock-us-1",
+          "effective_at": "2026-01-06T00:00:00Z",
+          "retrieved_at": "2026-01-06T00:00:00Z",
+          "source": "hand-calculated synthetic example",
+          "value": 12,
+          "currency": "USD",
+          "supersedes": null
+        }
+      ]
+    },
+    {
+      "id": "usd-brl",
+      "kind": "fx",
+      "currency": "BRL",
+      "currency_pair": {
+        "base": "USD",
+        "quote": "BRL"
+      },
+      "adjustment": "not_applicable",
+      "coverage": {
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2027-01-01T00:00:00Z"
+      },
+      "license": {
+        "name": "CC0",
+        "uri": "https://example.invalid/cc0"
+      },
+      "observations": [
+        {
+          "id": "usd-brl-0",
+          "effective_at": "2026-01-02T00:00:00Z",
+          "retrieved_at": "2026-01-02T00:00:00Z",
+          "source": "hand-calculated synthetic example",
+          "value": 5,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "usd-brl-1",
+          "effective_at": "2026-01-06T00:00:00Z",
+          "retrieved_at": "2026-01-06T00:00:00Z",
+          "source": "hand-calculated synthetic example",
+          "value": 6,
+          "currency": "BRL",
+          "supersedes": null
+        }
+      ]
+    }
+  ]
+}
