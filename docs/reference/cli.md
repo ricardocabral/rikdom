@@ -158,6 +158,10 @@ See [summarize income](../how-to/summarize-income.md) for usage and import limit
 
 `visualize` and `render-report` (and their make targets) are deprecated
 compatibility aliases for `viz`. Use `--plugin` to select an output plugin.
+Explicit `viz --benchmarks-dir` overrides an embedded policy's benchmark directory;
+without that flag, its configured directory remains in use. Built-in report
+output paths must not alias selected inputs or their local cache dependencies,
+including inside the generated Quarto asset trees.
 
 ## Plugins
 

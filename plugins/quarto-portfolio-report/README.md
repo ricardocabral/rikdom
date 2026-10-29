@@ -189,3 +189,11 @@ paths are represented by filenames, not copied as absolute paths. Source text is
 escaped and preserved; interface labels and numeric formatting support English
 and Portuguese. JavaScript formats supplied financial figures and selects
 unavailable states; it performs no financial calculations.
+
+
+The built-in report rejects output files, custom dashboard destinations and
+owned Quarto `report_files/` / `dashboard_files/` trees that would overwrite
+selected portfolio, snapshots, evidence or cache inputs. Resolved paths,
+symlink/hardlink aliases and nested local market-series references are checked
+before report writes. Malformed inputs are protected too; safe neighboring
+files remain supported. This preflight does not isolate trusted Python plugins.
