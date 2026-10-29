@@ -41,6 +41,7 @@ Information-oriented descriptions of the machinery.
 - [Import diagnostics and identity recovery](reference/import-diagnostics.md)
 - [Performance output](reference/performance-output.md)
 - [FX snapshot fields](reference/fx-snapshot-fields.md)
+- [Offline price and FX market series](reference/market-series.md)
 - [Export bundle format](reference/export-format.md)
 
 ## [Explanation](explanation/) — understand the why
