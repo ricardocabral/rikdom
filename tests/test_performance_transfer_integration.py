@@ -12,6 +12,7 @@ from rikdom.performance_periods import compute_calendar_performance
 from rikdom.performance_report import recorded_contributions
 from tests.test_internal_transfers import pair, snapshots
 from tests.test_market_events import portfolio
+from tests.test_performance_report import report_plugin
 
 
 class TransferIntegrationTests(unittest.TestCase):
@@ -38,6 +39,18 @@ class TransferIntegrationTests(unittest.TestCase):
         self.assertEqual(january['performance']['cashflow_count'], 0)
         self.assertEqual(january['performance']['internal_transfers']['status'], 'verified')
         self.assertEqual(january['performance']['twr_return_pct'], 10)
+
+    def test_account_report_keeps_legs_and_discovers_activity_only_accounts(self):
+        data = portfolio()
+        data['settings']['base_currency'] = 'BRL'
+        data['holdings'] = []
+        data['activities'] = pair()
+        payload = report_plugin()._build_report_payload(data, snapshots(), generated_at='2026-02-01T00:00:00Z')
+        self.assertEqual(payload['sections']['contributions'], [])
+        views = {row['value']: row['sections'] for row in payload['report_views'] if row['dimension'] == 'account_id'}
+        self.assertEqual(set(views), {'a', 'b'})
+        self.assertEqual([(row['activity_id'], row['amount']) for row in views['a']['contributions']], [('out', -20)])
+        self.assertEqual([(row['activity_id'], row['amount']) for row in views['b']['contributions']], [('in', 20)])
 
     def test_cli_scoped_foreign_pair_uses_available_cached_fx(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -181,7 +181,9 @@ def load_performance_inputs(options: dict[str, Any], *, base_currency: str) -> d
     return result
 
 
-def recorded_contributions(activities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def recorded_contributions(
+    activities: list[dict[str, Any]], *, include_internal_transfers: bool = False,
+) -> list[dict[str, Any]]:
     """Show signed native external flows accepted by the calculation extractor.
 
     The extractor controls event taxonomy, posting status, signs and effective
@@ -189,14 +191,22 @@ def recorded_contributions(activities: list[dict[str, Any]]) -> list[dict[str, A
     """
     from .internal_transfers import resolve_internal_transfers
 
+    transfers = resolve_internal_transfers(activities)
+    selected = transfers.activities if include_internal_transfers else transfers.external_activities
     rows = []
-    for activity in resolve_internal_transfers(activities).external_activities:
+    for activity in selected:
         money = activity.get('money')
         currency = money.get('currency') if isinstance(money, dict) else None
         if not isinstance(currency, str) or len(currency.strip()) != 3:
             continue
         currency = currency.strip().upper()
-        flows, _warnings = extract_external_cashflows([activity], currency)
+        projected = activity
+        if isinstance(activity.get('id'), str) and activity['id'] in transfers.internal_activity_ids:
+            # Full-ledger identity is already established. Display the account
+            # boundary leg without reclassifying an isolated pair annotation.
+            projected = {**activity, 'metadata': {key: value for key, value in activity['metadata'].items()
+                                                 if key != 'rikdom_internal_transfer'}}
+        flows, _warnings = extract_external_cashflows([projected], currency)
         if not flows:
             continue
         rows.append({
