@@ -21,7 +21,7 @@ from rikdom.fx import ensure_snapshot_fx_lock
 from rikdom.historical_fx import load_historical_fx
 from rikdom.income import build_income_report
 from rikdom.performance import (
-    compute_performance, external_cashflow_currencies, performance_period_bounds,
+    compute_performance, external_cashflow_currencies, parse_flow_valuations, performance_period_bounds,
     performance_result_to_dict, read_flow_valuations,
 )
 from rikdom.plugin_engine.hookspecs import hookimpl
@@ -213,11 +213,13 @@ def _build_performance_section(
         base = str(portfolio.get("settings", {}).get("base_currency", "USD")).strip().upper() or "USD"
         flow_path = local_path("flow_valuations_path")
         flow = read_flow_valuations(str(flow_path)) if flow_path else None
+        if flow_path is not None:
+            parse_flow_valuations(flow, base)
         historical_path = local_path("historical_fx_path")
         historical = load_historical_fx(historical_path, base_currency=base) if historical_path else None
         policy_path = local_path("policy_path")
         policy = load_json(str(policy_path)) if policy_path else None
-        if policy is not None and not isinstance(policy, dict):
+        if policy_path is not None and not isinstance(policy, dict):
             raise ValueError("policy_path must contain a policy JSON object")
         benchmark_dir = local_path("benchmarks_dir", "benchmarks")
         activities = portfolio.get("activities") or []

@@ -166,3 +166,16 @@ class ReportPerformanceTests(unittest.TestCase):
                     sections = plugin._build_report_payload(portfolio, snapshots, source_dir=root)['sections']
                     self.assertIsNone(sections.get('performance'))
                     self.assertEqual(sections['performance_context']['status'], 'unavailable')
+
+    def test_selected_null_documents_reject_instead_of_using_absent_input_defaults(self):
+        portfolio, snapshots = example()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'null.json').write_text('null')
+            for option, reason in (('flow_valuations_path', 'flow-valuations'), ('policy_path', 'policy JSON object')):
+                with self.subTest(option=option):
+                    portfolio['extensions'] = {'rikdom_report': {'performance': {option: 'null.json'}}}
+                    sections = plugin._build_report_payload(portfolio, snapshots, source_dir=root)['sections']
+                    self.assertIsNone(sections['performance'])
+                    self.assertEqual(sections['performance_context']['status'], 'unavailable')
+                    self.assertIn(reason, ' '.join(sections['performance_context']['warnings']))
