@@ -182,7 +182,28 @@
           standalone_fees_base:label('Separate fees','Taxas separadas'),
           standalone_taxes_base:label('Separate taxes','Impostos separados'),
         };
+        if ('cash_fx_gain_base' in decomposition) {
+          Object.assign(components, {
+            cash_fx_gain_base:label('Cash currency effect','Efeito cambial do caixa'),
+            fx_conversion_result_base:label('FX conversion result','Resultado da conversão de moedas'),
+            explained_result_base:label('Explained period result','Resultado explicado do período'),
+            reconciliation_difference_base:label('Reconciliation difference','Diferença de conciliação'),
+          });
+        }
         growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(components).map(([key,name]) => [text(name),text(money(decomposition[key], p.base_currency))]));
+        if ('realized_price_gain_base' in decomposition) {
+          const detailLabels = {
+            realized_price_gain_base:label('Realized price result','Resultado realizado de preço'),
+            realized_fx_gain_base:label('Realized currency effect','Efeito cambial realizado'),
+            unrealized_price_change_base:label('Unrealized price change','Variação não realizada de preço'),
+            unrealized_fx_change_base:label('Unrealized currency change','Variação cambial não realizada'),
+          };
+          growth += `<div id="profit-fx-breakdown"><h4>${text(label('Price and currency attribution','Atribuição de preço e câmbio'))}</h4><p>${text(label(
+            'These components explain the realized and unrealized totals above. Cash currency effects and conversion results enter the period reconciliation separately.',
+            'Estes componentes explicam os totais realizados e não realizados acima. Os efeitos cambiais do caixa e os resultados de conversão entram separadamente na conciliação do período.'))}</p>`;
+          growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(detailLabels).map(([key,name]) => [text(name),text(money(decomposition[key], p.base_currency))])) + '</div>';
+        }
+
       } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(attribution.diagnostics || []).map(note => `<li>${text(typeof note === 'string' ? note : JSON.stringify(note))}</li>`).join('')}</ul>`;
     }
     const benchmarks = benchmarkRows.length ? `<h3>${text(label('Benchmarks','Referências'))}</h3>${table([label('Benchmark','Referência'),label('Currency','Moeda'),label('Return','Retorno'),label('Excess','Excesso'),label('Comparability','Comparabilidade'),label('Return convention','Convenção de retorno'),label('Actual window','Período efetivo')], benchmarkRows)}` : `<p>${text(label('Benchmark comparison unavailable: no benchmark result supplied.', 'Comparação com referência indisponível: nenhum resultado fornecido.'))}</p>`;
