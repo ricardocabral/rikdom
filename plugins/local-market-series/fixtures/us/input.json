@@ -1,0 +1,35 @@
+{
+  "contract_version": "1.0",
+  "series": [
+    {
+      "id": "us-price",
+      "kind": "price",
+      "instrument": {
+        "namespace": "XNAS",
+        "id": "SYNTH",
+        "currency": "USD"
+      },
+      "currency": "USD",
+      "adjustment": "unadjusted",
+      "coverage": {
+        "start": "2026-01-02T00:00:00Z",
+        "end": "2026-01-10T00:00:00Z"
+      },
+      "license": {
+        "name": "CC0-1.0 synthetic",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "observations": [
+        {
+          "id": "us-original",
+          "effective_at": "2026-01-02T00:00:00Z",
+          "retrieved_at": "2026-01-02T00:00:00Z",
+          "source": "manual synthetic fixture",
+          "value": 100,
+          "currency": "USD",
+          "supersedes": null
+        }
+      ]
+    }
+  ]
+}

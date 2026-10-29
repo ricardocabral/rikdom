@@ -1,0 +1,95 @@
+{
+  "contract_version": "1.0",
+  "plugin": {
+    "name": "local-market-series",
+    "version": "0.1.0",
+    "api_version": "1.2"
+  },
+  "market_series": {
+    "contract_version": "1.0",
+    "series": [
+      {
+        "id": "us-price",
+        "kind": "price",
+        "instrument": {
+          "namespace": "XNAS",
+          "id": "SYNTH",
+          "currency": "USD"
+        },
+        "currency": "USD",
+        "adjustment": "unadjusted",
+        "coverage": {
+          "start": "2026-01-02T00:00:00Z",
+          "end": "2026-01-10T00:00:00Z"
+        },
+        "license": {
+          "name": "CC0-1.0 synthetic",
+          "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        "observations": [
+          {
+            "id": "us-original",
+            "effective_at": "2026-01-02T00:00:00Z",
+            "retrieved_at": "2026-01-02T00:00:00Z",
+            "source": "manual synthetic fixture",
+            "value": 100,
+            "currency": "USD",
+            "supersedes": null
+          }
+        ]
+      }
+    ]
+  },
+  "lookups": [
+    {
+      "status": "available",
+      "reason": null,
+      "series_id": "us-price",
+      "as_of": "2026-01-02T00:00:00Z",
+      "max_age_seconds": 0,
+      "retrieved_before": null,
+      "age_seconds": 0,
+      "series": {
+        "id": "us-price",
+        "kind": "price",
+        "instrument": {
+          "namespace": "XNAS",
+          "id": "SYNTH",
+          "currency": "USD"
+        },
+        "currency": "USD",
+        "adjustment": "unadjusted",
+        "coverage": {
+          "start": "2026-01-02T00:00:00Z",
+          "end": "2026-01-10T00:00:00Z"
+        },
+        "license": {
+          "name": "CC0-1.0 synthetic",
+          "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      },
+      "observation": {
+        "id": "us-original",
+        "effective_at": "2026-01-02T00:00:00Z",
+        "retrieved_at": "2026-01-02T00:00:00Z",
+        "source": "manual synthetic fixture",
+        "value": 100,
+        "currency": "USD",
+        "supersedes": null
+      },
+      "superseded": []
+    },
+    {
+      "status": "missing",
+      "reason": "unknown_series",
+      "series_id": "missing",
+      "as_of": "2026-01-02T00:00:00Z",
+      "max_age_seconds": 0,
+      "retrieved_before": null,
+      "age_seconds": null,
+      "series": null,
+      "observation": null,
+      "superseded": []
+    }
+  ]
+}

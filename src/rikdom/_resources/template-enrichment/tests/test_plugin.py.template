@@ -1,0 +1,21 @@
+"""Exercise the scaffold through the real validated plugin runtime."""
+import unittest
+from pathlib import Path
+
+from rikdom.plugin_engine import run_enrichment_pipeline
+
+
+class PluginTests(unittest.TestCase):
+    def test_local_series_and_revision_cutoff(self):
+        plugin = Path(__file__).resolve().parents[1]
+        result = run_enrichment_pipeline("{{plugin_name}}", str(plugin.parent), {
+            "contract_version": "1.0", "source": {"path": str(plugin / "fixtures/sample/input.json")},
+            "lookups": [{"series_id": "br-price", "as_of": "2026-01-02T00:00:00Z",
+                         "max_age_seconds": 0, "retrieved_before": "2026-01-02T00:00:00Z"}],
+        })
+        self.assertEqual(result["lookups"][0]["observation"]["value"], 10)
+        self.assertEqual(result["market_series"]["series"][0]["currency"], "BRL")
+
+
+if __name__ == "__main__":
+    unittest.main()

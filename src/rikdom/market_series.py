@@ -236,6 +236,16 @@ def load_market_series(path: str | Path) -> MarketSeries:
     """
     with Path(path).open(encoding="utf-8") as handle:
         document = json.load(handle, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    return parse_market_series(document)
+
+
+def parse_market_series(document: Any) -> MarketSeries:
+    """Validate and detach an in-memory MarketSeries 1.0 document.
+
+    This shares the file loader's all-or-nothing validation and revision rules.
+    Mutating the caller's input cannot change subsequent lookup results.
+    """
+    document = copy.deepcopy(document)
     document = _object(document, {"contract_version", "series"}, "document")
     if document["contract_version"] != "1.0":
         raise ValueError("unsupported market series contract_version; expected '1.0'")
