@@ -79,6 +79,7 @@ from .plugins import (
     stamp_provenance,
 )
 from .benchmarks import make_dir_loader
+from .historical_fx import load_historical_fx
 from .performance import (
     compute_performance,
     compute_performance_by_account,
@@ -621,6 +622,10 @@ def cmd_performance(args: argparse.Namespace) -> int:
         return 1
     portfolio = load_json(args.portfolio)
     check_financial_contract(portfolio)
+    historical_fx_path = getattr(args, "historical_fx", None)
+    if historical_fx_path and getattr(args, "by", None) == "instrument":
+        print("--historical-fx does not apply to native-currency --by instrument returns", file=sys.stderr)
+        return 1
     if getattr(args, "by", None) == "instrument":
         return cmd_instrument_performance(args, portfolio)
     if getattr(args, "instrument", None) or getattr(args, "terminal_value", None) is not None:
@@ -628,6 +633,13 @@ def cmd_performance(args: argparse.Namespace) -> int:
         return 1
     snapshots = load_jsonl(args.snapshots)
     base_currency = _portfolio_base_currency(portfolio)
+    historical_fx = None
+    if historical_fx_path:
+        try:
+            historical_fx = load_historical_fx(historical_fx_path, base_currency=base_currency)
+        except (OSError, ValueError) as exc:
+            print(f"--historical-fx: {exc}", file=sys.stderr)
+            return 1
     flow_evidence = None
     if evidence_path:
         try:
@@ -647,18 +659,20 @@ def cmd_performance(args: argparse.Namespace) -> int:
         until=getattr(args, "until", None),
     )
 
-    fx_lock, fx_warnings = ensure_snapshot_fx_lock(
-        portfolio,
-        fx_history_path=args.fx_history,
-        snapshot_timestamp=_now_iso(),
-        auto_ingest=False,
-        extra_quote_currencies=external_cashflow_currencies(
-            activities,
-            base_currency,
-            period_start=period_start,
-            period_end=period_end,
-        ),
-    )
+    fx_lock, fx_warnings = {}, []
+    if historical_fx is None:
+        fx_lock, fx_warnings = ensure_snapshot_fx_lock(
+            portfolio,
+            fx_history_path=args.fx_history,
+            snapshot_timestamp=_now_iso(),
+            auto_ingest=False,
+            extra_quote_currencies=external_cashflow_currencies(
+                activities,
+                base_currency,
+                period_start=period_start,
+                period_end=period_end,
+            ),
+        )
 
     policy: dict[str, Any] | None = None
     policy_path = getattr(args, "policy", None)
@@ -681,6 +695,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
         policy=policy,
         benchmark_loader=benchmark_loader,
         flow_valuations=flow_evidence,
+        historical_fx=historical_fx,
     )
     result.warnings.extend(fx_warnings)
 
@@ -703,6 +718,8 @@ def cmd_performance(args: argparse.Namespace) -> int:
         "mwr_pct": result.mwr_pct,
         "cashflow_count": result.cashflow_count,
         "warnings": result.warnings,
+        "fx_status": result.fx_status,
+        "fx_evidence": result.fx_evidence,
     }
     if result.benchmarks:
         output["benchmarks"] = [
@@ -725,6 +742,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
                 fx_rates_to_base=fx_lock.get("rates_to_base")
                 if isinstance(fx_lock, dict)
                 else None,
+                historical_fx=historical_fx,
                 since=getattr(args, "since", None),
                 until=getattr(args, "until", None),
             )
@@ -743,6 +761,8 @@ def cmd_performance(args: argparse.Namespace) -> int:
                     "mwr_pct": bp.mwr_pct,
                     "cashflow_count": bp.cashflow_count,
                     "warnings": bp.warnings,
+                    "fx_status": bp.fx_status,
+                    "fx_evidence": bp.fx_evidence,
                 }
                 for bp in per_bucket
             ]
@@ -756,6 +776,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
             fx_rates_to_base=fx_lock.get("rates_to_base")
             if isinstance(fx_lock, dict)
             else None,
+            historical_fx=historical_fx,
             since=getattr(args, "since", None),
             until=getattr(args, "until", None),
         )
@@ -774,13 +795,15 @@ def cmd_performance(args: argparse.Namespace) -> int:
                 "mwr_pct": ap.mwr_pct,
                 "cashflow_count": ap.cashflow_count,
                 "warnings": ap.warnings,
+                "fx_status": ap.fx_status,
+                "fx_evidence": ap.fx_evidence,
             }
             for ap in per_account
         ]
         if top_warnings:
             output["warnings"] = list(output["warnings"]) + top_warnings
 
-    print(json.dumps(output, indent=2, ensure_ascii=False))
+    print(json.dumps(output, indent=2, ensure_ascii=False, allow_nan=False))
     return 0
 
 
@@ -1003,6 +1026,13 @@ def _benchmark_comparison_to_dict(comp: Any) -> dict[str, Any]:
         "twr_pct": comp.twr_pct,
         "excess_pct": comp.excess_pct,
     }
+    if comp.comparison_status != "legacy":
+        payload.update(
+            period_start=comp.period_start, period_end=comp.period_end,
+            native_currency=comp.native_currency, native_twr_pct=comp.native_twr_pct,
+            return_convention=comp.return_convention, fx_evidence=comp.fx_evidence,
+            data_provenance=comp.data_provenance, comparison_status=comp.comparison_status,
+        )
     if comp.warnings:
         payload["warnings"] = list(comp.warnings)
     if comp.components:
@@ -2430,6 +2460,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_performance.add_argument("--portfolio", default=None)
     p_performance.add_argument("--snapshots", default=None)
     p_performance.add_argument("--fx-history", default=None)
+    p_performance.add_argument(
+        "--historical-fx", default=None, metavar="CONFIG",
+        help="Read local version 1.0 dated FX configuration for cashflows and benchmark comparisons; no undated fallback",
+    )
     p_performance.add_argument(
         "--flow-valuations", default=None,
         help="Read-only version 1 JSON with explicit base-currency before/after external flow valuations (portfolio scope only)",

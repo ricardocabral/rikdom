@@ -82,11 +82,27 @@ the next snapshot already reflects them. Instrument returns use a different
 boundary: purchases and distributions cross between the investor and the
 instrument. See [per-instrument output](../reference/performance-output.md#per-instrument-output).
 
-## Why FX gaps warn instead of fail
+## Historical FX completeness
 
-A missing FX rate for a single foreign-currency cashflow is a data-quality
-problem, not a reason to block the user from seeing returns on the rest of
-the portfolio. The resolver skips the cashflow with a `warnings[]` entry
+With `--historical-fx`, each foreign external cashflow uses a selected local
+observation at its effective timestamp. Missing, stale, or invalid conversion
+evidence makes affected returns and net contributions unavailable; skipping that
+cashflow would misstate investment growth. Other account/bucket scopes can remain
+usable when their own inputs are complete. The supplied snapshot and flow-boundary
+valuations still need independent reporting-currency evidence.
+
+The same [dated FX resolver](../reference/historical-fx.md) converts benchmark
+bookends. [Comparable excess return](../reference/benchmark-fx.md) additionally
+requires matching windows, sourced total-return inputs, and complete active
+composite components. A window with only one snapshot cannot establish a return;
+a malformed optional benchmark becomes unavailable without discarding usable
+portfolio results.
+
+## Why legacy FX gaps warn instead of fail
+
+Without `--historical-fx`, a missing FX rate for a single foreign-currency
+cashflow retains the compatibility behavior: it is a data-quality problem,
+rather than a command failure. The resolver skips the cashflow with a `warnings[]` entry
 so the user gets a usable number plus an actionable diagnostic.
 
 ## See also

@@ -8,6 +8,7 @@ Legacy undated FX and unresolved transfer identity remain approximate.
 from __future__ import annotations
 
 from .activities import effective_activities
+from .historical_fx import HistoricalFx
 
 from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
@@ -84,6 +85,8 @@ class PerformanceResult:
     twr_return_basis: str = "period"
     mwr_return_basis: str = "annualized_365_day"
     legacy_twr_method: str = "modified_dietz"
+    fx_evidence: list[dict[str, Any]] = field(default_factory=list)
+    fx_status: str = "legacy_approximate"
 
 
 def _parse_iso(value: str) -> datetime:
@@ -546,11 +549,114 @@ def external_cashflow_currencies(
     return sorted(currencies)
 
 
+def _historical_cashflows(
+    activities: list[dict[str, Any]],
+    base_currency: str,
+    historical_fx: HistoricalFx,
+    period_start: datetime | None,
+    period_end: datetime | None,
+) -> tuple[list[tuple[dict[str, Any], Cashflow | None, dict[str, Any]]], list[str]]:
+    """Convert effective posted events once, retaining every unresolved event.
+
+    The shared rule prevents portfolio and scoped calculations from silently
+    treating missing dated conversions as zero external cashflow.
+    """
+    if historical_fx.base_currency != base_currency:
+        raise ValueError("historical FX reporting currency must match base_currency")
+    records = []
+    warnings = []
+    for act in effective_activities(activities):
+        if not _is_posted(act) or _event_type(act) not in _EXTERNAL_FLOW_SIGNS:
+            continue
+        raw = act.get("effective_at")
+        when = None
+        reason = None
+        try:
+            if not isinstance(raw, str):
+                raise ValueError("missing effective_at")
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                raise ValueError("naive effective_at")
+            when = parsed.astimezone(timezone.utc)
+        except ValueError:
+            reason = "invalid_effective_at"
+        if when is not None and (
+            (period_start is not None and when < period_start)
+            or (period_end is not None and when > period_end)
+        ):
+            continue
+        money = act.get("money")
+        amount = _finite_number(money.get("amount")) if isinstance(money, dict) else None
+        currency = money.get("currency") if isinstance(money, dict) else None
+        row: dict[str, Any] = {
+            "activity_id": act.get("id") if isinstance(act.get("id"), str) else "unknown",
+            "event_type": _event_type(act),
+            "effective_at": raw if isinstance(raw, str) else None, "native_amount": amount,
+            "native_currency": currency if isinstance(currency, str) else None, "amount_base": None,
+            "status": "unavailable", "reason": reason,
+        }
+        if amount is None:
+            reason = reason or "invalid_financial_amount"
+        if reason is None:
+            try:
+                result = historical_fx.resolve(currency, when)
+            except ValueError:
+                reason = "invalid_currency"
+            else:
+                row.update(result.evidence)
+                row["lookup_status"] = result.status
+                reason = result.reason
+                if result.rate is not None:
+                    converted = _finite_number(abs(amount) * result.rate)
+                    if converted is None:
+                        reason = "nonfinite_converted_amount"
+                    else:
+                        row["amount_base"] = _EXTERNAL_FLOW_SIGNS[_event_type(act)] * converted
+        cf = None
+        if row["amount_base"] is None:
+            row.update(status="unavailable", reason=reason or "missing_historical_fx")
+            warnings.append(
+                f"Invalid financial input: activity '{row['activity_id']}' historical FX unavailable: {row['reason']}"
+            )
+        else:
+            cf = Cashflow(when, row["amount_base"])
+        records.append((act, cf, row))
+    records.sort(key=lambda record: record[1].when if record[1] else datetime.min.replace(tzinfo=timezone.utc))
+    return records, warnings
+
+
+def _historical_scope_cashflows(
+    records: list[tuple[dict[str, Any], Cashflow | None, dict[str, Any]]],
+    *, holding_to_bucket: dict[str, str] | None = None,
+) -> tuple[dict[str, list[Cashflow]], set[str], dict[str, list[dict[str, Any]]]]:
+    """Keep unavailable events attached to their account or strategic bucket."""
+    flows: dict[str, list[Cashflow]] = {}
+    invalid: set[str] = set()
+    evidence: dict[str, list[dict[str, Any]]] = {}
+    for act, cf, row in records:
+        if holding_to_bucket is None:
+            raw = act.get("account_id")
+            key = raw.strip() if isinstance(raw, str) and raw.strip() else UNASSIGNED_ACCOUNT
+        else:
+            hid = act.get("holding_id")
+            key = holding_to_bucket.get(hid, "__unallocated__") if isinstance(hid, str) else "__unallocated__"
+        evidence.setdefault(key, []).append(row)
+        if cf is None:
+            invalid.add(key)
+        else:
+            flows.setdefault(key, []).append(cf)
+    for key, scoped in flows.items():
+        if _finite_number(sum(cf.amount_base for cf in scoped)) is None:
+            invalid.add(key)
+    return flows, invalid, evidence
+
+
 def extract_external_cashflows(
     activities: list[dict[str, Any]],
     base_currency: str,
     *,
     fx_rates_to_base: dict[str, float] | None = None,
+    historical_fx: HistoricalFx | None = None,
     period_start: datetime | None = None,
     period_end: datetime | None = None,
 ) -> tuple[list[Cashflow], list[str]]:
@@ -558,8 +664,17 @@ def extract_external_cashflows(
 
     Skipped activities (foreign currency without a usable FX rate, malformed
     money, unparsable dates) are surfaced as warnings instead of errors so
-    a partial answer is still produced.
+    a partial answer is still produced. Historical mode returns warnings for
+    unresolved dated conversions; compute APIs make affected totals unavailable.
     """
+    if historical_fx is not None:
+        records, warnings = _historical_cashflows(
+            activities, base_currency, historical_fx, period_start, period_end
+        )
+        flows = [cf for _, cf, _ in records if cf is not None]
+        if _finite_number(sum(cf.amount_base for cf in flows)) is None:
+            warnings.append("Invalid financial input: aggregate historical cashflow exceeds finite range")
+        return flows, warnings
     activities = effective_activities(activities)
 
     rates = _normalize_fx_rates(fx_rates_to_base)
@@ -716,6 +831,8 @@ class AccountPerformance:
     mwr_pct: float | None
     cashflow_count: int
     warnings: list[str] = field(default_factory=list)
+    fx_evidence: list[dict[str, Any]] = field(default_factory=list)
+    fx_status: str = "legacy_approximate"
 
 
 def _snap_by_strategic_bucket(snap: dict[str, Any]) -> dict[str, float | None]:
@@ -890,6 +1007,8 @@ class StrategicBucketPerformance:
     mwr_pct: float | None
     cashflow_count: int
     warnings: list[str] = field(default_factory=list)
+    fx_evidence: list[dict[str, Any]] = field(default_factory=list)
+    fx_status: str = "legacy_approximate"
 
 
 def compute_performance_by_strategic_bucket(
@@ -900,6 +1019,7 @@ def compute_performance_by_strategic_bucket(
     portfolio: dict[str, Any] | None = None,
     policy: dict[str, Any] | None = None,
     fx_rates_to_base: dict[str, float] | None = None,
+    historical_fx: HistoricalFx | None = None,
     since: str | datetime | None = None,
     until: str | datetime | None = None,
 ) -> tuple[list[StrategicBucketPerformance], list[str]]:
@@ -910,6 +1030,8 @@ def compute_performance_by_strategic_bucket(
     Activities without a ``holding_id`` — or whose holding is not covered
     by any asset_class target — fall under ``__unallocated__``.
     """
+    if historical_fx is not None and historical_fx.base_currency != base_currency:
+        raise ValueError("historical FX reporting currency must match base_currency")
     activities = effective_activities(activities)
 
     since_dt = _parse_iso(since) if isinstance(since, str) else since
@@ -941,17 +1063,26 @@ def compute_performance_by_strategic_bucket(
     holding_to_bucket, unallocated_holding_classes = _build_holding_bucket_index(
         portfolio, policy
     )
-    cashflows_by_bucket, attribution_warnings, invalid_flow_scopes = (
-        _attribute_external_cashflows_by_strategic_bucket(
-            activities,
-            base_currency,
-            fx_rates_to_base=fx_rates_to_base,
-            period_start=start_ts,
-            period_end=end_ts,
-            holding_to_bucket=holding_to_bucket,
-            unallocated_holding_classes=unallocated_holding_classes,
+    fx_by_scope: dict[str, list[dict[str, Any]]] = {}
+    if historical_fx is not None:
+        records, attribution_warnings = _historical_cashflows(
+            activities, base_currency, historical_fx, start_ts, end_ts
         )
-    )
+        cashflows_by_bucket, invalid_flow_scopes, fx_by_scope = _historical_scope_cashflows(
+            records, holding_to_bucket=holding_to_bucket
+        )
+    else:
+        cashflows_by_bucket, attribution_warnings, invalid_flow_scopes = (
+            _attribute_external_cashflows_by_strategic_bucket(
+                activities,
+                base_currency,
+                fx_rates_to_base=fx_rates_to_base,
+                period_start=start_ts,
+                period_end=end_ts,
+                holding_to_bucket=holding_to_bucket,
+                unallocated_holding_classes=unallocated_holding_classes,
+            )
+        )
     top_warnings.extend(attribution_warnings)
 
     bucket_keys = sorted(
@@ -1011,6 +1142,9 @@ def compute_performance_by_strategic_bucket(
             else:
                 mwr_fraction = None
 
+        scope_evidence = fx_by_scope.get(key, [])
+        if any(row["event_type"] in {"transfer_in", "transfer_out"} for row in scope_evidence):
+            bucket_warnings.append("Transfer identity unresolved: treated as external, approximate")
         net_flow = (
             None
             if key in invalid_flow_scopes
@@ -1026,6 +1160,9 @@ def compute_performance_by_strategic_bucket(
                 mwr_pct=_return_percent(mwr_fraction),
                 cashflow_count=len(flows),
                 warnings=bucket_warnings,
+                fx_evidence=scope_evidence,
+                fx_status=("unavailable" if key in invalid_flow_scopes else "complete")
+                if historical_fx is not None else "legacy_approximate",
             )
         )
     return results, top_warnings
@@ -1125,6 +1262,7 @@ def compute_performance_by_account(
     *,
     base_currency: str,
     fx_rates_to_base: dict[str, float] | None = None,
+    historical_fx: HistoricalFx | None = None,
     since: str | datetime | None = None,
     until: str | datetime | None = None,
 ) -> tuple[list[AccountPerformance], list[str]]:
@@ -1134,6 +1272,8 @@ def compute_performance_by_account(
     either bookend snapshot or in attributed activities) plus a list of
     top-level warnings (e.g. snapshots missing ``by_account``).
     """
+    if historical_fx is not None and historical_fx.base_currency != base_currency:
+        raise ValueError("historical FX reporting currency must match base_currency")
     activities = effective_activities(activities)
 
     since_dt = _parse_iso(since) if isinstance(since, str) else since
@@ -1160,15 +1300,24 @@ def compute_performance_by_account(
     if start_by_account is None or end_by_account is None:
         return [], top_warnings
 
-    cashflows_by_account, attribution_warnings, invalid_flow_scopes = (
-        _attribute_external_cashflows_by_account(
-            activities,
-            base_currency,
-            fx_rates_to_base=fx_rates_to_base,
-            period_start=start_ts,
-            period_end=end_ts,
+    fx_by_scope: dict[str, list[dict[str, Any]]] = {}
+    if historical_fx is not None:
+        records, attribution_warnings = _historical_cashflows(
+            activities, base_currency, historical_fx, start_ts, end_ts
         )
-    )
+        cashflows_by_account, invalid_flow_scopes, fx_by_scope = _historical_scope_cashflows(
+            records
+        )
+    else:
+        cashflows_by_account, attribution_warnings, invalid_flow_scopes = (
+            _attribute_external_cashflows_by_account(
+                activities,
+                base_currency,
+                fx_rates_to_base=fx_rates_to_base,
+                period_start=start_ts,
+                period_end=end_ts,
+            )
+        )
     top_warnings.extend(attribution_warnings)
 
     account_ids = sorted(
@@ -1222,6 +1371,9 @@ def compute_performance_by_account(
             else:
                 mwr_fraction = None
 
+        scope_evidence = fx_by_scope.get(aid, [])
+        if any(row["event_type"] in {"transfer_in", "transfer_out"} for row in scope_evidence):
+            warnings.append("Transfer identity unresolved: treated as external, approximate")
         net_flow = (
             None
             if aid in invalid_flow_scopes
@@ -1237,6 +1389,9 @@ def compute_performance_by_account(
                 mwr_pct=_return_percent(mwr_fraction),
                 cashflow_count=len(flows),
                 warnings=warnings,
+                fx_evidence=scope_evidence,
+                fx_status=("unavailable" if aid in invalid_flow_scopes else "complete")
+                if historical_fx is not None else "legacy_approximate",
             )
         )
     return results, top_warnings
@@ -1248,12 +1403,15 @@ def compute_performance(
     *,
     base_currency: str,
     fx_rates_to_base: dict[str, float] | None = None,
+    historical_fx: HistoricalFx | None = None,
     since: str | datetime | None = None,
     until: str | datetime | None = None,
     policy: dict[str, Any] | None = None,
     benchmark_loader: BenchmarkLoader | None = None,
     flow_valuations: dict[str, Any] | None = None,
 ) -> PerformanceResult:
+    if historical_fx is not None and historical_fx.base_currency != base_currency:
+        raise ValueError("historical FX reporting currency must match base_currency")
     evidence = (
         parse_flow_valuations(flow_valuations, base_currency)
         if flow_valuations is not None
@@ -1279,6 +1437,7 @@ def compute_performance(
             mwr_pct=None,
             cashflow_count=0,
             warnings=warnings,
+            fx_status="unavailable" if historical_fx is not None else "legacy_approximate",
         )
 
     start_ts = _parse_iso(start_snap["timestamp"])
@@ -1300,15 +1459,29 @@ def compute_performance(
             mwr_pct=None,
             cashflow_count=0,
             warnings=warnings,
+            fx_status="unavailable" if historical_fx is not None else "legacy_approximate",
         )
 
-    cashflows, cf_warnings = extract_external_cashflows(
-        activities,
-        base_currency,
-        fx_rates_to_base=fx_rates_to_base,
-        period_start=start_ts,
-        period_end=end_ts,
-    )
+    fx_evidence: list[dict[str, Any]] = []
+    fx_unavailable = False
+    if historical_fx is not None:
+        records, cf_warnings = _historical_cashflows(
+            activities, base_currency, historical_fx, start_ts, end_ts
+        )
+        cashflows = [cf for _, cf, _ in records if cf is not None]
+        fx_evidence = [row for _, _, row in records]
+        fx_unavailable = any(cf is None for _, cf, _ in records)
+        if _finite_number(sum(cf.amount_base for cf in cashflows)) is None:
+            fx_unavailable = True
+            cf_warnings.append("Invalid financial input: aggregate historical cashflow exceeds finite range")
+    else:
+        cashflows, cf_warnings = extract_external_cashflows(
+            activities,
+            base_currency,
+            fx_rates_to_base=fx_rates_to_base,
+            period_start=start_ts,
+            period_end=end_ts,
+        )
     # Transfers have no stable pairing identity in the current contract. Keep
     # the legacy external-flow treatment and disclose the unresolved boundary.
     for activity in activities:
@@ -1346,7 +1519,9 @@ def compute_performance(
     for cf in cashflows:
         xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
     xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
-    mwr_fraction = xirr(xirr_series)
+    mwr_fraction = (
+        None if historical_fx is not None and end_ts <= start_ts else xirr(xirr_series)
+    )
     if any("invalid financial" in warning.lower() for warning in cf_warnings):
         twr_fraction = mwr_fraction = None
     selected, method, fallback_reason = _select_twr(
@@ -1368,21 +1543,27 @@ def compute_performance(
     if fallback_reason:
         warnings.append(f"TWR {method}: {fallback_reason}")
 
-    net_flow = _finite_number(sum(cf.amount_base for cf in cashflows))
+    net_flow = None if fx_unavailable else _finite_number(sum(cf.amount_base for cf in cashflows))
 
     twr_pct = _return_percent(twr_fraction)
     benchmark_comparisons: list[BenchmarkComparison] = []
     if policy is not None and benchmark_loader is not None:
-        benchmark_comparisons = resolve_benchmarks_for_targets(
-            policy,
-            benchmark_loader,
-            start_ts,
-            end_ts,
-            base_currency,
-            start_snap.get("timestamp", ""),
-            end_snap.get("timestamp", ""),
-            twr_pct,
-        )
+        if historical_fx is not None and end_ts <= start_ts:
+            warnings.append(
+                "Historical benchmark comparisons unavailable: portfolio window must increase"
+            )
+        else:
+            benchmark_comparisons = resolve_benchmarks_for_targets(
+                policy,
+                benchmark_loader,
+                start_ts,
+                end_ts,
+                base_currency,
+                start_snap.get("timestamp", ""),
+                end_snap.get("timestamp", ""),
+                selected_pct if historical_fx is not None else twr_pct,
+                **({"historical_fx": historical_fx} if historical_fx is not None else {}),
+            )
 
     return PerformanceResult(
         base_currency=base_currency,
@@ -1400,4 +1581,7 @@ def compute_performance(
         twr_return_pct=selected_pct,
         linked_twr_pct=selected_pct if method == "linked_subperiod" else None,
         twr_fallback_reason=fallback_reason,
+        fx_evidence=fx_evidence,
+        fx_status=("unavailable" if fx_unavailable else "complete")
+        if historical_fx is not None else "legacy_approximate",
     )

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.5.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "synthetic-fx-example",
+    "owner_kind": "other",
+    "display_name": "Synthetic dated FX example"
+  },
+  "settings": {
+    "base_currency": "BRL"
+  },
+  "asset_type_catalog": [],
+  "holdings": [],
+  "activities": [
+    {
+      "id": "synthetic-contribution",
+      "event_type": "contribution",
+      "status": "posted",
+      "effective_at": "2026-07-02T00:00:00Z",
+      "money": {
+        "amount": 10,
+        "currency": "USD"
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "contract_version": "1.0",
+  "market_series_file": "market-series.json",
+  "series_by_currency": {
+    "USD": "synthetic-usd-brl"
+  },
+  "max_age_seconds": 0,
+  "retrieved_before": null
+}
