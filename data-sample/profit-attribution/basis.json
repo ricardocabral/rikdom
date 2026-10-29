@@ -1,0 +1,53 @@
+{
+  "contract_version": "1.0",
+  "scope": "portfolio",
+  "base_currency": "BRL",
+  "period_start": "2026-01-01T00:00:00Z",
+  "period_end": "2026-02-01T00:00:00Z",
+  "method": "fifo",
+  "price_adjustment": "unadjusted",
+  "cost_convention": "buy_costs_capitalized_sell_costs_deducted",
+  "review": {
+    "status": "reviewed",
+    "source": "synthetic reviewed statement",
+    "reviewed_at": "2026-02-02T00:00:00Z",
+    "retrieved_before": "2026-02-02T00:00:00Z"
+  },
+  "history": {
+    "status": "complete",
+    "from": "2026-01-01T00:00:00Z",
+    "through": "2026-02-01T00:00:00Z",
+    "missing_periods": []
+  },
+  "opening_cash_base": 80,
+  "closing_cash_base": 214,
+  "opening_lots": [
+    {
+      "id": "old",
+      "account_id": "a",
+      "holding_id": "h",
+      "currency": "BRL",
+      "acquired_at": "2025-01-01T00:00:00Z",
+      "quantity": 10,
+      "total_cost_native": 100
+    }
+  ],
+  "opening_positions": [
+    {
+      "account_id": "a",
+      "holding_id": "h",
+      "currency": "BRL",
+      "quantity": 10,
+      "market_value_native": 120
+    }
+  ],
+  "closing_positions": [
+    {
+      "account_id": "a",
+      "holding_id": "h",
+      "currency": "BRL",
+      "quantity": 3,
+      "market_value_native": 66
+    }
+  ]
+}
