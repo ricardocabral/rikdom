@@ -91,6 +91,8 @@ def resolve_internal_transfers(
     ids: dict[str, dict] = {}
     imports: dict[str, dict] = {}
     conflicts: set[str] = set()
+    replay_ids: dict[str, set[str]] = {}
+    collapsed_replays: list[dict[str, Any]] = []
     for row in effective:
         if not has_claim:
             rows.append(row)
@@ -120,17 +122,34 @@ def resolve_internal_transfers(
             }
             if key in imports:
                 previous = imports[key]
+                previous_id = previous.get("id")
+                if _text(aid) and _text(previous_id):
+                    replay_ids.setdefault(aid, set()).add(previous_id)
+                    replay_ids.setdefault(previous_id, set()).add(aid)
                 previous_content = {
                     k: v
                     for k, v in previous.items()
                     if k not in ("id", "import_run_id", "ingested_at", "provenance")
                 }
-                if content == previous_content:
+                if content == previous_content and _text(aid) and _text(previous_id):
+                    collapsed_replays.append(row)
                     continue
                 conflicts.update(v for v in (aid, previous.get("id")) if _text(v))
             else:
                 imports[key] = row
         rows.append(row)
+
+    # A replay may disappear from the projection, but its identity remains
+    # connected to the canonical leg if another row later conflicts with it.
+    pending = list(conflicts)
+    while pending:
+        for related in replay_ids.get(pending.pop(), ()):
+            if related not in conflicts:
+                conflicts.add(related)
+                pending.append(related)
+    # Keep the witness rows of a conflicting identity component. Re-resolving
+    # this projection must not erase the conflict after a replay was collapsed.
+    rows.extend(row for row in collapsed_replays if row.get("id") in conflicts)
 
     def relevant(legs: list[dict]) -> bool:
         for leg in legs:

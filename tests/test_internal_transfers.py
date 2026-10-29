@@ -2,6 +2,7 @@
 
 import copy
 import json
+from itertools import permutations
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -166,6 +167,43 @@ class InternalTransferTests(unittest.TestCase):
             snapshots(), rows, base_currency="BRL"
         )
         self.assertEqual([r.cashflow_count for r in accounts], [1, 1])
+
+    def test_replay_alias_conflicts_taint_original_leg_in_every_order(self):
+        rows = pair()
+        rows[0]["idempotency_key"] = "statement:out"
+        replay = copy.deepcopy(rows[0])
+        replay["id"] = "out-alias"
+        conflict = copy.deepcopy(replay)
+        conflict.pop("metadata")
+        conflict.update(event_type="contribution", idempotency_key="different")
+        conflict["money"]["amount"] = 5
+        for ordered in permutations(rows + [replay, conflict]):
+            with self.subTest(order=[row["id"] for row in ordered]):
+                result = self.compute(list(ordered))
+                self.assertIsNone(result.twr_return_pct)
+                self.assertIsNone(result.mwr_pct)
+                self.assertEqual(result.growth_bridge["status"], "unavailable")
+                provenance = performance_result_to_dict(result)["internal_transfers"]
+                self.assertEqual(provenance["status"], "unavailable")
+                self.assertEqual(provenance["pairs"], [])
+                accounts, _ = compute_performance_by_account(
+                    snapshots(), list(ordered), base_currency="BRL"
+                )
+                self.assertTrue(all(row.twr_pct is None for row in accounts))
+                p = portfolio(list(ordered))
+                profit = compute_profit_attribution(p, result)
+                self.assertEqual(profit["bridge"]["status"], "unavailable")
+
+    def test_replay_with_invalid_alias_id_cannot_establish_identity(self):
+        for invalid_id in (None, [], ""):
+            rows = pair()
+            rows[0]["idempotency_key"] = "statement:out"
+            replay = copy.deepcopy(rows[0])
+            replay["id"] = invalid_id
+            with self.subTest(invalid_id=invalid_id):
+                result = self.compute(rows + [replay])
+                self.assertIsNone(result.twr_return_pct)
+                self.assertEqual(result.growth_bridge["status"], "unavailable")
 
     def test_conflicting_duplicate_unclaimed_identity_invalidates_pair(self):
         rows = pair()
