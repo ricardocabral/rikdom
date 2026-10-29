@@ -87,7 +87,7 @@ from .performance import (
     performance_period_bounds,
 )
 from .performance_report import (
-    performance_to_dict, load_performance_inputs,
+    performance_to_dict, load_performance_inputs, protect_report_inputs,
 )
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
@@ -1053,9 +1053,15 @@ def cmd_viz(args: argparse.Namespace) -> int:
         embedded_fx = isinstance(embedded_performance, dict) and 'fx_history_path' in embedded_performance
         if getattr(args, '_fx_history_explicit', False) or not embedded_fx:
             report_options['fx_history'] = args.fx_history
-    if report_options.get('policy'):
+    if report_options.get('policy') or getattr(args, '_benchmarks_dir_explicit', False):
         report_options['benchmarks_dir'] = getattr(args, 'benchmarks_dir', 'data/benchmarks')
     try:
+        if plugin_name == 'quarto-portfolio-report':
+            protect_report_inputs(
+                load_json(args.portfolio), portfolio_path=args.portfolio, snapshots_path=args.snapshots,
+                output_dir=output_dir, options=report_options, dashboard_path=args.out,
+                additional_inputs=(args.fx_history,) if args.include_current else (),
+            )
         payload = run_output_pipeline(
             plugin_name=plugin_name,
             plugins_dir=plugins_dir,
@@ -1064,7 +1070,7 @@ def cmd_viz(args: argparse.Namespace) -> int:
             output_dir=output_dir,
             **({'options': report_options} if report_options else {}),
         )
-    except PluginEngineError as exc:
+    except (PluginEngineError, ValueError) as exc:
         if temp_dir is not None:
             temp_dir.cleanup()
         print(f"Visualize failed: {exc}", file=sys.stderr)
@@ -2561,7 +2567,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_viz.add_argument("--include-current", action="store_true")
     for option in ('historical-fx', 'flow-valuations', 'historical-valuations', 'profit-basis', 'policy', 'since', 'until'):
         p_viz.add_argument('--' + option, default=None)
-    p_viz.add_argument('--benchmarks-dir', default='data/benchmarks')
+    p_viz.add_argument('--benchmarks-dir', default='data/benchmarks', action=_StoreExplicitAction)
     p_viz.add_argument("--plugin", default="quarto-portfolio-report")
     p_viz.add_argument("--plugins-dir", default="plugins")
     _add_workspace_options(

@@ -19,7 +19,10 @@ from rikdom.aggregate import aggregate_portfolio
 from rikdom.benchmarks import make_dir_loader
 from rikdom.fx import ensure_snapshot_fx_lock
 from rikdom.income import build_income_report
-from rikdom.performance_report import performance_to_dict, recorded_contributions, load_performance_inputs
+from rikdom.performance_report import (
+    performance_to_dict, recorded_contributions, load_performance_inputs,
+    protect_report_inputs, REPORT_PERFORMANCE_PATH_OPTIONS,
+)
 from rikdom.performance import (
     compute_performance, external_cashflow_currencies, performance_period_bounds,
 )
@@ -189,16 +192,14 @@ def _build_performance_section(
     No current-valuation FX lock is substituted for historical return inputs.
     """
     context = {"status": "available", "scope": "portfolio", "inputs": {}, "warnings": [],
-               "fees_and_taxes": "Embedded in snapshot values; not separately calculated. Income is embedded in valuations and is not added again."}
+               "fees_and_taxes": "Embedded in supplied valuations; supported reviewed FIFO evidence may explain components separately. Income is never added again."}
     try:
         options = preferences.get("performance", {})
-        allowed = {"flow_valuations_path", "historical_fx_path", "fx_history_path", "policy_path", "benchmarks_dir", "since", "until", "historical_valuations_path", "profit_basis_path"}
+        allowed = set(REPORT_PERFORMANCE_PATH_OPTIONS.values()) | {"since", "until"}
         if not isinstance(options, dict) or set(options) - allowed:
             raise ValueError("rikdom_report.performance must contain only documented local input options")
         options = dict(options)
-        aliases = {'flow_valuations':'flow_valuations_path', 'historical_fx':'historical_fx_path',
-                   'historical_valuations':'historical_valuations_path', 'profit_basis':'profit_basis_path',
-                   'fx_history':'fx_history_path', 'policy':'policy_path'}
+        aliases = REPORT_PERFORMANCE_PATH_OPTIONS
         for name, value in (overrides or {}).items():
             key = aliases.get(name, name)
             if key not in allowed:
@@ -679,6 +680,10 @@ class Plugin:
         portfolio = load_json(request.portfolio_path)
         snapshots = load_jsonl(request.snapshots_path)
         out_dir = Path(request.output_dir)
+        protect_report_inputs(
+            portfolio, portfolio_path=request.portfolio_path, snapshots_path=request.snapshots_path,
+            output_dir=out_dir, options=request.options,
+        )
         out_dir.mkdir(parents=True, exist_ok=True)
 
         payload = _build_report_payload(portfolio, snapshots, source_dir=Path(request.portfolio_path).resolve().parent,
