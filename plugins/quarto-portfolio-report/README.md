@@ -120,13 +120,16 @@ only exact known enum labels.
 
 ## Offline investment performance
 
-`sections.performance` uses the same `performance_result_to_dict` contract as
-`rikdom performance`. Both Quarto pages and fallback pages display the selected
+`sections.performance` retains the core `performance_result_to_dict` fields and
+adds the same profit, valuation and treatment evidence as `rikdom performance`. Both Quarto pages and fallback pages display the selected
 TWR method, legacy Dietz approximation, XIRR, period versus annualized basis,
 actual snapshot window, currency, warnings and growth bridge. The bridge is a
 residual reconciliation, not a realized/unrealized or FX attribution engine.
-Income is embedded in snapshot values and is never added again. Fees and taxes
-are embedded in valuations, not separately calculated. Missing or invalid inputs
+Income is embedded in snapshot values and is never added again. With reviewed
+FIFO evidence, a separate decomposition explains supported realized/unrealized
+gains, net income and charges. Without that evidence, decomposition is explicitly
+unavailable. Foreign lots, corporate actions and unsupported cost adjustments do
+not produce complete-looking gain totals. Missing or invalid inputs
 remain unavailable; the report never fetches financial data.
 
 Optional evidence is explicitly selected under the existing report extension:
@@ -139,6 +142,8 @@ Optional evidence is explicitly selected under the existing report extension:
       "performance": {
         "flow_valuations_path": "flow-valuations.json",
         "historical_fx_path": "historical-fx.json",
+        "historical_valuations_path": "historical-valuations.json",
+        "profit_basis_path": "profit-basis.json",
         "policy_path": "policy.json",
         "benchmarks_dir": "benchmarks",
         "since": "2026-01-01",
@@ -152,8 +157,12 @@ Optional evidence is explicitly selected under the existing report extension:
 All performance options are optional. Paths are local files/directories and are
 relative to the portfolio file, or absolute. Historical FX configuration resolves
 its market-series file relative to that configuration. Evidence uses the same
-contracts as CLI `--flow-valuations`, `--historical-fx`, `--policy` and
-`--benchmarks-dir`; use the same files and window to reproduce the CLI result.
+contracts as CLI `--flow-valuations`, `--historical-fx`, `--historical-valuations`,
+`--profit-basis`, `--policy` and `--benchmarks-dir`; use the same files and window
+to reproduce the CLI result. Explicit `viz` flags override the matching embedded
+preference and resolve relative paths from the process working directory.
+[Offline valuation and profit examples](../../docs/how-to/replay-performance-data.md)
+include working synthetic input files.
 Without historical FX, optional `fx_history_path` selects the CLI-compatible local
 undated FX history (default `fx_rates.jsonl` beside the portfolio). The report's
 current-valuation snapshot FX lock is never substituted for historical cashflows.
@@ -161,7 +170,9 @@ Policy benchmarks default to the `benchmarks` directory beside the portfolio.
 Legacy undated FX remains approximate as disclosed by the core. Invalid selected
 files/configuration make performance unavailable without discarding other report
 sections. Invalid snapshot timestamps also make performance unavailable, rather
-than silently removing those records from the calculation.
+than silently removing those records from the calculation. An explicitly selected
+historical replay uses its own full-position evidence instead of those recorded
+calculation snapshots; current valuation and the recorded timeline stay separate.
 
 The visible window is the actual selected snapshot bookends, which can differ
 from requested `since`/`until` bounds. Interactive date filters make performance
