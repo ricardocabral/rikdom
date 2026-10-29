@@ -148,16 +148,19 @@ class EnrichmentTests(unittest.TestCase):
         with self.assertRaises(PluginEngineError):
             load_plugin_instance(path.parent, plugin_index(self.root)['probe'])
 
-    def test_contract_coverage_requires_fixture_for_aliased_enrichment(self):
-        self.install("return {'contract_version': '1.0', 'market_series': DOCUMENT}")
-        code = self.root / 'probe' / 'plugin.py'
-        code.write_text(code.read_text().replace('@hookimpl', '@hookimpl(specname="enrichment")')
-                        .replace('def enrichment(', 'def augment('))
+    def test_contract_coverage_requires_fixture_for_enrichment_and_alias(self):
         from rikdom.plugin_engine.contract_runner import coverage_report
-        report = coverage_report(self.root, [])[0]
-        self.assertIsNone(report.load_error)
-        self.assertIn('enrichment', report.declared_hooks - report.covered_hooks)
-        self.assertEqual(self.run_pipeline()['lookups'][0]['observation']['value'], 12)
+        for aliased in (False, True):
+            with self.subTest(aliased=aliased):
+                self.install("return {'contract_version': '1.0', 'market_series': DOCUMENT}")
+                if aliased:
+                    code = self.root / 'probe' / 'plugin.py'
+                    code.write_text(code.read_text().replace('@hookimpl', '@hookimpl(specname="enrichment")')
+                                    .replace('def enrichment(', 'def augment('))
+                report = coverage_report(self.root, [])[0]
+                self.assertIsNone(report.load_error)
+                self.assertIn('enrichment', report.declared_hooks - report.covered_hooks)
+                self.assertEqual(self.run_pipeline()['lookups'][0]['observation']['value'], 12)
 
     def test_legacy_untagged_helper_named_enrichment_remains_compatible(self):
         self.install("return 'private helper'", '1.0')
@@ -170,6 +173,20 @@ class EnrichmentTests(unittest.TestCase):
                         '    @hookimpl\n    def source_input(self, ctx, input_path):\n'
                         '        return {"provider": "legacy"}\n')
         self.assertEqual(pipeline.run_import_pipeline('probe', str(self.root), 'unused'), {'provider': 'legacy'})
+        fixture = path.parent / 'fixtures' / 'source'
+        fixture.mkdir(parents=True)
+        (fixture / 'case.json').write_text(json.dumps({'hook': 'source_input', 'input': 'input.txt'}))
+        (fixture / 'input.txt').write_text('unused')
+        (fixture / 'expected.json').write_text(json.dumps({'provider': 'legacy'}))
+        from rikdom.plugin_engine.contract_runner import coverage_report, discover_fixtures, run_case
+        cases = discover_fixtures(self.root)
+        result = run_case(cases[0], self.root, self.root / 'out')
+        self.assertIsNone(result.error)
+        self.assertEqual(result.payload, {'provider': 'legacy'})
+        report = coverage_report(self.root, cases)[0]
+        self.assertIsNone(report.load_error)
+        self.assertEqual(report.declared_hooks, {'source_input'})
+        self.assertFalse(report.declared_hooks - report.covered_hooks)
 
     def test_contract_runner_rejects_invalid_response_through_real_runtime(self):
         self.install("return {'contract_version': '1.0', 'market_series': {}}")

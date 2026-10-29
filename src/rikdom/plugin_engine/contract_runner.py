@@ -211,25 +211,15 @@ def _load_plugin(plugin_name: str, plugins_dir: Path):
 
 
 def declared_hooks(plugin_obj: Any) -> set[str]:
-    """Return the set of v1 hook names the loaded plugin instance implements.
+    """Return actual registered v1 hooks, including Pluggy specname aliases.
 
-    Pluggy marks @hookimpl methods with a `rikdom_impl` attribute. This
-    introspection avoids coupling fixture coverage to the manifest's
-    plugin_types taxonomy, which is coarser than individual hook surface.
+    Untagged helpers do not implement hooks, even when their names match a
+    hookspec. Use Pluggy registration as the same authority as runtime dispatch.
     """
-    hooks: set[str] = set()
-    for hook_name in HOOK_DISPATCH:
-        method = getattr(plugin_obj, hook_name, None)
-        if method is None:
-            continue
-        # Accept either pluggy-tagged methods or plain attributes (for
-        # defensive compatibility with test doubles).
-        hooks.add(hook_name)
-    for method_name in dir(plugin_obj):
-        options = getattr(getattr(plugin_obj, method_name), "rikdom_impl", None)
-        if isinstance(options, dict) and options.get("specname") in HOOK_DISPATCH:
-            hooks.add(options["specname"])
-    return hooks
+    manager = build_manager()
+    manager.register(plugin_obj)
+    return {hook.name for hook in manager.get_hookcallers(plugin_obj) or []
+            if hook.name in HOOK_DISPATCH}
 
 
 def _invoke_hook(pm, hook: str, case: FixtureCase, tmp_dir: Path) -> Any:
