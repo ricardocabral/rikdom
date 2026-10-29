@@ -14,9 +14,11 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from rikdom.activities import effective_activities
 from rikdom.aggregate import aggregate_portfolio
 from rikdom.income import build_income_report
+from rikdom.performance import compute_performance
+from rikdom.performance_report import performance_to_dict, recorded_contributions, load_performance_inputs
+from rikdom.benchmarks import make_dir_loader
 from rikdom.plugin_engine.hookspecs import hookimpl
 from rikdom.reconciliation.reports import build_trust_reports, write_trust_reports
 from rikdom.storage import load_json, load_jsonl
@@ -175,7 +177,7 @@ def _maturity_bucket(maturity_date: str | None, *, reference_date: datetime) -> 
 
 def _build_report_payload(
     portfolio: dict[str, Any], snapshots: list[dict[str, Any]], *, generated_at: str | None = None,
-    _include_views: bool = True,
+    _include_views: bool = True, performance_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     settings = portfolio.get("settings", {})
     profile = portfolio.get("profile", {})
@@ -242,9 +244,13 @@ def _build_report_payload(
         reverse=True,
     )[:5]
 
+    performance_options = performance_options or {}
+    valuation_replay = performance_options.get('valuation_replay')
+    history_snapshots = valuation_replay['snapshots'] if valuation_replay is not None else snapshots
     chronological_snapshots: list[tuple[datetime, dict[str, Any]]] = []
+    performance_snapshots: list[dict[str, Any]] = []
     unavailable_snapshots: list[dict[str, Any]] = []
-    for snapshot in snapshots:
+    for snapshot in history_snapshots:
         if not isinstance(snapshot, dict):
             continue
         totals = snapshot.get("totals", {})
@@ -272,6 +278,7 @@ def _build_report_payload(
             )
             continue
         chronological_snapshots.append((instant, row))
+        performance_snapshots.append(snapshot)
     # All renderers and historical metrics consume this same order. Calendar
     # filters/display retain the timestamp's written date and explicit offset.
     chronological_snapshots.sort(key=lambda item: item[0])
@@ -367,19 +374,20 @@ def _build_report_payload(
     payload["sections"]["presentation"] = presentation
     if _include_views:
         income = build_income_report(portfolio)
-        contributions = []
-        for row in effective_activities(portfolio.get("activities", [])):
-            if row.get("status") != "posted" or row.get("event_type") not in {"contribution", "withdrawal", "deposit"}:
-                continue
-            money = row.get("money", {})
-            if not isinstance(money, dict) or _safe_float(money.get("amount")) is None:
-                continue
-            contributions.append({
-                "activity_id": row.get("id"), "event_type": row.get("event_type"),
-                "date": str(row.get("effective_at", ""))[:10],
-                "account_id": row.get("account_id"), "asset_type_id": row.get("asset_type_id"),
-                "currency": _normalize_currency_code(money.get("currency")), "amount": money["amount"],
-            })
+        contributions = recorded_contributions(portfolio.get("activities", []))
+        performance = compute_performance(
+            performance_snapshots, portfolio.get("activities", []), base_currency=base_currency,
+            fx_rates_to_base=fx_lock.get("rates_to_base"),
+            historical_fx=performance_options.get('historical_fx'),
+            flow_valuations=performance_options.get('flow_valuations'),
+            policy=performance_options.get('policy'),
+            benchmark_loader=performance_options.get('benchmark_loader'),
+            since=performance_options.get('since'), until=performance_options.get('until'),
+        )
+        payload["sections"]["performance"] = performance_to_dict(
+            performance, portfolio=portfolio, profit_basis=performance_options.get('profit_basis'),
+            historical_fx=performance_options.get('historical_fx'), valuation_replay=valuation_replay,
+        )
         payload["sections"].update(income=income, contributions=contributions, historical_status="recorded")
         # A single asserted dimension per view keeps the artifact linear in the
         # number of accounts/types/currencies. Today's holdings never attribute
@@ -578,7 +586,14 @@ class Plugin:
         out_dir = Path(request.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        payload = _build_report_payload(portfolio, snapshots)
+        options = request.options or {}
+        base_currency = str(portfolio.get('settings', {}).get('base_currency', 'USD')).strip().upper()
+        performance_options = load_performance_inputs(options, base_currency=base_currency)
+        if options.get('policy'):
+            performance_options['policy'] = load_json(options['policy'])
+            performance_options['benchmark_loader'] = make_dir_loader(options.get('benchmarks_dir', 'data/benchmarks'))
+        performance_options.update(since=options.get('since'), until=options.get('until'))
+        payload = _build_report_payload(portfolio, snapshots, performance_options=performance_options)
         trust_artifacts = write_trust_reports(payload["trust_reports"], out_dir)
         payload_path = out_dir / "quarto-input.json"
         payload_path.write_text(

@@ -125,9 +125,42 @@
     }
     return `<section class="report-panel" id="income-view"><h2>${escapeHtml(l.income)}</h2><p>${escapeHtml(l.native)}</p>${table([l.date, l.source, l.kind, l.gross, l.withholding, l.fees, l.net], eventRows, l.income)}</section>
       <section class="report-panel" id="contributions-view"><h2>${escapeHtml(l.contributions)}</h2>${table([l.date, l.source, l.kind, l.amount], contributions, l.contributions)}</section>
-      <section class="report-panel" id="performance-view"><h2>${escapeHtml(l.performance)}</h2><p>${escapeHtml(l.unavailable)}</p></section>
+      <section class="report-panel" id="performance-view"><h2>${escapeHtml(l.performance)}</h2>${performancePanel(sections.performance)}</section>
       <section class="report-panel" id="planning-view">${plan}</section>
       ${diagnostics.length ? `<details class="report-panel"><summary>${escapeHtml(l.original)}</summary><ul data-source-text>${diagnostics.map(row => `<li>${escapeHtml(row.activity_id || row.id || '')}: ${escapeHtml(row.message || JSON.stringify(row))}</li>`).join('')}</ul></details>` : ''}`;
+  }
+  function performancePanel(performance) {
+    const l = labels[language], pt = language === 'pt';
+    const label = (en, br) => pt ? br : en;
+    if (!performance) return `<p>${escapeHtml(l.unavailable)}</p>`;
+    const p = performance, ccy = p.base_currency;
+    const percentage = value => typeof value === 'number' && Number.isFinite(value)
+      ? new Intl.NumberFormat(locale(), {maximumFractionDigits:4}).format(value) + '%' : l.unknown;
+    const rows = [
+      [label('Selected TWR', 'TWR selecionado'), percentage(p.twr_return_pct), p.twr_method, p.twr_return_basis],
+      [label('MWR (XIRR)', 'MWR (XIRR)'), percentage(p.mwr_pct), 'xirr', p.mwr_return_basis],
+      [label('Opening value', 'Valor inicial'), money(p.start_value_base, ccy), '', ''],
+      [label('Net external contributions', 'Aportes externos líquidos'), money(p.net_external_cashflow_base, ccy), '', ''],
+      [label('Closing value', 'Valor final'), money(p.end_value_base, ccy), '', ''],
+    ];
+    const a = p.profit_attribution, bridge = a?.bridge, d = a?.decomposition;
+    if (bridge) rows.push([label('Investment result', 'Resultado dos investimentos'), money(bridge.investment_result_base, ccy), bridge.status, label('Residual from supplied bookends and external flows', 'Resíduo das avaliações e dos fluxos externos fornecidos')]);
+    if (d) {
+      for (const [key, en, br] of [
+        ['realized_gain_base', 'Realized gain', 'Ganho realizado'],
+        ['unrealized_change_base', 'Unrealized gain change', 'Variação do ganho não realizado'],
+        ['net_income_base', 'Net income', 'Rendimentos líquidos'],
+        ['standalone_fees_base', 'Separate fees', 'Taxas separadas'],
+        ['standalone_taxes_base', 'Separate taxes', 'Impostos separados'],
+      ]) rows.push([label(en, br), money(d[key], ccy), d.method, d.status]);
+    }
+    let html = `<p>${escapeHtml(sourceDateTime(p.period_start))} – ${escapeHtml(sourceDateTime(p.period_end))}</p>`;
+    html += table([label('Metric', 'Medida'), label('Value', 'Valor'), label('Method / status', 'Método / situação'), label('Convention', 'Convenção')], rows.map(row => row.map(escapeHtml)), l.performance);
+    if (p.benchmarks?.length) html += table([label('Benchmark', 'Referência'), label('Return', 'Retorno'), label('Excess', 'Excesso'), label('Comparability', 'Comparabilidade')], p.benchmarks.map(b => [escapeHtml(b.label || b.benchmark_id), escapeHtml(percentage(b.twr_pct)), escapeHtml(percentage(b.excess_pct)), escapeHtml(b.comparison_status || 'legacy')]), label('Benchmarks', 'Referências'));
+    const notes = [...Object.values(p.treatment || {}), ...(p.warnings || []), ...(a?.diagnostics || [])];
+    if (p.twr_fallback_reason) notes.push(p.twr_fallback_reason);
+    if (notes.length) html += `<details open><summary>${escapeHtml(l.original)}</summary><ul data-source-text>${notes.map(note => `<li>${escapeHtml(typeof note === 'string' ? note : JSON.stringify(note))}</li>`).join('')}</ul></details>`;
+    return html;
   }
   function planningRows(key, rows) {
     const pt = language === 'pt', l = labels[language];
@@ -190,6 +223,10 @@
       const sections = {...(selected?.sections || payload.sections || {})};
       const within = row => !invalid && (!start || String(row.date || row.timestamp).slice(0,10) >= start) && (!end || String(row.date || row.timestamp).slice(0,10) <= end);
       sections.timeline = (sections.timeline || []).filter(within);
+      // Returns are precomputed for their disclosed whole window. A narrower
+      // date selection cannot reuse that number as a new financial calculation.
+      const performance = sections.performance;
+      if (performance && (invalid || (start && start > String(performance.period_start).slice(0,10)) || (end && end < String(performance.period_end).slice(0,10)))) sections.performance = null;
       sections.income = {...sections.income, events: (sections.income?.events || []).filter(within)};
       sections.contributions = (sections.contributions || []).filter(within);
       if (sections.income.planning) {

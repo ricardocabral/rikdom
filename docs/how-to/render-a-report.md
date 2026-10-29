@@ -81,3 +81,11 @@ becomes a successful comparison merely because no mismatch was found.
 Rendering uses supplied snapshot FX locks and holding metadata fallback without
 network acquisition. Inspect the recorded effective dates; an old or undated rate
 is not made current by generating a new report.
+
+## Show performance and profit evidence
+
+Pass `--historical-fx`, `--flow-valuations`, `--historical-valuations`,
+`--profit-basis`, `--policy`, `--benchmarks-dir`, `--since`, and `--until` to
+`viz` as needed. The full and fallback pages display the same core return and
+profit contracts as the CLI. See [reproduce historical valuations and profit](replay-performance-data.md)
+for working local examples and supported scope/date behavior.

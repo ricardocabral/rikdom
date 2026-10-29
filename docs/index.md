@@ -23,6 +23,7 @@ Goal-oriented recipes for users who already know the basics.
 - [Back up before a migration](how-to/back-up-before-migration.md)
 - [Summarize received dividends and interest](how-to/summarize-income.md)
 - [Compute portfolio TWR / MWR](how-to/compute-performance.md)
+- [Reproduce historical valuations and profit offline](how-to/replay-performance-data.md)
 - [Work with multi-currency holdings](how-to/work-with-multi-currency.md)
 - [Recover from a crash or torn write](how-to/recover-from-crash.md)
 
@@ -41,6 +42,9 @@ Information-oriented descriptions of the machinery.
 - [Import diagnostics and identity recovery](reference/import-diagnostics.md)
 - [Instrument history and cost basis](reference/fii-history.md)
 - [Performance output](reference/performance-output.md)
+- [Historical position valuation](reference/historical-valuation.md)
+- [Reviewed FIFO profit attribution](reference/profit-attribution.md)
+- [Normalized local enrichment](reference/enrichment.md)
 - [Historical FX configuration](reference/historical-fx.md)
 - [Benchmark currency comparison](reference/benchmark-fx.md)
 - [FX snapshot fields](reference/fx-snapshot-fields.md)

@@ -79,15 +79,15 @@ from .plugins import (
     stamp_provenance,
 )
 from .benchmarks import make_dir_loader
-from .historical_fx import load_historical_fx
 from .performance import (
     compute_performance,
     compute_performance_by_account,
     compute_performance_by_strategic_bucket,
     external_cashflow_currencies,
     performance_period_bounds,
-    parse_flow_valuations,
-    read_flow_valuations,
+)
+from .performance_report import (
+    performance_to_dict, load_performance_inputs,
 )
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
@@ -313,6 +313,21 @@ def cmd_market_series(args: argparse.Namespace) -> int:
         retrieved_before=args.retrieved_before,
     )
     print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False))
+    return 0
+
+
+def cmd_enrichment(args: argparse.Namespace) -> int:
+    from .market_series import _unique_object, _reject_constant
+    from .plugin_engine.pipeline import run_enrichment_pipeline
+
+    try:
+        with Path(args.request).open(encoding='utf-8') as source:
+            request = json.load(source, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+        result = run_enrichment_pipeline(args.plugin, args.plugins_dir, request)
+    except (OSError, ValueError, PluginEngineError) as exc:
+        print(f'Enrichment failed: {exc}', file=sys.stderr)
+        return 1
+    print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
     return 0
 
 
@@ -616,6 +631,9 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
 
 
 def cmd_performance(args: argparse.Namespace) -> int:
+    if any(getattr(args, name, None) for name in ('historical_valuations', 'profit_basis')) and getattr(args, 'by', 'portfolio') != 'portfolio':
+        print('--historical-valuations and --profit-basis support --by portfolio only', file=sys.stderr)
+        return 1
     evidence_path = getattr(args, "flow_valuations", None)
     if evidence_path and getattr(args, "by", "portfolio") not in (None, "portfolio"):
         print("--flow-valuations supports --by portfolio only", file=sys.stderr)
@@ -633,21 +651,16 @@ def cmd_performance(args: argparse.Namespace) -> int:
         return 1
     snapshots = load_jsonl(args.snapshots)
     base_currency = _portfolio_base_currency(portfolio)
-    historical_fx = None
-    if historical_fx_path:
-        try:
-            historical_fx = load_historical_fx(historical_fx_path, base_currency=base_currency)
-        except (OSError, ValueError) as exc:
-            print(f"--historical-fx: {exc}", file=sys.stderr)
-            return 1
-    flow_evidence = None
-    if evidence_path:
-        try:
-            flow_evidence = read_flow_valuations(evidence_path)
-            parse_flow_valuations(flow_evidence, base_currency)
-        except (OSError, ValueError) as exc:
-            print(f"--flow-valuations: {exc}", file=sys.stderr)
-            return 1
+    try:
+        calculation_inputs = load_performance_inputs(vars(args), base_currency=base_currency)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    historical_fx = calculation_inputs['historical_fx']
+    flow_evidence = calculation_inputs['flow_valuations']
+    valuation_replay = calculation_inputs['valuation_replay']
+    if valuation_replay is not None:
+        snapshots = valuation_replay['snapshots']
 
     activities = effective_activities(portfolio.get("activities") or [])
     if not isinstance(activities, list):
@@ -699,32 +712,10 @@ def cmd_performance(args: argparse.Namespace) -> int:
     )
     result.warnings.extend(fx_warnings)
 
-    output: dict[str, Any] = {
-        "base_currency": result.base_currency,
-        "period_start": result.period_start,
-        "period_end": result.period_end,
-        "start_value_base": result.start_value_base,
-        "end_value_base": result.end_value_base,
-        "net_external_cashflow_base": result.net_external_cashflow_base,
-        "twr_pct": result.twr_pct,
-        "legacy_twr_method": result.legacy_twr_method,
-        "twr_return_pct": result.twr_return_pct,
-        "linked_twr_pct": result.linked_twr_pct,
-        "twr_method": result.twr_method,
-        "twr_fallback_reason": result.twr_fallback_reason,
-        "twr_return_basis": result.twr_return_basis,
-        "mwr_method": "xirr",
-        "mwr_return_basis": result.mwr_return_basis,
-        "mwr_pct": result.mwr_pct,
-        "cashflow_count": result.cashflow_count,
-        "warnings": result.warnings,
-        "fx_status": result.fx_status,
-        "fx_evidence": result.fx_evidence,
-    }
-    if result.benchmarks:
-        output["benchmarks"] = [
-            _benchmark_comparison_to_dict(b) for b in result.benchmarks
-        ]
+    output = performance_to_dict(
+        result, portfolio=portfolio, profit_basis=calculation_inputs['profit_basis'],
+        historical_fx=historical_fx, valuation_replay=valuation_replay,
+    )
 
     by = getattr(args, "by", None)
     if by == "strategic_bucket":
@@ -1017,35 +1008,13 @@ def policy_money_currencies_for_funded_ratio(
     return sorted(currencies)
 
 
-def _benchmark_comparison_to_dict(comp: Any) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "benchmark_id": comp.benchmark_id,
-        "label": comp.label,
-        "kind": comp.kind,
-        "currency": comp.currency,
-        "twr_pct": comp.twr_pct,
-        "excess_pct": comp.excess_pct,
-    }
-    if comp.comparison_status != "legacy":
-        payload.update(
-            period_start=comp.period_start, period_end=comp.period_end,
-            native_currency=comp.native_currency, native_twr_pct=comp.native_twr_pct,
-            return_convention=comp.return_convention, fx_evidence=comp.fx_evidence,
-            data_provenance=comp.data_provenance, comparison_status=comp.comparison_status,
-        )
-    if comp.warnings:
-        payload["warnings"] = list(comp.warnings)
-    if comp.components:
-        payload["components"] = [
-            _benchmark_comparison_to_dict(c) for c in comp.components
-        ]
-    return payload
-
-
 def cmd_viz(args: argparse.Namespace) -> int:
     snapshots_path = args.snapshots
     temp_dir: TemporaryDirectory[str] | None = None
 
+    if args.include_current and getattr(args, 'historical_valuations', None):
+        print('--include-current cannot be combined with explicit --historical-valuations', file=sys.stderr)
+        return 1
     if args.include_current:
         portfolio = load_json(args.portfolio)
         snapshots = load_jsonl(args.snapshots)
@@ -1074,6 +1043,12 @@ def cmd_viz(args: argparse.Namespace) -> int:
     output_dir = str(Path(args.out).resolve().parent)
     plugin_name = getattr(args, "plugin", None) or "quarto-portfolio-report"
     plugins_dir = getattr(args, "plugins_dir", None) or "plugins"
+    report_options = {name: getattr(args, name, None) for name in (
+        'historical_fx', 'flow_valuations', 'historical_valuations', 'profit_basis',
+        'policy', 'since', 'until',
+    ) if getattr(args, name, None) is not None}
+    if report_options.get('policy'):
+        report_options['benchmarks_dir'] = getattr(args, 'benchmarks_dir', 'data/benchmarks')
     try:
         payload = run_output_pipeline(
             plugin_name=plugin_name,
@@ -1081,6 +1056,7 @@ def cmd_viz(args: argparse.Namespace) -> int:
             portfolio_path=args.portfolio,
             snapshots_path=snapshots_path,
             output_dir=output_dir,
+            **({'options': report_options} if report_options else {}),
         )
     except PluginEngineError as exc:
         if temp_dir is not None:
@@ -1364,9 +1340,9 @@ def cmd_plugins_list(args: argparse.Namespace) -> int:
 _PLUGIN_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 
 
-def _locate_sdk_template() -> Any:
+def _locate_sdk_template(plugin_type: str = 'source/input') -> Any:
     """Return the bundled ``template-plugin`` resource tree (a Traversable)."""
-    root = resource_files("rikdom._resources").joinpath("template-plugin")
+    root = resource_files("rikdom._resources").joinpath("template-enrichment" if plugin_type == "enrichment" else "template-plugin")
     if not root.is_dir():
         raise FileNotFoundError(
             "Bundled template-plugin resources are missing from rikdom._resources"
@@ -1470,7 +1446,8 @@ def cmd_plugin_init(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        template_root = _locate_sdk_template()
+        plugin_type = getattr(args, 'plugin_type', 'source/input')
+        template_root = _locate_sdk_template(plugin_type) if plugin_type != 'source/input' else _locate_sdk_template()
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -2332,6 +2309,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rikdom")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    p_enrichment = sub.add_parser('enrichment', help='Replay normalized local market data through an explicitly selected provider')
+    p_enrichment.add_argument('--plugin', required=True)
+    p_enrichment.add_argument('--plugins-dir', default='plugins')
+    p_enrichment.add_argument('--request', required=True, help='Strict version 1.0 local JSON request; no canonical writes')
+    p_enrichment.set_defaults(func=cmd_enrichment)
+
     p_market = sub.add_parser("market-series", help="Replay a local price or FX series without changing files")
     p_market.add_argument("--input", required=True, help="Versioned local market series JSON file")
     p_market.add_argument("--series", required=True, help="Exact series identity in the input file")
@@ -2464,6 +2447,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--historical-fx", default=None, metavar="CONFIG",
         help="Read local version 1.0 dated FX configuration for cashflows and benchmark comparisons; no undated fallback",
     )
+    p_performance.add_argument('--historical-valuations', metavar='CONFIG', help='Replay explicit historical positions using local price/FX series; never fall back on missing inputs')
+    p_performance.add_argument('--profit-basis', metavar='JSON', help='Reviewed period history, FIFO opening lots and bookend position evidence')
     p_performance.add_argument(
         "--flow-valuations", default=None,
         help="Read-only version 1 JSON with explicit base-currency before/after external flow valuations (portfolio scope only)",
@@ -2568,6 +2553,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_viz.add_argument("--fx-history", default=None)
     p_viz.add_argument("--out", default=None)
     p_viz.add_argument("--include-current", action="store_true")
+    for option in ('historical-fx', 'flow-valuations', 'historical-valuations', 'profit-basis', 'policy', 'since', 'until'):
+        p_viz.add_argument('--' + option, default=None)
+    p_viz.add_argument('--benchmarks-dir', default='data/benchmarks')
     p_viz.add_argument("--plugin", default="quarto-portfolio-report")
     p_viz.add_argument("--plugins-dir", default="plugins")
     _add_workspace_options(
@@ -2700,6 +2688,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_plugin_init = p_plugin_sub.add_parser(
         "init", help="Scaffold a new plugin from the SDK template"
     )
+    p_plugin_init.add_argument('--type', dest='plugin_type', choices=('source/input', 'enrichment'), default='source/input', help='SDK contract to scaffold (default: source/input)')
     p_plugin_init.add_argument(
         "name",
         help="Plugin slug (must match ^[a-z][a-z0-9-]{1,63}$)",

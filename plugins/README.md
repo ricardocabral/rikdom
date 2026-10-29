@@ -12,6 +12,7 @@ Canonical docs:
 Plugin docs:
 - [brapi](brapi/README.md)
 - [frankfurter](frankfurter/README.md)
+- [local-market-series](local-market-series/README.md) — normalized file/manual price and FX enrichment, experimental API 1.2.
 - [csv-generic](csv-generic/README.md)
 - [ghostfolio_export_json](ghostfolio_export_json/README.md)
 - [ibkr_flex_xml](ibkr_flex_xml/README.md)
