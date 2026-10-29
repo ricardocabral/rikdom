@@ -337,6 +337,36 @@ class SplitRevisionTests(unittest.TestCase):
         self.assertEqual(self.preview(p, revisions(2, 3), review())['reason'],
                          'dependent_activity_review_required')
 
+    def test_dependency_holding_identity_cannot_be_hidden_by_another_parent_account(self):
+        p = self.initial()
+        proposal = self.preview(p, revisions(2, 3), review())['activities'][0]
+        other = copy.deepcopy(p['holdings'][0])
+        other.update(id='h2', account_id='other')
+        p['holdings'].append(other)
+        movement = {'id': 'cross-account-merger', 'event_type': 'merger', 'status': 'posted',
+                    'effective_at': '2026-01-25T00:00:00Z', 'holding_id': 'h2', 'account_id': 'other',
+                    'corporate_action': {'kind': 'merger', 'legs': [
+                        {'holding_id': 'h1', 'quantity_delta': -20},
+                        {'holding_id': 'h2', 'quantity_delta': 5}]}}
+        for dependent in (movement, {**movement, 'holding_id': 'h1', 'corporate_action': {
+                'kind': 'merger', 'legs': [{'holding_id': 'h2', 'quantity_delta': 5}]}}):
+            candidate = copy.deepcopy(p)
+            candidate['activities'].append(dependent)
+            with self.subTest(dependent=dependent):
+                self.assertEqual(validate_portfolio(candidate), [])
+                self.assertEqual(self.preview(candidate, revisions(2, 3), review())['reason'],
+                                 'dependent_activity_review_required')
+                with self.assertRaises(ValueError):
+                    validate_activity_import(candidate, {'activities': [proposal]})
+        # Other holdings remain independent when neither the parent nor any leg
+        # references the revised holding, even with an explicit basis change.
+        unrelated = {**movement, 'cost_basis_adjustment': {'amount': 0, 'currency': 'USD'},
+                     'corporate_action': {'kind': 'merger', 'legs': [
+                         {'holding_id': 'h2', 'quantity_delta': 5}]}}
+        p['activities'].append(unrelated)
+        self.assertEqual(validate_portfolio(p), [])
+        self.assertEqual(self.preview(p, revisions(2, 3), review())['status'], 'ready')
+
     def test_malformed_dates_and_nonfinite_review_values_raise(self):
         p = self.initial()
         for changes in ({'effective_at': '2026-01-10'}, {'reviewed_at': 'tomorrow'},

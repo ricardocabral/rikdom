@@ -374,11 +374,12 @@ def _split_dependencies(portfolio: dict[str, Any], history: list[dict[str, Any]]
     """
     ids = {a['id'] for a in history}
     activities = portfolio.get('activities') or []
+    # Holding IDs are globally unique. An activity's parent account cannot
+    # exclude a direct or leg-scoped dependency on the revised holding.
     affected = {a['id'] for a in activities
-                if a.get('account_id') in (None, scope[1])
-                and (a.get('holding_id') == scope[0]
-                     or any(leg.get('holding_id') == scope[0]
-                            for leg in (a.get('corporate_action') or {}).get('legs', [])))}
+                if a.get('holding_id') == scope[0]
+                or any(leg.get('holding_id') == scope[0]
+                       for leg in (a.get('corporate_action') or {}).get('legs', []))}
     # A correction can move scope or date. Follow both directions so neither a
     # retained ancestor nor a replacement can hide a lot/basis dependency.
     links = [(a['id'], link['supersedes_activity_id']) for a in activities if (link := correction(a))]
