@@ -74,10 +74,10 @@ class PerformanceHistoricalFxTests(unittest.TestCase):
             flow_valuations=boundaries((110, 160), (176, 236)))
         self.assertEqual(result.twr_return_pct, 33.1)
         rate = result.mwr_pct / 100
-        origin = datetime.fromisoformat(START)
+        origin = datetime.fromisoformat(START.replace('Z', '+00:00'))
         npv = -100 + 259.6 / (1 + rate)
         for when, amount in [(FIRST, 50), (SECOND, 60)]:
-            years = (datetime.fromisoformat(when) - origin).total_seconds() / (365 * 86400)
+            years = (datetime.fromisoformat(when.replace('Z', '+00:00')) - origin).total_seconds() / (365 * 86400)
             npv -= amount / (1 + rate) ** years
         self.assertAlmostEqual(npv, 0, places=5)
 

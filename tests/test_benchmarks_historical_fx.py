@@ -419,3 +419,26 @@ class BenchmarkInputSafetyTests(unittest.TestCase):
         self.assertEqual(result.currency, "USD")
         self.assertEqual(result.twr_pct, 10.0)
         self.assertIsNone(result.excess_pct)
+
+class RealResolverCurrencyValidationTests(unittest.TestCase):
+    def test_invalid_direct_bookend_currency_is_unavailable(self):
+        from rikdom.historical_fx import HistoricalFx
+        from rikdom.market_series import load_market_series
+        from tests.test_historical_fx import fx_document
+
+        config = {'benchmarks': [{'id': 'invalid', 'kind': 'index'}],
+                  'strategic_allocation': {'targets': [{'benchmark_id': 'invalid'}]}}
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'series.json'
+            path.write_text(json.dumps(fx_document()))
+            fx = HistoricalFx(load_market_series(path), base_currency='BRL',
+                              series_by_currency={'USD': 'usd-brl'}, max_age_seconds=0)
+            for currency in ('US$', 'usd', 'ＵＳＤ', '', None):
+                with self.subTest(currency=currency):
+                    result = resolve_benchmarks_for_targets(
+                        config, lambda _: points(currency), START, END, 'BRL',
+                        START.isoformat(), END.isoformat(), 20, historical_fx=fx)[0]
+                    self.assertEqual(result.comparison_status, 'unavailable')
+                    self.assertIsNone(result.twr_pct)
+                    self.assertIsNone(result.excess_pct)
+                    self.assertTrue(any('currency' in warning.lower() for warning in result.warnings))

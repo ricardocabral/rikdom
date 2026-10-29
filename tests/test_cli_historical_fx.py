@@ -159,3 +159,48 @@ class HistoricalFxCliTests(unittest.TestCase):
         rc, out, err = self.run_cli()
         self.assertEqual((rc, out), (1, ''))
         self.assertIn('--historical-fx', err)
+
+    def test_non_increasing_window_preserves_unavailable_json_with_policy(self):
+        referenced_policy = json.loads(self.policy.read_text())
+        for policy in ({}, referenced_policy):
+            with self.subTest(policy=policy):
+                self.snapshots = self.snapshots[:1]
+                self.write_snaps()
+                self.policy.write_text(json.dumps(policy))
+                rc, out, err = self.run_cli('--policy', self.policy, '--benchmarks-dir', self.root)
+                self.assertEqual((rc, err), (0, ''))
+                output = json.loads(out)
+                self.assertEqual(output['twr_method'], 'unavailable')
+                self.assertIsNone(output['twr_return_pct'])
+                self.assertIsNone(output['mwr_pct'])
+                self.assertTrue(any('window' in warning.lower() for warning in output['warnings']))
+                self.assertTrue(any('benchmark' in warning.lower() and 'unavailable' in warning.lower()
+                                    for warning in output['warnings']))
+                self.assertEqual(output.get('benchmarks', []), [])
+
+    def test_invalid_benchmark_currency_keeps_portfolio_and_other_comparisons(self):
+        policy = json.loads(self.policy.read_text())
+        del policy['benchmarks'][0]['currency']
+        policy['benchmarks'].append({'id': 'native', 'label': 'Synthetic native index', 'kind': 'index'})
+        policy['strategic_allocation']['targets'].append({'benchmark_id': 'native', 'weight_pct': 0})
+        self.policy.write_text(json.dumps(policy))
+        for name, currency in [('foreign', 'US$'), ('native', 'BRL')]:
+            (self.root / f'{name}.jsonl').write_text('\n'.join(json.dumps({
+                'as_of': stamp, 'level': level, 'currency': currency,
+                'return_convention': 'total_return', 'source': 'manual:synthetic-index'})
+                for stamp, level in [(START, 100), (END, 110)]) + '\n')
+        rc, out, err = self.run_cli('--policy', self.policy, '--benchmarks-dir', self.root)
+        self.assertEqual((rc, err), (0, ''))
+        output = json.loads(out)
+        self.assertEqual(output['net_external_cashflow_base'], 50)
+        self.assertIsNotNone(output['twr_return_pct'])
+        comparisons = {row['benchmark_id']: row for row in output['benchmarks']}
+        bad = comparisons['foreign']
+        self.assertEqual(bad['comparison_status'], 'unavailable')
+        self.assertIsNone(bad['twr_pct'])
+        self.assertIsNone(bad['excess_pct'])
+        self.assertTrue(any('currency' in warning.lower() for warning in bad['warnings']))
+        good = comparisons['native']
+        self.assertEqual(good['comparison_status'], 'comparable')
+        self.assertEqual(good['twr_pct'], 10)
+        self.assertAlmostEqual(good['excess_pct'], output['twr_return_pct'] - 10, places=6)

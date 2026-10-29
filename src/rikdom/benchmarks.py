@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 import math
+import re
 from typing import TYPE_CHECKING, Any, Callable
 
 from .storage import load_jsonl
@@ -415,6 +416,14 @@ def _resolve_historical_series(
         if start.return_convention == end.return_convention
         else "unspecified"
     )
+    if any(
+        not isinstance(p.currency, str) or re.fullmatch(r"[A-Z]{3}", p.currency) is None
+        for p in (start, end)
+    ):
+        result.warnings.append(
+            "Benchmark bookend currency must be a three-letter uppercase code; historical FX unavailable"
+        )
+        return result
     if fraction is None:
         return result
     result.native_twr_pct = round(fraction * 100, 6)

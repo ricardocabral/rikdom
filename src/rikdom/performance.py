@@ -1519,7 +1519,9 @@ def compute_performance(
     for cf in cashflows:
         xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
     xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
-    mwr_fraction = xirr(xirr_series)
+    mwr_fraction = (
+        None if historical_fx is not None and end_ts <= start_ts else xirr(xirr_series)
+    )
     if any("invalid financial" in warning.lower() for warning in cf_warnings):
         twr_fraction = mwr_fraction = None
     selected, method, fallback_reason = _select_twr(
@@ -1546,17 +1548,22 @@ def compute_performance(
     twr_pct = _return_percent(twr_fraction)
     benchmark_comparisons: list[BenchmarkComparison] = []
     if policy is not None and benchmark_loader is not None:
-        benchmark_comparisons = resolve_benchmarks_for_targets(
-            policy,
-            benchmark_loader,
-            start_ts,
-            end_ts,
-            base_currency,
-            start_snap.get("timestamp", ""),
-            end_snap.get("timestamp", ""),
-            selected_pct if historical_fx is not None else twr_pct,
-            **({"historical_fx": historical_fx} if historical_fx is not None else {}),
-        )
+        if historical_fx is not None and end_ts <= start_ts:
+            warnings.append(
+                "Historical benchmark comparisons unavailable: portfolio window must increase"
+            )
+        else:
+            benchmark_comparisons = resolve_benchmarks_for_targets(
+                policy,
+                benchmark_loader,
+                start_ts,
+                end_ts,
+                base_currency,
+                start_snap.get("timestamp", ""),
+                end_snap.get("timestamp", ""),
+                selected_pct if historical_fx is not None else twr_pct,
+                **({"historical_fx": historical_fx} if historical_fx is not None else {}),
+            )
 
     return PerformanceResult(
         base_currency=base_currency,
