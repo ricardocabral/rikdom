@@ -262,14 +262,14 @@ class MarketEventsTests(unittest.TestCase):
         p['schema_version'] = '1.7.0'
         self.assertEqual(self.preview(p=p, review=split_review())['reason'], 'schema_upgrade_required')
 
-    def test_provider_split_revision_cannot_duplicate_already_applied_action(self):
+    def test_provider_split_revision_requires_dated_review(self):
         store = parse_market_events(document())
         candidate, _ = apply_market_event(portfolio(), store, event_id='notice', as_of=AS_OF, review=split_review())
         revised = document()
         root = revised['events'][0]['revisions'][0]
         revised['events'][0]['revisions'].append({**root, 'id': 'r2', 'supersedes': 'r1', 'retrieved_at': '2026-01-12T00:00:00Z', 'ratio': 3})
         result = self.preview(p=candidate, payload=revised, review=split_review(revision_id='r2', post_quantity=30))
-        self.assertEqual(result['reason'], 'split_revision_requires_manual_correction')
+        self.assertEqual(result['reason'], 'split_revision_review_required')
         self.assertEqual(len(candidate['activities']), 1)
 
     def test_distribution_correction_preserves_original_and_projects_one_payment(self):

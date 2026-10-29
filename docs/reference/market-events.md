@@ -87,7 +87,9 @@ The existing holding must match the exact namespaced instrument and account.
 The review explicitly asserts quantities immediately before and after this event;
 current holding quantity is not evidence of the historical pre-event position.
 Pre-quantity must be positive and post-quantity must match the announced ratio
-within relative numerical tolerance. Adjusted quantities are unavailable.
+within relative tolerance `1e-12` (zero absolute tolerance). This tolerance allows
+floating-point arithmetic noise; it does not authorize rounding, inferred cash in
+lieu, or adjusted prices. Adjusted quantities are unavailable.
 Source must identify the reviewed position evidence.
 
 A ready proposal contains one posted `split` activity with a structured
@@ -95,9 +97,77 @@ A ready proposal contains one posted `split` activity with a structured
 `corporate_action.kind: "reverse_split"`. It adds no money, valuation, price, or
 cost-basis adjustment and changes no holding or lot. Existing same-time split
 activities or split legs for that holding require manual review to avoid duplicate
-imports. Once a split is applied, a provider revision cannot apply a second split:
-`split_revision_requires_manual_correction` requires review of the existing
-corporate action and dependent lots through a separate workflow.
+imports.
+
+### Reviewed split revisions
+
+A provider revision can replace the currently effective split when its retained
+source chain contains every previously applied source announcement exactly. A
+revision is a full replacement of the original ratio and delta, never an extra
+split or an incremental adjustment. For example, revising 2:1 to 3:1 for ten
+original units records a replacement ratio of 3 and a delta of 20. The original
+ratio 2 and delta 10 stay unchanged in the stored ledger. Only the replacement
+appears in `effective_activities`; reverse splits follow the same rule.
+
+Revisions require a version 1.1 review with two additional fields:
+
+```json
+{
+  "contract_version": "1.1",
+  "reviewed": true,
+  "revision_id": "synthetic-us-split-r2",
+  "holding_id": "h1",
+  "account_id": "account",
+  "source": "manual:revised-position-statement",
+  "quantity_basis": "unadjusted",
+  "pre_quantity": 10,
+  "post_quantity": 30,
+  "effective_at": "2026-01-10T00:00:00Z",
+  "reviewed_at": "2026-01-20T00:00:00Z"
+}
+```
+
+`effective_at` must equal the selected announcement date, including a corrected
+effective date. `reviewed_at` must be at or after both the effective date and the
+source retrieval date, and no later than the query's `as_of`. Both require strict
+UTC timestamps. Version 1.0 remains supported for an initial split; using it to
+revise an applied split returns `split_revision_review_required`.
+
+The original `pre_quantity` must remain exactly equal across the correction
+chain. A changed pre-event position returns `split_pre_quantity_changed`; a date
+change does not establish a different historical position. Reviewed post-event
+quantity must match the replacement ratio with the same `1e-12` relative
+arithmetic tolerance. A revised future date returns `event_not_effective` until
+it is effective; it never falls back to the older date.
+
+Every revision appends an immutable activity with its own ID and an
+`extensions.rikdom_correction` link to the current split leaf. The market-event
+marker retains the exact source chain, review and query cutoff. Before accepting
+a new revision or replay, the module checks the complete stored correction chain,
+including the root and each successor. Old applied reviews replay as noop after
+later corrections. An unseen older revision, an unrelated chain, or a cutoff that
+would downgrade a newer applied revision returns `stale_or_unrelated_revision`.
+Changed source evidence under a retained ID returns `applied_revision_conflict`.
+Applying r2 first does not count r1 as applied; an unseen r1 replay is rejected.
+Holdings and accounts have independent correction chains, bound to exact
+namespaced instrument identities.
+
+This workflow supports a conservative path with no dependent tax lots. Any lot
+for the affected holding, any lot linked to a related activity or correction
+ancestor, or an unsupported later corporate action returns
+`dependent_activity_review_required`. Incoming lots in the same import are also
+checked. Review these dependencies through a separate audited migration before
+retrying; this workflow does not rebuild or erase lots. Ordinary manual corporate
+action corrections retain the existing guard. A caller-supplied proof flag,
+changed scope, extra legs, money or modified ratio cannot bypass it: import
+validation reparses the retained source chain and recomputes the exact reviewed
+replacement against the current ledger.
+
+Synthetic `split-revisions.json` and `split-revision-review.json` demonstrate the
+2:1 to 3:1 correction. Apply the existing `us.json` / `split-review.json` first,
+then apply these revision files to the same scratch portfolio with
+`--event synthetic-us-split --as-of 2026-02-01T00:00:00Z`. Reapplying either
+review afterward is a noop. No step changes holdings, prices or persisted lots.
 
 ## Reviewed observed distribution correction
 
