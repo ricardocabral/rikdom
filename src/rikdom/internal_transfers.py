@@ -15,14 +15,16 @@ from decimal import Decimal
 import math
 from typing import Any
 
+from rfc3339_validator import validate_rfc3339
+
 from .activities import effective_activities
 
 _KEY = "rikdom_internal_transfer"
 
 
 def _instant(raw: Any) -> datetime:
-    if not isinstance(raw, str) or "T" not in raw:
-        raise ValueError("an explicit timezone timestamp is required")
+    if not isinstance(raw, str) or not validate_rfc3339(raw):
+        raise ValueError("an RFC3339 timestamp with explicit timezone is required")
     parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("an explicit timezone timestamp is required")

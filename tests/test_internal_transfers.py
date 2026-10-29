@@ -319,6 +319,41 @@ class InternalTransferTests(unittest.TestCase):
         replay.update(import_run_id="replay", ingested_at="2026-02-02T00:00:00Z")
         self.assertEqual(self.compute(rows + [replay]).cashflow_count, 0)
 
+    def test_pair_timestamps_reject_non_rfc3339_offsets(self):
+        for field in ("effective_at", "reviewed_at"):
+            for timestamp in (
+                "2026-01-16T12:00:00+00:99",
+                "2026-01-16T12:00:00+24:00",
+                "2026-01-16T12:00:00+0000",
+                "2026-01-16T12:00:00+00:00:30",
+                "2026-01-16T12:00+00:00",
+            ):
+                rows = pair()
+                for row in rows:
+                    if field == "effective_at":
+                        row[field] = timestamp
+                    else:
+                        row["metadata"]["rikdom_internal_transfer"]["review"][field] = (
+                            timestamp
+                        )
+                with self.subTest(field=field, timestamp=timestamp):
+                    result = self.compute(rows)
+                    self.assertIsNone(result.twr_return_pct)
+                    self.assertIsNone(result.mwr_pct)
+                    self.assertEqual(result.growth_bridge["status"], "unavailable")
+                    self.assertEqual(result.internal_transfers["status"], "unavailable")
+
+    def test_pair_timestamps_accept_rfc3339_fractional_and_minute_offsets(self):
+        rows = pair()
+        for row in rows:
+            row["effective_at"] = "2026-01-16T12:00:00.125+05:30"
+            row["metadata"]["rikdom_internal_transfer"]["review"]["reviewed_at"] = (
+                "2026-02-02T01:30:00.5-03:30"
+            )
+        result = self.compute(rows)
+        self.assertEqual(result.twr_return_pct, 10)
+        self.assertEqual(result.internal_transfers["status"], "verified")
+
     def test_equal_utc_instants_and_zero_costs_are_cash_pairs(self):
         rows = pair()
         rows[1]["effective_at"] = "2026-01-16T09:00:00-03:00"
