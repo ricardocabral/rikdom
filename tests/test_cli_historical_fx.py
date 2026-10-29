@@ -39,6 +39,9 @@ class HistoricalFxCliTests(unittest.TestCase):
                           'totals': {'portfolio_value_base': 100}},
                          {'timestamp': END, 'base_currency': 'BRL',
                           'totals': {'portfolio_value_base': 176}}]
+        for snapshot in self.snapshots:
+            snapshot['metadata'] = {'rikdom_return_convention': {
+                'version': 1, 'kind': 'total_return', 'source': 'manual:synthetic-full-NAV'}}
         self.write_snaps()
         self.series_payload = {'contract_version': '1.0', 'series': [{
             'id': 'usd-brl', 'kind': 'fx', 'currency': 'BRL',
@@ -95,6 +98,18 @@ class HistoricalFxCliTests(unittest.TestCase):
         self.assertAlmostEqual(bench['excess_pct'], output['twr_return_pct'] - 32, places=6)
         self.assertEqual(result, self.run_cli('--policy', self.policy, '--benchmarks-dir', self.root))
         self.assertEqual(before, {p: p.read_bytes() for p in self.root.iterdir() if p.is_file()})
+
+    def test_missing_portfolio_convention_preserves_returns_without_claiming_excess(self):
+        for snapshot in self.snapshots:
+            snapshot.pop('metadata', None)
+        self.write_snaps()
+        code, out, err = self.run_cli('--policy', self.policy, '--benchmarks-dir', self.root)
+        self.assertEqual((code, err), (0, ''))
+        output = json.loads(out)
+        self.assertIsNotNone(output['twr_return_pct'])
+        self.assertEqual(output['benchmarks'][0]['twr_pct'], 32)
+        self.assertEqual(output['benchmarks'][0]['comparison_status'], 'not_comparable')
+        self.assertIsNone(output['benchmarks'][0]['excess_pct'])
 
     def test_tracked_sample_replays_linked_twr(self):
         sample = Path(__file__).resolve().parents[1] / 'data-sample' / 'performance-fx'

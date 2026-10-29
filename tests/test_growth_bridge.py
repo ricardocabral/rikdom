@@ -177,10 +177,13 @@ class PerformanceSerializationTests(unittest.TestCase):
         return performance.PerformanceResult('BRL', START, END, 100, 150, 20, 25, 25, 2,
                                              benchmarks=list(benchmarks))
 
-    def test_legacy_json_shape_is_unchanged_except_additive_bridge(self):
+    def test_legacy_fields_survive_additive_calculation_evidence(self):
         payload = self.serialize(self.result())
         self.assertIn('growth_bridge', payload)
         payload.pop('growth_bridge')
+        self.assertEqual(payload.pop('internal_transfers'), {})
+        self.assertEqual(payload.pop('return_convention'), 'unspecified')
+        self.assertEqual(payload.pop('return_convention_evidence'), [])
         self.assertEqual(payload, {'base_currency': 'BRL', 'period_start': START, 'period_end': END,
             'start_value_base': 100, 'end_value_base': 150, 'net_external_cashflow_base': 20,
             'twr_pct': 25, 'legacy_twr_method': 'modified_dietz', 'twr_return_pct': None,
