@@ -256,3 +256,22 @@ Uncorrected 1.x files remain supported. Older raw-ledger calculators are unsafe
 for correction-bearing data.
 
 `viz --plugin <name> --plugins-dir <dir>` selects an output plugin explicitly.
+
+## `market-series`
+
+Read a versioned local price/FX input without writing files:
+
+```bash
+uv run rikdom market-series --input data-sample/market-series.json \
+  --series example-price --as-of 2026-01-03T16:00:00Z --max-age-seconds 86400
+```
+
+Required options: `--input`, `--series`, `--as-of` (UTC timestamp), and
+`--max-age-seconds` (finite nonnegative effective age, inclusive).
+`--retrieved-before` optionally limits the inclusive retrieval timestamp for
+historical knowledge replay; omission uses all vintages in the file.
+
+Prints stable JSON with `available`, `missing`, or `stale` status and selected
+observation, source, license, and revision provenance. Missing/stale queries exit
+0; invalid input exits 1. Check status before consuming a value. See the complete
+[contract and offline replay recipes](market-series.md).

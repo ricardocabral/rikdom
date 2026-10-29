@@ -1,6 +1,6 @@
 # Compute portfolio TWR / MWR
 
-Use this guide to compute time-weighted return (Modified Dietz) and
+Use this guide to compute time-weighted return (linked TWR or a disclosed Dietz approximation) and
 money-weighted return (XIRR) over a window. For the JSON schema of the
 output, see [performance output reference](../reference/performance-output.md).
 For the math behind the numbers, see
@@ -30,6 +30,26 @@ the timestamp of the chosen start snapshot; the reported `period_end` is the
 timestamp of the chosen end snapshot — see
 [bookend selection](../reference/performance-output.md#bookend-snapshot-selection).
 
+## Supply explicit before/after cashflow valuations
+
+Create a version 1 evidence file using the
+[flow valuation contract](../reference/performance-output.md#explicit-cashflow-valuation-evidence),
+then run:
+
+```bash
+uv run rikdom performance --portfolio data/portfolio.json \
+  --snapshots data/snapshots.jsonl --flow-valuations data/flow-valuations.json
+```
+
+Use portfolio valuations immediately before and after each external cashflow
+instant, in the portfolio base currency, with an identified source and declared
+rounding tolerance. Supply one row for all flows at the same instant. Do not
+rename daily snapshots as before/after evidence. Check `twr_method` and
+`twr_fallback_reason`: `twr_return_pct` is the selected period return, while
+`twr_pct` remains the legacy Dietz estimate and `mwr_pct` remains annualized
+XIRR. Sidecars support portfolio scope only. Missing boundaries, undated FX and
+unresolved transfers remain visibly approximate.
+
 ## Library use
 
 The CLI is a thin wrapper around pure functions in
@@ -45,8 +65,9 @@ result = compute_performance(
     fx_rates_to_base={"USD": 5.25},
     since="2026-01-01",
     until=None,
+    flow_valuations=None,  # parsed JSON object with the explicit version 1 contract
 )
-print(result.twr_pct, result.mwr_pct)
+print(result.twr_return_pct, result.twr_method, result.mwr_pct)
 ```
 
 `modified_dietz`, `xirr`, and `extract_external_cashflows` are also exported

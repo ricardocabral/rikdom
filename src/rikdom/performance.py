@@ -1,11 +1,8 @@
-"""Portfolio performance: time-weighted (Modified Dietz) and money-weighted (XIRR) returns.
+"""Portfolio linked TWR, disclosed Modified Dietz approximations, and XIRR.
 
-MVP scope (Phase 2 / Step 5):
-- Portfolio-level only. Per-account / per-bucket attribution and benchmark
-  comparison are deferred to follow-up slices.
-- Pure functions on already-base-converted cashflows; the orchestrator
-  ``compute_performance`` handles snapshot/activity wiring and FX with the
-  same fallback rules used by ``aggregate_portfolio``.
+Explicit before/after flow evidence supports portfolio linking only. Account
+and strategic bucket attribution retain the existing Dietz approximation.
+Legacy undated FX and unresolved transfer identity remain approximate.
 """
 
 from __future__ import annotations
@@ -15,6 +12,8 @@ from .activities import effective_activities
 from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 from typing import Any, Iterable
+import math
+import json
 
 from .benchmarks import (
     BenchmarkComparison,
@@ -34,6 +33,29 @@ _EXTERNAL_FLOW_SIGNS: dict[str, float] = {
 }
 
 
+def _finite_number(value: Any) -> float | None:
+    """Return a representable finite financial number, rejecting bools/overflow."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (OverflowError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _return_percent(fraction: float | None) -> float | None:
+    if fraction is None:
+        return None
+    percentage = _finite_number(fraction * 100)
+    return None if percentage is None else round(percentage, 6)
+
+
+def _event_type(activity: dict[str, Any]) -> str:
+    """Use the same accepted ledger spelling for extraction and eligibility."""
+    return str(activity.get("event_type", "")).strip().lower()
+
+
 @dataclass(frozen=True)
 class Cashflow:
     when: datetime
@@ -47,12 +69,21 @@ class PerformanceResult:
     period_end: str
     start_value_base: float
     end_value_base: float
-    net_external_cashflow_base: float
+    net_external_cashflow_base: float | None
     twr_pct: float | None
     mwr_pct: float | None
     cashflow_count: int
     warnings: list[str] = field(default_factory=list)
     benchmarks: list[BenchmarkComparison] = field(default_factory=list)
+    # twr_pct remains the legacy Modified Dietz result. These fields select
+    # the best supported period return without changing that contract.
+    twr_method: str = "unavailable"
+    twr_return_pct: float | None = None
+    linked_twr_pct: float | None = None
+    twr_fallback_reason: str | None = None
+    twr_return_basis: str = "period"
+    mwr_return_basis: str = "annualized_365_day"
+    legacy_twr_method: str = "modified_dietz"
 
 
 def _parse_iso(value: str) -> datetime:
@@ -63,6 +94,197 @@ def _parse_iso(value: str) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+@dataclass(frozen=True)
+class FlowValuation:
+    when: datetime
+    pre_flow_value_base: float
+    post_flow_value_base: float
+    source: str
+
+
+@dataclass(frozen=True)
+class FlowValuations:
+    """Validated, explicit portfolio cashflow boundaries; never daily snapshots."""
+
+    rounding_tolerance_base: float
+    valuations: tuple[FlowValuation, ...]
+
+
+def read_flow_valuations(path: str) -> Any:
+    """Decode sidecar JSON without silently discarding duplicate evidence keys."""
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"flow-valuations: duplicate JSON key {key!r}")
+            result[key] = value
+        return result
+
+    with open(path, encoding="utf-8") as source:
+        return json.load(source, object_pairs_hook=unique_object)
+
+
+def parse_flow_valuations(document: Any, base_currency: str) -> FlowValuations:
+    """Validate version 1 read-only evidence, including unique UTC instants.
+
+    Structural errors reject the sidecar. Missing/mismatched financial evidence
+    is handled separately as a disclosed fallback by the return selector.
+    """
+
+    def fail(message: str) -> None:
+        raise ValueError(f"flow-valuations: {message}")
+
+    def number(value: Any, path: str) -> float:
+        result = _finite_number(value)
+        if result is None:
+            fail(f"{path} must be a finite number within the supported float range")
+        return result
+
+    fields = {
+        "version",
+        "scope",
+        "base_currency",
+        "rounding_tolerance_base",
+        "valuations",
+    }
+    if not isinstance(document, dict) or set(document) != fields:
+        fail(
+            "expected exactly version, scope, base_currency, rounding_tolerance_base, valuations"
+        )
+    if type(document["version"]) is not int or document["version"] != 1:
+        fail("version must be 1")
+    if document["scope"] != "portfolio":
+        fail("scope must be portfolio; account and bucket evidence is unsupported")
+    if document["base_currency"] != base_currency:
+        fail(f"base_currency must match portfolio currency {base_currency}")
+    tolerance = number(document["rounding_tolerance_base"], "rounding_tolerance_base")
+    if tolerance < 0:
+        fail("rounding_tolerance_base must be non-negative")
+    if not isinstance(document["valuations"], list):
+        fail("valuations must be an array")
+    rows = []
+    seen: set[datetime] = set()
+    row_fields = {
+        "timestamp",
+        "base_currency",
+        "pre_flow_value_base",
+        "post_flow_value_base",
+        "source",
+    }
+    for index, row in enumerate(document["valuations"]):
+        path = f"valuations[{index}]"
+        if not isinstance(row, dict) or set(row) != row_fields:
+            fail(f"{path} requires exactly {', '.join(sorted(row_fields))}")
+        raw = row["timestamp"]
+        try:
+            if (
+                not isinstance(raw, str)
+                or "T" not in raw
+                or datetime.fromisoformat(raw.replace("Z", "+00:00")).tzinfo is None
+            ):
+                fail(f"{path}.timestamp must be an ISO datetime with timezone")
+            when = _parse_iso(raw)
+        except (TypeError, ValueError):
+            fail(f"{path}.timestamp must be an ISO datetime with timezone")
+        if when in seen:
+            fail(f"{path}.timestamp duplicates another boundary instant")
+        seen.add(when)
+        if row["base_currency"] != base_currency:
+            fail(f"{path}.base_currency must match {base_currency}")
+        if not isinstance(row["source"], str) or not row["source"].strip():
+            fail(f"{path}.source must identify the valuation source")
+        rows.append(
+            FlowValuation(
+                when,
+                number(row["pre_flow_value_base"], f"{path}.pre_flow_value_base"),
+                number(row["post_flow_value_base"], f"{path}.post_flow_value_base"),
+                row["source"].strip(),
+            )
+        )
+    return FlowValuations(tolerance, tuple(sorted(rows, key=lambda row: row.when)))
+
+
+def _select_twr(
+    start_value: float,
+    end_value: float,
+    flows: list[Cashflow],
+    start: datetime,
+    end: datetime,
+    evidence: FlowValuations | None,
+    data_warnings: list[str],
+    dietz: float | None,
+) -> tuple[float | None, str, str | None]:
+    """Choose a supported return and hide boundary reconciliation/linking rules."""
+
+    def fallback(reason: str) -> tuple[float | None, str, str]:
+        return dietz, "modified_dietz" if dietz is not None else "unavailable", reason
+
+    if end <= start or start_value <= 0 or end_value < 0:
+        return (
+            None,
+            "unavailable",
+            "Positive opening capital, non-negative terminal value and a positive window are required",
+        )
+    if any("invalid financial" in warning.lower() for warning in data_warnings):
+        return None, "unavailable", "Invalid financial inputs in external cashflows"
+    if data_warnings:
+        return fallback(
+            "External cashflow data is incomplete or approximate: "
+            + "; ".join(data_warnings)
+        )
+    grouped: dict[datetime, float] = {}
+    for cf in flows:
+        grouped[cf.when] = grouped.get(cf.when, 0.0) + cf.amount_base
+    rows = (
+        {row.when: row for row in evidence.valuations if start <= row.when <= end}
+        if evidence
+        else {}
+    )
+    if not grouped and not rows:
+        result = _finite_number(end_value / start_value - 1)
+        if result is None:
+            return None, "unavailable", "Non-finite bookend return"
+        return result, "bookend_ratio", None
+    if any(_finite_number(amount) is None for amount in grouped.values()):
+        return None, "unavailable", "Non-finite aggregate cashflow"
+    if set(rows) != set(grouped):
+        return fallback(
+            "Missing or unmatched explicit before/after cashflow valuation boundaries"
+        )
+    tolerance = evidence.rounding_tolerance_base if evidence else 0.0
+    capital = start_value
+    factor = 1.0
+    for when, row in sorted(rows.items()):
+        pre, post = row.pre_flow_value_base, row.post_flow_value_base
+        if pre < 0 or post < 0:
+            return None, "unavailable", "Negative capital in flow valuation evidence"
+        if abs((post - pre) - grouped[when]) > tolerance:
+            return fallback(
+                f"Valuation difference does not match aggregate signed cashflow at {when.isoformat()}"
+            )
+        if when == start and abs(pre - start_value) > tolerance:
+            return fallback(
+                "Start snapshot must equal pre-flow value at a start-boundary cashflow"
+            )
+        if when == end and abs(post - end_value) > tolerance:
+            return fallback(
+                "End snapshot must equal post-flow value at an end-boundary cashflow"
+            )
+        if capital <= 0:
+            return None, "unavailable", "Zero capital prevents a subperiod return"
+        factor *= pre / capital
+        capital = post
+    if end not in rows:
+        if capital <= 0:
+            return None, "unavailable", "Zero capital prevents a subperiod return"
+        factor *= end_value / capital
+    result = factor - 1
+    if not math.isfinite(result):
+        return None, "unavailable", "Non-finite linked return"
+    return result, "linked_subperiod", None
 
 
 def _is_date_only(value: str) -> bool:
@@ -94,6 +316,8 @@ def modified_dietz(
     over the period) — a return is undefined in that case.
     """
 
+    if _finite_number(start_value) is None or _finite_number(end_value) is None:
+        return None
     total_seconds = (period_end - period_start).total_seconds()
     if total_seconds <= 0:
         return None
@@ -103,13 +327,16 @@ def modified_dietz(
     for cf in flows:
         if cf.when < period_start or cf.when > period_end:
             continue
+        if _finite_number(cf.amount_base) is None:
+            return None
         weight = (period_end - cf.when).total_seconds() / total_seconds
         weighted += weight * cf.amount_base
         net_flow += cf.amount_base
     denom = start_value + weighted
-    if denom <= 0:
+    if denom <= 0 or not math.isfinite(denom):
         return None
-    return (end_value - start_value - net_flow) / denom
+    result = (end_value - start_value - net_flow) / denom
+    return result if math.isfinite(result) else None
 
 
 def xirr(
@@ -129,6 +356,8 @@ def xirr(
     Returns ``None`` if a root cannot be bracketed or convergence fails.
     """
 
+    if any(_finite_number(cf.amount_base) is None for cf in cashflows):
+        return None
     if len(cashflows) < 2:
         return None
     has_pos = any(cf.amount_base > 0 for cf in cashflows)
@@ -205,17 +434,13 @@ def _resolve_to_base(
     code = currency.strip().upper()
     if code == base_currency:
         return amount
-    rate = fx_rates_to_base.get(code)
+    rate = _finite_number(fx_rates_to_base.get(code))
     if rate is not None and rate > 0:
         return amount * rate
     if isinstance(metadata, dict):
-        meta_fx = metadata.get("fx_rate_to_base")
-        if (
-            isinstance(meta_fx, (int, float))
-            and not isinstance(meta_fx, bool)
-            and meta_fx > 0
-        ):
-            return amount * float(meta_fx)
+        meta_fx = _finite_number(metadata.get("fx_rate_to_base"))
+        if meta_fx is not None and meta_fx > 0:
+            return amount * meta_fx
     return None
 
 
@@ -230,11 +455,12 @@ def _is_posted(activity: dict[str, Any]) -> bool:
 
 
 def _normalize_fx_rates(fx_rates_to_base: dict[str, float] | None) -> dict[str, float]:
-    return {
-        k.strip().upper(): float(v)
-        for k, v in (fx_rates_to_base or {}).items()
-        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
-    }
+    rates: dict[str, float] = {}
+    for currency, value in (fx_rates_to_base or {}).items():
+        rate = _finite_number(value)
+        if rate is not None and rate > 0:
+            rates[currency.strip().upper()] = rate
+    return rates
 
 
 def _coerce_bound(
@@ -279,7 +505,7 @@ def external_cashflow_currencies(
     for act in activities:
         if not isinstance(act, dict) or not _is_posted(act):
             continue
-        event_type = str(act.get("event_type", "")).strip().lower()
+        event_type = _event_type(act)
         if event_type not in _EXTERNAL_FLOW_SIGNS:
             continue
         money = act.get("money")
@@ -287,7 +513,7 @@ def external_cashflow_currencies(
             continue
         amount = money.get("amount")
         currency = money.get("currency")
-        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+        if _finite_number(amount) is None:
             continue
         if not isinstance(currency, str):
             continue
@@ -344,21 +570,15 @@ def extract_external_cashflows(
             continue
         if not _is_posted(act):
             continue
-        event_type = str(act.get("event_type", "")).strip().lower()
+        event_type = _event_type(act)
         sign = _EXTERNAL_FLOW_SIGNS.get(event_type)
         if sign is None:
             continue
-        money = act.get("money")
-        if not isinstance(money, dict):
-            continue
-        amount = money.get("amount")
-        currency = money.get("currency")
-        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
-            continue
-        if not isinstance(currency, str) or not currency.strip():
-            continue
         when_raw = act.get("effective_at")
         if not isinstance(when_raw, str):
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing effective_at; cashflow skipped"
+            )
             continue
         try:
             when = _parse_iso(when_raw)
@@ -371,6 +591,19 @@ def extract_external_cashflows(
             continue
         if period_end is not None and when > period_end:
             continue
+        money = act.get("money")
+        amount = money.get("amount") if isinstance(money, dict) else None
+        currency = money.get("currency") if isinstance(money, dict) else None
+        if _finite_number(amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount; cashflow skipped"
+            )
+            continue
+        if not isinstance(currency, str) or len(currency.strip()) != 3:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing valid currency; cashflow skipped"
+            )
+            continue
         base_amount = _resolve_to_base(
             abs(float(amount)),
             currency,
@@ -378,12 +611,21 @@ def extract_external_cashflows(
             metadata=act.get("metadata"),
             fx_rates_to_base=rates,
         )
+        if base_amount is not None and not math.isfinite(base_amount):
+            warnings.append(
+                "Invalid financial amount after FX conversion; cashflow skipped"
+            )
+            continue
         if base_amount is None:
             warnings.append(
                 f"Activity '{act.get('id', 'unknown')}' missing FX rate "
                 f"for {currency!r} -> {base_currency!r}; cashflow skipped"
             )
             continue
+        if currency.strip().upper() != base_currency:
+            warnings.append(
+                "Foreign cashflow uses undated FX approximation; historical return is approximate"
+            )
         flows.append(Cashflow(when=when, amount_base=sign * base_amount))
     flows.sort(key=lambda cf: cf.when)
     return flows, warnings
@@ -443,25 +685,21 @@ def _snap_value(snap: dict[str, Any]) -> float | None:
     totals = snap.get("totals")
     if not isinstance(totals, dict):
         return None
-    value = totals.get("portfolio_value_base")
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return float(value)
-    return None
+    return _finite_number(totals.get("portfolio_value_base"))
 
 
-def _snap_by_account(snap: dict[str, Any]) -> dict[str, float] | None:
+def _snap_by_account(snap: dict[str, Any]) -> dict[str, float | None] | None:
     totals = snap.get("totals")
     if not isinstance(totals, dict):
         return None
     by_account = totals.get("by_account")
     if not isinstance(by_account, dict):
         return None
-    out: dict[str, float] = {}
+    out: dict[str, float | None] = {}
     for k, v in by_account.items():
         if not isinstance(k, str):
             continue
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            out[k] = float(v)
+        out[k] = _finite_number(v)
     return out
 
 
@@ -471,28 +709,27 @@ UNASSIGNED_ACCOUNT = "__unassigned__"
 @dataclass
 class AccountPerformance:
     account_id: str
-    start_value_base: float
-    end_value_base: float
-    net_external_cashflow_base: float
+    start_value_base: float | None
+    end_value_base: float | None
+    net_external_cashflow_base: float | None
     twr_pct: float | None
     mwr_pct: float | None
     cashflow_count: int
     warnings: list[str] = field(default_factory=list)
 
 
-def _snap_by_strategic_bucket(snap: dict[str, Any]) -> dict[str, float]:
+def _snap_by_strategic_bucket(snap: dict[str, Any]) -> dict[str, float | None]:
     totals = snap.get("totals")
     if not isinstance(totals, dict):
         return {}
     by_bucket = totals.get("by_strategic_bucket")
     if not isinstance(by_bucket, dict):
         return {}
-    out: dict[str, float] = {}
+    out: dict[str, float | None] = {}
     for k, v in by_bucket.items():
         if not isinstance(k, str):
             continue
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            out[k] = float(v)
+        out[k] = _finite_number(v)
     return out
 
 
@@ -562,25 +799,17 @@ def _attribute_external_cashflows_by_strategic_bucket(
     period_end: datetime,
     holding_to_bucket: dict[str, str],
     unallocated_holding_classes: dict[str, str],
-) -> tuple[dict[str, list[Cashflow]], list[str]]:
+) -> tuple[dict[str, list[Cashflow]], list[str], set[str]]:
     rates = _normalize_fx_rates(fx_rates_to_base)
     buckets: dict[str, list[Cashflow]] = {}
     warnings: list[str] = []
+    invalid_scopes: set[str] = set()
     for act in activities:
         if not isinstance(act, dict) or not _is_posted(act):
             continue
-        event_type = str(act.get("event_type", "")).strip().lower()
+        event_type = _event_type(act)
         sign = _EXTERNAL_FLOW_SIGNS.get(event_type)
         if sign is None:
-            continue
-        money = act.get("money")
-        if not isinstance(money, dict):
-            continue
-        amount = money.get("amount")
-        currency = money.get("currency")
-        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
-            continue
-        if not isinstance(currency, str) or not currency.strip():
             continue
         when_raw = act.get("effective_at")
         if not isinstance(when_raw, str):
@@ -594,20 +823,6 @@ def _attribute_external_cashflows_by_strategic_bucket(
             continue
         if when < period_start or when > period_end:
             continue
-        base_amount = _resolve_to_base(
-            abs(float(amount)),
-            currency,
-            base_currency,
-            metadata=act.get("metadata"),
-            fx_rates_to_base=rates,
-        )
-        if base_amount is None:
-            warnings.append(
-                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
-                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
-            )
-            continue
-
         hid = act.get("holding_id")
         bucket_key: str
         if isinstance(hid, str) and hid in holding_to_bucket:
@@ -626,20 +841,51 @@ def _attribute_external_cashflows_by_strategic_bucket(
                 "(or holding not found); attributed to '__unallocated__' "
                 "for per-bucket performance"
             )
+        money = act.get("money")
+        amount = money.get("amount") if isinstance(money, dict) else None
+        currency = money.get("currency") if isinstance(money, dict) else None
+        if _finite_number(amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount; scope '{bucket_key}' return unavailable"
+            )
+            invalid_scopes.add(bucket_key)
+            continue
+        if not isinstance(currency, str) or not currency.strip():
+            continue
+        base_amount = _resolve_to_base(
+            abs(float(amount)),
+            currency,
+            base_currency,
+            metadata=act.get("metadata"),
+            fx_rates_to_base=rates,
+        )
+        if base_amount is not None and _finite_number(base_amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount after FX conversion; scope '{bucket_key}' return unavailable"
+            )
+            invalid_scopes.add(bucket_key)
+            continue
+        if base_amount is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
+                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
+            )
+            continue
+
         buckets.setdefault(bucket_key, []).append(
             Cashflow(when=when, amount_base=sign * base_amount)
         )
     for flows in buckets.values():
         flows.sort(key=lambda cf: cf.when)
-    return buckets, warnings
+    return buckets, warnings, invalid_scopes
 
 
 @dataclass
 class StrategicBucketPerformance:
     bucket_key: str
-    start_value_base: float
-    end_value_base: float
-    net_external_cashflow_base: float
+    start_value_base: float | None
+    end_value_base: float | None
+    net_external_cashflow_base: float | None
     twr_pct: float | None
     mwr_pct: float | None
     cashflow_count: int
@@ -695,7 +941,7 @@ def compute_performance_by_strategic_bucket(
     holding_to_bucket, unallocated_holding_classes = _build_holding_bucket_index(
         portfolio, policy
     )
-    cashflows_by_bucket, attribution_warnings = (
+    cashflows_by_bucket, attribution_warnings, invalid_flow_scopes = (
         _attribute_external_cashflows_by_strategic_bucket(
             activities,
             base_currency,
@@ -709,7 +955,10 @@ def compute_performance_by_strategic_bucket(
     top_warnings.extend(attribution_warnings)
 
     bucket_keys = sorted(
-        set(start_buckets) | set(end_buckets) | set(cashflows_by_bucket)
+        set(start_buckets)
+        | set(end_buckets)
+        | set(cashflows_by_bucket)
+        | invalid_flow_scopes
     )
 
     results: list[StrategicBucketPerformance] = []
@@ -731,29 +980,50 @@ def compute_performance_by_strategic_bucket(
                 "Cashflow attribution is only computed for asset_class targets"
             )
 
-        twr_fraction = modified_dietz(start_value, end_value, flows, start_ts, end_ts)
-
-        if start_value > 0 or flows or end_value > 0:
-            xirr_series: list[Cashflow] = []
-            if start_value > 0:
-                xirr_series.append(Cashflow(when=start_ts, amount_base=-start_value))
-            for cf in flows:
-                xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
-            if end_value != 0:
-                xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
-            mwr_fraction = xirr(xirr_series)
+        if start_value is None or end_value is None:
+            bucket_warnings.append(
+                "Invalid bookend financial value; scope return unavailable"
+            )
+        if key in invalid_flow_scopes:
+            bucket_warnings.append(
+                "Invalid external cashflow amount; scope return unavailable"
+            )
+        if start_value is None or end_value is None or key in invalid_flow_scopes:
+            twr_fraction = mwr_fraction = None
         else:
-            mwr_fraction = None
+            twr_fraction = modified_dietz(
+                start_value, end_value, flows, start_ts, end_ts
+            )
 
-        net_flow = sum(cf.amount_base for cf in flows)
+            if start_value > 0 or flows or end_value > 0:
+                xirr_series: list[Cashflow] = []
+                if start_value > 0:
+                    xirr_series.append(
+                        Cashflow(when=start_ts, amount_base=-start_value)
+                    )
+                for cf in flows:
+                    xirr_series.append(
+                        Cashflow(when=cf.when, amount_base=-cf.amount_base)
+                    )
+                if end_value != 0:
+                    xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
+                mwr_fraction = xirr(xirr_series)
+            else:
+                mwr_fraction = None
+
+        net_flow = (
+            None
+            if key in invalid_flow_scopes
+            else _finite_number(sum(cf.amount_base for cf in flows))
+        )
         results.append(
             StrategicBucketPerformance(
                 bucket_key=key,
                 start_value_base=(start_value),
                 end_value_base=(end_value),
                 net_external_cashflow_base=(net_flow),
-                twr_pct=None if twr_fraction is None else round(twr_fraction * 100, 6),
-                mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
+                twr_pct=_return_percent(twr_fraction),
+                mwr_pct=_return_percent(mwr_fraction),
                 cashflow_count=len(flows),
                 warnings=bucket_warnings,
             )
@@ -768,7 +1038,7 @@ def _attribute_external_cashflows_by_account(
     fx_rates_to_base: dict[str, float] | None,
     period_start: datetime,
     period_end: datetime,
-) -> tuple[dict[str, list[Cashflow]], list[str]]:
+) -> tuple[dict[str, list[Cashflow]], list[str], set[str]]:
     """Bucket external cashflows by ``activity.account_id``.
 
     Activities without an ``account_id`` land under ``UNASSIGNED_ACCOUNT``
@@ -779,21 +1049,13 @@ def _attribute_external_cashflows_by_account(
     rates = _normalize_fx_rates(fx_rates_to_base)
     buckets: dict[str, list[Cashflow]] = {}
     warnings: list[str] = []
+    invalid_scopes: set[str] = set()
     for act in activities:
         if not isinstance(act, dict) or not _is_posted(act):
             continue
-        event_type = str(act.get("event_type", "")).strip().lower()
+        event_type = _event_type(act)
         sign = _EXTERNAL_FLOW_SIGNS.get(event_type)
         if sign is None:
-            continue
-        money = act.get("money")
-        if not isinstance(money, dict):
-            continue
-        amount = money.get("amount")
-        currency = money.get("currency")
-        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
-            continue
-        if not isinstance(currency, str) or not currency.strip():
             continue
         when_raw = act.get("effective_at")
         if not isinstance(when_raw, str):
@@ -807,20 +1069,6 @@ def _attribute_external_cashflows_by_account(
             continue
         if when < period_start or when > period_end:
             continue
-        base_amount = _resolve_to_base(
-            abs(float(amount)),
-            currency,
-            base_currency,
-            metadata=act.get("metadata"),
-            fx_rates_to_base=rates,
-        )
-        if base_amount is None:
-            warnings.append(
-                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
-                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
-            )
-            continue
-
         raw_account = act.get("account_id")
         account_key = (
             raw_account.strip()
@@ -832,12 +1080,43 @@ def _attribute_external_cashflows_by_account(
                 f"Activity '{act.get('id', 'unknown')}' has no account_id; "
                 "attributed to '__unassigned__' for per-account performance"
             )
+        money = act.get("money")
+        amount = money.get("amount") if isinstance(money, dict) else None
+        currency = money.get("currency") if isinstance(money, dict) else None
+        if _finite_number(amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount; scope '{account_key}' return unavailable"
+            )
+            invalid_scopes.add(account_key)
+            continue
+        if not isinstance(currency, str) or not currency.strip():
+            continue
+        base_amount = _resolve_to_base(
+            abs(float(amount)),
+            currency,
+            base_currency,
+            metadata=act.get("metadata"),
+            fx_rates_to_base=rates,
+        )
+        if base_amount is not None and _finite_number(base_amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount after FX conversion; scope '{account_key}' return unavailable"
+            )
+            invalid_scopes.add(account_key)
+            continue
+        if base_amount is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
+                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
+            )
+            continue
+
         buckets.setdefault(account_key, []).append(
             Cashflow(when=when, amount_base=sign * base_amount)
         )
     for flows in buckets.values():
         flows.sort(key=lambda cf: cf.when)
-    return buckets, warnings
+    return buckets, warnings, invalid_scopes
 
 
 def compute_performance_by_account(
@@ -881,7 +1160,7 @@ def compute_performance_by_account(
     if start_by_account is None or end_by_account is None:
         return [], top_warnings
 
-    cashflows_by_account, attribution_warnings = (
+    cashflows_by_account, attribution_warnings, invalid_flow_scopes = (
         _attribute_external_cashflows_by_account(
             activities,
             base_currency,
@@ -893,7 +1172,10 @@ def compute_performance_by_account(
     top_warnings.extend(attribution_warnings)
 
     account_ids = sorted(
-        set(start_by_account) | set(end_by_account) | set(cashflows_by_account)
+        set(start_by_account)
+        | set(end_by_account)
+        | set(cashflows_by_account)
+        | invalid_flow_scopes
     )
 
     results: list[AccountPerformance] = []
@@ -911,29 +1193,48 @@ def compute_performance_by_account(
                 "Account not present in end snapshot; end_value treated as 0"
             )
 
-        twr_fraction = modified_dietz(start_value, end_value, flows, start_ts, end_ts)
-
-        if start_value > 0 or flows or end_value > 0:
-            xirr_series: list[Cashflow] = []
-            if start_value > 0:
-                xirr_series.append(Cashflow(when=start_ts, amount_base=-start_value))
-            for cf in flows:
-                xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
-            if end_value != 0:
-                xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
-            mwr_fraction = xirr(xirr_series)
+        if start_value is None or end_value is None:
+            warnings.append("Invalid bookend financial value; scope return unavailable")
+        if aid in invalid_flow_scopes:
+            warnings.append(
+                "Invalid external cashflow amount; scope return unavailable"
+            )
+        if start_value is None or end_value is None or aid in invalid_flow_scopes:
+            twr_fraction = mwr_fraction = None
         else:
-            mwr_fraction = None
+            twr_fraction = modified_dietz(
+                start_value, end_value, flows, start_ts, end_ts
+            )
 
-        net_flow = sum(cf.amount_base for cf in flows)
+            if start_value > 0 or flows or end_value > 0:
+                xirr_series: list[Cashflow] = []
+                if start_value > 0:
+                    xirr_series.append(
+                        Cashflow(when=start_ts, amount_base=-start_value)
+                    )
+                for cf in flows:
+                    xirr_series.append(
+                        Cashflow(when=cf.when, amount_base=-cf.amount_base)
+                    )
+                if end_value != 0:
+                    xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
+                mwr_fraction = xirr(xirr_series)
+            else:
+                mwr_fraction = None
+
+        net_flow = (
+            None
+            if aid in invalid_flow_scopes
+            else _finite_number(sum(cf.amount_base for cf in flows))
+        )
         results.append(
             AccountPerformance(
                 account_id=aid,
                 start_value_base=(start_value),
                 end_value_base=(end_value),
                 net_external_cashflow_base=(net_flow),
-                twr_pct=None if twr_fraction is None else round(twr_fraction * 100, 6),
-                mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
+                twr_pct=_return_percent(twr_fraction),
+                mwr_pct=_return_percent(mwr_fraction),
                 cashflow_count=len(flows),
                 warnings=warnings,
             )
@@ -951,7 +1252,13 @@ def compute_performance(
     until: str | datetime | None = None,
     policy: dict[str, Any] | None = None,
     benchmark_loader: BenchmarkLoader | None = None,
+    flow_valuations: dict[str, Any] | None = None,
 ) -> PerformanceResult:
+    evidence = (
+        parse_flow_valuations(flow_valuations, base_currency)
+        if flow_valuations is not None
+        else None
+    )
     activities = effective_activities(activities)
     since_dt = _parse_iso(since) if isinstance(since, str) else since
     until_dt = _parse_until_bound(until) if isinstance(until, str) else until
@@ -980,7 +1287,7 @@ def compute_performance(
     end_value = _snap_value(end_snap)
     if start_value is None or end_value is None:
         warnings.append(
-            "Snapshot is missing portfolio_value_base; cannot compute return"
+            "Snapshot has missing or nonfinite portfolio_value_base; cannot compute return"
         )
         return PerformanceResult(
             base_currency=base_currency,
@@ -1002,6 +1309,35 @@ def compute_performance(
         period_start=start_ts,
         period_end=end_ts,
     )
+    # Transfers have no stable pairing identity in the current contract. Keep
+    # the legacy external-flow treatment and disclose the unresolved boundary.
+    for activity in activities:
+        if not isinstance(activity, dict) or not _is_posted(activity):
+            continue
+        if _event_type(activity) not in {"transfer_in", "transfer_out"}:
+            continue
+        when_raw = activity.get("effective_at")
+        if not isinstance(when_raw, str):
+            continue  # The extractor already disclosed the invalid timestamp.
+        try:
+            when = _parse_iso(when_raw)
+        except (TypeError, ValueError):
+            continue
+        if start_ts <= when <= end_ts:
+            cf_warnings.append(
+                "Transfer identity unresolved: no supported internal-transfer pairing convention; treated as external, approximate"
+            )
+            break
+    for snapshot in (start_snap, end_snap):
+        currency = snapshot.get("base_currency")
+        if currency is None:
+            cf_warnings.append(
+                "Snapshot has no base_currency; valuation currency is unverified and approximate"
+            )
+        elif currency != base_currency:
+            cf_warnings.append(
+                "Invalid financial input: snapshot base_currency does not match portfolio base currency"
+            )
     warnings.extend(cf_warnings)
 
     twr_fraction = modified_dietz(start_value, end_value, cashflows, start_ts, end_ts)
@@ -1011,10 +1347,30 @@ def compute_performance(
         xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
     xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
     mwr_fraction = xirr(xirr_series)
+    if any("invalid financial" in warning.lower() for warning in cf_warnings):
+        twr_fraction = mwr_fraction = None
+    selected, method, fallback_reason = _select_twr(
+        start_value,
+        end_value,
+        cashflows,
+        start_ts,
+        end_ts,
+        evidence,
+        cf_warnings,
+        twr_fraction,
+    )
+    selected_pct = _return_percent(selected)
+    if selected is not None and selected_pct is None:
+        method, fallback_reason = (
+            "unavailable",
+            "Return percentage exceeds the finite supported range",
+        )
+    if fallback_reason:
+        warnings.append(f"TWR {method}: {fallback_reason}")
 
-    net_flow = sum(cf.amount_base for cf in cashflows)
+    net_flow = _finite_number(sum(cf.amount_base for cf in cashflows))
 
-    twr_pct = None if twr_fraction is None else round(twr_fraction * 100, 6)
+    twr_pct = _return_percent(twr_fraction)
     benchmark_comparisons: list[BenchmarkComparison] = []
     if policy is not None and benchmark_loader is not None:
         benchmark_comparisons = resolve_benchmarks_for_targets(
@@ -1036,8 +1392,12 @@ def compute_performance(
         end_value_base=(end_value),
         net_external_cashflow_base=(net_flow),
         twr_pct=twr_pct,
-        mwr_pct=None if mwr_fraction is None else round(mwr_fraction * 100, 6),
+        mwr_pct=_return_percent(mwr_fraction),
         cashflow_count=len(cashflows),
         warnings=warnings,
         benchmarks=benchmark_comparisons,
+        twr_method=method,
+        twr_return_pct=selected_pct,
+        linked_twr_pct=selected_pct if method == "linked_subperiod" else None,
+        twr_fallback_reason=fallback_reason,
     )

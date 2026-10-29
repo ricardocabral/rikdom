@@ -32,6 +32,7 @@ from .export_bundle import (
 )
 from .funded_ratio import compute_funded_ratios
 from .fx import ensure_snapshot_fx_lock
+from .market_series import load_market_series
 from .journal import (
     DEFAULT_POLICY,
     DEFAULT_ROTATE_BYTES,
@@ -84,6 +85,8 @@ from .performance import (
     compute_performance_by_strategic_bucket,
     external_cashflow_currencies,
     performance_period_bounds,
+    parse_flow_valuations,
+    read_flow_valuations,
 )
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
@@ -301,6 +304,15 @@ def _bootstrap_default_workspace(args: argparse.Namespace) -> None:
         _bootstrap_default_file(
             fx_history_path, defaults["fx_history"], SAMPLE_FX_HISTORY_PATH
         )
+
+
+def cmd_market_series(args: argparse.Namespace) -> int:
+    result = load_market_series(args.input).lookup(
+        args.series, as_of=args.as_of, max_age_seconds=args.max_age_seconds,
+        retrieved_before=args.retrieved_before,
+    )
+    print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False))
+    return 0
 
 
 def cmd_connector(args: argparse.Namespace) -> int:
@@ -603,6 +615,10 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
 
 
 def cmd_performance(args: argparse.Namespace) -> int:
+    evidence_path = getattr(args, "flow_valuations", None)
+    if evidence_path and getattr(args, "by", "portfolio") not in (None, "portfolio"):
+        print("--flow-valuations supports --by portfolio only", file=sys.stderr)
+        return 1
     portfolio = load_json(args.portfolio)
     check_financial_contract(portfolio)
     if getattr(args, "by", None) == "instrument":
@@ -612,6 +628,14 @@ def cmd_performance(args: argparse.Namespace) -> int:
         return 1
     snapshots = load_jsonl(args.snapshots)
     base_currency = _portfolio_base_currency(portfolio)
+    flow_evidence = None
+    if evidence_path:
+        try:
+            flow_evidence = read_flow_valuations(evidence_path)
+            parse_flow_valuations(flow_evidence, base_currency)
+        except (OSError, ValueError) as exc:
+            print(f"--flow-valuations: {exc}", file=sys.stderr)
+            return 1
 
     activities = effective_activities(portfolio.get("activities") or [])
     if not isinstance(activities, list):
@@ -656,6 +680,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
         until=getattr(args, "until", None),
         policy=policy,
         benchmark_loader=benchmark_loader,
+        flow_valuations=flow_evidence,
     )
     result.warnings.extend(fx_warnings)
 
@@ -667,6 +692,14 @@ def cmd_performance(args: argparse.Namespace) -> int:
         "end_value_base": result.end_value_base,
         "net_external_cashflow_base": result.net_external_cashflow_base,
         "twr_pct": result.twr_pct,
+        "legacy_twr_method": result.legacy_twr_method,
+        "twr_return_pct": result.twr_return_pct,
+        "linked_twr_pct": result.linked_twr_pct,
+        "twr_method": result.twr_method,
+        "twr_fallback_reason": result.twr_fallback_reason,
+        "twr_return_basis": result.twr_return_basis,
+        "mwr_method": "xirr",
+        "mwr_return_basis": result.mwr_return_basis,
         "mwr_pct": result.mwr_pct,
         "cashflow_count": result.cashflow_count,
         "warnings": result.warnings,
@@ -702,6 +735,11 @@ def cmd_performance(args: argparse.Namespace) -> int:
                     "end_value_base": bp.end_value_base,
                     "net_external_cashflow_base": bp.net_external_cashflow_base,
                     "twr_pct": bp.twr_pct,
+                    "twr_method": "modified_dietz" if bp.twr_pct is not None else "unavailable",
+                    "twr_return_basis": "period",
+                    "mwr_method": "xirr",
+                    "mwr_return_basis": "annualized_365_day",
+                    "twr_fallback_reason": "Explicit flow valuations support portfolio scope only; scope uses Modified Dietz approximation",
                     "mwr_pct": bp.mwr_pct,
                     "cashflow_count": bp.cashflow_count,
                     "warnings": bp.warnings,
@@ -728,6 +766,11 @@ def cmd_performance(args: argparse.Namespace) -> int:
                 "end_value_base": ap.end_value_base,
                 "net_external_cashflow_base": ap.net_external_cashflow_base,
                 "twr_pct": ap.twr_pct,
+                "twr_method": "modified_dietz" if ap.twr_pct is not None else "unavailable",
+                "twr_return_basis": "period",
+                "mwr_method": "xirr",
+                "mwr_return_basis": "annualized_365_day",
+                "twr_fallback_reason": "Explicit flow valuations support portfolio scope only; scope uses Modified Dietz approximation",
                 "mwr_pct": ap.mwr_pct,
                 "cashflow_count": ap.cashflow_count,
                 "warnings": ap.warnings,
@@ -2259,6 +2302,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rikdom")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    p_market = sub.add_parser("market-series", help="Replay a local price or FX series without changing files")
+    p_market.add_argument("--input", required=True, help="Versioned local market series JSON file")
+    p_market.add_argument("--series", required=True, help="Exact series identity in the input file")
+    p_market.add_argument("--as-of", required=True, help="Historical UTC timestamp, inclusive")
+    p_market.add_argument("--max-age-seconds", required=True, type=float, help="Maximum effective observation age, inclusive")
+    p_market.add_argument("--retrieved-before", help="Inclusive UTC retrieval cutoff; omitted uses all file vintages")
+    p_market.set_defaults(func=cmd_market_series)
+
     p_connector = sub.add_parser("connector", help="Query an explicitly selected external connector plugin")
     connector_sub = p_connector.add_subparsers(dest="connector_command", required=True)
     for name, description in (
@@ -2374,11 +2425,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_performance = sub.add_parser(
         "performance",
-        help="Compute portfolio TWR (Modified Dietz) and MWR (XIRR) over a window",
+        help="Compute portfolio linked TWR or disclosed Dietz fallback and annualized XIRR",
     )
     p_performance.add_argument("--portfolio", default=None)
     p_performance.add_argument("--snapshots", default=None)
     p_performance.add_argument("--fx-history", default=None)
+    p_performance.add_argument(
+        "--flow-valuations", default=None,
+        help="Read-only version 1 JSON with explicit base-currency before/after external flow valuations (portfolio scope only)",
+    )
     p_performance.add_argument(
         "--since",
         default=None,

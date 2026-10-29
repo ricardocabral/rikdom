@@ -310,6 +310,7 @@ income, and currency movements; compare a strategy with an appropriate benchmark
 ### Acceptance criteria
 
 - [ ] Demonstrate linked TWR and XIRR with hand-checkable contributions/withdrawals, internal transfers, and corporate actions; identify Dietz fallback explicitly.
+  - Partial delivery (2026-10-29): [explicit flow-boundary valuations](docs/reference/performance-output.md) support portfolio linked TWR, with Dietz compatibility and method/fallback/annualization disclosure. Internal-transfer identity and dated foreign-currency conversion remain open; ordinary snapshots do not establish pre/post-flow evidence.
 - [ ] Reconcile a multi-currency example using dated FX and disclose missing/approximate history in every affected metric.
 - [ ] Reconcile opening value + net contributions + investment result to closing value, with documented rounding and no double-counted income.
 - [ ] Explain realized/unrealized gains with lot/cost-basis evidence; incomplete history cannot produce an apparently complete profit total.
@@ -360,6 +361,7 @@ Expand from the shipped import/catalog/output/storage foundation to full lifecyc
 - [ ] Check plugin fixtures against schema and hook contracts in CI for every supported plugin type.
 - [x] Publish compatibility policy for breaking hook or manifest changes.
 - [ ] Replay cached provider inputs offline with the same financial results; report stale/missing series explicitly.
+  - Partial delivery (2026-10-29): the [local market-series contract](docs/reference/market-series.md) validates price/FX files and replays observations with revision provenance, retrieval cutoff, coverage, and explicit missing/stale statuses. Wiring those inputs into historical financial calculations and provider hooks remains open.
 - [ ] Preview and apply a split/distribution correction idempotently without adjusting already-adjusted prices or duplicating ledger events.
 - [ ] Run a third-market reference pack against shared contracts without modifying the core for that country.
 - [ ] Support file/manual series as a free fallback for each reference provider workflow; publish coverage and licensing limits.
