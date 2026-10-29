@@ -9,7 +9,6 @@ values; FX, corporate actions and unsupported movements leave it unavailable.
 
 from __future__ import annotations
 
-import copy
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -36,6 +35,30 @@ _COMPONENTS = (
     "explained_result_base",
     "reconciliation_difference_base",
 )
+
+
+def _copy_evidence(value: dict) -> dict:
+    """Detach published provenance without coercing unsupported Python values."""
+
+    def detached(item: Any) -> Any:
+        if type(item) is dict and all(type(key) is str for key in item):
+            return {key: detached(child) for key, child in item.items()}
+        if type(item) is list:
+            return [detached(child) for child in item]
+        if item is None or type(item) in (str, bool):
+            return item
+        if type(item) in (int, float) and math.isfinite(item):
+            return item
+        raise ValueError
+
+    try:
+        if type(value) is not dict:
+            raise ValueError
+        return detached(value)
+    except (ValueError, OverflowError, RecursionError):
+        raise ValueError(
+            "Published evidence requires finite JSON objects with string keys; unsupported values or cycles"
+        ) from None
 
 
 def load_profit_basis(path: str | Path) -> dict:
@@ -232,7 +255,7 @@ def _bridge(
             if lookup.rate is None:
                 raise ValueError("Historical external-flow FX is unavailable")
             rate = _number(lookup.rate)
-            fx_evidence = copy.deepcopy(lookup.evidence)
+            fx_evidence = _copy_evidence(lookup.evidence)
         elif code != currency:
             raise ValueError("Undated foreign external-flow FX is unsupported")
         converted = abs(amount) * rate * (-1 if event == "withdrawal" else 1)
@@ -318,7 +341,7 @@ def _reviewed_history(
                 raise ValueError(
                     f"Activity {aid!r} {field}={activity[field]!r} exceeds reviewed retrieval cutoff {cutoff.isoformat()}"
                 )
-        selected.append(copy.deepcopy(activity))
+        selected.append(_copy_evidence(activity))
     return {
         "retrieved_before": cutoff.isoformat().replace("+00:00", "Z"),
         "scope": "period_and_connected_correction_lineage",
@@ -334,6 +357,7 @@ def _fifo_decomposition(
     bridge: dict,
     raw_activities: list[dict],
 ) -> dict:
+    basis = _copy_evidence(basis)
     fields = {
         "contract_version",
         "scope",
@@ -693,7 +717,7 @@ def _fifo_decomposition(
         **{key: _json(value) for key, value in zip(_COMPONENTS, values)},
         "holdings": holding_evidence,
         "activity_evidence": activity_evidence,
-        "basis_evidence": copy.deepcopy(basis),
+        "basis_evidence": basis,
         "history_evidence": history_evidence,
     }
 

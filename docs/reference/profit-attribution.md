@@ -55,6 +55,14 @@ inputs. Activity rows distinguish `reported_amount_native`, nullable
 `reported_fees_native`/`reported_taxes_native`, applied charges, computed net cash,
 and FIFO lots consumed. No reported standalone profit is treated as computed.
 
+Published basis, raw history and FX provenance are detached strict JSON evidence:
+objects with string keys, arrays, strings, booleans, null and numbers within the
+supported finite range. Nonfinite values in superseded rows or arbitrary metadata
+are rejected too. Python API inputs containing tuples, cycles, nonstring keys or
+arbitrary objects are rejected instead of coerced. Invalid basis/history evidence
+leaves the entire decomposition unavailable with null components and evidence;
+no partial provenance or computed component totals are published.
+
 ## Reviewed FIFO evidence version 1.0
 
 `load_profit_basis(path)` reads a JSON object and rejects duplicate keys,

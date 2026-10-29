@@ -437,6 +437,71 @@ class ProfitAttributionTests(unittest.TestCase):
         accepted["source_system"] = "modified output"
         self.assertEqual(p, before)
 
+    def test_superseded_nonfinite_money_cannot_leak_into_published_history(self):
+        for amount in (float("nan"), float("inf"), -float("inf")):
+            acts = trades()
+            original = copy.deepcopy(acts[2])
+            original["id"] = "superseded-income"
+            original["money"]["amount"] = amount
+            acts[2]["extensions"] = {
+                "rikdom_correction": {
+                    "version": 1,
+                    "supersedes_activity_id": "superseded-income",
+                    "reason": "synthetic correction",
+                }
+            }
+            p = portfolio([original, *acts])
+            with self.subTest(amount=amount):
+                result = compute_profit_attribution(p, performance(p), basis=evidence())
+                self.assertEqual(result["bridge"]["status"], "complete")
+                self.assertEqual(result["decomposition"]["status"], "unavailable")
+                self.assertIsNone(result["decomposition"]["history_evidence"])
+                self.assertIsNone(result["decomposition"]["realized_gain_base"])
+                self.assertTrue(result["diagnostics"])
+                json.dumps(result, allow_nan=False)
+
+    def test_history_rejects_unsupported_json_without_coercion_or_partial_evidence(
+        self,
+    ):
+        cycle = {}
+        cycle["self"] = cycle
+        for bad in (
+            float("nan"),
+            {1: "nonstring key"},
+            ("tuple",),
+            cycle,
+            object(),
+            10**5000,
+        ):
+            acts = trades()
+            acts[2]["metadata"]["raw_provenance"] = bad
+            p = portfolio(acts)
+            with self.subTest(kind=type(bad).__name__):
+                result = compute_profit_attribution(p, performance(p), basis=evidence())
+                self.assertEqual(result["bridge"]["status"], "complete")
+                self.assertEqual(result["decomposition"]["status"], "unavailable")
+                self.assertIsNone(result["decomposition"]["basis_evidence"])
+                self.assertIsNone(result["decomposition"]["history_evidence"])
+                self.assertEqual(result["decomposition"]["activity_evidence"], [])
+                self.assertIsNone(result["decomposition"]["explained_result_base"])
+                json.dumps(result, allow_nan=False)
+
+    def test_basis_provenance_requires_json_types_even_if_an_object_claims_reviewed(
+        self,
+    ):
+        class ClaimedReview:
+            def __eq__(self, other):
+                return other == "reviewed"
+
+        basis = evidence()
+        basis["review"]["status"] = ClaimedReview()
+        p = portfolio(trades())
+        result = compute_profit_attribution(p, performance(p), basis=basis)
+        self.assertEqual(result["bridge"]["status"], "complete")
+        self.assertEqual(result["decomposition"]["status"], "unavailable")
+        self.assertIsNone(result["decomposition"]["basis_evidence"])
+        json.dumps(result, allow_nan=False)
+
     def test_signed_flow_bridge_is_period_residual_without_basis(self):
         p = portfolio(
             [event("in", "contribution", 50), event("out", "withdrawal", -20)]
