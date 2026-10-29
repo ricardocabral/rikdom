@@ -457,3 +457,95 @@ class LinkedTWRCLITests(unittest.TestCase):
                     self.assertEqual(rc, 1)
                     self.assertEqual(out.getvalue(), "")
                     self.assertIn("flow-valuations", error.getvalue())
+
+
+class ScopedInputValidityTests(unittest.TestCase):
+    def compute(self, scope, snaps, acts):
+        from rikdom.performance import (
+            compute_performance_by_account,
+            compute_performance_by_strategic_bucket,
+        )
+
+        if scope == "account":
+            rows, warnings = compute_performance_by_account(
+                snaps, acts, base_currency="BRL"
+            )
+            return {row.account_id: row for row in rows}, warnings
+        rows, warnings = compute_performance_by_strategic_bucket(
+            snaps,
+            acts,
+            base_currency="BRL",
+            portfolio={
+                "asset_type_catalog": [{"id": "stock", "asset_class": "stocks"}],
+                "holdings": [{"id": "holding-a", "asset_type_id": "stock"}],
+            },
+            policy={
+                "strategic_allocation": {
+                    "targets": [
+                        {
+                            "dimension": "asset_class",
+                            "bucket": "stocks",
+                            "weight_pct": 50,
+                        },
+                        {
+                            "dimension": "asset_class",
+                            "bucket": "debt",
+                            "weight_pct": 50,
+                        },
+                    ]
+                }
+            },
+        )
+        return {row.bucket_key: row for row in rows}, warnings
+
+    def scoped_snapshots(self, scope):
+        keys = (
+            ("account-a", "account-b")
+            if scope == "account"
+            else ("asset_class:stocks", "asset_class:debt")
+        )
+        field = "by_account" if scope == "account" else "by_strategic_bucket"
+        snaps = snapshots(200, 220)
+        snaps[0]["totals"][field] = {key: 100 for key in keys}
+        snaps[1]["totals"][field] = {key: 110 for key in keys}
+        return snaps, field, keys
+
+    def test_invalid_scope_bookend_is_unavailable_without_changing_other_scope(self):
+        for scope in ("account", "strategic_bucket"):
+            for value in (float("nan"), float("inf"), 10**400):
+                for bookend in (0, 1):
+                    with self.subTest(scope=scope, value=value, bookend=bookend):
+                        snaps, field, (affected, unaffected) = self.scoped_snapshots(
+                            scope
+                        )
+                        snaps[bookend]["totals"][field][affected] = value
+                        rows, warnings = self.compute(scope, snaps, [])
+                        self.assertIn(affected, rows)
+                        self.assertIsNone(rows[affected].twr_pct)
+                        self.assertIsNone(rows[affected].mwr_pct)
+                        self.assertIsNone(
+                            getattr(
+                                rows[affected],
+                                "start_value_base"
+                                if bookend == 0
+                                else "end_value_base",
+                            )
+                        )
+                        self.assertTrue(rows[affected].warnings or warnings)
+                        self.assertEqual(rows[unaffected].twr_pct, 10.0)
+                        json.dumps(asdict(rows[affected]), allow_nan=False)
+
+    def test_invalid_scope_flow_is_unavailable_without_changing_other_scope(self):
+        for scope in ("account", "strategic_bucket"):
+            for value in (float("nan"), float("inf"), 10**400):
+                with self.subTest(scope=scope, value=value):
+                    snaps, _, (affected, unaffected) = self.scoped_snapshots(scope)
+                    activity = dict(
+                        flow(value), account_id="account-a", holding_id="holding-a"
+                    )
+                    rows, warnings = self.compute(scope, snaps, [activity])
+                    self.assertIsNone(rows[affected].twr_pct)
+                    self.assertIsNone(rows[affected].mwr_pct)
+                    self.assertTrue(rows[affected].warnings or warnings)
+                    self.assertEqual(rows[unaffected].twr_pct, 10.0)
+                    json.dumps(asdict(rows[affected]), allow_nan=False)

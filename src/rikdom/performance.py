@@ -688,20 +688,18 @@ def _snap_value(snap: dict[str, Any]) -> float | None:
     return _finite_number(totals.get("portfolio_value_base"))
 
 
-def _snap_by_account(snap: dict[str, Any]) -> dict[str, float] | None:
+def _snap_by_account(snap: dict[str, Any]) -> dict[str, float | None] | None:
     totals = snap.get("totals")
     if not isinstance(totals, dict):
         return None
     by_account = totals.get("by_account")
     if not isinstance(by_account, dict):
         return None
-    out: dict[str, float] = {}
+    out: dict[str, float | None] = {}
     for k, v in by_account.items():
         if not isinstance(k, str):
             continue
-        value = _finite_number(v)
-        if value is not None:
-            out[k] = value
+        out[k] = _finite_number(v)
     return out
 
 
@@ -711,29 +709,27 @@ UNASSIGNED_ACCOUNT = "__unassigned__"
 @dataclass
 class AccountPerformance:
     account_id: str
-    start_value_base: float
-    end_value_base: float
-    net_external_cashflow_base: float
+    start_value_base: float | None
+    end_value_base: float | None
+    net_external_cashflow_base: float | None
     twr_pct: float | None
     mwr_pct: float | None
     cashflow_count: int
     warnings: list[str] = field(default_factory=list)
 
 
-def _snap_by_strategic_bucket(snap: dict[str, Any]) -> dict[str, float]:
+def _snap_by_strategic_bucket(snap: dict[str, Any]) -> dict[str, float | None]:
     totals = snap.get("totals")
     if not isinstance(totals, dict):
         return {}
     by_bucket = totals.get("by_strategic_bucket")
     if not isinstance(by_bucket, dict):
         return {}
-    out: dict[str, float] = {}
+    out: dict[str, float | None] = {}
     for k, v in by_bucket.items():
         if not isinstance(k, str):
             continue
-        value = _finite_number(v)
-        if value is not None:
-            out[k] = value
+        out[k] = _finite_number(v)
     return out
 
 
@@ -803,25 +799,17 @@ def _attribute_external_cashflows_by_strategic_bucket(
     period_end: datetime,
     holding_to_bucket: dict[str, str],
     unallocated_holding_classes: dict[str, str],
-) -> tuple[dict[str, list[Cashflow]], list[str]]:
+) -> tuple[dict[str, list[Cashflow]], list[str], set[str]]:
     rates = _normalize_fx_rates(fx_rates_to_base)
     buckets: dict[str, list[Cashflow]] = {}
     warnings: list[str] = []
+    invalid_scopes: set[str] = set()
     for act in activities:
         if not isinstance(act, dict) or not _is_posted(act):
             continue
         event_type = _event_type(act)
         sign = _EXTERNAL_FLOW_SIGNS.get(event_type)
         if sign is None:
-            continue
-        money = act.get("money")
-        if not isinstance(money, dict):
-            continue
-        amount = money.get("amount")
-        currency = money.get("currency")
-        if _finite_number(amount) is None:
-            continue
-        if not isinstance(currency, str) or not currency.strip():
             continue
         when_raw = act.get("effective_at")
         if not isinstance(when_raw, str):
@@ -835,20 +823,6 @@ def _attribute_external_cashflows_by_strategic_bucket(
             continue
         if when < period_start or when > period_end:
             continue
-        base_amount = _resolve_to_base(
-            abs(float(amount)),
-            currency,
-            base_currency,
-            metadata=act.get("metadata"),
-            fx_rates_to_base=rates,
-        )
-        if base_amount is None:
-            warnings.append(
-                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
-                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
-            )
-            continue
-
         hid = act.get("holding_id")
         bucket_key: str
         if isinstance(hid, str) and hid in holding_to_bucket:
@@ -867,20 +841,51 @@ def _attribute_external_cashflows_by_strategic_bucket(
                 "(or holding not found); attributed to '__unallocated__' "
                 "for per-bucket performance"
             )
+        money = act.get("money")
+        amount = money.get("amount") if isinstance(money, dict) else None
+        currency = money.get("currency") if isinstance(money, dict) else None
+        if _finite_number(amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount; scope '{bucket_key}' return unavailable"
+            )
+            invalid_scopes.add(bucket_key)
+            continue
+        if not isinstance(currency, str) or not currency.strip():
+            continue
+        base_amount = _resolve_to_base(
+            abs(float(amount)),
+            currency,
+            base_currency,
+            metadata=act.get("metadata"),
+            fx_rates_to_base=rates,
+        )
+        if base_amount is not None and _finite_number(base_amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount after FX conversion; scope '{bucket_key}' return unavailable"
+            )
+            invalid_scopes.add(bucket_key)
+            continue
+        if base_amount is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
+                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
+            )
+            continue
+
         buckets.setdefault(bucket_key, []).append(
             Cashflow(when=when, amount_base=sign * base_amount)
         )
     for flows in buckets.values():
         flows.sort(key=lambda cf: cf.when)
-    return buckets, warnings
+    return buckets, warnings, invalid_scopes
 
 
 @dataclass
 class StrategicBucketPerformance:
     bucket_key: str
-    start_value_base: float
-    end_value_base: float
-    net_external_cashflow_base: float
+    start_value_base: float | None
+    end_value_base: float | None
+    net_external_cashflow_base: float | None
     twr_pct: float | None
     mwr_pct: float | None
     cashflow_count: int
@@ -936,7 +941,7 @@ def compute_performance_by_strategic_bucket(
     holding_to_bucket, unallocated_holding_classes = _build_holding_bucket_index(
         portfolio, policy
     )
-    cashflows_by_bucket, attribution_warnings = (
+    cashflows_by_bucket, attribution_warnings, invalid_flow_scopes = (
         _attribute_external_cashflows_by_strategic_bucket(
             activities,
             base_currency,
@@ -950,7 +955,10 @@ def compute_performance_by_strategic_bucket(
     top_warnings.extend(attribution_warnings)
 
     bucket_keys = sorted(
-        set(start_buckets) | set(end_buckets) | set(cashflows_by_bucket)
+        set(start_buckets)
+        | set(end_buckets)
+        | set(cashflows_by_bucket)
+        | invalid_flow_scopes
     )
 
     results: list[StrategicBucketPerformance] = []
@@ -972,21 +980,42 @@ def compute_performance_by_strategic_bucket(
                 "Cashflow attribution is only computed for asset_class targets"
             )
 
-        twr_fraction = modified_dietz(start_value, end_value, flows, start_ts, end_ts)
-
-        if start_value > 0 or flows or end_value > 0:
-            xirr_series: list[Cashflow] = []
-            if start_value > 0:
-                xirr_series.append(Cashflow(when=start_ts, amount_base=-start_value))
-            for cf in flows:
-                xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
-            if end_value != 0:
-                xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
-            mwr_fraction = xirr(xirr_series)
+        if start_value is None or end_value is None:
+            bucket_warnings.append(
+                "Invalid bookend financial value; scope return unavailable"
+            )
+        if key in invalid_flow_scopes:
+            bucket_warnings.append(
+                "Invalid external cashflow amount; scope return unavailable"
+            )
+        if start_value is None or end_value is None or key in invalid_flow_scopes:
+            twr_fraction = mwr_fraction = None
         else:
-            mwr_fraction = None
+            twr_fraction = modified_dietz(
+                start_value, end_value, flows, start_ts, end_ts
+            )
 
-        net_flow = sum(cf.amount_base for cf in flows)
+            if start_value > 0 or flows or end_value > 0:
+                xirr_series: list[Cashflow] = []
+                if start_value > 0:
+                    xirr_series.append(
+                        Cashflow(when=start_ts, amount_base=-start_value)
+                    )
+                for cf in flows:
+                    xirr_series.append(
+                        Cashflow(when=cf.when, amount_base=-cf.amount_base)
+                    )
+                if end_value != 0:
+                    xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
+                mwr_fraction = xirr(xirr_series)
+            else:
+                mwr_fraction = None
+
+        net_flow = (
+            None
+            if key in invalid_flow_scopes
+            else _finite_number(sum(cf.amount_base for cf in flows))
+        )
         results.append(
             StrategicBucketPerformance(
                 bucket_key=key,
@@ -1009,7 +1038,7 @@ def _attribute_external_cashflows_by_account(
     fx_rates_to_base: dict[str, float] | None,
     period_start: datetime,
     period_end: datetime,
-) -> tuple[dict[str, list[Cashflow]], list[str]]:
+) -> tuple[dict[str, list[Cashflow]], list[str], set[str]]:
     """Bucket external cashflows by ``activity.account_id``.
 
     Activities without an ``account_id`` land under ``UNASSIGNED_ACCOUNT``
@@ -1020,21 +1049,13 @@ def _attribute_external_cashflows_by_account(
     rates = _normalize_fx_rates(fx_rates_to_base)
     buckets: dict[str, list[Cashflow]] = {}
     warnings: list[str] = []
+    invalid_scopes: set[str] = set()
     for act in activities:
         if not isinstance(act, dict) or not _is_posted(act):
             continue
         event_type = _event_type(act)
         sign = _EXTERNAL_FLOW_SIGNS.get(event_type)
         if sign is None:
-            continue
-        money = act.get("money")
-        if not isinstance(money, dict):
-            continue
-        amount = money.get("amount")
-        currency = money.get("currency")
-        if _finite_number(amount) is None:
-            continue
-        if not isinstance(currency, str) or not currency.strip():
             continue
         when_raw = act.get("effective_at")
         if not isinstance(when_raw, str):
@@ -1048,20 +1069,6 @@ def _attribute_external_cashflows_by_account(
             continue
         if when < period_start or when > period_end:
             continue
-        base_amount = _resolve_to_base(
-            abs(float(amount)),
-            currency,
-            base_currency,
-            metadata=act.get("metadata"),
-            fx_rates_to_base=rates,
-        )
-        if base_amount is None:
-            warnings.append(
-                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
-                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
-            )
-            continue
-
         raw_account = act.get("account_id")
         account_key = (
             raw_account.strip()
@@ -1073,12 +1080,43 @@ def _attribute_external_cashflows_by_account(
                 f"Activity '{act.get('id', 'unknown')}' has no account_id; "
                 "attributed to '__unassigned__' for per-account performance"
             )
+        money = act.get("money")
+        amount = money.get("amount") if isinstance(money, dict) else None
+        currency = money.get("currency") if isinstance(money, dict) else None
+        if _finite_number(amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount; scope '{account_key}' return unavailable"
+            )
+            invalid_scopes.add(account_key)
+            continue
+        if not isinstance(currency, str) or not currency.strip():
+            continue
+        base_amount = _resolve_to_base(
+            abs(float(amount)),
+            currency,
+            base_currency,
+            metadata=act.get("metadata"),
+            fx_rates_to_base=rates,
+        )
+        if base_amount is not None and _finite_number(base_amount) is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' has invalid financial amount after FX conversion; scope '{account_key}' return unavailable"
+            )
+            invalid_scopes.add(account_key)
+            continue
+        if base_amount is None:
+            warnings.append(
+                f"Activity '{act.get('id', 'unknown')}' missing FX rate "
+                f"for {currency!r} -> {base_currency!r}; cashflow skipped"
+            )
+            continue
+
         buckets.setdefault(account_key, []).append(
             Cashflow(when=when, amount_base=sign * base_amount)
         )
     for flows in buckets.values():
         flows.sort(key=lambda cf: cf.when)
-    return buckets, warnings
+    return buckets, warnings, invalid_scopes
 
 
 def compute_performance_by_account(
@@ -1122,7 +1160,7 @@ def compute_performance_by_account(
     if start_by_account is None or end_by_account is None:
         return [], top_warnings
 
-    cashflows_by_account, attribution_warnings = (
+    cashflows_by_account, attribution_warnings, invalid_flow_scopes = (
         _attribute_external_cashflows_by_account(
             activities,
             base_currency,
@@ -1134,7 +1172,10 @@ def compute_performance_by_account(
     top_warnings.extend(attribution_warnings)
 
     account_ids = sorted(
-        set(start_by_account) | set(end_by_account) | set(cashflows_by_account)
+        set(start_by_account)
+        | set(end_by_account)
+        | set(cashflows_by_account)
+        | invalid_flow_scopes
     )
 
     results: list[AccountPerformance] = []
@@ -1152,21 +1193,40 @@ def compute_performance_by_account(
                 "Account not present in end snapshot; end_value treated as 0"
             )
 
-        twr_fraction = modified_dietz(start_value, end_value, flows, start_ts, end_ts)
-
-        if start_value > 0 or flows or end_value > 0:
-            xirr_series: list[Cashflow] = []
-            if start_value > 0:
-                xirr_series.append(Cashflow(when=start_ts, amount_base=-start_value))
-            for cf in flows:
-                xirr_series.append(Cashflow(when=cf.when, amount_base=-cf.amount_base))
-            if end_value != 0:
-                xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
-            mwr_fraction = xirr(xirr_series)
+        if start_value is None or end_value is None:
+            warnings.append("Invalid bookend financial value; scope return unavailable")
+        if aid in invalid_flow_scopes:
+            warnings.append(
+                "Invalid external cashflow amount; scope return unavailable"
+            )
+        if start_value is None or end_value is None or aid in invalid_flow_scopes:
+            twr_fraction = mwr_fraction = None
         else:
-            mwr_fraction = None
+            twr_fraction = modified_dietz(
+                start_value, end_value, flows, start_ts, end_ts
+            )
 
-        net_flow = sum(cf.amount_base for cf in flows)
+            if start_value > 0 or flows or end_value > 0:
+                xirr_series: list[Cashflow] = []
+                if start_value > 0:
+                    xirr_series.append(
+                        Cashflow(when=start_ts, amount_base=-start_value)
+                    )
+                for cf in flows:
+                    xirr_series.append(
+                        Cashflow(when=cf.when, amount_base=-cf.amount_base)
+                    )
+                if end_value != 0:
+                    xirr_series.append(Cashflow(when=end_ts, amount_base=end_value))
+                mwr_fraction = xirr(xirr_series)
+            else:
+                mwr_fraction = None
+
+        net_flow = (
+            None
+            if aid in invalid_flow_scopes
+            else _finite_number(sum(cf.amount_base for cf in flows))
+        )
         results.append(
             AccountPerformance(
                 account_id=aid,
