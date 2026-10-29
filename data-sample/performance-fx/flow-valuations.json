@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "scope": "portfolio",
+  "base_currency": "BRL",
+  "rounding_tolerance_base": 0.01,
+  "valuations": [
+    {
+      "timestamp": "2026-07-02T00:00:00Z",
+      "base_currency": "BRL",
+      "pre_flow_value_base": 110,
+      "post_flow_value_base": 160,
+      "source": "manual:synthetic-independent-valuations"
+    }
+  ]
+}

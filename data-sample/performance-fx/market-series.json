@@ -1,0 +1,52 @@
+{
+  "contract_version": "1.0",
+  "series": [
+    {
+      "id": "synthetic-usd-brl",
+      "kind": "fx",
+      "currency": "BRL",
+      "currency_pair": {
+        "base": "USD",
+        "quote": "BRL"
+      },
+      "adjustment": "not_applicable",
+      "coverage": {
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2027-01-01T00:00:00Z"
+      },
+      "license": {
+        "name": "CC0-1.0",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "observations": [
+        {
+          "id": "start",
+          "effective_at": "2026-01-01T00:00:00Z",
+          "retrieved_at": "2026-01-01T00:00:00Z",
+          "source": "manual:synthetic-example",
+          "value": 5,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "mid",
+          "effective_at": "2026-07-02T00:00:00Z",
+          "retrieved_at": "2026-07-02T00:00:00Z",
+          "source": "manual:synthetic-example",
+          "value": 5,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "end",
+          "effective_at": "2027-01-01T00:00:00Z",
+          "retrieved_at": "2027-01-01T00:00:00Z",
+          "source": "manual:synthetic-example",
+          "value": 6,
+          "currency": "BRL",
+          "supersedes": null
+        }
+      ]
+    }
+  ]
+}

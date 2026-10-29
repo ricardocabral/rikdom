@@ -50,6 +50,40 @@ rename daily snapshots as before/after evidence. Check `twr_method` and
 XIRR. Sidecars support portfolio scope only. Missing boundaries, undated FX and
 unresolved transfers remain visibly approximate.
 
+## Replay dated FX for cashflows and benchmarks
+
+Supply an explicit local [historical FX configuration](../reference/historical-fx.md)
+to convert each contribution or withdrawal at its activity date:
+
+```bash
+uv run rikdom performance \
+  --portfolio data-sample/performance-fx/portfolio.json \
+  --snapshots data-sample/performance-fx/snapshots.jsonl \
+  --historical-fx data-sample/performance-fx/historical-fx.json \
+  --flow-valuations data-sample/performance-fx/flow-valuations.json
+```
+
+This synthetic example converts a USD 10 contribution using 5 BRL/USD on the
+activity date: net contributions are BRL 50. Independent flow valuations of
+110 before and 160 after the contribution, with opening 100 and closing 176,
+produce linked TWR of 21%: `(110 / 100) × (176 / 160) − 1`.
+The later 6 BRL/USD observation does not change the earlier contribution.
+
+The command reads local files and does not acquire data or modify the ledger.
+`fx_status` and `fx_evidence` disclose the requested date, selected observation,
+source and corrections. A missing or stale required rate makes affected returns
+and contribution totals unavailable; current FX and activity metadata are never
+substituted in this mode. Without `--historical-fx`, legacy approximation behavior
+continues. Instrument mode already reports native-currency returns and rejects
+this option.
+
+With `--policy` and `--benchmarks-dir`, the same resolver converts benchmark
+bookends before comparison or composite blending. See [benchmark FX rules](../reference/benchmark-fx.md)
+for exact-window, source and return-convention requirements. Price-only or
+unknown-convention series cannot establish comparable excess return. Independent
+snapshot values remain caller-supplied: dated cashflow conversion does not prove
+that snapshot valuations used historical prices or FX.
+
 ## Library use
 
 The CLI is a thin wrapper around pure functions in

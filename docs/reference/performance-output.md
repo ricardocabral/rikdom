@@ -48,8 +48,8 @@ its `twr_method` is `linked_subperiod`, `bookend_ratio`, `modified_dietz`, or
 `twr_fallback_reason` and `warnings[]` disclose missing/inconsistent boundaries,
 skipped or malformed flows, undated FX, and unresolved transfer identities.
 Account and strategic-bucket rows always identify their Dietz method (or
-unavailable), period basis and annualized XIRR basis. Benchmark comparisons
-continue using the legacy `twr_pct` Dietz result.
+unavailable), period basis and annualized XIRR basis. Legacy benchmark
+comparisons use `twr_pct`; historical FX comparisons use the selected return.
 
 `twr_pct`, `twr_return_pct`, `linked_twr_pct`, and `mwr_pct` are percentages (e.g. `10.0` == +10%). MWR is
 annualized (365-day years); short windows therefore extrapolate to a yearly
@@ -150,7 +150,24 @@ Activities with an explicit non-posted `status` (e.g. `pending`, `cancelled`)
 are skipped. A missing or blank `status` is treated as `posted` and included
 — this matches `aggregate`.
 
-## FX handling
+## Historical FX mode
+
+`--historical-fx CONFIG` selects the [local dated FX contract](historical-fx.md).
+Portfolio and account/bucket rows add `fx_status` and `fx_evidence`.
+`fx_status` is `complete`, `unavailable`, or `legacy_approximate`; completeness
+refers to required cashflow conversions, not independent snapshot valuations.
+Missing/stale required historical FX sets affected returns and net contributions
+to `null`, with warnings and retained lookup evidence. Other scopes remain usable
+when their own required data is complete.
+
+In this mode benchmark output also exposes `period_start`, `period_end`,
+`native_currency`, `native_twr_pct`, `return_convention`, `comparison_status`,
+`data_provenance`, and `fx_evidence`. [Benchmark FX rules](benchmark-fx.md)
+define when common-currency excess return is comparable. The selected
+`twr_return_pct` is used for that comparison. Legacy mode continues comparing
+the Dietz field.
+
+## FX handling (legacy mode)
 
 Foreign-currency cashflows are converted to base currency using the same
 fallback chain as `aggregate_portfolio`:
@@ -213,8 +230,8 @@ respectively. Strategic-bucket output requires a policy. A supplied policy can
 also enable benchmark comparisons. Instrument mode uses the activity ledger
 and a terminal valuation instead of snapshot bookends.
 
-> Caveat: the CLI resolves an FX lock at computation time and applies it to
-> historical cashflows. Although schema 1.5.0 supports `Money.fx_ref`
+> Legacy-mode caveat: without `--historical-fx`, the CLI resolves an FX lock
+> at computation time and applies it to historical cashflows. Although schema 1.5.0 supports `Money.fx_ref`
 > provenance, this performance calculation does not use per-cashflow FX rates.
 
 ## See also

@@ -275,3 +275,9 @@ Prints stable JSON with `available`, `missing`, or `stale` status and selected
 observation, source, license, and revision provenance. Missing/stale queries exit
 0; invalid input exits 1. Check status before consuming a value. See the complete
 [contract and offline replay recipes](market-series.md).
+
+### Historical FX for performance
+
+`performance --historical-fx CONFIG` reads [local dated FX](historical-fx.md) for
+external cashflows and [benchmark comparisons](benchmark-fx.md). Missing or stale
+rates make affected metrics unavailable; `--by instrument` is unsupported.

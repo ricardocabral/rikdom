@@ -312,9 +312,11 @@ income, and currency movements; compare a strategy with an appropriate benchmark
 - [ ] Demonstrate linked TWR and XIRR with hand-checkable contributions/withdrawals, internal transfers, and corporate actions; identify Dietz fallback explicitly.
   - Partial delivery (2026-10-29): [explicit flow-boundary valuations](docs/reference/performance-output.md) support portfolio linked TWR, with Dietz compatibility and method/fallback/annualization disclosure. Internal-transfer identity and dated foreign-currency conversion remain open; ordinary snapshots do not establish pre/post-flow evidence.
 - [ ] Reconcile a multi-currency example using dated FX and disclose missing/approximate history in every affected metric.
+  - Partial delivery (2026-10-29): [local historical FX](docs/reference/historical-fx.md) converts dated external cashflows in portfolio/account/bucket performance, retains lookup evidence, and makes affected returns unavailable on missing/stale inputs. A [synthetic offline example](docs/how-to/compute-performance.md#replay-dated-fx-for-cashflows-and-benchmarks) links explicit cashflow-boundary valuations. Reconstructing snapshot valuation FX and full profit/FX attribution remain open.
 - [ ] Reconcile opening value + net contributions + investment result to closing value, with documented rounding and no double-counted income.
 - [ ] Explain realized/unrealized gains with lot/cost-basis evidence; incomplete history cannot produce an apparently complete profit total.
 - [ ] Compare portfolio and foreign/composite benchmarks in a common currency and period, with return convention and data provenance visible.
+  - Partial delivery (2026-10-29): [historical benchmark conversion](docs/reference/benchmark-fx.md) converts local benchmark bookends and every active composite component before blending; comparable excess requires matching dates, source evidence, and total-return convention. Missing components do not silently renormalize a complete-looking composite. Snapshot return conventions and report integration remain caller-dependent/open.
 - [ ] Reproduce the CLI figures in an offline report, including method, annualization, fees/taxes treatment, and data-quality warnings.
 
 ---
