@@ -74,7 +74,8 @@ they are not prerequisites for the free offline workflow.
 - [Performance calculations](src/rikdom/performance.py) already include Modified
   Dietz (an approximation of TWR), XIRR MWR, and account/strategic-bucket breakdowns.
   [Benchmarks](src/rikdom/benchmarks.py) support native-currency and composite series;
-  foreign benchmark conversion into the reporting currency remains a gap.
+  opt-in [dated local FX](docs/reference/benchmark-fx.md) converts foreign benchmark
+  bookends into the reporting currency with explicit comparability checks.
 - [Instrument performance](src/rikdom/instrument_performance.py) already uses dated
   activities and completeness checks. It is not yet a portfolio-wide realized /
   unrealized profit engine or an income calendar.
