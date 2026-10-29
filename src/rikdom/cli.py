@@ -86,6 +86,7 @@ from .performance import (
     external_cashflow_currencies,
     performance_period_bounds,
     parse_flow_valuations,
+    read_flow_valuations,
 )
 from .snapshot import snapshot_from_aggregate
 from .storage import append_jsonl, load_json, load_jsonl, save_json
@@ -630,7 +631,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
     flow_evidence = None
     if evidence_path:
         try:
-            flow_evidence = load_json(evidence_path)
+            flow_evidence = read_flow_valuations(evidence_path)
             parse_flow_valuations(flow_evidence, base_currency)
         except (OSError, ValueError) as exc:
             print(f"--flow-valuations: {exc}", file=sys.stderr)

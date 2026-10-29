@@ -4,6 +4,7 @@ import contextlib
 import copy
 import io
 import json
+from dataclasses import asdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -240,6 +241,93 @@ class LinkedTWRTests(unittest.TestCase):
         result = self.compute([], evidence(), [])
         self.assertEqual(result.twr_method, "unavailable")
 
+    def test_malformed_transfer_dates_warn_without_crashing(self):
+        for when in (None, 123, {}, []):
+            with self.subTest(when=when):
+                result = self.compute([flow(when=when, kind="transfer_in")])
+                self.assertIn(result.twr_method, ("modified_dietz", "unavailable"))
+                self.assertTrue(
+                    any("effective_at" in warning for warning in result.warnings)
+                )
+                self.assertIsNone(result.linked_twr_pct)
+
+    def test_transfer_spelling_does_not_bypass_unresolved_identity(self):
+        for kind in (
+            "transfer_in",
+            "TRANSFER_IN",
+            " TRANSFER_IN ",
+            "transfer_out",
+            " TRANSFER_OUT ",
+        ):
+            with self.subTest(kind=kind):
+                is_in = kind.strip().lower() == "transfer_in"
+                result = self.compute(
+                    [flow(kind=kind)],
+                    evidence(110, 160 if is_in else 60),
+                    snapshots(end=176 if is_in else 66),
+                )
+                self.assertEqual(result.twr_method, "modified_dietz")
+                self.assertIn("transfer", result.twr_fallback_reason.lower())
+                self.assertIsNone(result.linked_twr_pct)
+
+    def test_out_of_float_range_numbers_are_handled_at_input_boundaries(self):
+        huge = 10**400
+        for field in (
+            "rounding_tolerance_base",
+            "pre_flow_value_base",
+            "post_flow_value_base",
+        ):
+            doc = evidence()
+            if field == "rounding_tolerance_base":
+                doc[field] = huge
+            else:
+                doc["valuations"][0][field] = huge
+            with (
+                self.subTest(field=field),
+                self.assertRaisesRegex(ValueError, "flow-valuations"),
+            ):
+                self.compute(sidecar=doc)
+        with self.subTest(boundary="snapshot"):
+            result = self.compute([], snaps=snapshots(end=huge))
+            self.assertEqual(result.twr_method, "unavailable")
+        with self.subTest(boundary="flow"):
+            result = self.compute([flow(huge)], evidence())
+            self.assertEqual(result.twr_method, "unavailable")
+        for kwargs in ({"fx_rates_to_base": {"USD": huge}}, {}):
+            activity = flow(currency="USD")
+            activity["metadata"] = {"fx_rate_to_base": huge}
+            with self.subTest(kwargs=kwargs):
+                result = self.compute([activity], evidence(), **kwargs)
+                self.assertIn(result.twr_method, ("modified_dietz", "unavailable"))
+                self.assertTrue(result.warnings)
+        from rikdom.performance import external_cashflow_currencies
+
+        self.assertEqual(
+            external_cashflow_currencies([flow(huge, currency="USD")], "BRL"), []
+        )
+
+    def test_nonrepresentable_return_arithmetic_and_percent_are_unavailable(self):
+        cases = [
+            ([], None, snapshots(1e-300, 1e300)),
+            ([], None, snapshots(1, 1e307)),
+            ([flow(0)], evidence(1e307, 1e307), snapshots(1, 1e307)),
+        ]
+        for acts, sidecar, snaps in cases:
+            with self.subTest(acts=acts, snaps=snaps):
+                result = self.compute(acts, sidecar, snaps)
+                self.assertEqual(result.twr_method, "unavailable")
+                self.assertIsNone(result.twr_return_pct)
+                self.assertIsNone(result.linked_twr_pct)
+                self.assertTrue(result.twr_fallback_reason)
+                json.dumps(asdict(result), allow_nan=False)
+
+    def test_aggregate_flow_overflow_is_unavailable_and_serializable(self):
+        result = self.compute([flow(1e308), dict(flow(1e308), id="second")])
+        self.assertEqual(result.twr_method, "unavailable")
+        self.assertIsNone(result.twr_return_pct)
+        self.assertIsNone(result.net_external_cashflow_base)
+        json.dumps(asdict(result), allow_nan=False)
+
     def test_strict_versioned_sidecar_validation(self):
         cases = []
         for key, value in [
@@ -324,3 +412,48 @@ class LinkedTWRCLITests(unittest.TestCase):
                 rc = main(args)
             self.assertEqual(rc, 1)
             self.assertIn("flow-valuations", error.getvalue())
+
+    def test_cli_rejects_ambiguous_or_out_of_range_flow_evidence(self):
+        from rikdom.cli import main
+
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            portfolio = json.loads(Path("data-sample/portfolio.json").read_text())
+            portfolio["activities"] = [flow()]
+            (root / "portfolio.json").write_text(json.dumps(portfolio))
+            (root / "snapshots.jsonl").write_text(
+                "\n".join(json.dumps(row) for row in snapshots()) + "\n"
+            )
+            args = [
+                "performance",
+                "--portfolio",
+                str(root / "portfolio.json"),
+                "--snapshots",
+                str(root / "snapshots.jsonl"),
+                "--flow-valuations",
+                str(root / "evidence.json"),
+            ]
+            original = json.dumps(evidence())
+            payloads = [
+                original.replace(
+                    '"pre_flow_value_base": 110',
+                    '"pre_flow_value_base": 999, "pre_flow_value_base": 110',
+                ),
+                original.replace('"version": 1', '"version": 2, "version": 1'),
+                original.replace(
+                    '"rounding_tolerance_base": 0.01',
+                    '"rounding_tolerance_base": ' + str(10**400),
+                ),
+            ]
+            for payload in payloads:
+                with self.subTest(payload=payload):
+                    (root / "evidence.json").write_text(payload)
+                    out, error = io.StringIO(), io.StringIO()
+                    with (
+                        contextlib.redirect_stdout(out),
+                        contextlib.redirect_stderr(error),
+                    ):
+                        rc = main(args)
+                    self.assertEqual(rc, 1)
+                    self.assertEqual(out.getvalue(), "")
+                    self.assertIn("flow-valuations", error.getvalue())
