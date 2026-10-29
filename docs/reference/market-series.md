@@ -3,8 +3,9 @@
 `rikdom market-series` reads one user-supplied JSON file and prints a historical
 price or FX lookup as stable JSON. It uses no network, keys, account, current
 clock, portfolio, or ledger. It never writes files. This bounded file/manual
-fallback is groundwork for Phase 5: it does not add enrichment hooks, modify the
-portfolio schema or plugin API, or feed existing valuation/performance code.
+fallback also supplies the [normalized enrichment hook](enrichment.md) and
+[explicit historical valuation replay](historical-valuation.md). The replay
+command itself does not modify the portfolio schema or canonical files.
 Existing connectors return provider-native JSON; convert it explicitly to this
 contract before replay. Local plugins remain trusted in-process Python.
 

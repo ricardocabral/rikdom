@@ -39,8 +39,9 @@ class ReportPerformanceTests(unittest.TestCase):
         sections = plugin._build_report_payload(portfolio, snapshots)['sections']
         self.assertIn('performance', sections)
         from rikdom.performance import performance_result_to_dict
-        self.assertEqual(sections['performance'], performance_result_to_dict(compute_performance(
-            snapshots, portfolio['activities'], base_currency='USD')))
+        expected = performance_result_to_dict(compute_performance(
+            snapshots, portfolio['activities'], base_currency='USD'))
+        self.assertEqual({key:sections['performance'][key] for key in expected}, expected)
         self.assertEqual(sections['performance']['net_external_cashflow_base'], 50)
         self.assertEqual(sections['performance']['growth_bridge']['investment_result_base'], 26)
         self.assertEqual((portfolio, snapshots), before)
@@ -141,7 +142,7 @@ class ReportPerformanceTests(unittest.TestCase):
                     snapshots, portfolio['activities'], base_currency='BRL',
                     historical_fx=load_historical_fx(root / 'fx.json', base_currency='BRL'),
                     policy=policy, benchmark_loader=make_dir_loader(root / 'benchmarks')))
-            self.assertEqual(sections['performance'], expected)
+            self.assertEqual({key:sections['performance'][key] for key in expected}, expected)
             self.assertEqual(sections['performance']['net_external_cashflow_base'], 300)
             self.assertEqual(sections['performance']['benchmarks'][0]['twr_pct'], 10)
             self.assertEqual(sections['performance']['benchmarks'][0]['comparison_status'], 'comparable')

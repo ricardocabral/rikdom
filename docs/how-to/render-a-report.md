@@ -94,3 +94,12 @@ flow-valuation, historical FX, policy and benchmark inputs through
 Use the same files and window as the CLI to reproduce its figures. Interactive
 date or dimension filters make unsupported performance unavailable until reset;
 they do not relabel the full-portfolio calculation as a filtered return.
+
+
+## Show profit and historical valuation evidence
+
+Pass `--historical-fx`, `--flow-valuations`, `--historical-valuations`,
+`--profit-basis`, `--policy`, `--benchmarks-dir`, `--since`, and `--until` to
+`viz` as needed. The full and fallback pages display the same core return and
+profit contracts as the CLI. See [reproduce historical valuations and profit](replay-performance-data.md)
+for working local examples and supported scope/date behavior.

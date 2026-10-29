@@ -1,0 +1,22 @@
+{
+  "hook": "enrichment",
+  "request": {
+    "contract_version": "1.0",
+    "source": {
+      "path": "input.json"
+    },
+    "lookups": [
+      {
+        "series_id": "br-price",
+        "as_of": "2026-01-02T00:00:00Z",
+        "max_age_seconds": 0
+      },
+      {
+        "series_id": "br-price",
+        "as_of": "2026-01-02T00:00:00Z",
+        "max_age_seconds": 0,
+        "retrieved_before": "2026-01-02T00:00:00Z"
+      }
+    ]
+  }
+}

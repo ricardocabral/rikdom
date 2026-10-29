@@ -161,7 +161,7 @@
     const bridge = p.growth_bridge;
     let growth = '';
     if (bridge) {
-      growth = `<h3>${text(label('Growth bridge','Conciliação do crescimento'))}</h3><p>${text(label('Residual investment result; realized/unrealized gains and FX attribution are not separately calculated.', 'Resultado residual dos investimentos; ganhos realizados/não realizados e efeitos cambiais não são calculados separadamente.'))}</p>`;
+      growth = `<h3>${text(label('Growth bridge','Conciliação do crescimento'))}</h3><p>${text(label('Residual investment result; reviewed lot decomposition is disclosed separately when supported.', 'Resultado residual dos investimentos; a decomposição revisada por lotes é apresentada separadamente quando suportada.'))}</p>`;
       if (bridge.status === 'complete') {
         const bridgeLabels = {
           opening_value_base:label('Opening value','Valor inicial'), net_external_cashflow_base:label('Net external cashflow','Fluxo externo líquido'),
@@ -171,12 +171,26 @@
       } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(bridge.reasons || []).map(reason => `<li>${text(reason)}</li>`).join('')}</ul>`;
     }
     const benchmarkRows = (p.benchmarks || []).map(row => [raw(row.label || row.benchmark_id), text(row.currency), text(percent(row.twr_pct)), text(percent(row.excess_pct)), raw(row.comparison_status), raw(row.return_convention), text(`${sourceDateTime(row.period_start)} – ${sourceDateTime(row.period_end)}`)]);
+    const attribution = p.profit_attribution, decomposition = attribution?.decomposition;
+    if (decomposition) {
+      growth += `<h3>${text(label('Reviewed FIFO profit decomposition','Decomposição de lucro FIFO revisada'))}</h3>`;
+      if (decomposition.status === 'complete') {
+        const components = {
+          realized_gain_base:label('Realized gain','Ganho realizado'),
+          unrealized_change_base:label('Unrealized gain change','Variação do ganho não realizado'),
+          net_income_base:label('Net income','Rendimentos líquidos'),
+          standalone_fees_base:label('Separate fees','Taxas separadas'),
+          standalone_taxes_base:label('Separate taxes','Impostos separados'),
+        };
+        growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(components).map(([key,name]) => [text(name),text(money(decomposition[key], p.base_currency))]));
+      } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(attribution.diagnostics || []).map(note => `<li>${text(typeof note === 'string' ? note : JSON.stringify(note))}</li>`).join('')}</ul>`;
+    }
     const benchmarks = benchmarkRows.length ? `<h3>${text(label('Benchmarks','Referências'))}</h3>${table([label('Benchmark','Referência'),label('Currency','Moeda'),label('Return','Retorno'),label('Excess','Excesso'),label('Comparability','Comparabilidade'),label('Return convention','Convenção de retorno'),label('Actual window','Período efetivo')], benchmarkRows)}` : `<p>${text(label('Benchmark comparison unavailable: no benchmark result supplied.', 'Comparação com referência indisponível: nenhum resultado fornecido.'))}</p>`;
     return `<section class="report-panel" id="performance-view">${title}
       <p>${text(label('All portfolio · Actual snapshot window','Carteira completa · Período efetivo das avaliações'))}: ${text(sourceDateTime(p.period_start))} – ${text(sourceDateTime(p.period_end))} · ${text(p.base_currency)}</p>
       ${table([label('Metric','Métrica'),label('Return','Retorno'),label('Method','Método'),label('Basis','Base')], rows)}
       ${p.twr_fallback_reason ? `<p>${text(label('Fallback reason','Motivo da aproximação'))}: ${raw(p.twr_fallback_reason)}</p>` : ''}
-      <p>${text(label('Fees and taxes are embedded in snapshot values; not separately calculated. Income is embedded in valuations and is not added again.', 'Taxas e impostos estão incorporados nas avaliações; sem cálculo separado. Os rendimentos estão incorporados nas avaliações e não são somados novamente.'))}</p>
+      <p>${text(label('Fees, taxes and income are embedded in supplied valuations. Supported reviewed FIFO evidence can explain their components; income is never added twice.', 'Taxas, impostos e rendimentos estão incorporados nas avaliações fornecidas. A evidência FIFO revisada pode explicar seus componentes; rendimentos nunca são somados duas vezes.'))}</p>
       <p>${text(label('Cashflow FX status','Situação cambial dos fluxos'))}: ${raw(p.fx_status)}</p>
       ${growth}${benchmarks}${auditWarnings}
       <details><summary>${text(label('Calculation inputs and provenance (raw source text)','Dados de cálculo e proveniência (texto original da fonte)'))}</summary><pre data-source-text>${text(JSON.stringify({context, performance:p}, null, 2))}</pre></details></section>`;

@@ -320,3 +320,26 @@ and a terminal valuation instead of snapshot bookends.
 
 - [Compute portfolio TWR / MWR](../how-to/compute-performance.md)
 - [Performance methodology](../explanation/performance-methodology.md)
+
+## Historical valuation and profit evidence
+
+`--historical-valuations CONFIG` opts into [explicit historical position replay](historical-valuation.md).
+The command uses the replay's snapshots in place of recorded snapshots and adds
+`valuation_replay` (full evidence) and `valuation_status` (`complete` or
+`unavailable`). Any unavailable requested valuation blocks the entire replay;
+returns, opening/closing values and contributions are null, without recorded
+snapshot fallback. Without replay, `valuation_status` is `recorded_unverified`;
+complete cashflow FX does not independently verify valuation FX.
+
+`profit_attribution` contains a period bridge and independently gated reviewed
+FIFO decomposition. `--profit-basis JSON` supplies the optional evidence;
+missing basis leaves decomposition unavailable. See [profit attribution](profit-attribution.md)
+for fields, cost conventions, coverage gates and supported instruments. The
+bridge is a residual, not a second source of realized gains or proof of complete
+real-world history.
+
+`treatment` describes income, fees/taxes, FX assurance and return conventions.
+CLI and offline report use the same serializer and calculation results. In
+reports, `sections.performance` retains that JSON contract, including benchmark
+provenance and warnings. Current holdings are not used as historical cost or
+quantity evidence; browser filters never perform new return calculations.

@@ -40,11 +40,28 @@ Most commands accept these workspace flags:
 
 | Command                                                                         | Make shortcut       | Purpose                                                                                         |
 | ------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| `rikdom performance --since <date> --until <date>`                              | `make performance`  | Modified-Dietz TWR + XIRR MWR over the window. See [performance output](performance-output.md). |
+| `rikdom performance --since <date> --until <date>`                              | `make performance`  | Linked TWR or disclosed Dietz fallback + XIRR MWR over the window. See [performance output](performance-output.md). |
 | `rikdom funded-ratio --portfolio data/portfolio.json --policy data/policy.json` | `make funded-ratio` | Deterministic funded-ratio projections for policy objectives.                                   |
 
 Defaults: `--since` falls back to the earliest snapshot, `--until` to the
 most recent.
+
+Optional portfolio calculation inputs, also accepted by `viz`:
+
+| Flag | Meaning |
+| --- | --- |
+| `--historical-valuations CONFIG` | Replace recorded calculation snapshots with explicit full-position price/FX replay; no partial-total fallback. |
+| `--historical-fx CONFIG` | Convert external cashflows and benchmarks with dated local FX. |
+| `--flow-valuations JSON` | Explicit pre/post external cashflow valuations for linked TWR. |
+| `--profit-basis JSON` | Reviewed FIFO opening lots, period history and bookend position/cash evidence. |
+| `--policy JSON`, `--benchmarks-dir DIR` | Resolve selected policy benchmarks using local series. |
+
+`--historical-valuations` and `--profit-basis` require `--by portfolio`.
+`--flow-valuations` also supports portfolio scope only. Missing price/FX data
+produces explicit unavailable JSON (exit 0) in `performance`; malformed sidecars
+produce a stderr diagnostic (exit 1). In `viz`, invalid calculation inputs make
+the performance section unavailable while retaining other report sections. Invalid/incomplete reviewed cost evidence produces
+an unavailable decomposition with diagnostics. See [offline replay and profit](../how-to/replay-performance-data.md).
 
 `funded-ratio` uses the current portfolio aggregate, `policy.objectives[]`,
 `cashflow_policy.contributions[]`, retirement spending assumptions, and real
@@ -141,6 +158,10 @@ See [summarize income](../how-to/summarize-income.md) for usage and import limit
 
 `visualize` and `render-report` (and their make targets) are deprecated
 compatibility aliases for `viz`. Use `--plugin` to select an output plugin.
+Explicit `viz --benchmarks-dir` overrides an embedded policy's benchmark directory;
+without that flag, its configured directory remains in use. Built-in report
+output paths must not alias selected inputs or their local cache dependencies,
+including inside the generated Quarto asset trees.
 
 ## Plugins
 
@@ -152,6 +173,20 @@ compatibility aliases for `viz`. Use `--plugin` to select an output plugin.
 | `rikdom import-statement --plugin <name> --input <file> --write`    | `make import-sample` | Import a statement and write to `data/portfolio.json`.                                                          |
 | `rikdom viz --plugin quarto-portfolio-report`                       | `make viz`           | Render reports through an `output` plugin.                                                                     |
 | `rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins` | `make storage-sync`  | Mirror canonical state to a `state/storage` backend.                                                            |
+
+## Normalized local enrichment
+
+`rikdom enrichment --plugin local-market-series --request request.json` reads a
+strict version 1.0 request and prints normalized data plus host-selected lookup
+evidence. `--plugins-dir` defaults to `plugins`. It accepts no workspace flags,
+loads no portfolio and writes no canonical files. Missing/stale lookups are
+successful JSON results; malformed requests, invalid provider data or loading
+errors exit 1 with stderr; argument errors exit 2.
+
+`rikdom plugin init NAME --type enrichment --dest plugins` scaffolds an
+executable API 1.2 local provider and its tests/contract fixtures. The default
+`--type source/input` preserves the existing importer scaffold. See the
+[enrichment contract](enrichment.md).
 
 ## External data connectors
 

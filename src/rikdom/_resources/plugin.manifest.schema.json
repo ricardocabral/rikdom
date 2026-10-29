@@ -17,10 +17,41 @@
     {
       "if": {
         "properties": {
-          "plugin_types": {"contains": {"const": "external/connector"}}
+          "plugin_types": {
+            "contains": {
+              "const": "external/connector"
+            }
+          }
         }
       },
-      "then": {"properties": {"api_version": {"const": "1.1"}}}
+      "then": {
+        "properties": {
+          "api_version": {
+            "enum": [
+              "1.1",
+              "1.2"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "plugin_types": {
+            "contains": {
+              "const": "enrichment"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "api_version": {
+            "const": "1.2"
+          }
+        }
+      }
     }
   ],
   "properties": {
@@ -36,7 +67,11 @@
     },
     "api_version": {
       "type": "string",
-      "enum": ["1.0", "1.1"],
+      "enum": [
+        "1.0",
+        "1.1",
+        "1.2"
+      ],
       "description": "Rikdom plugin API contract version that this plugin targets."
     },
     "plugin_types": {
