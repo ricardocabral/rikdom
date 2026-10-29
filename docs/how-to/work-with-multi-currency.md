@@ -12,17 +12,25 @@ fields written into each snapshot row, see
 uv run rikdom snapshot --portfolio data/portfolio.json --snapshots data/snapshots.jsonl
 ```
 
-This auto-fetches missing FX rates, appends them to `data/fx_rates.jsonl`,
-and writes a row with a deterministic `metadata.fx_lock`.
+By default, this reads local `data/fx_rates.jsonl` and writes a row with
+`metadata.fx_lock`. It makes no provider request. Missing rates can use a
+legacy per-holding fallback; otherwise affected values are excluded with
+warnings. Add `--strict-quality` to reject valuation quality errors before
+appending a snapshot.
 
-## Disable automatic FX ingestion
+## Explicitly acquire missing FX rates
 
-History-only mode — useful when you want imports to fail fast instead of
-quietly fetching:
+Select an installed connector that implements `daily-rates`, for example:
 
 ```bash
-uv run rikdom snapshot --no-fx-auto-ingest
+uv run rikdom snapshot --fx-provider frankfurter --plugins-dir plugins
 ```
+
+This appends acquired rates to `data/fx_rates.jsonl` before valuation. See
+the [Frankfurter plugin](../../plugins/frankfurter/README.md) for supported
+currencies and provider configuration. `--no-fx-auto-ingest` disables
+acquisition even when `--fx-provider` is supplied; it does not itself make
+missing FX fatal.
 
 ## Use a custom FX history file
 

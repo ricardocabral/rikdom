@@ -1,187 +1,72 @@
 # Cross-Importer Deduplication
 
-This page explains how `rikdom` deduplicates holdings, why importers from
-different sources can produce duplicate rows for the same underlying
-asset, and the options available today for collapsing them.
+Different statement importers can describe the same position with different
+holding IDs. Rikdom preserves those source identities by default. Optional
+canonical-key matching can refresh an existing position when the source
+provides enough identity evidence.
 
-## How merge works today
+## Default identity matching
 
-`src/rikdom/plugins.py:merge_holdings` keys off the holding's top-level
-`id`:
+`merge_holdings` in `src/rikdom/plugins.py` first matches the holding's `id`:
 
-- existing id, identical content → **skipped**
-- existing id, different content → **updated** (replaces in place,
-  provenance preserved)
-- new id → **inserted**
+- An existing ID with unchanged content is skipped.
+- Changed, asserted source fields update the existing holding while preserving
+  fields absent from the import. An older dated position does not replace a
+  newer dated position.
+- A new ID is inserted.
 
-There is no fuzzy match on ticker, ISIN, CNPJ, label, or asset_type_id.
-Every importer is responsible for minting its own holding ids.
+The same ticker can therefore appear under separate source IDs. Core does
+not infer identity from tickers, ISINs, labels, asset types, or jurisdictions.
+A repeated source import can be idempotent without establishing that its
+holdings match those from another provider.
 
-## Why duplicates happen across importers
+## Optional matching across source IDs
 
-Each importer chooses its own id namespace. A few examples shipped in
-this repo:
+`import-statement --collapse-canonical` enables an additional match when the
+incoming ID is new. A collapse requires all of the following:
 
-| Importer                | Sample id                                       | Stable across                                   | Notes                          |
-| ----------------------- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------ |
-| `csv-generic`           | `new-aapl` (user-supplied)                      | whatever the user chooses                       | the CSV is the source of truth |
-| `charles-schwab`        | `schwab:abcd-1234:pos:vti`                      | account + ticker                                | brokerage-account scoped       |
-| `b3-consolidado-mensal` | `b3:btg-pactual:12345:posi-o-a-es:brpetracnpr6` | broker + account + ISIN                         | broker-account scoped          |
-| `irpf-xml`              | `irpf-0301-tk-bbdc4`                            | year-agnostic, ticker / CNPJ / bank-acct / hash | declaration-scoped             |
+- Both holdings carry the same explicit `metadata.canonical_key`.
+- Both carry the same nonempty `account_id`.
+- Exactly one existing holding matches that key and account.
 
-These id schemes do not collide with each other (the namespace prefix
-keeps them apart), and that is deliberate: each importer can re-run
-idempotently against its own historical output.
+Source plugins own canonical-key construction. Core reads the key as opaque
+text through `holding_canonical_key` in `src/rikdom/canonical_key.py`; it does
+not generate keys or interpret regional identifiers. A key alone identifies
+an instrument, not an account-scoped position. Missing account evidence,
+missing keys, and ambiguous candidates leave the incoming holding separate.
 
-But the same underlying asset — say, BBDC4 held at the BTG account that
-shows up in _both_ a B3 monthly export _and_ an IRPF declaration — will
-land in `portfolio.json` twice, once with id
-`b3:btg-pactual:12345:posi-o-a-es:brbbdcacnpr8` and once with
-`irpf-0301-tk-bbdc4`. The merge pass has no way to know they are the
-same thing.
+On a collapse, the existing holding ID is preserved so its references remain
+stable. Asserted fields refresh the position and `metadata.collapsed_from`
+records the incoming source ID. The import log's `holdings.collapses` records
+`canonical_key`, `from_id`, and `into_id`. This is an import-time fallback,
+not a pass that merges duplicate rows already stored in the portfolio.
 
-## What is wired in today
+`provenance.idempotency_key` remains source-scoped provenance; it does not
+replace the key-and-account rule for holding collapse.
 
-`rikdom` ships **option A with a C-style merge fallback**, opt-in:
+## Preview a proposed collapse
 
-1. Every imported holding gets a `metadata.canonical_key` (e.g.
-   `br:acao:bbdc4`, `us:stock:vti`, `cash:brl`). The key is derived
-   centrally in `src/rikdom/canonical_key.py:assign_canonical_keys` from
-   `(asset_type_id, identifiers, jurisdiction)`, so importers do not
-   need to be modified one by one. An importer can still override by
-   emitting its own `metadata.canonical_key`.
-2. `merge_holdings` accepts `collapse_canonical=True`. When set, an
-   incoming holding whose `id` does not match anything existing falls
-   back to a canonical-key lookup; if a match is found, the existing
-   slot is updated in place (the existing id is preserved so external
-   refs do not break) and the import run records a `collapsed_from` list
-   in `metadata`.
-3. The CLI exposes this via `import-statement --collapse-canonical`. The
-   default behavior is unchanged: without the flag, ids are still the
-   only dedup key and importer outputs do not collide silently.
-4. Dry runs surface the decisions: each row in `dry_run_diff.rows` that
-   collapses includes `collapsed_canonical_key` and `collapsed_into_id`,
-   and the merge log records a `collapses` list under `holdings`.
-
-Holdings without a derivable canonical key (free-text labels, opaque
-positions like `tesouro_direto` rows that lack a stable identifier) are
-left untouched and continue to dedup by id only.
-
-## Options considered
-
-The five options below trade off blast radius, manual effort, and
-historical compatibility differently.
-
-### A. Canonical-key metadata + downstream collapse pass
-
-Every importer additionally writes a stable `metadata.canonical_key`
-(e.g. `br:acao:bbdc4`, `br:fund:30934757000113`, `us:stock:vti`). A new
-post-merge pass collapses holdings that share a canonical key, picking
-the most recent / most authoritative source.
-
-- **Pros:** importers stay independent; collapse is a separate, auditable
-  step; preserves per-source provenance until the user chooses to
-  collapse.
-- **Cons:** every importer needs to be updated to emit the field;
-  collapse policy ("which source wins?") is non-trivial.
-- **Effort:** medium. New CLI subcommand or `transform`-phase plugin.
-
-### B. Reconciliation phase that proposes merges
-
-Extend `src/rikdom/reconciliation/` to detect probable duplicates
-(matching ticker, ISIN, fund CNPJ, etc.) and emit findings rather than
-silently merging. The user reviews and approves merges via a new CLI
-flow.
-
-- **Pros:** safe by default (no silent data changes); fits the existing
-  reconciliation surface; can surface near-duplicates that a strict
-  canonical key would miss.
-- **Cons:** interactive — slows down repeat imports; needs a user
-  experience for approving / rejecting merges.
-- **Effort:** medium-high.
-
-### C. Provenance-based dedup via `idempotency_key`
-
-The `plugin-statement` schema already defines
-`provenance.idempotency_key` on holdings. Make every importer set it to
-a canonical fingerprint (e.g. `br_acao_bbdc4`). Extend `merge_holdings`
-so that, when two holdings share an `idempotency_key`, the second
-**updates** the first instead of inserting alongside it.
-
-- **Pros:** a small, well-scoped change to the merge logic; reuses
-  existing schema; backward-compatible with portfolios that have no
-  `idempotency_key` set.
-- **Cons:** requires every importer to opt in; "update wins" semantics
-  drop the older row's source attribution.
-- **Effort:** low (engine) + medium (per-importer rollout).
-
-### D. Shared `rikdom.identifiers` helper for canonical ids
-
-Ship a helper that mints canonical ids like `br_acao_bbdc4`,
-`br_fund_30934757000113`, `us_stock_vti`, and migrate every importer to
-use it as the holding's primary `id`. One-shot migration: rewrite
-existing portfolios via a new `migrate` step.
-
-- **Pros:** simplest possible model — no second key, no canonical pass;
-  ids are self-describing.
-- **Cons:** breaking change for existing data; loses per-source
-  scoping (e.g. you can no longer separately track "VTI at Schwab" vs.
-  "VTI at IBKR"); requires a migration.
-- **Effort:** high (migration risk, downstream rewrites).
-
-### E. User-curated alias map
-
-Add `data/holding_aliases.json` mapping importer-specific ids to a
-canonical id chosen by the user. A post-import pass collapses holdings
-according to the map.
-
-- **Pros:** zero magic, fully explicit, trivial to audit; works around
-  any tricky case (e.g. holdings that _shouldn't_ collapse despite
-  matching tickers, like separately-tracked tax lots).
-- **Cons:** entirely manual; no help for users with hundreds of
-  positions.
-- **Effort:** low.
-
-## Why A plus a C-style merge fallback
-
-The shipped path preserves importer autonomy (each one keeps its own id
-namespace), doesn't force a destructive migration, and lets users keep
-separately-scoped views (e.g. holdings per brokerage account) when that
-is what they want — `--collapse-canonical` is opt-in per import, and
-holdings without a canonical key are unaffected.
-
-The fallback is based on `metadata.canonical_key`, not
-`provenance.idempotency_key`: the latter stays importer-scoped for
-repeatability of individual sources.
-
-Option E (user-curated alias map) remains a sensible follow-up for the
-long tail of cases that need manual override (e.g. holdings that
-_shouldn't_ collapse despite matching tickers).
-
-## Recipe: collapsing a B3 holding into an IRPF import
+Use the selected importer's supported input file:
 
 ```bash
 uv run rikdom import-statement \
   --portfolio data/portfolio.json \
-  --plugin irpf-xml \
-  --input ~/Downloads/IRPF-A-2025.xml \
-  --plugins-dir plugins \
-  --collapse-canonical \
-  --dry-run
+  --plugin '<importer>' --input '<statement-file>' \
+  --plugins-dir plugins --collapse-canonical --dry-run
 ```
 
-Look for `dry_run_diff.rows[*].collapsed_canonical_key` in the output to
-confirm the proposed merges before re-running with `--write`.
+Replace the placeholders. Inspect `dry_run_diff.rows` for
+`collapsed_canonical_key` and `collapsed_into_id` on proposed updates, and
+check the matching account and source valuation date. A B3 or IRPF import
+will not collapse merely because the ticker matches; both sources must
+explicitly establish the same key and account.
 
-## Fallback workarounds
+Replace `--dry-run` with `--write` after reviewing the proposed changes.
+See [import a statement](../how-to/import-a-statement.md) for the full workflow.
 
-If you don't want to opt in to `--collapse-canonical`, two pragmatic
-patterns still work:
+## When identity evidence is incomplete
 
-- **Pick one importer per asset class** — e.g., use `b3-consolidado-mensal`
-  as the ongoing source for B3-listed positions and treat `irpf-xml`
-  purely as a year-end audit / bootstrap, not a recurring source.
-- **Inspect the dry-run before writing.** `import-statement --dry-run`
-  prints the proposed merge plan with `inserted` / `updated` / `skipped`
-  counts; if you see unexpected `inserted` rows for assets you already
-  have, halt and decide before writing.
+Use one ongoing source per position and treat other statements as audit
+inputs until you can establish shared identity. Inspect previews for unexpected
+new holdings before writing. A user-curated alias map or an interactive merge
+review could address more cases, but neither is implemented today.

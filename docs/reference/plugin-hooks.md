@@ -65,12 +65,20 @@ plugin type.
 Consumed by `run_import_pipeline` and `cmd_import_statement` (see
 `src/rikdom/cli.py` and `plugins/csv-generic/` for the richest reference):
 
+`provider` and `generated_at` are required, along with at least one of
+`holdings`, `activities`, `tax_lots`, or `statement_observations`.
+
 - `provider` (string): default `source_system` for the import log.
 - `generated_at` (ISO-8601 string): statement generation timestamp.
-- `holdings` (list of dicts): each requires `id`, `asset_type_id`, `label`,
+- `holdings` (optional list of dicts): each requires `id`, `asset_type_id`, `label`,
   `market_value.amount`, `market_value.currency`; optional `quantity`,
   `identifiers`, `metadata`.
 - `activities` (optional list): ledger events if the source exposes them.
+- `tax_lots` (optional list): source-supported lots and cost-basis evidence.
+- `statement_observations` (optional list): reported source observations,
+  independent of transactions and current holdings.
+
+See [schemas](schemas.md) for the payload contract.
 
 ### Connector hooks
 

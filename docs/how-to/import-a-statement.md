@@ -64,12 +64,14 @@ Behavior:
 
 - `data/portfolio.json` is updated using atomic write (see
   [storage durability](../explanation/storage-durability.md)).
-- One row is appended to `data/import_log.jsonl` with the `source_system`,
-  `source_ref`, `import_run_id`, and `idempotency_key` for the run.
-- Repeats deduplicate holdings and activities using their stable identity and
-  idempotency evidence. Re-run the same command and inspect `dry_run_diff` and
-  inserted/updated/skipped counts. Unchanged records are skipped, while a written
-  run still appends an audit-log entry; the whole command is not a filesystem no-op.
+- One row is appended to `data/import_log.jsonl` with `source_system`,
+  `plugin`, `input`, `import_run_id`, `ingested_at`, merge counts,
+  diagnostics, and reconciliation results. Entity-level provenance carries
+  source references and idempotency keys; these are not run-log fields.
+- Stable entity identities prevent duplicate rows on repeat imports;
+  unchanged content is skipped and changed source facts can update existing
+  rows. Each successful `--write` run still saves the portfolio and records
+  an import-log entry, even when no entities change.
 
 ## Validate the result
 

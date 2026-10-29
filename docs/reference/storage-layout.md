@@ -8,18 +8,21 @@ directory (default `data/`). For the durability rules, see
 
 | File | Kind | Written by | Purpose |
 | --- | --- | --- | --- |
-| `data/portfolio.json` | Whole doc | `import-statement --write`, `migrate` | Current portfolio truth. |
+| `data/portfolio.json` | Whole doc | `import-statement --write`, `activity correct --write`, `migrate` | Current portfolio truth. |
 | `data/snapshots.jsonl` | Append-only JSONL | `snapshot` | Historical aggregated values. |
-| `data/import_log.jsonl` | Append-only JSONL | `import-statement` | Import audit trail. |
-| `data/fx_rates.jsonl` | Append-only JSONL | `snapshot` (auto-ingest), manual edits | FX history used at snapshot time. |
+| `data/import_log.jsonl` | Append-only JSONL | Successful import/correction writes | Import audit trail. |
+| `data/fx_rates.jsonl` | Append-only JSONL | `snapshot --fx-provider <plugin>`, manual edits | FX history used at snapshot time. |
 | `data/policy.json` | Whole doc | `migrate-policy`, manual edits | Investment Policy Statement (optional). |
 | `data/income-plan.json` (example path) | Whole doc | User-supplied local file | Optional announcements, estimates, reviewed payment links and declared cost evidence; pass the chosen path with `income --income-plan`. |
 | `data/portfolio_registry.json` | Whole doc | `workspace init` | Multi-portfolio registry (optional). |
 | `data/portfolios/<name>/` | Directory | Workspace mode | Per-portfolio isolated data files. |
 
-Files marked optional are absent from a fresh bootstrap; commands create them on first use.
+`make bootstrap` copies the sample policy as well as the portfolio, snapshots,
+FX history, and benchmarks. A custom policy can be authored manually or with the
+`define-policy` skill; `migrate-policy` upgrades an existing file. The registry
+is created explicitly by `workspace init`.
 
-Income plan files are an exception to automatic creation: their path and contents
+Income plan files are not created automatically: their path and contents
 are supplied explicitly, and `income` never creates or updates the input plan.
 The same plan object can instead be embedded in
 `portfolio.extensions.rikdom_income_plan`; an explicit `--income-plan` file takes
@@ -37,9 +40,12 @@ the portfolio document as extension data.
 
 ## Tracked starter templates
 
-`data-sample/portfolio.json` and `data-sample/snapshots.jsonl` are committed
-to the repo and copied into `data/` on first default CLI run. `data/` itself
-is gitignored.
+Commands using default resolved workspace inputs can seed missing
+`portfolio.json`, `snapshots.jsonl`, and `fx_rates.jsonl` from their tracked
+`data-sample/` counterparts. Only the input paths used by that command are
+seeded. Import/correction previews and `income` do not bootstrap inputs.
+Paths outside the resolved workspace defaults are not seeded from samples.
+`data/` itself is gitignored.
 
 ## Schema files
 

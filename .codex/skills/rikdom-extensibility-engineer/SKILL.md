@@ -45,8 +45,10 @@ Plugin and runtime internals:
 - `src/rikdom/plugin_engine/pipeline.py`
 
 Docs:
-- `docs/schema-design.md`
-- `docs/plugin-system.md`
+- `docs/explanation/schema-design.md`
+- `docs/explanation/plugin-architecture.md`
+- `docs/reference/plugin-manifest.md`
+- `docs/reference/plugin-hooks.md`
 - `plugins/README.md`
 
 ## Plugin Runtime Reality (Important)
@@ -72,7 +74,7 @@ uv run rikdom import-statement --data-dir <data-dir> --out-root <out-root> --plu
 Invoke output plugin:
 
 ```bash
-uv run rikdom render-report --data-dir <data-dir> --out-root <out-root> --plugin <plugin-name> --plugins-dir plugins
+uv run rikdom viz --data-dir <data-dir> --out-root <out-root> --plugin <plugin-name> --plugins-dir plugins
 ```
 
 Invoke storage plugin:
@@ -89,11 +91,11 @@ uv run rikdom storage-sync --data-dir <data-dir> --out-root <out-root> --plugin 
 4. Implement plugin code in `plugins/<name>/plugin.py` (and helpers).
 5. Add/update tests in `tests/`.
 6. Validate behavior with CLI + tests.
-7. Update docs in plugin README and/or `docs/plugin-system.md`.
+7. Update docs in plugin README and/or `docs/explanation/plugin-architecture.md`.
 
 ## Hook Semantics
 
-- `firstresult=True` hooks select one plugin result (`source_input`, `output`, `state_storage_*`).
+- `firstresult=True` hooks select one plugin result (`source_input`, `output`, `state_storage_*`, `connector_describe`, `connector_query`).
 - Fan-out hooks aggregate multiple plugin results (`asset_type_catalog`, `observability`, `audit_trail`).
 
 ## Compatibility And Safety Rules
@@ -119,7 +121,10 @@ Then run the checklist:
 make validate
 make plugins-list
 make import-sample
-make render-report
+make viz
 make storage-sync
-make test
+uv run python -m unittest tests.test_plugins tests.test_asset_type_catalog_plugins -v
 ```
+
+Run focused tests locally and monitor the pull request CI run for the full suite;
+see `CONTRIBUTING.md` for testing expectations.

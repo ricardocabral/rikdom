@@ -21,7 +21,8 @@ uv run rikdom import-statement \
   --data-dir data --out-root out --dry-run
 ```
 
-Add `--write` once the dry-run looks right.
+Replace `--dry-run` with `--write` once the preview looks right. Keeping
+`--dry-run` forces a preview even when `--write` is present.
 
 ## What gets imported
 

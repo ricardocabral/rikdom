@@ -1,6 +1,6 @@
 # Dashboard UI kit
 
-A high-fidelity recreation of the **static dashboard** that `rikdom dashboard` generates into `site/`. Zero-dependency, print-friendly, a handbook for your wealth.
+A design prototype for a **static dashboard**: print-friendly, a handbook for your wealth. Its illustrative `rikdom dashboard` command and `site/` output are not implemented CLI behavior. The current `rikdom viz` command renders `out/dashboard.html` and `out/portfolio-report.html` through an output plugin; see the [report guide](../../../../docs/how-to/render-a-report.md).
 
 ## Files
 

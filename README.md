@@ -31,7 +31,7 @@ With coding agents and LLMs, it is much easier to build your own asset managemen
 - Extend asset types with country-specific classes, metadata, and typed instrument attributes.
 - Persist data in simple disk files (`JSON` + `JSONL`).
 - Archive or transfer data with checksum-verified [`rikdom-export`](docs/reference/export-format.md) bundles.
-- Generate a minimal static dashboard for allocation and progress over time.
+- Generate static dashboard and deep-dive reports for allocation and progress over time.
 - Ingest provider statements through community plugins.
 - Query external market data through optional connector plugins, with provider
   rules and authentication handled by each adapter.
@@ -82,9 +82,15 @@ flowchart TD
   E --> L["LLM reasoning"]
   R --> L
   T --> L
+  Q -->|User or agent supplies external context| L
 
   L --> A["Insights planning and next actions"]
 ```
+
+Connector JSON gives users, scripts, and coding agents external evidence with
+the connector plugin identity and retrieval time. The LLM reasoning step represents
+analysis performed by an external agent; Rikdom does not invoke an LLM or feed
+query results into portfolio calculations automatically.
 
 ## Repository Structure
 
@@ -92,7 +98,7 @@ flowchart TD
 - `data/` local workspace files (`portfolio.json`, `snapshots.jsonl`, `fx_rates.jsonl`, `import_log.jsonl`), gitignored
 - `data/portfolio_registry.json` optional multi-portfolio registry (`main`, `paper`, `retirement`, etc.)
 - `data/portfolios/<name>/` per-portfolio isolated data files when registry mode is used
-- `data-sample/` tracked starter templates copied into `data/` on first default CLI run
+- `data-sample/` tracked starter templates for workspace bootstrapping (see [storage layout](docs/reference/storage-layout.md#tracked-starter-templates))
 - `src/rikdom/` Python package (CLI, validation, import pipeline, visualization)
 - `docs/` schema, storage, plugin docs, and execution plans
 - `plugins/` local plugin implementations and manifests
@@ -151,9 +157,11 @@ Full documentation is organized along the [Diataxis](https://diataxis.fr/) frame
 
 ```bash
 make lint
-make test
-make check
+uv run python -m unittest tests.test_cli_reconcile -v
 ```
+
+Run focused tests locally and use the pull request's CI run for the full suite.
+See [Contributing](CONTRIBUTING.md#testing-expectations) for testing guidance.
 
 ### Community plugin showcase
 

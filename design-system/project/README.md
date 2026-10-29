@@ -29,9 +29,12 @@ It solves:
 
 ### Products / Surfaces in this system
 
-- **CLI** — the primary interface. `rikdom init`, `rikdom add`, `rikdom snapshot`, `rikdom dashboard`.
-- **Static dashboard** — the zero-dependency HTML page rikdom generates from your data.
-- **Marketing / docs site** — a small site that introduces the toolkit and hosts the handbook.
+- **CLI** — the primary interface. Current commands include `rikdom workspace init`, `rikdom import-statement`, `rikdom snapshot`, and `rikdom viz`; see the [CLI reference](../../docs/reference/cli.md).
+- **Static reports** — `rikdom viz` generates a quickview dashboard and deep-dive report through an output plugin.
+- **Marketing / docs site** — a proposed surface for introducing the toolkit and hosting the handbook.
+
+The UI kits are design prototypes. Their illustrative `init`, `add`, and
+`dashboard` commands and simulated output are not the implemented CLI contract.
 
 ---
 
@@ -86,7 +89,7 @@ rikdom's voice is **quiet, steady, and literal**. It sounds like a well-written 
 | Don't | Do |
 | --- | --- |
 | "🚀 Supercharge your portfolio with rikdom!" | "rikdom keeps your portfolio in a folder you own." |
-| "Click here to get started on your wealth journey." | "Start with `rikdom init`." |
+| "Click here to get started on your wealth journey." | "Start with `make bootstrap`." |
 | "Our AI-powered dashboard reimagines asset tracking." | "Generate a static dashboard from your data." |
 | "Welcome back, investor! 👋" | "Welcome back." |
 | "Oops! Something went wrong. 😬" | "Couldn't read `holdings.json`. Check the path and try again." |

@@ -131,11 +131,16 @@ Snapshots avoid rewriting full history and remain append-only.
 
 ### 5. Event ledger + projections
 
-- `activities[]` stores immutable events (`buy`, `sell`, `dividend`, etc.).
+- `activities[]` stores source events (`buy`, `sell`, `dividend`, etc.).
+  Ordinary source imports may refresh an event with the same identity.
+  Auditable corrections preserve the original event and append a linked
+  replacement; correction chains are protected from source-import rewrites.
 - `projections` stores derived views such as computed positions/performance.
 
-This separation keeps imported truth stable while allowing analytics to
-evolve. The ledger is the source of truth; projections can be recomputed.
+Financial readers project the effective correction chain before calculating.
+See [enter and correct activities](../how-to/enter-and-correct-activities.md)
+for the distinction between a source refresh and an immutable correction.
+Projections can be recomputed from the effective ledger.
 
 ### 6. Recurring operational tasks
 

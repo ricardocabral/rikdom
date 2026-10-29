@@ -87,7 +87,8 @@ uv run rikdom import-statement --data-dir data \
 ```
 
 The payload follows `schema/plugin-statement.schema.json`, with `provider`,
-`generated_at` and at least one of `holdings`, `activities` or `tax_lots`.
+`generated_at` and at least one of `holdings`, `activities`, `tax_lots`, or
+`statement_observations`.
 Use `--write` after reconciling the displayed changes. The importer validates
 dates and structure, stamps provenance, merges lots by stable identity and
 rejects conflicting identities or unresolved references.

@@ -165,7 +165,7 @@ provider's designated credential channel. The envelope is documented in the
 ### Roadmap alignment and remaining work
 
 This foundation supports the roadmap's explicit optional connections, global
-plugin ownership, and separation from the immutable canonical ledger. It does
+plugin ownership, and separation from canonical holdings and the activity ledger. It does
 not complete Phase 5 or the connected-automation gate in Phase 5B.
 
 | Boundary | Implemented now | Still required by the roadmap |
@@ -175,11 +175,11 @@ not complete Phase 5 or the connected-automation gate in Phase 5B.
 | Reproducibility | Strict detached JSON; deterministic offline fixtures and mocked transport tests | Versioned cache inputs, safe request provenance, stale/missing-series diagnostics, replay, and traceable idempotent corrections |
 | Trust | Explicit manual query; no portfolio paths passed by the connector pipeline; read-only declaration | Enforced network/filesystem/secret scopes, credential revocation, OS-backed secret storage, constrained execution, and unattended-connection safeguards |
 
-The legacy Frankfurter integration in `src/rikdom/fx.py` remains coupled to the
-existing FX ingestion workflow. It is not used by the connector pipeline.
-Moving that workflow behind normalized provider contracts is follow-up work;
-this addition makes the new connector boundary provider-neutral, not every
-existing provider path in the repository.
+Snapshot FX acquisition already uses this connector boundary: an explicit
+`--fx-provider frankfurter` selects `plugins/frankfurter`, whose `daily-rates`
+operation supplies the rate data. Core `src/rikdom/fx.py` handles local history
+and FX locks without provider HTTP code. Broader normalized price, distribution,
+and corporate-action contracts remain follow-up work.
 
 ## Operational safety
 

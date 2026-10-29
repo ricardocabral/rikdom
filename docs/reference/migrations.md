@@ -19,9 +19,7 @@ unknown user data under `metadata` / `extensions`.
 | 1.2.0 → 1.3.0 | optional `liabilities[]`, `tax_lots[]`, `holdings[].account_id` |
 | 1.3.0 → 1.4.0 | expanded `activities[].event_type` (merger, contribution, withdrawal, tax_withheld, fx_conversion) and optional `account_id`, `holding_id`, `tax_lot_ids`, `withholding_tax`, `realized_gain`, `fx_rate`, `counter_money` |
 | 1.4.0 → 1.5.0 | optional `Money.fx_ref` (`as_of_date`, `base_currency`, `quote_currency`, `rate_to_base`, `source`) for line-item FX provenance |
-
 | 1.5.0 → 1.6.0 | optional `trade_at`, `settled_at`, signed `cost_basis_adjustment`, structured `corporate_action` legs, `amortization` events and `holdings[].extensions.rikdom_instrument_history`; migration changes only the version and preserves asserted history without inventing dates or basis |
-
 | 1.6.0 → 1.7.0 | optional reported statement observations, holding valuation and acquisition observations, and indexer multipliers; migration only advances the version and never infers transactions or tax basis |
 
 ## Policy version history

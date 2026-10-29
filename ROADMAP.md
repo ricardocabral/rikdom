@@ -92,9 +92,11 @@ Durable decisions applied across phases:
 
 - **Storage**: local `JSON` (`portfolio.json`) + append-only `JSONL` snapshots.
 - **Schema contract**: JSON Schema 2020-12 + explicit `schema_uri` and semantic `schema_version`.
-- **Data model**: immutable `activities` ledger + derived `projections`.
+- **Data model**: source `activities` ledger + derived `projections`; linked
+  corrections preserve originals while ordinary imports may refresh matching
+  source events (see [activity workflow](docs/how-to/enter-and-correct-activities.md)).
 - **Plugin runtime**: in-process Python plugin engine using `pluggy`.
-- **Plugin taxonomy**: lifecycle (`source/input`, `transform`, `enrichment`, `strategy/decision`, `execution`, `output`), domain (`asset-type/catalog`), plus cross-cutting (`risk/compliance`, `state/storage`, `orchestration`, `observability`, `auth/security`, `notification`, `simulation/backtest`).
+- **Plugin taxonomy**: lifecycle (`source/input`, `transform`, `enrichment`, `strategy/decision`, `execution`, `output`), explicit acquisition (`external/connector`), domain (`asset-type/catalog`), plus cross-cutting (`risk/compliance`, `state/storage`, `orchestration`, `observability`, `auth/security`, `notification`, `simulation/backtest`).
 - **Plugin manifest**: `plugins/<name>/plugin.json` with `name`, `version`, `api_version`, `plugin_types`, `module`, `class_name`.
 - **Import boundary**: `source/input` plugins return normalized statement JSON with provenance-ready fields.
 - **Asset-type boundary**: `asset-type/catalog` plugins return typed asset definitions to compose `asset_type_catalog` before import/validation.

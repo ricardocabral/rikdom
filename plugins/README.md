@@ -11,6 +11,7 @@ Canonical docs:
 
 Plugin docs:
 - [brapi](brapi/README.md)
+- [frankfurter](frankfurter/README.md)
 - [csv-generic](csv-generic/README.md)
 - [ghostfolio_export_json](ghostfolio_export_json/README.md)
 - [ibkr_flex_xml](ibkr_flex_xml/README.md)
@@ -20,6 +21,10 @@ Plugin docs:
 - [charles-schwab](charles-schwab/README.md)
 - [b3-consolidado-mensal](b3-consolidado-mensal/README.md)
 - [btg_wm_conta_internacional](btg_wm_conta_internacional/README.md)
+- [btg-investment-pdf](btg-investment-pdf/README.md)
+- [fidelity](fidelity/README.md)
+- [vanguard](vanguard/README.md)
+- [normalized-statement-json](normalized-statement-json/README.md)
 - [irpf-xml](irpf-xml/README.md)
 - [quarto-portfolio-report](quarto-portfolio-report/README.md)
 - [duckdb-storage](duckdb-storage/README.md)
@@ -34,7 +39,7 @@ Plugin docs:
 
 ```bash
 make plugins-list
-uv run pytest -q tests/test_plugins.py tests/test_asset_type_catalog_plugins.py
+uv run python -m unittest tests.test_plugins tests.test_asset_type_catalog_plugins -v
 ```
 
 Plugin-specific prerequisites and run commands are documented in each plugin README.

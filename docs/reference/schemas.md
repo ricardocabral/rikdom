@@ -24,8 +24,10 @@ rationale, see [schema design](../explanation/schema-design.md).
   `asset_type_catalog`.
 - `asset_class`: top-level reporting group (e.g. `stocks`, `funds`,
   `real_estate`).
-- `activities`: immutable event ledger for financial events (`buy`, `sell`,
-  `dividend`, `fee`, etc.).
+- `activities`: financial event ledger (`buy`, `sell`, `dividend`, `fee`,
+  etc.). Ordinary imports may refresh matching source events; linked
+  corrections preserve originals and are projected before calculations.
+  See [activity corrections](../how-to/enter-and-correct-activities.md).
 - `operations`: optional recurring operational task definitions plus
   immutable task event history.
 

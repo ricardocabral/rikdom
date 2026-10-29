@@ -4,6 +4,8 @@ A high-fidelity recreation of the **rikdom** command-line experience — the pri
 
 This is a recreation, not a working CLI. State is faked in JS. It behaves like a terminal transcript you can scroll through and interact with at key points (init, add holding, snapshot, dashboard).
 
+The transcript's commands are illustrative. Use the [CLI reference](../../../../docs/reference/cli.md) for implemented commands and flags.
+
 ## Files
 
 - `index.html` — interactive transcript: init a folder, add holdings, snapshot, generate a dashboard.

@@ -43,7 +43,7 @@ If you generated into a custom directory, point `--plugins-dir` at it.
 
 - Flesh out `parse_statement` to accept the columns your upstream
   statement actually produces; the scaffold expects
-  `symbol,quantity,price,currency,as_of_date`.
+  `symbol,quantity,price,currency`.
 - Add activities to the returned payload if your source exposes them
   (see `plugins/csv-generic/` for a richer reference).
 - See `docs/tutorials/first-plugin.md` for the full plugin authoring

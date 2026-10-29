@@ -137,7 +137,10 @@ See [summarize income](../how-to/summarize-income.md) for usage and import limit
 
 | Command                                                             | Make shortcut                 | Purpose                                                    |
 | ------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------- |
-| `rikdom visualize --data-dir data --out-root out --include-current` | `make visualize` / `make viz` | Render `out/dashboard.html` + `out/portfolio-report.html`. |
+| `rikdom viz --data-dir data --out-root out --include-current` | `make viz` | Render `out/dashboard.html` + `out/portfolio-report.html`. |
+
+`visualize` and `render-report` (and their make targets) are deprecated
+compatibility aliases for `viz`. Use `--plugin` to select an output plugin.
 
 ## Plugins
 
@@ -147,7 +150,7 @@ See [summarize income](../how-to/summarize-income.md) for usage and import limit
 | `rikdom plugin init <name> --dest plugins`                          | —                    | Scaffold a new plugin from the bundled SDK template. See [first plugin tutorial](../tutorials/first-plugin.md). |
 | `rikdom import-statement --plugin <name> --input <file> --dry-run`  | —                    | Preview an import.                                                                                              |
 | `rikdom import-statement --plugin <name> --input <file> --write`    | `make import-sample` | Import a statement and write to `data/portfolio.json`.                                                          |
-| `rikdom render-report --plugin quarto-portfolio-report`             | `make render-report` | Render a report through an `output` plugin.                                                                     |
+| `rikdom viz --plugin quarto-portfolio-report`                       | `make viz`           | Render reports through an `output` plugin.                                                                     |
 | `rikdom storage-sync --plugin duckdb-storage --plugins-dir plugins` | `make storage-sync`  | Mirror canonical state to a `state/storage` backend.                                                            |
 
 ## External data connectors
@@ -226,7 +229,7 @@ monthly buckets > 1 year. See [storage durability](../explanation/storage-durabi
 make sync && make bootstrap && make validate
 
 # Daily flow
-make snapshot && make visualize
+make snapshot && make viz
 
 # Run against an alternate workspace
 make validate DATA_DIR=workspace-data OUT_DIR=workspace-out PORTFOLIO_NAME=paper

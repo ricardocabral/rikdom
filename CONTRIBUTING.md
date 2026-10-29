@@ -42,10 +42,10 @@ Run a quick sanity check:
 uv run rikdom validate --portfolio tests/fixtures/portfolio.json
 ```
 
-Run the test suite:
+Run a focused test module relevant to your change, for example:
 
 ```bash
-uv run python -m unittest discover -s tests -t . -v
+uv run python -m unittest tests.test_cli_reconcile -v
 ```
 
 Run lint checks:
@@ -59,8 +59,8 @@ make lint
 1. Create a branch from `main`.
 2. Make focused commits with clear messages.
 3. Add or update tests for behavioral changes.
-4. Run validation and tests locally.
-5. Open a pull request with context and rationale.
+4. Run focused validation and tests locally.
+5. Open a pull request with context and rationale, then monitor its CI run for full-suite results.
 
 Recommended branch naming:
 
@@ -85,7 +85,7 @@ PR checklist:
 - [ ] Tests added/updated for new behavior.
 - [ ] `make lint` passes.
 - [ ] `uv run rikdom validate --portfolio tests/fixtures/portfolio.json` passes.
-- [ ] `uv run python -m unittest discover -s tests -t . -v` passes.
+- [ ] Focused tests pass locally and the pull request's full CI run passes.
 - [ ] Docs updated when behavior, schema, or CLI changes.
 - [ ] Added/updated fixtures are sanitized (no real PII or real statement exports).
 
@@ -99,6 +99,8 @@ PR checklist:
 
 ## Testing expectations
 
+- Run only relevant test modules locally; the [CI workflow](.github/workflows/ci.yml) runs the full unit and plugin-contract suites on pull requests and pushes to `main`.
+- Monitor the remote CI run before treating the full suite as verified. `make test` and `make check` include the full local suite and are not the routine local verification path.
 - Every bug fix should include a regression test when possible.
 - New features should include unit tests for happy path and edge cases.
 - Prefer deterministic tests without network access.

@@ -39,7 +39,7 @@ Source of truth for hooks:
 - `src/rikdom/plugin_engine/hookspecs.py`
 
 Dispatch semantics:
-- `firstresult=True`: `source_input`, `output`, `state_storage_sync`, `state_storage_query`, `state_storage_health`
+- `firstresult=True`: `source_input`, `output`, `state_storage_sync`, `state_storage_query`, `state_storage_health`, `connector_describe`, `connector_query`
 - Fan-out: `asset_type_catalog`, `observability`, `audit_trail`
 
 ## Guardrails
@@ -57,6 +57,7 @@ Dispatch semantics:
 
 - Prefer `make <target>` for routine local workflows; keep `uv run ...` for targeted debugging or when a target does not exist yet.
 - Use `uv run` for all project commands and tests.
+- Run focused tests locally; use and monitor the pull request CI run for the full suite. See `CONTRIBUTING.md` for the testing workflow.
 - On clean checkouts, bootstrap local `data/*` files from tracked `data-sample/*` before running commands that reference `data/*`.
 - For plugin changes, update tests and docs together.
 - If touching manifests or engine contracts, verify:
@@ -75,15 +76,12 @@ make validate
 make validate-fixture
 make aggregate
 make snapshot
-make visualize
+make viz
 make plugins-list
 make import-sample
-make render-report
 make storage-sync
 make migrate-dry-run
 make lint
-make test
-make check
 ```
 
 Direct command equivalents (useful for focused debugging):
@@ -94,14 +92,13 @@ uv run rikdom validate --data-dir data --out-root out
 uv run rikdom validate --portfolio tests/fixtures/portfolio.json
 uv run rikdom aggregate --data-dir data --out-root out
 uv run rikdom snapshot --data-dir data --out-root out
-uv run rikdom visualize --data-dir data --out-root out --include-current
+uv run rikdom viz --data-dir data --out-root out --include-current
 uv run rikdom plugins list --plugins-dir plugins
 uv run rikdom import-statement --data-dir data --out-root out --plugin csv-generic --input data-sample/sample_statement.csv --write
-uv run rikdom render-report --data-dir data --out-root out --plugin quarto-portfolio-report --plugins-dir plugins
 uv run rikdom storage-sync --data-dir data --out-root out --plugin duckdb-storage --plugins-dir plugins
 uv run rikdom migrate --portfolio data-sample/portfolio.json --dry-run
-ruff check .
-uv run python -m unittest discover -s tests -v
+uv run ruff check .
+uv run python -m unittest tests.test_cli_reconcile -v
 ```
 
 See `docs/how-to/author-a-migration.md` and `docs/how-to/back-up-before-migration.md` for the migration authoring guide and backup strategy.

@@ -68,6 +68,13 @@ A saved response is not an automatic cache or replay facility. Connector
 queries do not update holdings, import ledger events, or populate canonical
 FX history.
 
+Use the response as external context for your own analysis, scripts, or coding
+agent. For example, supply `out/connector-response.json` alongside a local
+portfolio summary when asking an agent to explain current market context.
+Keep the acquisition provenance with the data and check provider observation
+dates before drawing conclusions. Rikdom does not invoke an LLM or automatically
+include this response in its calculations or reports.
+
 ## Handle a failed or incomplete query
 
 Handled failures produce a diagnostic on stderr and exit status `1`. Follow

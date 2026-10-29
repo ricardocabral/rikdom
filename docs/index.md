@@ -39,6 +39,7 @@ Information-oriented descriptions of the machinery.
 - [Migration version history](reference/migrations.md)
 - [Reconciliation issue codes](reference/reconciliation-codes.md)
 - [Import diagnostics and identity recovery](reference/import-diagnostics.md)
+- [Instrument history and cost basis](reference/fii-history.md)
 - [Performance output](reference/performance-output.md)
 - [FX snapshot fields](reference/fx-snapshot-fields.md)
 - [Export bundle format](reference/export-format.md)
@@ -51,6 +52,7 @@ Background, design decisions, and trade-offs.
 - [Plugin architecture](explanation/plugin-architecture.md) — lifecycle, external data connectors, and REST/MCP boundaries.
 - [Plugin compatibility & stability](explanation/plugin-compatibility.md)
 - [Calculation trust & reconciliation](explanation/calculation-trust.md)
+- [Cross-importer deduplication](explanation/cross-importer-dedup.md)
 - [Storage durability](explanation/storage-durability.md)
 - [Multi-currency engine](explanation/multi-currency-engine.md)
 - [Performance methodology](explanation/performance-methodology.md)
