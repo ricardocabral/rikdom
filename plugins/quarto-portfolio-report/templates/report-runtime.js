@@ -186,13 +186,38 @@
       } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(attribution.diagnostics || []).map(note => `<li>${text(typeof note === 'string' ? note : JSON.stringify(note))}</li>`).join('')}</ul>`;
     }
     const benchmarks = benchmarkRows.length ? `<h3>${text(label('Benchmarks','Referências'))}</h3>${table([label('Benchmark','Referência'),label('Currency','Moeda'),label('Return','Retorno'),label('Excess','Excesso'),label('Comparability','Comparabilidade'),label('Return convention','Convenção de retorno'),label('Actual window','Período efetivo')], benchmarkRows)}` : `<p>${text(label('Benchmark comparison unavailable: no benchmark result supplied.', 'Comparação com referência indisponível: nenhum resultado fornecido.'))}</p>`;
+    const calendar = p.calendar_performance;
+    let calendarHtml = '';
+    if (calendar) {
+      const headers = [label('UTC period','Período UTC'), label('Coverage / status','Cobertura / situação'),
+        label('Selected TWR (period)','TWR selecionado (período)'), label('Method','Método'),
+        label('Annualized XIRR (365 days)','XIRR anualizado (365 dias)'), label('Net external flows','Fluxos externos líquidos'),
+        label('FX / valuation status','Situação cambial / avaliação')];
+      calendarHtml = `<div id="calendar-performance"><p>${text(label(
+        'UTC calendar periods require exact boundary valuations. Partial bookends are labeled. Opening valuations are post-flow; boundary flows belong to the ending row. Returns and annualized XIRRs are not summed or compounded here.',
+        'Os períodos do calendário UTC exigem avaliações exatas nos limites. Períodos incompletos são identificados. A avaliação inicial é posterior aos fluxos; fluxos no limite pertencem ao período que termina. Retornos e XIRRs anualizados não são somados nem acumulados aqui.'))}</p>`;
+      for (const [key, heading] of [['monthly',label('Monthly performance','Rentabilidade mensal')], ['yearly',label('Yearly performance','Rentabilidade anual')]]) {
+        const calendarRows = (calendar[key] || []).map(row => {
+          const facts = row.status === 'available' ? (row.performance || {}) : {};
+          const coverage = row.coverage === 'complete' ? label('Complete','Completo') : label('Partial','Parcial');
+          const state = row.status === 'available' ? label('Available','Disponível') : l.unknown;
+          return [text(row.label) + `<br>${text(row.period_start)} – ${text(row.period_end)}`,
+            text(coverage + ' · ' + state), text(percent(facts.twr_return_pct)),
+            text(method[facts.twr_method] || facts.twr_method), text(percent(facts.mwr_pct)),
+            text(money(facts.net_external_cashflow_base, facts.base_currency || p.base_currency)),
+            raw(`${facts.fx_status || l.unknown} / ${facts.valuation_status || l.unknown}`)];
+        });
+        calendarHtml += `<h3>${text(heading)}</h3>${table(headers, calendarRows)}`;
+      }
+      calendarHtml += `<details><summary>${text(label('Calendar evidence and warnings (raw source text)','Evidências e avisos do calendário (texto original da fonte)'))}</summary><pre data-source-text>${text(JSON.stringify(calendar, null, 2))}</pre></details></div>`;
+    }
     return `<section class="report-panel" id="performance-view">${title}
       <p>${text(label('All portfolio · Actual snapshot window','Carteira completa · Período efetivo das avaliações'))}: ${text(sourceDateTime(p.period_start))} – ${text(sourceDateTime(p.period_end))} · ${text(p.base_currency)}</p>
       ${table([label('Metric','Métrica'),label('Return','Retorno'),label('Method','Método'),label('Basis','Base')], rows)}
       ${p.twr_fallback_reason ? `<p>${text(label('Fallback reason','Motivo da aproximação'))}: ${raw(p.twr_fallback_reason)}</p>` : ''}
       <p>${text(label('Fees, taxes and income are embedded in supplied valuations. Supported reviewed FIFO evidence can explain their components; income is never added twice.', 'Taxas, impostos e rendimentos estão incorporados nas avaliações fornecidas. A evidência FIFO revisada pode explicar seus componentes; rendimentos nunca são somados duas vezes.'))}</p>
       <p>${text(label('Cashflow FX status','Situação cambial dos fluxos'))}: ${raw(p.fx_status)}</p>
-      ${growth}${benchmarks}${auditWarnings}
+      ${growth}${benchmarks}${calendarHtml}${auditWarnings}
       <details><summary>${text(label('Calculation inputs and provenance (raw source text)','Dados de cálculo e proveniência (texto original da fonte)'))}</summary><pre data-source-text>${text(JSON.stringify({context, performance:p}, null, 2))}</pre></details></section>`;
   }
   function planningRows(key, rows) {

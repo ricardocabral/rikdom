@@ -16,8 +16,9 @@ from pathlib import Path
 import math
 from typing import Any
 
-from .activities import check_financial_contract, correction, effective_activities
+from .activities import check_financial_contract, correction
 from .historical_fx import HistoricalFx
+from .internal_transfers import resolve_internal_transfers
 from .income import income_amount_basis
 from .performance import PerformanceResult, extract_external_cashflows
 
@@ -147,7 +148,7 @@ def _effective_ledger(portfolio: dict) -> list[dict]:
     selected = []
     ids: dict[str, dict] = {}
     imports: dict[str, dict] = {}
-    for activity in effective_activities(activities):
+    for activity in resolve_internal_transfers(activities).activities:
         status = activity.get("status", "posted")
         if not isinstance(status, str):
             raise ValueError("Invalid activity status")
@@ -233,8 +234,11 @@ def _bridge(
         raise ValueError(
             "External cashflow evidence unavailable: " + "; ".join(warnings)
         )
+    transfers = resolve_internal_transfers(ledger, start, end)
+    if transfers.warnings:
+        raise ValueError("; ".join(transfers.warnings))
     evidence = []
-    for activity in ledger:
+    for activity in transfers.external_activities:
         event = str(activity.get("event_type", "")).strip().lower()
         if event not in _EXTERNAL:
             continue
@@ -288,6 +292,7 @@ def _bridge(
         "equation": "opening + net_external_flows + investment_result = closing",
         "provenance": "computed_from_performance_bookends_and_effective_ledger",
         "cashflow_evidence": evidence,
+        "internal_transfers": transfers.provenance,
     }
 
 
@@ -656,7 +661,7 @@ def _fifo_decomposition(
                 raise ValueError(
                     "External flows with costs or in-kind asset references are unsupported for FIFO"
                 )
-            cash = abs(amount) * (-1 if event == "withdrawal" else 1)
+            cash = abs(amount) * (-1 if event in ("withdrawal", "transfer_out") else 1)
         cash_delta += cash
         row["net_cash_native"] = _json(cash)
         activity_evidence.append(row)

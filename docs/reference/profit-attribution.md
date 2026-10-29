@@ -27,6 +27,10 @@ cash, unavailable or undated foreign FX, and unresolved transfer identity make
 all bridge amounts null. Snapshot warnings that indicate missing or mismatching
 currency/value evidence also block the bridge. A TWR fallback caused only by
 missing before/after flow valuations does not block this monetary identity.
+[Verified explicit internal cash pairs](internal-transfers.md) do not count as
+portfolio external flows. `bridge.internal_transfers` retains their detached
+pair/review provenance. Invalid claims block the bridge; unmarked transfers
+remain unresolved.
 
 `historical_fx` supplies directional dated conversion **only for external flows**.
 Each flow retains its native amount/currency, signed converted amount, activity
@@ -194,7 +198,9 @@ the performance engine's inclusive boundary convention.
 - Absent embedded charges apply zero under the reviewed complete-history and
   explicit cost-convention assertion; their reported evidence stays null.
 - Contributions/withdrawals with no holding reference, quantity or embedded
-  costs can reconcile cash. In-kind flows, transfers, splits, mergers,
+  costs can reconcile cash. Verified explicit reporting-currency cash-transfer
+  pairs retain negative outgoing and positive incoming cash legs and do not move
+  FIFO positions. In-kind flows, unresolved transfers, splits, mergers,
   amortization, reimbursement, FX conversion, other movements, and any
   `corporate_action` or `cost_basis_adjustment` field block decomposition.
   Signed cost-basis adjustments require unsupported basis-carryover accounting,

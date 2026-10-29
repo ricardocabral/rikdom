@@ -1,0 +1,12 @@
+{
+  "contract_version": "1.0",
+  "reviewed": true,
+  "revision_id": "synthetic-us-r1",
+  "observed_activity_id": "observed",
+  "source": "statement:reviewed-correction",
+  "money": {
+    "amount": 5,
+    "currency": "USD"
+  },
+  "amount_basis": "gross"
+}

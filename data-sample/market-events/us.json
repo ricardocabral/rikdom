@@ -1,0 +1,66 @@
+{
+  "contract_version": "1.0",
+  "events": [
+    {
+      "id": "synthetic-us-distribution",
+      "kind": "distribution",
+      "instrument": {
+        "namespace": "SYNTHETIC-US",
+        "id": "DEMO",
+        "currency": "USD"
+      },
+      "adjustment_basis": "unadjusted",
+      "coverage": {
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2026-02-28T23:59:59Z"
+      },
+      "license": {
+        "name": "CC0-1.0 synthetic examples only; no real market coverage",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "revisions": [
+        {
+          "id": "synthetic-us-r1",
+          "effective_at": "2026-01-10T00:00:00Z",
+          "retrieved_at": "2026-01-02T00:00:00Z",
+          "source": "manual:synthetic-us",
+          "supersedes": null,
+          "per_unit": {
+            "amount": 0.5,
+            "currency": "USD"
+          },
+          "record_at": null,
+          "payment_at": null
+        }
+      ]
+    },
+    {
+      "id": "synthetic-us-split",
+      "kind": "split",
+      "instrument": {
+        "namespace": "SYNTHETIC-US",
+        "id": "DEMO",
+        "currency": "USD"
+      },
+      "adjustment_basis": "unadjusted",
+      "coverage": {
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2026-02-28T23:59:59Z"
+      },
+      "license": {
+        "name": "CC0-1.0 synthetic only",
+        "uri": "https://example.invalid/synthetic"
+      },
+      "revisions": [
+        {
+          "id": "synthetic-us-split-r1",
+          "effective_at": "2026-01-10T00:00:00Z",
+          "retrieved_at": "2026-01-02T00:00:00Z",
+          "source": "manual:synthetic-notice",
+          "supersedes": null,
+          "ratio": 2
+        }
+      ]
+    }
+  ]
+}

@@ -103,3 +103,19 @@ Pass `--historical-fx`, `--flow-valuations`, `--historical-valuations`,
 `viz` as needed. The full and fallback pages display the same core return and
 profit contracts as the CLI. See [reproduce historical valuations and profit](replay-performance-data.md)
 for working local examples and supported scope/date behavior.
+
+## Read monthly and yearly performance
+
+The performance panel includes monthly and yearly tables in both full and
+fallback HTML. They use the same `calendar_performance` payload as
+`rikdom performance`, with UTC periods, selected TWR methods, annualized XIRR,
+net external flows and valuation/FX status. Expand calendar evidence to inspect
+warnings and benchmark provenance.
+
+Supply valuations at exact UTC calendar boundaries to obtain full-period rows.
+For example, January requires `2026-01-01T00:00:00Z` and
+`2026-02-01T00:00:00Z`. Missing boundaries remain unavailable, and incomplete
+bookend periods are labeled partial. Date/scope controls suppress these tables
+until reset. To change calculation dates, render with `--since` and `--until`.
+See the [calendar performance contract](../reference/calendar-performance.md)
+for boundary-flow ownership, partial periods and evidence rules.

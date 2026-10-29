@@ -120,6 +120,8 @@ class ReportPerformanceTests(unittest.TestCase):
         portfolio['settings']['base_currency'] = 'BRL'
         for snapshot in snapshots:
             snapshot['base_currency'] = 'BRL'
+            snapshot['metadata'] = {'rikdom_return_convention': {
+                'version': 1, 'kind': 'total_return', 'source': 'manual:synthetic-full-NAV'}}
         policy = {'benchmarks': [{'id': 'test-index', 'label': 'Synthetic reference', 'kind': 'index', 'currency': 'BRL'}],
                   'strategic_allocation': {'targets': [{'dimension': 'asset_class', 'bucket': 'stocks', 'weight_pct': 100, 'benchmark_id': 'test-index'}]}}
         config = {'contract_version': '1.0', 'market_series_file': 'series.json',

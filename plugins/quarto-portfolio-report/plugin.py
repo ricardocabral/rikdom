@@ -264,8 +264,16 @@ def _build_performance_section(
         result.warnings.extend(fx_warnings)
         if flow is not None:
             context["flow_valuations"] = flow
-        return performance_to_dict(result, portfolio=portfolio, profit_basis=inputs['profit_basis'],
-                                   historical_fx=historical, valuation_replay=replay), context
+        payload = performance_to_dict(result, portfolio=portfolio, profit_basis=inputs['profit_basis'],
+                                      historical_fx=historical, valuation_replay=replay)
+        from rikdom.performance_periods import compute_calendar_performance
+        payload['calendar_performance'] = compute_calendar_performance(
+            snapshots, activities, base_currency=base, since=since, until=until,
+            fx_rates_to_base=lock.get('rates_to_base'), historical_fx=historical,
+            flow_valuations=flow, valuation_replay=replay, policy=policy,
+            benchmark_loader=make_dir_loader(benchmark_dir) if policy is not None else None,
+        )
+        return payload, context
     except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
         # OSError text contains absolute filenames; report only its explanation.
         detail = exc.strerror if isinstance(exc, OSError) else str(exc)
@@ -484,12 +492,14 @@ def _build_report_payload(
     if _include_views:
         income = build_income_report(portfolio)
         contributions = recorded_contributions(portfolio.get('activities', []))
+        account_contributions = recorded_contributions(portfolio.get('activities', []), include_internal_transfers=True)
         payload["sections"].update(income=income, contributions=contributions, historical_status="recorded")
         # A single asserted dimension per view keeps the artifact linear in the
         # number of accounts/types/currencies. Today's holdings never attribute
         # historical snapshots or activities to a scope.
         views = []
         for dimension in ("account_id", "asset_type_id", "currency"):
+            view_contributions = account_contributions if dimension == 'account_id' else contributions
             def identity(row):
                 if dimension == "currency":
                     money = row.get("market_value")
@@ -497,7 +507,7 @@ def _build_report_payload(
                 return row.get(dimension)
             values = {identity(row) for row in normalized_holdings}
             values.update(row.get(dimension) for row in income["events"])
-            values.update(row.get(dimension) for row in contributions)
+            values.update(row.get(dimension) for row in view_contributions)
             for key in ("announced", "estimates", "reconciliation", "yield_on_cost"):
                 values.update((row.get("currency") if dimension == "currency" else row.get("scope", {}).get(dimension))
                               for row in income.get("planning", {}).get(key, []))
@@ -523,7 +533,7 @@ def _build_report_payload(
                     planning["diagnostics"] = []
                 scoped_sections.update(
                     income=scoped_income,
-                    contributions=[row for row in contributions if row.get(dimension) == value],
+                    contributions=[row for row in view_contributions if row.get(dimension) == value],
                     historical_status="unavailable_for_scope",
                 )
                 views.append({"dimension": dimension, "value": value, "sections": scoped_sections})

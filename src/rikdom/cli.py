@@ -684,6 +684,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
                 base_currency,
                 period_start=period_start,
                 period_end=period_end,
+                include_internal_transfers=getattr(args, "by", None) in ("account", "strategic_bucket"),
             ),
         )
 
@@ -716,6 +717,19 @@ def cmd_performance(args: argparse.Namespace) -> int:
         result, portfolio=portfolio, profit_basis=calculation_inputs['profit_basis'],
         historical_fx=historical_fx, valuation_replay=valuation_replay,
     )
+
+    from .performance_periods import compute_calendar_performance
+    output['calendar_performance'] = compute_calendar_performance(
+        snapshots, activities, base_currency=base_currency,
+        since=getattr(args, 'since', None), until=getattr(args, 'until', None),
+        fx_rates_to_base=fx_lock.get('rates_to_base'), historical_fx=historical_fx,
+        flow_valuations=flow_evidence, valuation_replay=valuation_replay,
+        policy=policy, benchmark_loader=benchmark_loader,
+    ) if getattr(args, 'by', 'portfolio') == 'portfolio' else {
+        'status': 'unavailable_for_scope', 'scope': getattr(args, 'by', None),
+        'monthly': [], 'yearly': [],
+        'warnings': ['Calendar performance supports portfolio scope only'],
+    }
 
     by = getattr(args, "by", None)
     if by == "strategic_bucket":
@@ -2915,6 +2929,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_workspace_rollup.set_defaults(func=cmd_workspace_rollup)
 
+    from .market_events_cli import register_market_events_command
+    register_market_events_command(sub)
     return parser
 
 
@@ -2931,7 +2947,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         preview = args.command in ("import-statement", "activity") and (not getattr(args, "write", False) or getattr(args, "dry_run", False))
-        if not preview and args.command != "income":
+        if not preview and args.command not in ("income", "market-events"):
             _bootstrap_default_workspace(args)
         return args.func(args)
     except (ValueError, OSError) as exc:

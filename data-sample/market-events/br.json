@@ -1,0 +1,38 @@
+{
+  "contract_version": "1.0",
+  "events": [
+    {
+      "id": "synthetic-br-distribution",
+      "kind": "distribution",
+      "instrument": {
+        "namespace": "SYNTHETIC-BR",
+        "id": "DEMO",
+        "currency": "BRL"
+      },
+      "adjustment_basis": "unadjusted",
+      "coverage": {
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2026-02-28T23:59:59Z"
+      },
+      "license": {
+        "name": "CC0-1.0 synthetic examples only; no real market coverage",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "revisions": [
+        {
+          "id": "synthetic-br-r1",
+          "effective_at": "2026-01-10T00:00:00Z",
+          "retrieved_at": "2026-01-02T00:00:00Z",
+          "source": "manual:synthetic-br",
+          "supersedes": null,
+          "per_unit": {
+            "amount": 0.5,
+            "currency": "BRL"
+          },
+          "record_at": null,
+          "payment_at": null
+        }
+      ]
+    }
+  ]
+}
