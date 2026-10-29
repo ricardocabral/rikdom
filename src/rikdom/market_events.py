@@ -368,13 +368,26 @@ def _split_dependencies(portfolio: dict[str, Any], history: list[dict[str, Any]]
                         scope: list[str], revision: dict[str, Any]) -> bool:
     """Conservative safe path: no affected lots or subsequent corporate actions.
 
-    Ordinary trades remain recalculable from the effective ledger. Persisted tax
-    lots and subsequent corporate actions require a separate explicit audit.
+    Plain trades remain recalculable from the effective ledger. Declared lots,
+    explicit basis changes and later corporate actions need a separate audit,
+    including dependencies retained anywhere in a related correction chain.
     """
     ids = {a['id'] for a in history}
     activities = portfolio.get('activities') or []
-    affected = {a['id'] for a in activities if a.get('holding_id') == scope[0]
-                and a.get('account_id') in (None, scope[1])}
+    affected = {a['id'] for a in activities
+                if a.get('account_id') in (None, scope[1])
+                and (a.get('holding_id') == scope[0]
+                     or any(leg.get('holding_id') == scope[0]
+                            for leg in (a.get('corporate_action') or {}).get('legs', [])))}
+    # A correction can move scope or date. Follow both directions so neither a
+    # retained ancestor nor a replacement can hide a lot/basis dependency.
+    links = [(a['id'], link['supersedes_activity_id']) for a in activities if (link := correction(a))]
+    while True:
+        related = {endpoint for child, parent in links if child in affected or parent in affected
+                   for endpoint in (child, parent)}
+        if related <= affected:
+            break
+        affected.update(related)
     for lot in portfolio.get('tax_lots') or []:
         if (lot.get('holding_id') == scope[0]
                 or lot.get('acquisition_activity_id') in ids | affected
@@ -386,11 +399,16 @@ def _split_dependencies(portfolio: dict[str, Any], history: list[dict[str, Any]]
     earliest = min(_timestamp(revision['effective_at'], 'effective_at'),
                    *(_timestamp(a['effective_at'], 'effective_at') for a in history))
     for row in activities:
-        if row.get('id') in ids or row.get('status', 'posted') == 'cancelled':
+        if row.get('id') in ids or row.get('id') not in affected:
             continue
         action = row.get('corporate_action') or {}
-        if ((action or row.get('event_type') == 'split') and (row.get('holding_id') == scope[0]
-                or any(leg.get('holding_id') == scope[0] for leg in action.get('legs', [])))
+        if (row.get('tax_lot_ids') or 'cost_basis_adjustment' in row
+                or any(leg.get('tax_lot_ids') or 'cost_basis_delta' in leg
+                       for leg in action.get('legs', []))):
+            return True
+        if row.get('status', 'posted') == 'cancelled':
+            continue
+        if ((action or row.get('event_type') in ('split', 'merger'))
                 and _timestamp(row['effective_at'], 'effective_at') >= earliest):
             return True
     return False

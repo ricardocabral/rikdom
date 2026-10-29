@@ -10,6 +10,7 @@ import unittest
 from rikdom.activities import effective_activities, validate_activity_import
 from rikdom.market_events import apply_market_event, parse_market_events, preview_market_event
 from rikdom.plugins import merge_activities
+from rikdom.validate import validate_portfolio
 from tests.test_market_events import AS_OF, document, portfolio, split_review
 
 
@@ -262,6 +263,79 @@ class SplitRevisionTests(unittest.TestCase):
             mutate(bad)
             with self.subTest(activity=bad), self.assertRaises(ValueError):
                 validate_activity_import(p, {'activities': [bad]})
+
+    def test_schema_valid_downstream_dependencies_require_review(self):
+        later = {'id': 'later', 'event_type': 'buy', 'status': 'posted',
+                 'effective_at': '2026-01-25T00:00:00Z', 'holding_id': 'h1',
+                 'account_id': 'account', 'quantity': 1,
+                 'money': {'amount': 10, 'currency': 'USD'}}
+        for extra in (
+            {'event_type': 'merger'},
+            {'cost_basis_adjustment': {'amount': 5, 'currency': 'USD'}},
+            {'cost_basis_adjustment': {'amount': 0, 'currency': 'USD'}},
+            {'event_type': 'sell', 'tax_lot_ids': ['external-lot']},
+        ):
+            p = self.initial()
+            proposal = self.preview(p, revisions(2, 3), review())['activities'][0]
+            p['activities'].append({**copy.deepcopy(later), **extra})
+            with self.subTest(extra=extra):
+                self.assertEqual(validate_portfolio(p), [])
+                self.assertEqual(self.preview(p, revisions(2, 3), review())['reason'],
+                                 'dependent_activity_review_required')
+                with self.assertRaises(ValueError):
+                    validate_activity_import(p, {'activities': [proposal]})
+
+    def test_dependency_audit_follows_downstream_correction_lineage_across_scope_changes(self):
+        for risk in ({'cost_basis_adjustment': {'amount': 0, 'currency': 'USD'}},
+                     {'tax_lot_ids': ['external-lot']}):
+            p = self.initial()
+            other = copy.deepcopy(p['holdings'][0])
+            other['id'] = 'h2'
+            p['holdings'].append(other)
+            original = {'id': 'later', 'event_type': 'buy', 'status': 'posted',
+                        'effective_at': '2026-01-25T00:00:00Z', 'holding_id': 'h1',
+                        'account_id': 'account', 'quantity': 1,
+                        'money': {'amount': 10, 'currency': 'USD'}}
+            corrected = {**copy.deepcopy(original), 'id': 'later-corrected', 'holding_id': 'h2',
+                         'idempotency_key': 'later-corrected', **risk,
+                         'extensions': {'rikdom_correction': {'version': 1,
+                             'supersedes_activity_id': 'later', 'reason': 'Reviewed changed allocation'}}}
+            p['activities'].extend([original, corrected])
+            with self.subTest(risk=risk):
+                self.assertEqual(validate_portfolio(p), [])
+                self.assertEqual(self.preview(p, revisions(2, 3), review())['reason'],
+                                 'dependent_activity_review_required')
+            # Moving the dependency to an ancestor must not hide it either.
+            original.update(risk)
+            for field in risk:
+                corrected.pop(field)
+            self.assertEqual(validate_portfolio(p), [])
+            self.assertEqual(self.preview(p, revisions(2, 3), review())['reason'],
+                             'dependent_activity_review_required')
+
+    def test_leg_scoped_dependencies_block_but_plain_downstream_trades_remain_recalculable(self):
+        p = self.initial()
+        for aid, kind in (('buy', 'buy'), ('sell', 'sell')):
+            p['activities'].append({'id': aid, 'event_type': kind, 'status': 'posted',
+                'effective_at': '2026-01-25T00:00:00Z', 'holding_id': 'h1',
+                'account_id': 'account', 'quantity': 1, 'money': {'amount': 10, 'currency': 'USD'}})
+        self.assertEqual(validate_portfolio(p), [])
+        candidate, report = apply(p, revisions(2, 3), review())
+        self.assertEqual(report['status'], 'ready')
+        self.assertEqual(len(effective_activities(candidate['activities'])), 3)
+        other = copy.deepcopy(p['holdings'][0])
+        other['id'] = 'h2'
+        p['holdings'].append(other)
+        p['tax_lots'] = [{'id': 'other-lot', 'holding_id': 'h2',
+                         'acquired_at': '2026-01-01T00:00:00Z', 'quantity': 1,
+                         'cost_basis': {'amount': 10, 'currency': 'USD'}}]
+        p['activities'].append({'id': 'legs', 'event_type': 'merger', 'status': 'posted',
+            'effective_at': '2026-01-25T00:00:00Z', 'holding_id': 'h2', 'account_id': 'account',
+            'corporate_action': {'kind': 'merger', 'legs': [{'holding_id': 'h1', 'quantity_delta': 0,
+                'tax_lot_ids': ['other-lot'], 'cost_basis_delta': {'amount': 0, 'currency': 'USD'}}]}})
+        self.assertEqual(validate_portfolio(p), [])
+        self.assertEqual(self.preview(p, revisions(2, 3), review())['reason'],
+                         'dependent_activity_review_required')
 
     def test_malformed_dates_and_nonfinite_review_values_raise(self):
         p = self.initial()
