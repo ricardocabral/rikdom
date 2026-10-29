@@ -1,0 +1,9 @@
+{
+  "contract_version": "1.0",
+  "market_series_file": "market-series.json",
+  "series_by_currency": {
+    "USD": "usd-brl"
+  },
+  "max_age_seconds": 0,
+  "retrieved_before": "2026-02-02T00:00:00Z"
+}

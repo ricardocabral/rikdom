@@ -3,8 +3,9 @@
 The bridge is a residual from verified performance bookends and complete external
 flows. Optional v1 evidence reconciles opening/closing positions, cash and FIFO
 costs. It never treats current holdings or reported profit as historical basis.
-FIFO currently supports only reporting-currency cash equities with unadjusted
-values; FX, corporate actions and unsupported movements leave it unavailable.
+Version 1 supports reporting-currency cash equities. Explicit reviewed version 2
+evidence adds long-only multicurrency positions/cash, dated FX attribution and
+quantity-only splits; unsupported movements remain unavailable.
 """
 
 from __future__ import annotations
@@ -759,6 +760,11 @@ def compute_profit_attribution(
         "basis_evidence": None,
         "history_evidence": None,
     }
+    if isinstance(basis, dict) and basis.get("contract_version") == "2.0":
+        from .multicurrency_profit import FX_COMPONENTS
+
+        decomposition.update({key: None for key in FX_COMPONENTS})
+        decomposition.update(contract_version="2.0", cash_evidence=[], fx_evidence=[])
     result = {
         "contract_version": "1.0",
         "scope": "portfolio",
@@ -792,13 +798,21 @@ def compute_profit_attribution(
         )
         return result
     try:
-        result["decomposition"] = _fifo_decomposition(
-            basis,
-            ledger,
-            performance,
-            result["bridge"],
-            portfolio.get("activities", []),
-        )
+        if isinstance(basis, dict) and basis.get("contract_version") == "2.0":
+            from .multicurrency_profit import decompose_multicurrency
+
+            result["decomposition"] = decompose_multicurrency(
+                basis, ledger, performance, result["bridge"],
+                portfolio.get("activities", []), historical_fx,
+            )
+            result["treatment"]["native_and_base"] = (
+                "dated acquisition/event/bookend FX; separate security price, security FX and native cash FX"
+            )
+        else:
+            result["decomposition"] = _fifo_decomposition(
+                basis, ledger, performance, result["bridge"],
+                portfolio.get("activities", []),
+            )
     except (ValueError, TypeError, KeyError, ArithmeticError) as exc:
         result["diagnostics"].append(f"FIFO decomposition unavailable: {exc}")
     return result

@@ -32,11 +32,12 @@ portfolio external flows. `bridge.internal_transfers` retains their detached
 pair/review provenance. Invalid claims block the bridge; unmarked transfers
 remain unresolved.
 
-`historical_fx` supplies directional dated conversion **only for external flows**.
+`historical_fx` supplies directional dated conversion for external flows and,
+with reviewed version 2.0 evidence, all FIFO, income, charge and cash components.
 Each flow retains its native amount/currency, signed converted amount, activity
 identity and lookup evidence including source, retrieval cutoff, revisions and
-coverage. It does not establish historical portfolio valuation or foreign tax-lot
-cost completeness.
+coverage. FX availability alone does not establish historical portfolio valuation or foreign
+tax-lot cost completeness; the explicit reviewed basis is still required.
 
 ## Availability and provenance
 
@@ -239,7 +240,162 @@ remain with cost 48 and market value 66, so closing unrealized gain is 18;
 opening unrealized gain was 20. Net income is 10 and separate fee/tax are 3/1.
 Thus `76 - 2 + 10 - 3 - 1 = 80`, and `200 + 0 + 80 = 280`.
 
-No since-inception total, after-tax liquidation estimate, short positions,
-margin/debt accounting, corporate-action basis carryover, or foreign FIFO
-profit is inferred. Unsupported evidence preserves the valid residual and
+Version 1.0 does not infer foreign FIFO profit. Neither version infers a
+since-inception total, after-tax liquidation estimate, short positions,
+margin/debt accounting, or corporate-action basis adjustments. Unsupported evidence preserves the valid residual and
 leaves the decomposition unavailable.
+
+
+## Reviewed multicurrency evidence version 2.0
+
+Version 2.0 is additive: version 1.0 inputs and outputs keep their existing
+reporting-currency FIFO behavior. Select it with `basis.contract_version: "2.0"`.
+The result envelope remains version 1.0; `decomposition.contract_version` identifies
+the version 2.0 component contract. Every version 2.0 component is null when the
+decomposition is unavailable, including when the bridge itself is unavailable.
+No partial sum is published as a complete decomposition.
+
+Version 2.0 retains the version 1.0 scope, method, adjustment, cost convention,
+review, history, opening lots and position fields. It replaces the two aggregate
+cash fields with `opening_cash` and `closing_cash`, arrays of
+`{"account_id": "a", "currency": "USD", "amount": 50}`. It adds this exact object:
+
+```json
+{
+  "inventory": {
+    "status": "complete",
+    "account_ids": ["a"],
+    "positions": [{"account_id": "a", "holding_id": "h", "currency": "USD"}],
+    "cash": [{"account_id": "a", "currency": "USD"}]
+  }
+}
+```
+
+The reviewer asserts that this inventory describes the entire portfolio.
+Each inventory position and cash identity must occur exactly once in **both**
+bookends, including explicit zero quantities/balances before purchases or after
+full sales. Each account/holding has one native security currency. Every event,
+position, opening lot and cash leg must belong to the declared inventory. FIFO
+runs per account/holding; native cash conservation runs per account/currency.
+Neither one account's assets nor another currency's cash can cover a discrepancy.
+Existing current holdings or `portfolio.tax_lots` do not supply historical evidence.
+
+Opening lots keep `acquired_at` and `total_cost_native`. They must include all
+remaining historical acquisition charges in native cost, with those charges
+capitalized at that acquisition instant. The historical reporting cost is that
+native cost times dated acquisition FX. Period purchases instead retain both the
+native equivalent cost and the actual translated reporting cost, including each
+cross-currency charge at its own currency's event FX.
+
+All version 2.0 timestamps use strict RFC3339 syntax with an explicit timezone.
+The historical FX resolver must use the reporting currency and explicit local
+native/reporting series. No inversion, triangulation, current-rate fallback, or
+undated activity `fx_rate` supplies attribution FX. Missing or stale acquisition,
+event or bookend FX makes the entire decomposition unavailable. Every lookup is
+retained in `fx_evidence` with its purpose, identity and full resolver evidence:
+source, selected observation, superseded observations, declared coverage,
+retrieval cutoff and age policy. The actual selected and revision retrieval times
+must not exceed `basis.review.retrieved_before`, even when the resolver was
+configured with no cutoff or a later cutoff. Such late selection is rejected;
+Rikdom does not silently choose a different historical vintage. Nested source
+retrieval timestamps in raw period history and its connected correction lineage
+are subject to the same cutoff. Strict JSON, finite-number and no-mutation rules
+apply to all published evidence.
+
+### Price, security FX and cash FX convention
+
+For a sale, let `C` be native FIFO cost consumed, `H` its historical reporting
+cost, `P` gross native proceeds less event charges translated into the security's
+native equivalent, and `R` dated sale FX. Then:
+
+```text
+realized_price_gain_base = (P - C) * R
+realized_fx_gain_base = C * R - H
+```
+
+Each bookend independently calculates:
+
+```text
+unrealized_price_gain_base = (native market value - remaining native cost) * bookend FX
+unrealized_fx_gain_base = remaining native cost * bookend FX - remaining historical reporting cost
+```
+
+The period components are the closing values minus the opening values. The
+existing `realized_gain_base`, bookend unrealized totals and
+`unrealized_change_base` remain their respective price-plus-security-FX sums.
+Foreign cash has its own independently calculated component per account/currency:
+
+```text
+cash_fx_gain_base = closing native cash * closing FX
+                 - opening native cash * opening FX
+                 - sum(each native cash movement * its dated event FX)
+```
+
+`cash_evidence` publishes both native balances, the translated event movements
+and the resulting cash FX per account/currency. This is derived from cash
+balances and movements, never from the unexplained portfolio result. Bookend
+cash plus positions must reconcile with performance, native cash must reconcile
+with all ledger debits/credits, and reconstructed quantities must reconcile with
+the closing positions. Negative quantities, overselling and negative interim
+cash require unsupported short/debt accounting and fail closed.
+
+The complete independently reconciled equation is:
+
+```text
+realized_price_gain_base + realized_fx_gain_base
++ unrealized_price_change_base + unrealized_fx_change_base
++ cash_fx_gain_base + fx_conversion_result_base
++ net_income_base - standalone_fees_base - standalone_taxes_base
+= explained_result_base = bridge.investment_result_base
+```
+
+### Charges, explicit currency conversion and splits
+
+Buy charges are capitalized once; sale charges reduce realized price proceeds
+once. Each charge debits its own native cash balance and uses its own dated FX.
+It is not also deducted as a standalone fee/tax. Gross income deducts charges
+once. A known net receipt keeps same-currency embedded charges informational and
+does not debit them again. A net receipt with nonzero cross-currency embedded
+charges is ambiguous and unavailable; supply explicit gross receipt evidence.
+Standalone charge events debit cash and the corresponding standalone component.
+All converted charges and cash legs are retained in `activity_evidence`.
+
+An `fx_conversion` requires two explicit positive legs: `money` is currency sold,
+`counter_money` is currency bought. Both cash balances move. Their difference at
+independently dated reporting FX is `fx_conversion_result_base`, the explicit
+execution spread/result. Separately reported fees/taxes debit cash and their
+standalone components once. An optional `fx_rate` must agree with the two legs;
+it never replaces reporting FX. No missing counter leg or implied spread is
+invented. Verified same-native internal cash pairs cancel external flows only
+at the portfolio boundary, while both account cash movements remain in the
+reconstruction. Version 2.0 supports only explicit complete portfolio scope.
+
+Posted `split` events support `corporate_action.kind` of `split` or
+`reverse_split`, a positive `exchange_ratio`, and exactly one matching
+`legs: [{holding_id, quantity_delta}]`. The reviewed delta must equal reconstructed
+quantity times `(ratio - 1)`. The ratio scales each FIFO lot quantity while
+preserving its entire native and historical reporting costs. A corrected split
+uses the final effective replacement event's full ratio; raw superseded versions
+remain in `history_evidence`, with their correction lineage and cutoff checks.
+A split and trade for the same position at one instant are ambiguous and
+unavailable. Cash-bearing splits, lot-specific/basis-adjustment legs and other
+corporate actions remain unsupported. FIFO ordering remains unambiguous by
+acquisition/event timestamp.
+
+### Offline hand-checkable example
+
+[`data-sample/profit-attribution-fx`](../../data-sample/profit-attribution-fx/)
+contains a synthetic portfolio, basis, snapshots and directional dated FX config.
+An opening lot of ten units cost USD 100 at acquisition FX 4. Opening securities
+are USD 120 at FX 5, plus USD 50 cash, for BRL 850. Selling four units for USD 60
+at FX 6 leaves six units, worth USD 90 at closing FX 7, plus USD 110 cash: BRL
+1,400. The period result is BRL 550:
+
+- Realized price gain: `(60 - 40) * 6 = 120`.
+- Realized security FX: `40 * 6 - 160 = 80`.
+- Unrealized price change: `(90 - 60) * 7 - (120 - 100) * 5 = 110`.
+- Unrealized security FX change: `(60 * 7 - 240) - (100 * 5 - 400) = 80`.
+- Cash FX: `110 * 7 - 50 * 5 - 60 * 6 = 160`.
+
+The expected values are also checked in as `expected.json`. This is an accounting
+convention for period attribution, not a jurisdiction-specific tax calculation.

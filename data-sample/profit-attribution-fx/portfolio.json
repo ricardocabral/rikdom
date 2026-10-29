@@ -1,0 +1,18 @@
+{
+  "schema_version": "2.0.0",
+  "base_currency": "BRL",
+  "activities": [
+    {
+      "id": "sale",
+      "account_id": "a",
+      "holding_id": "h",
+      "event_type": "sell",
+      "effective_at": "2026-01-15T00:00:00Z",
+      "quantity": 4,
+      "money": {
+        "amount": 60,
+        "currency": "USD"
+      }
+    }
+  ]
+}
