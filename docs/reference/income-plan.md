@@ -164,11 +164,49 @@ The result contains `version: 1`, `start`, `end`, and these lists:
 
 | List | Row contract |
 | --- | --- |
-| `announced` | Latest selected input row, plus `currency`, `expected_amount` (number or null), `reason` (text or null). Cancelled revisions remain visible with null expected amount. |
+| `announced` | Latest selected input row, plus `currency`, `expected_amount` (number or null), `reason` (text or null), and `reason_code` (text or null). Cancelled revisions remain visible with null expected amount. |
 | `estimates` | Selected input row, plus `currency` and `estimated_amount`. Always visibly separate from actual income. |
-| `reconciliation` | `announcement_id`, `scope`, `income_type`, `payment_date`, `currency`, `amount_basis`, `expected_amount`, `received_amount`, `known_received_subtotal`, `activity_ids`, `status`, `reason`. |
-| `yield_on_cost` | `id`, `scope`, `source`, `method`, `period`, `currency`, `amount_basis`, `coverage`, `income_source_system` (text or null), `cost_basis`, `received_amount`, `activity_ids`, `ratio`, `status`, `reason`. |
+| `reconciliation` | `announcement_id`, `scope`, `income_type`, `payment_date`, `currency`, `amount_basis`, `expected_amount`, `received_amount`, `known_received_subtotal`, `activity_ids`, `status`, `reason`, `reason_code`. |
+| `yield_on_cost` | `id`, `scope`, `source`, `method`, `period`, `currency`, `amount_basis`, `coverage`, `income_source_system` (text or null), `cost_basis`, `received_amount`, `activity_ids`, `ratio`, `status`, `reason`, `reason_code`. |
 | `diagnostics` | `id` (announcement ID or null) and `message` (source-aware explanatory text). |
+
+`reason_code` is an additive, machine-stable result field on `announced`,
+`reconciliation`, and `yield_on_cost` rows. It is null exactly when `reason` is
+null. Consumers should use the code for decisions and localization; English
+`reason` remains human-readable audit and fallback text, and its wording may
+change independently. These are output fields, not accepted plan input fields;
+the plan and result versions remain `1`. Reconciliation preserves an announcement's
+reason code when cancellation or unavailable entitlement causes its decision.
+
+| Reason code | Meaning |
+| --- | --- |
+| `announcement_cancelled` | Latest announcement revision is cancelled. |
+| `announced_amount_basis_unknown` | Announced amount basis is unknown. |
+| `entitlement_quantity_missing` | Per-unit announcement lacks historical entitlement quantity. |
+| `payment_link_missing` | No reviewed payment link in the selected period; coverage is unknown. |
+| `payment_outside_period` | Reviewed payments are outside the selected period. |
+| `additional_payments_outside_period` | Comparison includes selected payments; additional reviewed payments are outside the period. |
+| `cost_basis_unavailable` | Declared cost is unavailable. |
+| `income_coverage_incomplete` | Declared income coverage is not complete. |
+| `requested_amount_basis_unknown` | Requested income basis is unknown. |
+| `income_source_unknown` | Declared income source system is unknown. |
+| `scope_source_incompatible` | Declared scope and income source disagree. |
+| `cost_period_not_fully_selected` | Selected dates do not include the entire cost period. |
+| `income_unclassified` | Unclassified income prevents a complete numerator. |
+| `cost_activity_in_period` | A cost-affecting activity occurs in the cost period. |
+| `cost_activity_scope_unknown` | A cost-affecting activity has ambiguous historical scope. |
+| `received_scope_unknown` | Received income has ambiguous historical scope. |
+| `received_source_incompatible` | Received source is unknown or disagrees with the declaration. |
+| `received_currency_incompatible` | Received and declared cost currencies differ. |
+| `received_amount_basis_unavailable` | Received income lacks the requested amount basis. |
+
+The offline report uses these same codes for Portuguese reasons. Its date filter
+also uses `linked_payments_not_selected` when linked receipts are excluded and the
+saved summary cannot be recomputed; it shares `cost_period_not_fully_selected`
+with the calculator for incomplete cost periods. Unknown codes and legacy rows
+without a code display escaped original reason text, labeled as source text in
+Portuguese. English audit text is preserved. Filtering never rewrites the saved
+planning evidence.
 
 Reconciliation `activity_ids` are unique effective IDs, sorted lexically. Status
 is `matched`, `partial`, `overpaid`, `unlinked`, `unavailable`, or `cancelled`.

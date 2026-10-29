@@ -24,6 +24,30 @@ _COST_EVENTS = {'buy', 'sell', 'transfer_in', 'transfer_out', 'split', 'reverse_
                 'cost_basis_adjustment', 'reinvestment', 'contribution', 'withdrawal', 'deposit'}
 
 
+# Stable result identifiers shared with report localization; English remains audit copy.
+_REASONS = {
+    'announcement_cancelled': 'Latest announcement revision is cancelled; no entitlement calculated.',
+    'announced_amount_basis_unknown': 'Announced income amount basis is unknown.',
+    'entitlement_quantity_missing': 'Per-unit announcement has no declared historical entitlement quantity; current holdings are not used.',
+    'payment_outside_period': 'Reviewed payment exists outside the selected period; no received payment is counted in this window.',
+    'payment_link_missing': 'No reviewed received-payment link in this period; payment coverage is unknown, not evidence of a late or missing payment.',
+    'additional_payments_outside_period': 'Additional reviewed payments are outside the selected period; this comparison includes selected received payments only.',
+    'cost_basis_unavailable': 'Declared cost basis is unavailable.',
+    'income_coverage_incomplete': 'Income coverage for the declared scope, source and period is not complete.',
+    'requested_amount_basis_unknown': 'Requested income amount basis is unknown.',
+    'income_source_unknown': 'Income source system is unknown.',
+    'scope_source_incompatible': 'Declared scope source and income source system are incompatible.',
+    'cost_period_not_fully_selected': 'Selected dates do not include the entire declared cost-basis period; no partial-period yield substituted.',
+    'income_unclassified': 'Unclassified income prevents a complete received-income numerator.',
+    'cost_activity_in_period': 'Constant cost basis is unsupported because a cost-affecting activity occurs in the declared period.',
+    'cost_activity_scope_unknown': 'Cost-affecting activity has unknown historical scope; constant cost basis is unavailable.',
+    'received_scope_unknown': 'Received income has unknown historical scope attribution.',
+    'received_source_incompatible': 'Received income source is unknown or incompatible with the declared income source.',
+    'received_currency_incompatible': 'Received income currency differs from declared cost currency; no FX substitution.',
+    'received_amount_basis_unavailable': 'Received income amount basis is unavailable.',
+}
+
+
 @lru_cache(maxsize=1)
 def _validator() -> Draft202012Validator:
     schema = json.loads(files('rikdom._resources').joinpath('income-plan.schema.json').read_text(encoding='utf-8'))
@@ -156,25 +180,25 @@ def _reconcile(announcement: dict[str, Any], payments: list[dict[str, Any]], out
     basis = announcement['amount_basis']
     subtotal = sum((Decimal(str(row[basis])) for row in payments), Decimal(0))
     expected = announcement['expected_amount']
-    reason = None
+    reason_code = None
     if announcement['status'] == 'cancelled':
-        status, reason = 'cancelled', 'Latest announcement revision is cancelled; no entitlement calculated.'
+        status, reason_code = 'cancelled', announcement['reason_code']
     elif not payments:
         status = 'unlinked'
-        reason = ('Reviewed payment exists outside the selected period; no received payment is counted in this window.'
-                  if outside else 'No reviewed received-payment link in this period; payment coverage is unknown, not evidence of a late or missing payment.')
+        reason_code = 'payment_outside_period' if outside else 'payment_link_missing'
     elif expected is None:
-        status, reason = 'unavailable', announcement['reason']
+        status, reason_code = 'unavailable', announcement['reason_code']
     else:
         difference = subtotal - Decimal(str(expected))
         status = 'matched' if difference == 0 else 'partial' if difference < 0 else 'overpaid'
         if outside:
-            reason = 'Additional reviewed payments are outside the selected period; this comparison includes selected received payments only.'
+            reason_code = 'additional_payments_outside_period'
     return {key: copy.deepcopy(announcement[key]) for key in
             ('scope', 'income_type', 'payment_date', 'currency', 'amount_basis', 'expected_amount')} | {
         'announcement_id': announcement['id'], 'received_amount': _json_number(subtotal) if payments else None,
         'known_received_subtotal': _json_number(subtotal),
-        'activity_ids': sorted(row['activity_id'] for row in payments), 'status': status, 'reason': reason}
+        'activity_ids': sorted(row['activity_id'] for row in payments), 'status': status, 'reason_code': reason_code,
+        'reason': _REASONS.get(reason_code)}
 
 
 def _yield(row: dict[str, Any], received: dict[str, Any], effective: list[dict[str, Any]],
@@ -183,23 +207,23 @@ def _yield(row: dict[str, Any], received: dict[str, Any], effective: list[dict[s
     result = {key: copy.deepcopy(row[key]) for key in ('id', 'scope', 'source', 'method', 'period', 'amount_basis', 'coverage')}
     result.update(income_source_system=row.get('income_source_system'),
                   currency=money['currency'] if money else None, cost_basis=money['amount'] if money else None,
-                  received_amount=None, activity_ids=[], ratio=None, status='unavailable', reason=None)
-    reason = None
+                  received_amount=None, activity_ids=[], ratio=None, status='unavailable', reason=None, reason_code=None)
+    reason_code = None
     if money is None:
-        reason = 'Declared cost basis is unavailable.'
+        reason_code = 'cost_basis_unavailable'
     elif row['coverage'] != 'complete':
-        reason = 'Income coverage for the declared scope, source and period is not complete.'
+        reason_code = 'income_coverage_incomplete'
     elif basis == 'unknown':
-        reason = 'Requested income amount basis is unknown.'
+        reason_code = 'requested_amount_basis_unknown'
     elif not row.get('income_source_system'):
-        reason = 'Income source system is unknown.'
+        reason_code = 'income_source_unknown'
     elif row['scope'].get('source_system', row['income_source_system']) != row['income_source_system']:
-        reason = 'Declared scope source and income source system are incompatible.'
+        reason_code = 'scope_source_incompatible'
     elif (start and start > period['start']) or (end and end < period['end']):
-        reason = 'Selected dates do not include the entire declared cost-basis period; no partial-period yield substituted.'
+        reason_code = 'cost_period_not_fully_selected'
     candidates = []
     by_id = {a['id']: a for a in effective}
-    if reason is None:
+    if reason_code is None:
         for activity in effective:
             if activity['status'] != 'posted':
                 continue
@@ -211,11 +235,10 @@ def _yield(row: dict[str, Any], received: dict[str, Any], effective: list[dict[s
             day = _event_date(activity.get('effective_at'))
             relation = _scope_relation(activity, row['scope'])
             if _inside(day, period['start'], period['end']) and relation is not False:
-                reason = ('Unclassified income prevents a complete received-income numerator.' if generic_income else
-                          'Constant cost basis is unsupported because a cost-affecting activity occurs in the declared period.'
-                          if relation else 'Cost-affecting activity has unknown historical scope; constant cost basis is unavailable.')
+                reason_code = ('income_unclassified' if generic_income else
+                               'cost_activity_in_period' if relation else 'cost_activity_scope_unknown')
                 break
-    if reason is None:
+    if reason_code is None:
         for event in received['events']:
             if not _inside(event['date'], period['start'], period['end']):
                 continue
@@ -224,20 +247,20 @@ def _yield(row: dict[str, Any], received: dict[str, Any], effective: list[dict[s
             if relation is False:
                 continue
             if relation is None:
-                reason = 'Received income has unknown historical scope attribution.'
+                reason_code = 'received_scope_unknown'
                 break
             if _activity_source(activity) != row['income_source_system']:
-                reason = 'Received income source is unknown or incompatible with the declared income source.'
+                reason_code = 'received_source_incompatible'
                 break
             if event['currency'] != money['currency']:
-                reason = 'Received income currency differs from declared cost currency; no FX substitution.'
+                reason_code = 'received_currency_incompatible'
                 break
             if event[basis] is None:
-                reason = 'Received income amount basis is unavailable.'
+                reason_code = 'received_amount_basis_unavailable'
                 break
             candidates.append(event)
-    if reason:
-        result['reason'] = reason
+    if reason_code:
+        result.update(reason_code=reason_code, reason=_REASONS[reason_code])
         return result
     total = sum((Decimal(str(event[basis])) for event in candidates), Decimal(0))
     result.update(received_amount=_json_number(total), activity_ids=sorted(event['activity_id'] for event in candidates),
@@ -272,18 +295,19 @@ def build_income_planning_report(
     for row in announcements:
         if not _inside(row['payment_date'], start, end):
             continue
-        amount, reason = None, None
+        amount, reason_code = None, None
         if row['status'] == 'cancelled':
-            reason = 'Latest announcement revision is cancelled; no entitlement calculated.'
+            reason_code = 'announcement_cancelled'
         elif row['amount_basis'] == 'unknown':
-            reason = 'Announced income amount basis is unknown.'
+            reason_code = 'announced_amount_basis_unknown'
         elif row['amount_kind'] == 'per_unit' and 'entitlement_quantity' not in row:
-            reason = 'Per-unit announcement has no declared historical entitlement quantity; current holdings are not used.'
+            reason_code = 'entitlement_quantity_missing'
         else:
             amount = Decimal(str(row['money']['amount']))
             if row['amount_kind'] == 'per_unit':
                 amount *= Decimal(str(row['entitlement_quantity']))
-        row.update(currency=row['money']['currency'], expected_amount=_json_number(amount), reason=reason)
+        row.update(currency=row['money']['currency'], expected_amount=_json_number(amount),
+                   reason_code=reason_code, reason=_REASONS.get(reason_code))
         announced.append(row)
     selected_estimates = []
     for row in estimates:

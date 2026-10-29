@@ -48,6 +48,87 @@ def build(p=None, config=None, **bounds):
 
 
 class IncomePlanningTests(unittest.TestCase):
+    def test_reason_codes_preserve_announcement_and_reconciliation_identity(self):
+        cases = [
+            ({'status': 'cancelled'}, 'announcement_cancelled',
+             'Latest announcement revision is cancelled; no entitlement calculated.'),
+            ({'amount_basis': 'unknown'}, 'announced_amount_basis_unknown',
+             'Announced income amount basis is unknown.'),
+            ({'amount_kind': 'per_unit'}, 'entitlement_quantity_missing',
+             'Per-unit announcement has no declared historical entitlement quantity; current holdings are not used.'),
+        ]
+        for fields, code, message in cases:
+            with self.subTest(code=code):
+                result = build(config=plan(announcements=[announcement(**fields)]))
+                row = result['announced'][0]
+                self.assertEqual((row.get('reason_code'), row['reason'], row['expected_amount']),
+                                 (code, message, None))
+                if fields.get('status') == 'cancelled':
+                    self.assertEqual(result['reconciliation'][0]['reason_code'], code)
+        config = plan(announcements=[announcement(amount_kind='per_unit')], payment_links=[{
+            'announcement_id': 'ann', 'activity_id': 'pay', 'source': source()}])
+        result = build(portfolio(payment()), config)
+        row = result['reconciliation'][0]
+        self.assertEqual((row.get('reason_code'), row['reason'], row['received_amount'], row['status']),
+                         ('entitlement_quantity_missing', cases[2][2], 10, 'unavailable'))
+
+    def test_reconciliation_reason_codes_distinguish_payment_window_evidence(self):
+        config = plan(announcements=[announcement()], payment_links=[{
+            'announcement_id': 'ann', 'activity_id': aid, 'source': source()} for aid in ('pay', 'later')])
+        later = payment('later', amount=6, effective_at='2026-02-01T00:00:00Z')
+        p = portfolio(payment(amount=4), later)
+        cases = [
+            (plan(announcements=[announcement()]), p, 'payment_link_missing',
+             'No reviewed received-payment link in this period; payment coverage is unknown, not evidence of a late or missing payment.', 'unlinked', None),
+            (config, p, 'additional_payments_outside_period',
+             'Additional reviewed payments are outside the selected period; this comparison includes selected received payments only.', 'partial', 4),
+            (plan(announcements=[announcement()], payment_links=[config['payment_links'][1]]),
+             p, 'payment_outside_period',
+             'Reviewed payment exists outside the selected period; no received payment is counted in this window.', 'unlinked', None),
+        ]
+        for conf, data, code, message, status, amount in cases:
+            with self.subTest(code=code):
+                row = build(data, conf, start='2026-01-01', end='2026-01-31')['reconciliation'][0]
+                self.assertEqual((row.get('reason_code'), row['reason'], row['status'], row['received_amount']),
+                                 (code, message, status, amount))
+
+    def test_yield_reason_codes_identify_evidence_failure_without_changing_audit_text(self):
+        cases = [
+            ({'money': None}, payment(), {}, 'cost_basis_unavailable', 'Declared cost basis is unavailable.'),
+            ({'coverage': 'partial'}, payment(), {}, 'income_coverage_incomplete', 'Income coverage for the declared scope, source and period is not complete.'),
+            ({'amount_basis': 'unknown'}, payment(), {}, 'requested_amount_basis_unknown', 'Requested income amount basis is unknown.'),
+            ({'income_source_system': None}, payment(), {}, 'income_source_unknown', 'Income source system is unknown.'),
+            ({'scope': {'source_system': 'other'}}, payment(), {}, 'scope_source_incompatible', 'Declared scope source and income source system are incompatible.'),
+            ({}, payment(), {'start': '2026-01-15'}, 'cost_period_not_fully_selected', 'Selected dates do not include the entire declared cost-basis period; no partial-period yield substituted.'),
+            ({}, payment(event_type='income'), {}, 'income_unclassified', 'Unclassified income prevents a complete received-income numerator.'),
+            ({}, payment(event_type='buy'), {}, 'cost_activity_in_period', 'Constant cost basis is unsupported because a cost-affecting activity occurs in the declared period.'),
+            ({}, payment(event_type='buy', holding_id=None), {}, 'cost_activity_scope_unknown', 'Cost-affecting activity has unknown historical scope; constant cost basis is unavailable.'),
+            ({}, payment(holding_id=None), {}, 'received_scope_unknown', 'Received income has unknown historical scope attribution.'),
+            ({}, payment(provenance={}), {}, 'received_source_incompatible', 'Received income source is unknown or incompatible with the declared income source.'),
+            ({}, payment(money={'amount': 10, 'currency': 'EUR'}), {}, 'received_currency_incompatible', 'Received income currency differs from declared cost currency; no FX substitution.'),
+            ({'amount_basis': 'net'}, payment(), {}, 'received_amount_basis_unavailable', 'Received income amount basis is unavailable.'),
+        ]
+        for fields, activity, bounds, code, message in cases:
+            with self.subTest(code=code):
+                declaration = cost(**fields)
+                if declaration.get('income_source_system') is None:
+                    declaration.pop('income_source_system', None)
+                row = build(portfolio(activity), plan(cost_bases=[declaration]), **bounds)['yield_on_cost'][0]
+                self.assertEqual((row.get('reason_code'), row['reason'], row['ratio'], row['received_amount'], row['status']),
+                                 (code, message, None, None, 'unavailable'))
+
+    def test_successful_planning_rows_have_explicit_null_reason_codes(self):
+        config = plan(announcements=[announcement()], cost_bases=[cost()], payment_links=[{
+            'announcement_id': 'ann', 'activity_id': 'pay', 'source': source()}])
+        result = build(portfolio(payment()), config)
+        for section in ('announced', 'reconciliation', 'yield_on_cost'):
+            row = result[section][0]
+            self.assertIn('reason_code', row)
+            self.assertIsNone(row['reason_code'])
+            self.assertIsNone(row['reason'])
+        self.assertEqual(result['yield_on_cost'][0]['ratio'], .1)
+        self.assertEqual(result['reconciliation'][0]['received_amount'], 10)
+
     def test_revisions_deduplicate_latest_wins_and_cancellation_has_no_entitlement(self):
         old = announcement()
         latest = announcement(revision=2, money={'amount': 12, 'currency': 'USD'})

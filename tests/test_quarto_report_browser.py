@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from rikdom.income import build_income_report
+from rikdom.income_planning import build_income_planning_report
 from rikdom.plugin_engine.pipeline import run_output_pipeline
 
 
@@ -18,6 +20,22 @@ from rikdom.plugin_engine.pipeline import run_output_pipeline
     "Set RIKDOM_PLAYWRIGHT_MODULE to an installed Playwright module for browser QA",
 )
 class OfflineReportBrowserTests(unittest.TestCase):
+    def test_planning_reasons_localize_by_code_and_escape_unknown_or_legacy_text(self):
+        portfolio = json.loads(Path('tests/fixtures/income_planning_portfolio.json').read_text())
+        plan = json.loads(Path('tests/fixtures/income_plan.json').read_text())
+        plan['announcements'][0]['payment_date'] = '2026-02-03'
+        plan['cost_bases'][0]['coverage'] = 'partial'
+        income = build_income_report(portfolio)
+        income['planning'] = build_income_planning_report(portfolio, income, plan)
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = Path(tmp) / 'payload.json'
+            payload.write_text(json.dumps({'sections': {'income': income}}))
+            checked = subprocess.run(
+                [shutil.which('node'), 'tests/browser/report_reasons.cjs', str(payload)],
+                text=True, capture_output=True, timeout=120,
+            )
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+
     def test_generated_reports_work_after_relocation_without_remote_network(self):
         for fallback in (True, False):
             with self.subTest(fallback=fallback), tempfile.TemporaryDirectory() as tmp:

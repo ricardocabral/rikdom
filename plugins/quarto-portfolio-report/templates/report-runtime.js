@@ -136,32 +136,32 @@
       announced:column('Announced','Anunciado'),cancelled:column('Cancelled','Cancelado'),matched:column('Matched','Conciliado'),partial:column('Partial','Parcial'),overpaid:column('Above announced','Acima do anunciado'),unlinked:column('Unlinked; coverage unknown','Sem vínculo; cobertura desconhecida'),
       dividend:column('Dividend','Dividendo'),interest:column('Interest','Juros'),total:column('Total','Total'),per_unit:column('Per unit','Por unidade'),manual:column('Manual','Manual'),file:column('File','Arquivo'),provider:column('Provider','Provedor'),declared_constant_cost:column('Declared constant cost','Custo constante declarado')};
     const reasonTranslations = {
-      'Selected dates exclude linked received payments; matching amounts are unavailable without recomputing the original summary.':'As datas selecionadas excluem pagamentos recebidos vinculados; os valores conciliados ficam indisponíveis sem recalcular o resumo original.',
-      'Additional reviewed payments are outside the selected period; this comparison includes selected received payments only.':'Há pagamentos revisados adicionais fora do período selecionado; esta comparação inclui apenas os pagamentos recebidos selecionados.',
-      'Declared cost basis is unavailable.':'O custo declarado está indisponível.',
-      'Income coverage for the declared scope, source and period is not complete.':'A cobertura dos rendimentos não está completa para o escopo, a fonte e o período declarados.',
-      'Requested income amount basis is unknown.':'A base dos rendimentos solicitada é desconhecida.',
-      'Income source system is unknown.':'O sistema de origem dos rendimentos é desconhecido.',
-      'Declared scope source and income source system are incompatible.':'A fonte do escopo declarado e o sistema de origem dos rendimentos são incompatíveis.',
-      'Selected dates do not include the entire declared cost-basis period; no partial-period yield substituted.':'As datas selecionadas não abrangem todo o período do custo declarado; nenhum rendimento de período parcial foi substituído.',
-      'Unclassified income prevents a complete received-income numerator.':'Rendimentos sem classificação impedem um numerador completo de rendimentos recebidos.',
-      'Constant cost basis is unsupported because a cost-affecting activity occurs in the declared period.':'O custo constante não é sustentado, pois há um evento que afeta o custo no período declarado.',
-      'Cost-affecting activity has unknown historical scope; constant cost basis is unavailable.':'Um evento que afeta o custo tem escopo histórico desconhecido; o custo constante está indisponível.',
-      'Received income has unknown historical scope attribution.':'A atribuição histórica do escopo dos rendimentos recebidos é desconhecida.',
-      'Received income source is unknown or incompatible with the declared income source.':'A fonte dos rendimentos recebidos é desconhecida ou incompatível com a fonte declarada.',
-      'Received income currency differs from declared cost currency; no FX substitution.':'A moeda dos rendimentos recebidos difere da moeda do custo declarado; sem substituição cambial.',
-      'Received income amount basis is unavailable.':'A base dos rendimentos recebidos está indisponível.',
-      'Latest announcement revision is cancelled; no entitlement calculated.':'A revisão mais recente do anúncio foi cancelada; nenhum direito foi calculado.',
-      'Announced income amount basis is unknown.':'A base dos rendimentos anunciados é desconhecida.',
-      'Per-unit announcement has no declared historical entitlement quantity; current holdings are not used.':'O anúncio por unidade não tem quantidade histórica de direito declarada; as posições atuais não são usadas.',
-      'Reviewed payment exists outside the selected period; no received payment is counted in this window.':'Há pagamento revisado fora do período selecionado; nenhum pagamento recebido é contado neste intervalo.',
-      'No reviewed received-payment link in this period; payment coverage is unknown, not evidence of a late or missing payment.':'Nenhum vínculo revisado de pagamento recebido neste período; a cobertura é desconhecida e não comprova atraso ou ausência de pagamento.',
+      linked_payments_not_selected:'As datas selecionadas excluem pagamentos recebidos vinculados; os valores conciliados ficam indisponíveis sem recalcular o resumo original.',
+      additional_payments_outside_period:'Há pagamentos revisados adicionais fora do período selecionado; esta comparação inclui apenas os pagamentos recebidos selecionados.',
+      cost_basis_unavailable:'O custo declarado está indisponível.',
+      income_coverage_incomplete:'A cobertura dos rendimentos não está completa para o escopo, a fonte e o período declarados.',
+      requested_amount_basis_unknown:'A base dos rendimentos solicitada é desconhecida.',
+      income_source_unknown:'O sistema de origem dos rendimentos é desconhecido.',
+      scope_source_incompatible:'A fonte do escopo declarado e o sistema de origem dos rendimentos são incompatíveis.',
+      cost_period_not_fully_selected:'As datas selecionadas não abrangem todo o período do custo declarado; nenhum rendimento de período parcial foi substituído.',
+      income_unclassified:'Rendimentos sem classificação impedem um numerador completo de rendimentos recebidos.',
+      cost_activity_in_period:'O custo constante não é sustentado, pois há um evento que afeta o custo no período declarado.',
+      cost_activity_scope_unknown:'Um evento que afeta o custo tem escopo histórico desconhecido; o custo constante está indisponível.',
+      received_scope_unknown:'A atribuição histórica do escopo dos rendimentos recebidos é desconhecida.',
+      received_source_incompatible:'A fonte dos rendimentos recebidos é desconhecida ou incompatível com a fonte declarada.',
+      received_currency_incompatible:'A moeda dos rendimentos recebidos difere da moeda do custo declarado; sem substituição cambial.',
+      received_amount_basis_unavailable:'A base dos rendimentos recebidos está indisponível.',
+      announcement_cancelled:'A revisão mais recente do anúncio foi cancelada; nenhum direito foi calculado.',
+      announced_amount_basis_unknown:'A base dos rendimentos anunciados é desconhecida.',
+      entitlement_quantity_missing:'O anúncio por unidade não tem quantidade histórica de direito declarada; as posições atuais não são usadas.',
+      payment_outside_period:'Há pagamento revisado fora do período selecionado; nenhum pagamento recebido é contado neste intervalo.',
+      payment_link_missing:'Nenhum vínculo revisado de pagamento recebido neste período; a cobertura é desconhecida e não comprova atraso ou ausência de pagamento.',
     };
     const text = value => escapeHtml(value ?? l.unknown);
     const status = value => text(enums[value] || value || l.unknown);
     const scopeLabel = row => Object.entries(row.scope || {}).map(([name,value]) => `${column({account_id:'Account',asset_type_id:'Asset type',holding_id:'Holding',source_system:'Source system',instrument:'Instrument'}[name] || name,{account_id:'Conta',asset_type_id:'Tipo de ativo',holding_id:'Posição',source_system:'Sistema de origem',instrument:'Instrumento'}[name] || name)}: ${typeof value === 'object' ? JSON.stringify(value) : value}`).join('; ');
     const source = row => row.source ? `${status(row.source.kind)} · ${text(row.source.reference)} · ${text(date(row.source.as_of))}` : l.unknown;
-    const reason = row => !row.reason ? '—' : pt && reasonTranslations[row.reason] ? text(reasonTranslations[row.reason]) : `<span data-source-text>${pt ? text(l.original) + ': ' : ''}${text(row.reason)}</span>`;
+    const reason = row => !row.reason ? '—' : pt && Object.hasOwn(reasonTranslations, row.reason_code) ? text(reasonTranslations[row.reason_code]) : `<span data-source-text>${pt ? text(l.original) + ': ' : ''}${text(row.reason)}</span>`;
     const basis = column('Amount basis','Base do valor'), provenance = column('Source and date','Fonte e data'), details = column('Scope / details','Escopo / detalhes'), state = column('Status / reason','Situação / motivo');
     if (key === 'yield_on_cost') return table([l.source,details,column('Declared period','Período declarado'),column('Method / source','Método / fonte'),basis,column('Cost basis','Custo declarado'),l.income,column('Yield (not annualized)','Rendimento (sem anualização)'),state], rows.map(row => [text(row.id),text(scopeLabel(row)),`${text(date(row.period?.start))} – ${text(date(row.period?.end))}`,`${status(row.method)}<br>${source(row)}<br>${column('Income source system','Sistema de origem dos rendimentos')}: ${text(row.income_source_system)}<br>${column('Coverage','Cobertura')}: ${status(row.coverage)}`,status(row.amount_basis),text(money(row.cost_basis,row.currency)),`${text(money(row.received_amount,row.currency))}<br>${text((row.activity_ids || []).join(', '))}`,typeof row.ratio === 'number' ? text(new Intl.NumberFormat(locale(),{style:'percent',maximumFractionDigits:2}).format(row.ratio)) : text(l.unknown),`${status(row.status)}<br>${reason(row)}`]));
     if (key === 'reconciliation') return table([l.source,l.date,details,basis,column('Announced','Anunciado'),l.income,column('Known subtotal / linked IDs','Subtotal conhecido / IDs vinculados'),state],rows.map(row => [text(row.announcement_id),text(date(row.payment_date)),text(scopeLabel(row)),status(row.amount_basis),text(money(row.expected_amount,row.currency)),text(money(row.received_amount,row.currency)),`${text(money(row.known_received_subtotal,row.currency))}<br>${text((row.activity_ids || []).join(', '))}`,`${status(row.status)}<br>${reason(row)}`]));
@@ -196,8 +196,8 @@
         const planning = {...sections.income.planning};
         for (const key of ['announced', 'estimates', 'reconciliation']) planning[key] = (planning[key] || []).filter(row => within({date:row.payment_date}));
         const visibleIncome = new Set(sections.income.events.map(row => row.activity_id));
-        planning.reconciliation = planning.reconciliation.map(row => (row.activity_ids || []).every(id => visibleIncome.has(id)) ? row : {...row, received_amount:null, known_received_subtotal:null, status:'unavailable', reason:'Selected dates exclude linked received payments; matching amounts are unavailable without recomputing the original summary.'});
-        planning.yield_on_cost = (planning.yield_on_cost || []).map(row => (!invalid && (!start || start <= row.period.start) && (!end || end >= row.period.end)) ? row : {...row, ratio:null, received_amount:null, status:'unavailable', reason:'Selected dates do not include the entire declared cost-basis period; no partial-period yield substituted.'});
+        planning.reconciliation = planning.reconciliation.map(row => (row.activity_ids || []).every(id => visibleIncome.has(id)) ? row : {...row, received_amount:null, known_received_subtotal:null, status:'unavailable', reason_code:'linked_payments_not_selected', reason:'Selected dates exclude linked received payments; matching amounts are unavailable without recomputing the original summary.'});
+        planning.yield_on_cost = (planning.yield_on_cost || []).map(row => (!invalid && (!start || start <= row.period.start) && (!end || end >= row.period.end)) ? row : {...row, ratio:null, received_amount:null, status:'unavailable', reason_code:'cost_period_not_fully_selected', reason:'Selected dates do not include the entire declared cost-basis period; no partial-period yield substituted.'});
         sections.income.planning = planning;
       }
       const l = labels[language];
