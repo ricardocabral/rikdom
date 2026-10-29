@@ -117,3 +117,64 @@ impossible dates remain in `sections.unavailable_snapshots` with a quality warni
 they do not enter chronological charts or change summaries. No canonical history
 is rewritten. Custom asset identifiers remain opaque; Portuguese translates
 only exact known enum labels.
+
+## Offline investment performance
+
+`sections.performance` uses the same `performance_result_to_dict` contract as
+`rikdom performance`. Both Quarto pages and fallback pages display the selected
+TWR method, legacy Dietz approximation, XIRR, period versus annualized basis,
+actual snapshot window, currency, warnings and growth bridge. The bridge is a
+residual reconciliation, not a realized/unrealized or FX attribution engine.
+Income is embedded in snapshot values and is never added again. Fees and taxes
+are embedded in valuations, not separately calculated. Missing or invalid inputs
+remain unavailable; the report never fetches financial data.
+
+Optional evidence is explicitly selected under the existing report extension:
+
+```json
+{
+  "extensions": {
+    "rikdom_report": {
+      "locale": "en",
+      "performance": {
+        "flow_valuations_path": "flow-valuations.json",
+        "historical_fx_path": "historical-fx.json",
+        "policy_path": "policy.json",
+        "benchmarks_dir": "benchmarks",
+        "since": "2026-01-01",
+        "until": "2026-12-31"
+      }
+    }
+  }
+}
+```
+
+All performance options are optional. Paths are local files/directories and are
+relative to the portfolio file, or absolute. Historical FX configuration resolves
+its market-series file relative to that configuration. Evidence uses the same
+contracts as CLI `--flow-valuations`, `--historical-fx`, `--policy` and
+`--benchmarks-dir`; use the same files and window to reproduce the CLI result.
+Without historical FX, optional `fx_history_path` selects the CLI-compatible local
+undated FX history (default `fx_rates.jsonl` beside the portfolio). The report's
+current-valuation snapshot FX lock is never substituted for historical cashflows.
+Policy benchmarks default to the `benchmarks` directory beside the portfolio.
+Legacy undated FX remains approximate as disclosed by the core. Invalid selected
+files/configuration make performance unavailable without discarding other report
+sections. Invalid snapshot timestamps also make performance unavailable, rather
+than silently removing those records from the calculation.
+
+The visible window is the actual selected snapshot bookends, which can differ
+from requested `since`/`until` bounds. Interactive date filters make performance
+unavailable until reset; they do not recalculate or relabel the original window.
+Account, currency and asset-type scopes also keep performance unavailable because
+the report has no attributable scoped return contract. Current valuation and
+recorded-income filters continue to work independently.
+
+Benchmark comparisons retain the core currency, return convention, comparability,
+actual dates and excess-return availability. The expandable provenance section
+contains the original calculation contract, flow-valuation sources, FX lookup
+and benchmark evidence, warnings and rounding convention. Local configuration
+paths are represented by filenames, not copied as absolute paths. Source text is
+escaped and preserved; interface labels and numeric formatting support English
+and Portuguese. JavaScript formats supplied financial figures and selects
+unavailable states; it performs no financial calculations.

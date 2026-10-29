@@ -125,9 +125,61 @@
     }
     return `<section class="report-panel" id="income-view"><h2>${escapeHtml(l.income)}</h2><p>${escapeHtml(l.native)}</p>${table([l.date, l.source, l.kind, l.gross, l.withholding, l.fees, l.net], eventRows, l.income)}</section>
       <section class="report-panel" id="contributions-view"><h2>${escapeHtml(l.contributions)}</h2>${table([l.date, l.source, l.kind, l.amount], contributions, l.contributions)}</section>
-      <section class="report-panel" id="performance-view"><h2>${escapeHtml(l.performance)}</h2><p>${escapeHtml(l.unavailable)}</p></section>
+      ${performancePanel(sections)}
       <section class="report-panel" id="planning-view">${plan}</section>
       ${diagnostics.length ? `<details class="report-panel"><summary>${escapeHtml(l.original)}</summary><ul data-source-text>${diagnostics.map(row => `<li>${escapeHtml(row.activity_id || row.id || '')}: ${escapeHtml(row.message || JSON.stringify(row))}</li>`).join('')}</ul></details>` : ''}`;
+  }
+  function performancePanel(sections) {
+    const p = sections.performance, context = sections.performance_context || {}, l = labels[language];
+    const pt = language === 'pt';
+    const label = (en, br) => pt ? br : en;
+    const text = value => escapeHtml(value ?? l.unknown);
+    const raw = value => `<span data-source-text>${text(value)}</span>`;
+    const percent = value => typeof value === 'number' && Number.isFinite(value)
+      ? new Intl.NumberFormat(locale(), {maximumFractionDigits:6}).format(value) + '%' : l.unknown;
+    const warnings = [...(p?.warnings || []), ...(context.warnings || [])];
+    const auditWarnings = warnings.length ? `<p>${escapeHtml(l.original)}</p><ul data-source-text>${warnings.map(w => `<li>${text(w)}</li>`).join('')}</ul>` : '';
+    const title = `<h2>${text(l.performance)}</h2>`;
+    if (!p) {
+      const message = context.status === 'unavailable_for_dates'
+        ? label('Unavailable for selected dates: performance uses the original snapshot window. Reset date filters to view that window.', 'Indisponível nas datas selecionadas: a rentabilidade usa o período original das avaliações. Limpe os filtros para exibir esse período.')
+        : context.status === 'unavailable_for_scope' ? l.scoped : l.unavailable;
+      return `<section class="report-panel" id="performance-view">${title}<p>${text(message)}</p>${auditWarnings}</section>`;
+    }
+    const method = {
+      linked_subperiod:label('Linked subperiod TWR','TWR por subperíodos encadeados'),
+      bookend_ratio:label('Bookend ratio; no external flows','Razão entre avaliações; sem fluxos externos'),
+      modified_dietz:label('Modified Dietz approximation','Aproximação de Modified Dietz'),
+      unavailable:l.unknown,
+    };
+    const basis = value => ({period:label('Period; not annualized','Período; sem anualização'), annualized_365_day:label('Annualized; 365-day years','Anualizado; anos de 365 dias')})[value] || value;
+    const rows = [
+      [text(label('Selected TWR','TWR selecionado')), text(percent(p.twr_return_pct)), text(method[p.twr_method] || p.twr_method), text(basis(p.twr_return_basis))],
+      [text(label('Legacy Dietz','Dietz legado')), text(percent(p.twr_pct)), text(method.modified_dietz), text(basis('period'))],
+      [text('MWR'), text(percent(p.mwr_pct)), text('XIRR'), text(basis(p.mwr_return_basis))],
+    ];
+    const bridge = p.growth_bridge;
+    let growth = '';
+    if (bridge) {
+      growth = `<h3>${text(label('Growth bridge','Conciliação do crescimento'))}</h3><p>${text(label('Residual investment result; realized/unrealized gains and FX attribution are not separately calculated.', 'Resultado residual dos investimentos; ganhos realizados/não realizados e efeitos cambiais não são calculados separadamente.'))}</p>`;
+      if (bridge.status === 'complete') {
+        const bridgeLabels = {
+          opening_value_base:label('Opening value','Valor inicial'), net_external_cashflow_base:label('Net external cashflow','Fluxo externo líquido'),
+          investment_result_base:label('Investment result','Resultado dos investimentos'), rounding_adjustment_base:label('Rounding adjustment','Ajuste de arredondamento'), closing_value_base:label('Closing value','Valor final'),
+        };
+        growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(bridgeLabels).map(([key,name]) => [text(name), text(money(bridge[key], bridge.base_currency))]));
+      } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(bridge.reasons || []).map(reason => `<li>${text(reason)}</li>`).join('')}</ul>`;
+    }
+    const benchmarkRows = (p.benchmarks || []).map(row => [raw(row.label || row.benchmark_id), text(row.currency), text(percent(row.twr_pct)), text(percent(row.excess_pct)), raw(row.comparison_status), raw(row.return_convention), text(`${sourceDateTime(row.period_start)} – ${sourceDateTime(row.period_end)}`)]);
+    const benchmarks = benchmarkRows.length ? `<h3>${text(label('Benchmarks','Referências'))}</h3>${table([label('Benchmark','Referência'),label('Currency','Moeda'),label('Return','Retorno'),label('Excess','Excesso'),label('Comparability','Comparabilidade'),label('Return convention','Convenção de retorno'),label('Actual window','Período efetivo')], benchmarkRows)}` : `<p>${text(label('Benchmark comparison unavailable: no benchmark result supplied.', 'Comparação com referência indisponível: nenhum resultado fornecido.'))}</p>`;
+    return `<section class="report-panel" id="performance-view">${title}
+      <p>${text(label('All portfolio · Actual snapshot window','Carteira completa · Período efetivo das avaliações'))}: ${text(sourceDateTime(p.period_start))} – ${text(sourceDateTime(p.period_end))} · ${text(p.base_currency)}</p>
+      ${table([label('Metric','Métrica'),label('Return','Retorno'),label('Method','Método'),label('Basis','Base')], rows)}
+      ${p.twr_fallback_reason ? `<p>${text(label('Fallback reason','Motivo da aproximação'))}: ${raw(p.twr_fallback_reason)}</p>` : ''}
+      <p>${text(label('Fees and taxes are embedded in snapshot values; not separately calculated. Income is embedded in valuations and is not added again.', 'Taxas e impostos estão incorporados nas avaliações; sem cálculo separado. Os rendimentos estão incorporados nas avaliações e não são somados novamente.'))}</p>
+      <p>${text(label('Cashflow FX status','Situação cambial dos fluxos'))}: ${raw(p.fx_status)}</p>
+      ${growth}${benchmarks}${auditWarnings}
+      <details><summary>${text(label('Calculation inputs and provenance (raw source text)','Dados de cálculo e proveniência (texto original da fonte)'))}</summary><pre data-source-text>${text(JSON.stringify({context, performance:p}, null, 2))}</pre></details></section>`;
   }
   function planningRows(key, rows) {
     const pt = language === 'pt', l = labels[language];
@@ -192,6 +244,10 @@
       sections.timeline = (sections.timeline || []).filter(within);
       sections.income = {...sections.income, events: (sections.income?.events || []).filter(within)};
       sections.contributions = (sections.contributions || []).filter(within);
+      if (start || end) {
+        sections.performance = null;
+        sections.performance_context = {status:'unavailable_for_dates'};
+      }
       if (sections.income.planning) {
         const planning = {...sections.income.planning};
         for (const key of ['announced', 'estimates', 'reconciliation']) planning[key] = (planning[key] || []).filter(row => within({date:row.payment_date}));
