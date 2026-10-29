@@ -32,6 +32,7 @@ from .export_bundle import (
 )
 from .funded_ratio import compute_funded_ratios
 from .fx import ensure_snapshot_fx_lock
+from .market_series import load_market_series
 from .journal import (
     DEFAULT_POLICY,
     DEFAULT_ROTATE_BYTES,
@@ -302,6 +303,15 @@ def _bootstrap_default_workspace(args: argparse.Namespace) -> None:
         _bootstrap_default_file(
             fx_history_path, defaults["fx_history"], SAMPLE_FX_HISTORY_PATH
         )
+
+
+def cmd_market_series(args: argparse.Namespace) -> int:
+    result = load_market_series(args.input).lookup(
+        args.series, as_of=args.as_of, max_age_seconds=args.max_age_seconds,
+        retrieved_before=args.retrieved_before,
+    )
+    print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False))
+    return 0
 
 
 def cmd_connector(args: argparse.Namespace) -> int:
@@ -2290,6 +2300,14 @@ def _add_workspace_options(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rikdom")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    p_market = sub.add_parser("market-series", help="Replay a local price or FX series without changing files")
+    p_market.add_argument("--input", required=True, help="Versioned local market series JSON file")
+    p_market.add_argument("--series", required=True, help="Exact series identity in the input file")
+    p_market.add_argument("--as-of", required=True, help="Historical UTC timestamp, inclusive")
+    p_market.add_argument("--max-age-seconds", required=True, type=float, help="Maximum effective observation age, inclusive")
+    p_market.add_argument("--retrieved-before", help="Inclusive UTC retrieval cutoff; omitted uses all file vintages")
+    p_market.set_defaults(func=cmd_market_series)
 
     p_connector = sub.add_parser("connector", help="Query an explicitly selected external connector plugin")
     connector_sub = p_connector.add_subparsers(dest="connector_command", required=True)

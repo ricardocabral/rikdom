@@ -1,0 +1,73 @@
+{
+  "contract_version": "1.0",
+  "series": [
+    {
+      "id": "example-price",
+      "kind": "price",
+      "currency": "USD",
+      "instrument": {
+        "namespace": "EXAMPLE",
+        "id": "DEMO",
+        "currency": "USD"
+      },
+      "adjustment": "unadjusted",
+      "coverage": {
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2026-01-31T23:59:59Z"
+      },
+      "license": {
+        "name": "CC0-1.0",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "observations": [
+        {
+          "id": "p1",
+          "effective_at": "2026-01-02T16:00:00Z",
+          "retrieved_at": "2026-01-02T17:00:00Z",
+          "source": "manual:example",
+          "value": 100,
+          "currency": "USD",
+          "supersedes": null
+        },
+        {
+          "id": "p1r",
+          "effective_at": "2026-01-02T16:00:00Z",
+          "retrieved_at": "2026-01-04T17:00:00Z",
+          "source": "manual:synthetic-correction",
+          "value": 101,
+          "currency": "USD",
+          "supersedes": "p1"
+        }
+      ]
+    },
+    {
+      "id": "example-fx",
+      "kind": "fx",
+      "currency": "BRL",
+      "currency_pair": {
+        "base": "USD",
+        "quote": "BRL"
+      },
+      "adjustment": "not_applicable",
+      "coverage": {
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2026-01-31T23:59:59Z"
+      },
+      "license": {
+        "name": "CC0-1.0",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "observations": [
+        {
+          "id": "f1",
+          "effective_at": "2026-01-02T16:00:00Z",
+          "retrieved_at": "2026-01-02T17:00:00Z",
+          "source": "manual:example",
+          "value": 5.25,
+          "currency": "BRL",
+          "supersedes": null
+        }
+      ]
+    }
+  ]
+}
