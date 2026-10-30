@@ -64,6 +64,17 @@ def _json_copy(value: Any) -> Any:
     raise ValueError('Expected finite JSON data without coercions')
 
 
+def _same_json(left: Any, right: Any) -> bool:
+    """Compare JSON evidence without Python's True == 1 / False == 0 aliasing."""
+    if isinstance(left, bool) or isinstance(right, bool):
+        return left is right
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(_same_json(left[k], right[k]) for k in left)
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(_same_json(a, b) for a, b in zip(left, right))
+    return left == right
+
+
 class MarketEvents:
     """Validated detached event store; construct with load/parse_market_events."""
 
@@ -231,10 +242,180 @@ def _activity_id(event: dict[str, Any], scope: list[str]) -> str:
 
 
 def _marker(activity: dict[str, Any]) -> dict[str, Any]:
-    return (activity.get('extensions') or {}).get('rikdom_market_event', {})
+    extensions = activity.get('extensions') or {}
+    if not isinstance(extensions, dict):
+        raise ValueError('Activity extensions must be an object')
+    marker = extensions.get('rikdom_market_event', {})
+    if not isinstance(marker, dict):
+        raise ValueError('Market event evidence must be an object')
+    return _json_copy(marker)
 
 
-def preview_market_event(
+def _split_row(event: dict[str, Any], revision: dict[str, Any], review: dict[str, Any],
+               marker: dict[str, Any], aid: str, target: str | None = None) -> dict[str, Any]:
+    extensions = {'rikdom_market_event': marker}
+    if target is not None:
+        extensions['rikdom_correction'] = {
+            'version': 1, 'supersedes_activity_id': target,
+            'reason': f"Reviewed split revision evidence: {review['source']}"}
+    return {'id': aid, 'idempotency_key': aid, 'status': 'posted',
+            'source_system': 'rikdom-market-events', 'source_ref': review['source'],
+            'event_type': 'split', 'effective_at': revision['effective_at'],
+            'holding_id': review['holding_id'], 'account_id': review['account_id'],
+            'instrument': copy.deepcopy(event['instrument']),
+            'corporate_action': {'kind': 'split' if revision['ratio'] >= 1 else 'reverse_split',
+                'exchange_ratio': revision['ratio'],
+                'legs': [{'holding_id': review['holding_id'],
+                          'quantity_delta': review['post_quantity'] - review['pre_quantity']}]},
+            'extensions': copy.deepcopy(extensions)}
+
+
+def _split_history(activities: dict[str, dict[str, Any]], event: dict[str, Any],
+                   scope: list[str], known_sources: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str | None]:
+    root = activities.get(_activity_id(event, scope))
+    for row in activities.values():
+        marker = _marker(row)
+        if (marker.get('event_id') == event['id'] and row.get('holding_id') == scope[0]
+                and row.get('account_id') == scope[1] and marker.get('instrument') != event['instrument']):
+            return [], 'applied_revision_conflict'
+    if root is None:
+        return [], None
+    successors = {link['supersedes_activity_id']: a for a in activities.values() if (link := correction(a))}
+    history = []
+    row = root
+    while True:
+        marker = _marker(row)
+        announcement, reviewed = marker.get('announcement'), marker.get('review')
+        if (not isinstance(announcement, dict) or not isinstance(reviewed, dict)
+                or type(marker.get('version')) is not int or marker['version'] != 1
+                or marker.get('event_id') != event['id']
+                or marker.get('instrument') != event['instrument']
+                or marker.get('revision_id') != announcement.get('id')
+                or marker.get('source') != announcement.get('source')
+                or marker.get('retrieved_at') != announcement.get('retrieved_at')):
+            return [], 'applied_revision_conflict'
+        source_event = marker.get('event')
+        if (not isinstance(source_event, dict) or any(source_event.get(key) != event[key]
+                for key in ('id', 'kind', 'instrument', 'adjustment_basis'))):
+            return [], 'applied_revision_conflict'
+        source_event = copy.deepcopy(source_event)
+        source_chain = marker.get('source_chain')
+        if source_chain is None:
+            # Before revision support, initial application retained its exact
+            # announcement but not its ancestors. Recover the validated prefix
+            # from supplied evidence, never invent a missing source revision.
+            source_chain = []
+            for known in known_sources:
+                source_chain.append(known)
+                if known['id'] == announcement['id']:
+                    if known != announcement:
+                        return [], 'applied_revision_conflict'
+                    break
+            else:
+                return [], 'stale_or_unrelated_revision'
+        source_event['revisions'] = source_chain
+        source = parse_market_events({'contract_version': '1.0', 'events': [source_event]})
+        query = marker.get('query', {'as_of': announcement['effective_at'], 'retrieved_before': None})
+        _object(query, {'as_of', 'retrieved_before'}, 'split query')
+        selected = source.lookup(event['id'], **query)
+        if selected['status'] != 'available' or selected['revision'] != announcement:
+            return [], 'applied_revision_conflict'
+        if (reviewed.get('reviewed') is not True or reviewed.get('revision_id') != announcement['id']
+                or reviewed.get('holding_id') != scope[0] or reviewed.get('account_id') != scope[1]
+                or reviewed.get('quantity_basis') != 'unadjusted'):
+            return [], 'applied_revision_conflict'
+        fields = {'contract_version', 'reviewed', 'revision_id', 'source', 'holding_id',
+                  'account_id', 'quantity_basis', 'pre_quantity', 'post_quantity'}
+        dated = reviewed.get('contract_version') == '1.1'
+        if dated:
+            fields |= {'effective_at', 'reviewed_at'}
+        _object(reviewed, fields, 'stored split review')
+        _text(reviewed['source'], 'stored review.source')
+        if reviewed['contract_version'] not in ('1.0', '1.1') or (history and not dated):
+            return [], 'applied_revision_conflict'
+        if dated:
+            when = _timestamp(reviewed['reviewed_at'], 'stored review.reviewed_at')
+            if (_iso(_timestamp(reviewed['effective_at'], 'stored review.effective_at')) != announcement['effective_at']
+                    or when < max(_timestamp(announcement['effective_at'], 'effective_at'),
+                                  _timestamp(announcement['retrieved_at'], 'retrieved_at'))
+                    or when > _timestamp(query['as_of'], 'stored query.as_of')):
+                return [], 'applied_revision_conflict'
+        pre = _number(reviewed.get('pre_quantity'), positive=True)
+        post = _number(reviewed.get('post_quantity'), positive=True)
+        if not math.isclose(pre * announcement['ratio'], post, rel_tol=1e-12, abs_tol=0):
+            return [], 'applied_revision_conflict'
+        expected_id = (_activity_id(event, [*scope, announcement['id']]) if history else _activity_id(event, scope))
+        expected = _split_row(event, announcement, reviewed, marker, expected_id,
+                              history[-1]['id'] if history else None)
+        actual = {k: v for k, v in row.items() if k not in ('import_run_id', 'ingested_at')}
+        if not _same_json(_json_copy(actual), expected):
+            return [], 'applied_revision_conflict'
+        if history:
+            previous = _marker(history[-1])
+            ancestors = {r['id']: r for r in selected['superseded']}
+            for prior in previous.get('source_chain', [previous['announcement']]):
+                if ancestors.get(prior['id']) != prior:
+                    return [], 'applied_revision_conflict'
+            if reviewed['pre_quantity'] != previous['review']['pre_quantity']:
+                return [], 'applied_revision_conflict'
+        history.append(row)
+        if row['id'] not in successors:
+            return history, None
+        row = successors[row['id']]
+
+
+def _split_dependencies(portfolio: dict[str, Any], history: list[dict[str, Any]],
+                        scope: list[str], revision: dict[str, Any]) -> bool:
+    """Conservative safe path: no affected lots or subsequent corporate actions.
+
+    Plain trades remain recalculable from the effective ledger. Declared lots,
+    explicit basis changes and later corporate actions need a separate audit,
+    including dependencies retained anywhere in a related correction chain.
+    """
+    ids = {a['id'] for a in history}
+    activities = portfolio.get('activities') or []
+    # Holding IDs are globally unique. An activity's parent account cannot
+    # exclude a direct or leg-scoped dependency on the revised holding.
+    affected = {a['id'] for a in activities
+                if a.get('holding_id') == scope[0]
+                or any(leg.get('holding_id') == scope[0]
+                       for leg in (a.get('corporate_action') or {}).get('legs', []))}
+    # A correction can move scope or date. Follow both directions so neither a
+    # retained ancestor nor a replacement can hide a lot/basis dependency.
+    links = [(a['id'], link['supersedes_activity_id']) for a in activities if (link := correction(a))]
+    while True:
+        related = {endpoint for child, parent in links if child in affected or parent in affected
+                   for endpoint in (child, parent)}
+        if related <= affected:
+            break
+        affected.update(related)
+    for lot in portfolio.get('tax_lots') or []:
+        if (lot.get('holding_id') == scope[0]
+                or lot.get('acquisition_activity_id') in ids | affected
+                or lot.get('disposal_activity_id') in ids | affected):
+            return True
+    if any(a.get('tax_lot_ids') or any(leg.get('tax_lot_ids')
+            for leg in (a.get('corporate_action') or {}).get('legs', [])) for a in history):
+        return True
+    earliest = min(_timestamp(revision['effective_at'], 'effective_at'),
+                   *(_timestamp(a['effective_at'], 'effective_at') for a in history))
+    for row in activities:
+        if row.get('id') in ids or row.get('id') not in affected:
+            continue
+        action = row.get('corporate_action') or {}
+        if (row.get('tax_lot_ids') or 'cost_basis_adjustment' in row
+                or any(leg.get('tax_lot_ids') or 'cost_basis_delta' in leg
+                       for leg in action.get('legs', []))):
+            return True
+        if row.get('status', 'posted') == 'cancelled':
+            continue
+        if ((action or row.get('event_type') in ('split', 'merger'))
+                and _timestamp(row['effective_at'], 'effective_at') >= earliest):
+            return True
+    return False
+
+
+def _preview_market_event(
     portfolio: dict[str, Any], events: MarketEvents, *, event_id: str, as_of: str,
     review: dict[str, Any] | None = None, retrieved_before: str | None = None,
 ) -> EventPreview:
@@ -267,13 +448,27 @@ def preview_market_event(
     fields = (common | {'holding_id', 'account_id', 'quantity_basis', 'pre_quantity', 'post_quantity'}
               if event['kind'] == 'split' else
               common | {'observed_activity_id', 'money', 'amount_basis'})
+    dated_split = event['kind'] == 'split' and review.get('contract_version') == '1.1'
+    if dated_split:
+        fields |= {'effective_at', 'reviewed_at'}
     _object(review, fields, 'review')
-    if review['contract_version'] != '1.0' or not isinstance(review['reviewed'], bool):
-        raise ValueError('review requires contract_version 1.0 and boolean reviewed')
+    if (review['contract_version'] not in (('1.0', '1.1') if event['kind'] == 'split' else ('1.0',))
+            or not isinstance(review['reviewed'], bool)):
+        raise ValueError('unsupported review contract_version or nonboolean reviewed')
     _text(review['revision_id'], 'review.revision_id')
     _text(review['source'], 'review.source')
     if not review['reviewed']:
         return unavailable('review_required')
+    if dated_split:
+        review['effective_at'] = _iso(_timestamp(review['effective_at'], 'review.effective_at'))
+        review['reviewed_at'] = _iso(_timestamp(review['reviewed_at'], 'review.reviewed_at'))
+        if review['effective_at'] != revision['effective_at']:
+            return unavailable('review_effective_date_mismatch')
+        reviewed_at = _timestamp(review['reviewed_at'], 'review.reviewed_at')
+        if (reviewed_at < max(_timestamp(revision['effective_at'], 'effective_at'),
+                              _timestamp(revision['retrieved_at'], 'retrieved_at'))
+                or reviewed_at > _timestamp(as_of, 'as_of')):
+            return unavailable('review_time_inconsistent')
     if review['revision_id'] != revision['id']:
         return unavailable('review_revision_mismatch')
     if event['adjustment_basis'] != 'unadjusted':
@@ -332,6 +527,47 @@ def preview_market_event(
     if holding.get('account_id') != account_id:
         return unavailable('account_mismatch')
     aid = _activity_id(event, scope)
+    split_target = None
+    if event['kind'] == 'split':
+        # The root ID binds one source event to one holding/account. Revisions
+        # receive their own identity and replace the current leaf in full.
+        history, reason = _split_history(activities, event, scope, [*selection['superseded'], revision])
+        if reason:
+            return unavailable(reason)
+        known = {r['id']: r for r in [*selection['superseded'], revision]}
+        for row in history:
+            applied = _marker(row)
+            for source in applied.get('source_chain', [applied['announcement']]):
+                if source['id'] in known and known[source['id']] != source:
+                    return unavailable('applied_revision_conflict')
+        for row in history:
+            applied = _marker(row)
+            if applied['revision_id'] == revision['id']:
+                if applied['announcement'] != revision:
+                    return unavailable('applied_revision_conflict')
+                if applied['review'] != review:
+                    return unavailable('applied_review_conflict')
+                result.update(status='noop', reason='already_applied')
+                return result
+        if history:
+            for row in history:
+                applied = _marker(row)
+                for source in applied.get('source_chain', [applied['announcement']]):
+                    if source['id'] not in known:
+                        return unavailable('stale_or_unrelated_revision')
+                    if known[source['id']] != source:
+                        return unavailable('applied_revision_conflict')
+                if review['pre_quantity'] != applied['review']['pre_quantity']:
+                    return unavailable('split_pre_quantity_changed')
+            if not dated_split:
+                return unavailable('split_revision_review_required')
+            split_target = history[-1]
+            if _timestamp(revision['retrieved_at'], 'retrieved_at') <= _timestamp(
+                    _marker(split_target)['announcement']['retrieved_at'], 'retrieved_at'):
+                return unavailable('stale_or_unrelated_revision')
+            if _split_dependencies(portfolio, history, scope, revision):
+                return unavailable('dependent_activity_review_required')
+            aid = _activity_id(event, [*scope, revision['id']])
     existing = activities.get(aid)
     if existing is not None:
         marker = _marker(existing)
@@ -340,9 +576,7 @@ def preview_market_event(
                 return unavailable('applied_revision_conflict')
             result.update(status='noop', reason='already_applied')
             return result
-        reason = ('split_revision_requires_manual_correction' if event['kind'] == 'split'
-                  and marker.get('revision_id') != revision['id'] else 'applied_review_conflict')
-        return unavailable(reason)
+        return unavailable('applied_review_conflict')
     if any(a.get('idempotency_key') == aid for a in activities.values()):
         return unavailable('activity_identity_collision')
     marker = {'version': 1, 'event_id': event_id, 'revision_id': revision['id'],
@@ -350,7 +584,11 @@ def preview_market_event(
               'source': revision['source'], 'retrieved_at': revision['retrieved_at'],
               'announcement': copy.deepcopy(revision), 'event': copy.deepcopy(event)}
     if event['kind'] == 'split':
+        marker.update(source_chain=copy.deepcopy([*selection['superseded'], revision]),
+                      query={'as_of': selection['as_of'], 'retrieved_before': selection['retrieved_before']})
         for recorded in effective_activities(list(activities.values())):
+            if split_target is not None and recorded['id'] == split_target['id']:
+                continue
             action = recorded.get('corporate_action') or {}
             is_split = (recorded.get('event_type') == 'split'
                         or action.get('kind') in ('split', 'reverse_split'))
@@ -359,13 +597,8 @@ def preview_market_event(
             if (is_split and targets_holding and recorded.get('status', 'posted') != 'cancelled'
                     and _timestamp(recorded['effective_at'], 'effective_at') == _timestamp(revision['effective_at'], 'effective_at')):
                 return unavailable('existing_split_requires_review')
-        activity = {'event_type': 'split', 'effective_at': revision['effective_at'],
-                    'holding_id': holding_id, 'account_id': account_id,
-                    'instrument': copy.deepcopy(identity),
-                    'corporate_action': {'kind': 'split' if revision['ratio'] >= 1 else 'reverse_split',
-                                         'exchange_ratio': revision['ratio'],
-                                         'legs': [{'holding_id': holding_id, 'quantity_delta': post - pre}]},
-                    'extensions': {'rikdom_market_event': marker}}
+        activity = _split_row(event, revision, review, marker, aid,
+                              split_target['id'] if split_target is not None else None)
     else:
         successors = {link['supersedes_activity_id']: a for a in activities.values() if (link := correction(a))}
         ancestors = {row['id']: row for row in selection['superseded']}
@@ -399,13 +632,56 @@ def preview_market_event(
                               'reason': f"Reviewed distribution evidence: {review['source']}"})
     activity.update(id=aid, idempotency_key=aid, status='posted',
                     source_system='rikdom-market-events', source_ref=review['source'])
-    try:
-        merge_activities(copy.deepcopy(portfolio), {'activities': [activity]})
-    except ValueError as exc:
-        return unavailable('dependent_activity_review_required' if 'dependent tax lots/corporate action' in str(exc)
-                           else 'activity_correction_rejected')
     result.update(status='ready', reason=None, activities=[activity])
     return result
+
+
+def preview_market_event(
+    portfolio: dict[str, Any], events: MarketEvents, *, event_id: str, as_of: str,
+    review: dict[str, Any] | None = None, retrieved_before: str | None = None,
+) -> EventPreview:
+    """Recompute a detached proposal and validate it through the ledger merger."""
+    result = _preview_market_event(portfolio, events, event_id=event_id, as_of=as_of,
+                                   review=review, retrieved_before=retrieved_before)
+    if result['status'] == 'ready':
+        try:
+            merge_activities(copy.deepcopy(portfolio), {'activities': result['activities']})
+        except ValueError as exc:
+            result.update(status='unavailable', activities=[], reason=(
+                'dependent_activity_review_required' if 'dependent tax lots/corporate action' in str(exc)
+                else 'activity_correction_rejected'))
+    return result
+
+
+def validate_reviewed_split_correction(portfolio: dict[str, Any], imported: dict[str, Any],
+                                       activity: dict[str, Any]) -> None:
+    """Allow only the exact recomputed reviewed split replacement, with no lots.
+
+    Provenance is evidence, never an authorization flag. Reparse the retained
+    source chain and recompute the entire proposal against the current ledger;
+    no caller-supplied boolean can bypass correction or dependency integrity.
+    """
+    marker = _marker(activity)
+    if not marker or not isinstance(marker.get('query'), dict):
+        raise ValueError('Correction requires review of dependent tax lots/corporate action')
+    event = copy.deepcopy(marker.get('event'))
+    if not isinstance(event, dict) or event.get('kind') != 'split':
+        raise ValueError('Reviewed split correction requires exact split source evidence')
+    event['revisions'] = marker.get('source_chain')
+    events = parse_market_events({'contract_version': '1.0', 'events': [event]})
+    query = _object(marker['query'], {'as_of', 'retrieved_before'}, 'split query')
+    context = copy.deepcopy(portfolio)
+    context['tax_lots'] = [*(portfolio.get('tax_lots') or []), *(imported.get('tax_lots') or [])]
+    # Other incoming rows could otherwise rewrite an ancestor after proof
+    # validation. The normal workflow appends exactly one reviewed replacement.
+    if len(imported.get('activities') or []) != 1:
+        raise ValueError('Reviewed split correction requires a single activity import')
+    result = _preview_market_event(context, events, event_id=marker.get('event_id'),
+        as_of=query['as_of'], retrieved_before=query['retrieved_before'], review=marker.get('review'))
+    normalized = {k: v for k, v in activity.items() if k not in ('import_run_id', 'ingested_at')}
+    if result['status'] != 'ready' or not _same_json(result['activities'], [_json_copy(normalized)]):
+        raise ValueError('Correction requires review of dependent tax lots/corporate action: '
+                         + str(result['reason'] or 'reviewed split proof mismatch'))
 
 
 def apply_market_event(
