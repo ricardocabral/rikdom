@@ -246,6 +246,23 @@ Migration flags: `--to <version>`, `--output <path>`, `--no-backup`. See
 
 Bundle layout and checksum manifest: [export format reference](export-format.md).
 
+### Captured analysis runs
+
+| Command | Purpose |
+| --- | --- |
+| `rikdom capture-analysis [performance options] --output <new-run>` | Copy the selected calculation inputs and record the financial result. Required CLI inputs must already exist. |
+| `rikdom export-analysis --run <run> --output <zip> [--dry-run]` | Preview or write a version 2 analysis bundle. |
+| `rikdom restore-analysis --bundle <zip> --output <new-run>` | Verify and restore into a new directory. |
+| `rikdom replay-analysis --run <run>` | Verify the recorded environment and inputs, then reproduce the financial JSON offline. |
+
+`export-analysis --redacted` excludes private inputs/results;
+`--omit-input ROLE --omission-reason user|license` excludes selected evidence.
+Both produce explicitly non-replayable bundles. Restoration never installs
+dependencies or executes bundled code. Existing version 1 portfolio bundles use
+`import-export`; analysis bundles use `restore-analysis`.
+See the [capture/replay guide](../how-to/capture-and-replay-analysis.md) for
+compatibility, precision and input selection.
+
 ## Compaction
 
 | Command                                                     | Purpose                                         |
