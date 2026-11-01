@@ -1207,14 +1207,14 @@ def _apply_statement(args: argparse.Namespace, portfolio: dict[str, Any], import
     )
 
     raw_imported = copy.deepcopy(imported)
+    collapse_canonical = bool(getattr(args, "collapse_canonical", False))
     try:
         review_document = load_json(args.review_file) if getattr(args, "review_file", None) else None
-        imported, review_report, review_state = prepare_reviewed_import(portfolio, imported, review_document)
+        imported, review_report, review_state = prepare_reviewed_import(portfolio, imported, review_document, collapse_canonical=collapse_canonical)
     except (ValueError, TypeError, KeyError) as exc:
         print(f"Import failed: reviewed import preflight: {exc}", file=sys.stderr)
         return 1
     portfolio = reviewed_merge_base(portfolio, review_state)
-    collapse_canonical = bool(getattr(args, "collapse_canonical", False))
     preflight_report = build_preflight_report(portfolio, imported)
     preflight_report["review"] = review_report
     for conflict in review_report["conflicts"]:

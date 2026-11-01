@@ -63,7 +63,11 @@ transfer identity), not computed numerical deltas or a saved-run dependency grap
 
 A changed previously asserted source value invalidates the entity's active
 review. A newly asserted source field also conflicts when it disagrees with a
-review-only value. Omitted optional source fields do not assert retraction.
+review-only value. Accepted new assertions join a separate `accepted_source`
+observation baseline, so subsequent changes to those facts also conflict. Omitted
+optional source fields do not assert retraction: their accepted financial values
+and evidence remain in the effective reviewed row, even across multiple partial
+imports. Imports without active reviews retain their existing refresh behavior.
 Source identity metadata changes conservatively require re-review. A review of
 statement diagnostics applies to that provider's incoming diagnostics; a changed
 statement or coverage declaration can therefore require re-review.
@@ -93,7 +97,11 @@ duplicate, unknown or absent-target resolutions fail before canonical writes.
 
 Renamed incoming IDs that reuse a reviewed row's idempotency key are rejected;
 a provider change colliding with a reviewed entity is likewise rejected. There
-is no implicit identity migration. Ambiguous ID/key matches and duplicate
+is no implicit identity migration. With `--collapse-canonical`, differently named
+holding rows that would collapse into an active reviewed holding are rejected
+before writes, using the existing merge's exact account/canonical-key match and
+same-batch merge sequence. Canonical similarity does not authorize migrating a
+reviewed identity. Ambiguous ID/key matches and duplicate
 incoming identities also fail before canonical writes. Existing source-only
 refresh and linked activity corrections retain their original contracts. An
 unchanged raw reimport of a reviewed correction target remains permissible;
@@ -105,7 +113,9 @@ existing correction workflow.
 Successful imports retain `portfolio.extensions.rikdom_reviewed_imports` version 1:
 
 - `initial_effective`: the portfolio before this feature first observed an import.
-- `decisions`: current reviewed records, source baselines, versions and history.
+- `decisions`: current reviewed records, original `source`/`source_revision`,
+  accepted source observations (`accepted_source`/`accepted_source_revision`),
+  review versions and history.
 - `revisions`: normalized `source`, corresponding `reviews`, and the complete
   `effective` portfolio projection for every distinct accepted state.
 - Each revision has a monotonic `version`, `source_revision` and `content_hash`.
@@ -114,8 +124,11 @@ Effective projections exclude the retention extension itself to avoid recursive
 history; empty extension containers are normalized away. Source observations
 retain run provenance. Revision hashes use sorted JSON and exclude run ID and
 ingestion timestamp, so changing only those does not create another revision.
-Unchanged reimports retain the existing canonical provenance and history. Review
-versions and exact prior normalized source/effective inputs remain readable
+Unchanged reimports retain the existing canonical provenance and history. Accepted source observations accumulate without rewriting the original review
+baseline or incrementing the review decision version. Explicit resolutions still
+increment that version. Prior accepted observation baselines remain in each
+retained revision's `reviews`, and exact prior normalized source/effective inputs
+remain readable
 after a source refresh; original statement files are not copied into this state.
 
 This is additive local evidence retention, not a backup or a rollback command.
@@ -138,7 +151,8 @@ only valid internal pairs; account calculations retain the boundary flows.
 
 `rikdom.reviewed_imports` exposes three functions for the existing import pipeline:
 
-1. `prepare_reviewed_import(portfolio, source, review=None)` returns a detached
+1. `prepare_reviewed_import(portfolio, source, review=None, *, collapse_canonical=False)`
+   returns a detached
    effective statement, review preview and pending state. It does not mutate inputs.
 2. `reviewed_merge_base(portfolio, state)` returns a detached merge candidate with
    explicitly retired overlay leaves restored to their source values or absence.

@@ -108,7 +108,27 @@ def _check_identities(portfolio: dict[str, Any], imported: dict[str, Any]) -> No
                 raise ValueError(f"Ambiguous {collection} ID and idempotency key match different stored rows")
 
 
-def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any], review: dict[str, Any] | None = None) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+def _reject_reviewed_collapses(portfolio: dict[str, Any], imported: dict[str, Any], state: dict[str, Any]) -> None:
+    # Reuse the actual matcher and merge sequence, including same-batch changes.
+    # A canonical match alone does not authorize migrating a reviewed entity ID.
+    from .plugins import _canonical_position_match, merge_holdings
+
+    reviewed_ids = {d["entity_id"] for d in state["decisions"] if d.get("status") == "active" and d.get("collection") == "holdings"}
+    if not reviewed_ids:
+        return
+    candidate = {"holdings": reviewed_merge_base(portfolio, state).get("holdings") or []}
+    for row in imported.get("holdings", []) or []:
+        if not isinstance(row, dict):
+            continue
+        holdings = candidate["holdings"]
+        if not any(old.get("id") == row.get("id") for old in holdings):
+            match = _canonical_position_match(holdings, row)
+            if match is not None and holdings[match].get("id") in reviewed_ids:
+                raise ValueError("Canonical collapse changes a reviewed identity; explicit identity migration is required")
+        merge_holdings(candidate, {"holdings": [row]}, collapse_canonical=True)
+
+
+def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any], review: dict[str, Any] | None = None, *, collapse_canonical: bool = False) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Apply bound reviews to source input; conflicts require revision-bound resolution.
 
     Review v1 accepts decisions (id, collection, entity_id, changes, evidence)
@@ -135,7 +155,7 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
         if decision.get("status") != "active" or decision.get("collection") == "diagnostics":
             continue
         collection = decision["collection"]
-        source = decision["source"]
+        source = decision.get("accepted_source", decision["source"])
         source_key = source.get("idempotency_key") if collection == "activities" else (source.get("provenance") or {}).get("idempotency_key")
         for row in imported.get(collection, []):
             if not isinstance(row, dict):
@@ -169,10 +189,11 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
         target = targets.get(target_key)
         if target is None:
             continue
-        changed = sorted(set(_contradictions(decision["source"], _stable(target)) + _new_assertions(decision["source"], _stable(target), decision["changes"])))
+        accepted_source = decision.get("accepted_source", decision["source"])
+        changed = sorted(set(_contradictions(accepted_source, _stable(target)) + _new_assertions(accepted_source, _stable(target), decision["changes"])))
         resolution = resolutions.get(decision["id"])
         if changed and resolution is None:
-            conflicts.append({"decision_id": decision["id"], "decision_version": decision["version"], "collection": decision["collection"], "entity_id": decision["entity_id"], "changed_source_fields": changed, "previous_source": decision["source"], "incoming_source": _stable(target), "reviewed_changes": decision["changes"], "affected_results": ["valuation", "coverage", "reconciliation", "performance", "transfer_identity"], "resolution_required": True})
+            conflicts.append({"decision_id": decision["id"], "decision_version": decision["version"], "collection": decision["collection"], "entity_id": decision["entity_id"], "changed_source_fields": changed, "previous_source": accepted_source, "incoming_source": _stable(target), "reviewed_changes": decision["changes"], "affected_results": ["valuation", "coverage", "reconciliation", "performance", "transfer_identity"], "resolution_required": True})
             continue
         if resolution is not None:
             consumed.add(decision["id"])
@@ -181,15 +202,20 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
                 state["retired_overlays"].append(copy.deepcopy(decision))
             decision["version"] += 1
             decision["resolution"] = copy.deepcopy(resolution)
-            decision["source"] = _stable(target)
-            decision["source_revision"] = revision
-            if resolution["action"] == "accept_source":
-                decision["status"] = "retired"
-                # Activity merges replace rows, holdings merge only assertions.
-                # Explicit acceptance restores reviewed additions to source absence.
-                continue
+        # Accepted source observations advance independently of the original
+        # reviewed baseline. Omission never retracts established source facts.
+        observed = _overlay(accepted_source, _stable(source_targets[target_key]))
+        if "accepted_source" not in decision or observed != accepted_source:
+            decision["accepted_source"] = observed
+            decision["accepted_source_revision"] = revision
+        effective_source = _overlay(accepted_source, source_targets[target_key])
+        source_targets[target_key] = copy.deepcopy(effective_source)
         target.clear()
-        target.update(_overlay(source_targets[target_key], decision["changes"]))
+        if resolution is not None and resolution["action"] == "accept_source":
+            decision["status"] = "retired"
+            target.update(effective_source)
+            continue
+        target.update(_overlay(effective_source, decision["changes"]))
         _validate_effective_review(decision["collection"], target)
         applied.append(decision["id"])
     if set(resolutions) != consumed:
@@ -220,7 +246,7 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
             raise ValueError("Review decision needs explicit evidence kind and source_ref")
         if any(d.get("status") == "active" and d.get("provider") == provider and (d["collection"], d["entity_id"]) == key for d in state["decisions"]):
             raise ValueError("Resolve or retire the active review before adding another for this entity")
-        decision = {**copy.deepcopy(entry), "provider": provider, "version": 1, "status": "active", "source_revision": revision, "source": _stable(source_targets[key])}
+        decision = {**copy.deepcopy(entry), "provider": provider, "version": 1, "status": "active", "source_revision": revision, "source": _stable(source_targets[key]), "accepted_source_revision": revision, "accepted_source": _stable(source_targets[key])}
         state["decisions"].append(decision)
         target = targets[key]
         enriched = _overlay(target, changes)
@@ -230,6 +256,8 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
         applied.append(entry["id"])
     if ("diagnostics", "statement") in targets and any(d.get("collection") == "diagnostics" and d.get("provider") == provider for d in state["decisions"]):
         effective.setdefault("metadata", {})["rikdom_import_diagnostics"] = diagnostics
+    if collapse_canonical:
+        _reject_reviewed_collapses(portfolio, effective, state)
     return effective, {"version": 1, "ok": not conflicts, "source_revision": revision, "applied_decision_ids": applied, "conflicts": conflicts}, state
 
 
@@ -271,5 +299,5 @@ def reviewed_merge_base(portfolio: dict[str, Any], state: dict[str, Any]) -> dic
             continue  # Diagnostics replace their whole statement on merge.
         row = next((r for r in result.get(decision["collection"], []) if r.get("id") == decision["entity_id"]), None)
         if row is not None:
-            restore(row, decision["source"], decision["changes"])
+            restore(row, decision.get("accepted_source", decision["source"]), decision["changes"])
     return result
