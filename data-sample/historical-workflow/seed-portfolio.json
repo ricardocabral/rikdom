@@ -1,0 +1,26 @@
+{
+  "schema_version": "2.0.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "synthetic-historical-workflow",
+    "owner_kind": "other",
+    "display_name": "Synthetic reviewed historical workflow"
+  },
+  "settings": {
+    "base_currency": "BRL"
+  },
+  "asset_type_catalog": [
+    {
+      "id": "stock",
+      "label": "Stock",
+      "asset_class": "stocks"
+    },
+    {
+      "id": "cash",
+      "label": "Cash",
+      "asset_class": "cash_equivalents"
+    }
+  ],
+  "holdings": [],
+  "activities": []
+}

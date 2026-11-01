@@ -119,7 +119,8 @@ def replay_historical_valuations(path: str | Path, *, base_currency: str) -> dic
 
     Strict v1 config holds ``market_series_file``, ``price_max_age_seconds``,
     ``fx_max_age_seconds``, ``retrieved_before``, ``series_by_currency`` and
-    ``snapshots``. Local paths resolve against the config directory. Malformed
+    ``snapshots``, plus an optional sourced ``return_convention`` declaration
+    for every full NAV. Local paths resolve against the config directory. Malformed
     evidence raises ValueError; missing, stale or incompatible quotes retain all
     lookup evidence and make the result unavailable. Empty positions mean zero
     only with an explicit ``positions_complete: true`` assertion. The returned
@@ -129,9 +130,20 @@ def replay_historical_valuations(path: str | Path, *, base_currency: str) -> dic
     path = Path(path)
     with path.open(encoding='utf-8') as handle:
         config = json.load(handle, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
-    _object(config, {'contract_version', 'market_series_file', 'price_max_age_seconds',
-                     'fx_max_age_seconds', 'retrieved_before', 'series_by_currency',
-                     'snapshots'}, 'historical valuation config')
+    fields = {'contract_version', 'market_series_file', 'price_max_age_seconds',
+              'fx_max_age_seconds', 'retrieved_before', 'series_by_currency', 'snapshots'}
+    if isinstance(config, dict) and 'return_convention' in config:
+        fields.add('return_convention')
+    _object(config, fields, 'historical valuation config')
+    convention = None
+    if 'return_convention' in config:
+        convention = _object(config['return_convention'], {'version', 'kind', 'source'},
+                             'return_convention')
+        if type(convention['version']) is not int or convention['version'] != 1:
+            raise ValueError('return_convention.version must be integer 1')
+        if convention['kind'] not in ('total_return', 'price_return'):
+            raise ValueError('return_convention.kind must be total_return or price_return')
+        _text(convention['source'], 'return_convention.source')
     if config['contract_version'] != '1.0':
         raise ValueError("unsupported historical valuation contract_version; expected '1.0'")
     snapshots = _validate_snapshots(config['snapshots'])
@@ -180,6 +192,8 @@ def replay_historical_valuations(path: str | Path, *, base_currency: str) -> dic
                     'source': snapshot['source'], 'convention': 'unadjusted_price',
                 }},
             })
+            if convention is not None:
+                usable[-1]['metadata']['rikdom_return_convention'] = copy.deepcopy(convention)
     return {
         'contract_version': '1.0', 'base_currency': base_currency,
         'status': 'unavailable' if diagnostics else 'complete',

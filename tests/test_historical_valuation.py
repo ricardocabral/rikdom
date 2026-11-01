@@ -87,6 +87,54 @@ class HistoricalValuationTests(unittest.TestCase):
         self.assertEqual(stock['fx']['currency_pair'], {'base': 'USD', 'quote': 'BRL'})
         self.assertTrue(result['valuations'][0]['positions'][1]['fx']['identity'])
 
+    def test_reviewed_full_nav_convention_supports_exact_window_benchmark(self):
+        from datetime import datetime
+        from rikdom.benchmarks import BenchmarkPoint
+        from rikdom.historical_fx import HistoricalFx
+        from rikdom.market_series import load_market_series
+        from rikdom.performance import compute_performance
+        self.config['return_convention'] = {
+            'version': 1, 'kind': 'total_return',
+            'source': 'reviewed full NAV includes posted income and cash',
+        }
+        replay = self.replay()
+        fx = HistoricalFx(load_market_series(self.market_path), base_currency='BRL',
+                          series_by_currency={'USD': 'usd-brl'}, max_age_seconds=86400)
+        points = [BenchmarkPoint(datetime.fromisoformat(at.replace('Z', '+00:00')), value,
+                                 'USD', 'total_return', 'synthetic reviewed index')
+                  for at, value in ((FIRST, 100), (SECOND, 110))]
+        policy = {'benchmarks': [{'id': 'foreign', 'kind': 'index', 'currency': 'USD'}],
+                  'strategic_allocation': {'targets': [{'benchmark_id': 'foreign'}]}}
+        result = compute_performance(replay['snapshots'], [], base_currency='BRL',
+                                     historical_fx=fx, policy=policy, benchmark_loader=lambda _: points)
+        self.assertEqual(result.return_convention, 'total_return')
+        self.assertEqual(result.benchmarks[0].twr_pct, 32)
+        self.assertEqual(result.benchmarks[0].comparison_status, 'comparable')
+        self.assertAlmostEqual(result.benchmarks[0].excess_pct, 56.148148, places=6)
+        self.assertEqual(result.return_convention_evidence[0]['source'],
+                         'reviewed full NAV includes posted income and cash')
+        replay['snapshots'][0]['metadata']['rikdom_return_convention']['source'] = 'edited'
+        self.assertEqual(self.config['return_convention']['source'],
+                         'reviewed full NAV includes posted income and cash')
+
+    def test_undeclared_and_price_nav_do_not_claim_total_return(self):
+        from rikdom.performance import compute_performance
+        result = compute_performance(self.replay()['snapshots'], [], base_currency='BRL')
+        self.assertEqual(result.return_convention, 'unspecified')
+        self.config['return_convention'] = {'version': 1, 'kind': 'price_return', 'source': 'price-only statement'}
+        result = compute_performance(self.replay()['snapshots'], [], base_currency='BRL')
+        self.assertEqual(result.return_convention, 'price_return')
+
+    def test_invalid_convention_declarations_reject_evidence(self):
+        valid = {'version': 1, 'kind': 'total_return', 'source': 'reviewed NAV'}
+        for declaration in (None, {}, {**valid, 'version': True}, {**valid, 'version': 2},
+                            {**valid, 'kind': 'invented'}, {**valid, 'source': ''},
+                            {**valid, 'source': ' padded '}, {**valid, 'extra': 1}):
+            with self.subTest(declaration=declaration):
+                self.config['return_convention'] = declaration
+                with self.assertRaises(ValueError):
+                    self.replay()
+
     def test_one_missing_position_blocks_every_usable_snapshot_but_keeps_all_evidence(self):
         self.config['snapshots'][1]['positions'][0]['price_series_id'] = 'unknown'
         result = self.replay()

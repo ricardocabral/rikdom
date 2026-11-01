@@ -1,0 +1,145 @@
+{
+  "contract_version": "1.0",
+  "series": [
+    {
+      "id": "fund",
+      "kind": "price",
+      "currency": "USD",
+      "adjustment": "unadjusted",
+      "coverage": {
+        "start": "2025-12-01T00:00:00Z",
+        "end": "2027-01-01T00:00:00Z"
+      },
+      "license": {
+        "name": "CC0-1.0 synthetic examples only",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "observations": [
+        {
+          "id": "fund-0",
+          "effective_at": "2026-01-01T00:00:00Z",
+          "retrieved_at": "2026-01-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 10,
+          "currency": "USD",
+          "supersedes": null
+        },
+        {
+          "id": "fund-1",
+          "effective_at": "2026-07-02T00:00:00Z",
+          "retrieved_at": "2026-07-02T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 11,
+          "currency": "USD",
+          "supersedes": null
+        },
+        {
+          "id": "fund-2",
+          "effective_at": "2026-08-01T00:00:00Z",
+          "retrieved_at": "2026-08-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 5.5,
+          "currency": "USD",
+          "supersedes": null
+        },
+        {
+          "id": "fund-3",
+          "effective_at": "2026-09-01T00:00:00Z",
+          "retrieved_at": "2026-09-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 6,
+          "currency": "USD",
+          "supersedes": null
+        },
+        {
+          "id": "fund-4",
+          "effective_at": "2027-01-01T00:00:00Z",
+          "retrieved_at": "2027-01-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 6,
+          "currency": "USD",
+          "supersedes": null
+        }
+      ],
+      "instrument": {
+        "namespace": "SYNTHETIC",
+        "id": "FUND",
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "usd-brl",
+      "kind": "fx",
+      "currency": "BRL",
+      "adjustment": "not_applicable",
+      "coverage": {
+        "start": "2025-12-01T00:00:00Z",
+        "end": "2027-01-01T00:00:00Z"
+      },
+      "license": {
+        "name": "CC0-1.0 synthetic examples only",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "observations": [
+        {
+          "id": "usd-brl-0",
+          "effective_at": "2025-12-01T00:00:00Z",
+          "retrieved_at": "2025-12-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 5,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "usd-brl-1",
+          "effective_at": "2026-01-01T00:00:00Z",
+          "retrieved_at": "2026-01-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 5,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "usd-brl-2",
+          "effective_at": "2026-07-02T00:00:00Z",
+          "retrieved_at": "2026-07-02T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 5,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "usd-brl-3",
+          "effective_at": "2026-08-01T00:00:00Z",
+          "retrieved_at": "2026-08-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 5,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "usd-brl-4",
+          "effective_at": "2026-09-01T00:00:00Z",
+          "retrieved_at": "2026-09-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 5,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "usd-brl-5",
+          "effective_at": "2027-01-01T00:00:00Z",
+          "retrieved_at": "2027-01-01T00:00:00Z",
+          "source": "synthetic manual reference",
+          "value": 6,
+          "currency": "BRL",
+          "supersedes": null
+        }
+      ],
+      "currency_pair": {
+        "base": "USD",
+        "quote": "BRL"
+      }
+    }
+  ]
+}

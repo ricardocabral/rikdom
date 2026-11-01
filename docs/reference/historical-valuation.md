@@ -63,6 +63,33 @@ no price. Cash in the reporting currency uses identity FX of 1. Foreign cash
 requires the same explicit directional FX evidence as a security. Zero-quantity
 security rows still require valid price and FX evidence; they are never skipped.
 
+The top-level config may additionally contain an explicit full-NAV declaration:
+
+```json
+"return_convention": {
+  "version": 1,
+  "kind": "total_return",
+  "source": "reviewed full position and cash statements including posted net income"
+}
+```
+
+This optional declaration has exactly `version`, `kind`, and `source`. Version
+must be integer `1`; kind is `total_return` or `price_return`; source is a
+nonblank string without surrounding whitespace. Invalid declarations reject the
+config. It applies to **every full portfolio NAV in this config**, independently
+of individual price adjustment conventions. Use `total_return` only when the
+reviewed positions and cash include the income treatment being compared. The
+engine never infers it from unadjusted prices, a cash balance, or matching totals.
+
+When supplied, generated snapshots carry the declaration as
+`metadata.rikdom_return_convention`, using the same contract as recorded
+snapshots. This permits the existing benchmark checks to compare matching
+currency, exact dates and total-return convention. Omitting it preserves the
+existing `unspecified` portfolio convention and unavailable benchmark excess;
+`price_return` does not establish comparability with a total-return benchmark.
+The [complete synthetic workflow](../../data-sample/historical-workflow/README.md)
+shows the explicit income/cash evidence and common-window comparison.
+
 Every object has exactly its declared fields. Unknown fields, missing fields,
 duplicate JSON keys, duplicate position IDs, invalid currencies/timestamps,
 nonfinite JSON constants, booleans in numeric fields, ambiguous MarketSeries

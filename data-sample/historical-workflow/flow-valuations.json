@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "scope": "portfolio",
+  "base_currency": "BRL",
+  "rounding_tolerance_base": 1e-06,
+  "valuations": [
+    {
+      "timestamp": "2026-07-02T00:00:00Z",
+      "base_currency": "BRL",
+      "pre_flow_value_base": 650,
+      "post_flow_value_base": 750,
+      "source": "synthetic independently reviewed before/after full NAV and cash statement"
+    },
+    {
+      "timestamp": "2027-01-01T00:00:00Z",
+      "base_currency": "BRL",
+      "pre_flow_value_base": 1322,
+      "post_flow_value_base": 1272,
+      "source": "synthetic independently reviewed before/after full NAV and cash statement"
+    }
+  ]
+}
