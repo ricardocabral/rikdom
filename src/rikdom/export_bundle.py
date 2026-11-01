@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -171,6 +173,8 @@ def _verify_open_bundle(
     and import.
     """
     names = set(zf.namelist())
+    if len(names) != len(zf.namelist()):
+        raise ExportBundleError("Duplicate ZIP member path")
     if MANIFEST_PATH not in names:
         raise ExportBundleError(f"Bundle missing {MANIFEST_PATH}")
     try:
@@ -182,7 +186,8 @@ def _verify_open_bundle(
         raise ExportBundleError(f"Invalid {MANIFEST_PATH}: expected object")
     if manifest.get("format") != EXPORT_FORMAT:
         raise ExportBundleError("Not a rikdom-export bundle")
-    if manifest.get("format_version") != EXPORT_VERSION:
+    version = manifest.get("format_version")
+    if version not in (EXPORT_VERSION, "2.0.0"):
         raise ExportBundleError(
             f"Unsupported rikdom-export version: {manifest.get('format_version')}"
         )
@@ -199,14 +204,22 @@ def _verify_open_bundle(
         path = entry.get("path")
         if (
             not isinstance(path, str)
+            or not path or "\\" in path
             or path.startswith("/")
             or ".." in Path(path).parts
         ):
             raise ExportBundleError(f"Manifest entry {index} has unsafe path")
         kind = entry.get("kind")
-        if not isinstance(kind, str) or kind not in SUPPORTED_KINDS:
+        if version == "2.0.0" and (
+            not path.startswith("analysis/")
+            or (kind == "analysis_manifest" and path != "analysis/analysis-run.json")
+            or (kind == "analysis_file" and path == "analysis/analysis-run.json")
+        ):
+            raise ExportBundleError(f"Invalid analysis payload path: {path}")
+        allowed = SUPPORTED_KINDS if version == EXPORT_VERSION else {"analysis_manifest", "analysis_file"}
+        if not isinstance(kind, str) or kind not in allowed:
             raise ExportBundleError(f"Unsupported manifest kind: {kind}")
-        if kind in seen_kinds:
+        if kind in seen_kinds and kind != "analysis_file":
             raise ExportBundleError(f"Duplicate manifest kind: {kind}")
         seen_kinds.add(kind)
         if path in seen:
@@ -221,8 +234,9 @@ def _verify_open_bundle(
         expected_sha = entry.get("sha256")
         if not isinstance(expected_sha, str) or expected_sha != _sha256(data):
             raise ExportBundleError(f"Checksum mismatch for {path}")
-        payloads[kind] = data
-    missing_required = REQUIRED_KINDS - seen_kinds
+        payloads[path if kind == "analysis_file" else kind] = data
+    required = REQUIRED_KINDS if version == EXPORT_VERSION else {"analysis_manifest"}
+    missing_required = required - seen_kinds
     if missing_required:
         missing = ", ".join(sorted(missing_required))
         raise ExportBundleError(
@@ -250,3 +264,32 @@ def read_verified_payloads(
     with zipfile.ZipFile(bundle, "r") as zf:
         manifest, payloads = _verify_open_bundle(zf)
     return manifest, payloads
+
+
+def write_analysis_bundle(output: str | Path, payloads: dict[str, bytes]) -> dict[str, Any]:
+    """Write the v2 captured-analysis extension, atomically; v1 remains unchanged."""
+    entries = []
+    for relative, data in payloads.items():
+        if not relative or Path(relative).is_absolute() or ".." in Path(relative).parts or "\\" in relative:
+            raise ExportBundleError(f"Unsafe analysis payload path: {relative}")
+        kind = "analysis_manifest" if relative == "analysis-run.json" else "analysis_file"
+        entries.append({"path": "analysis/" + relative, "kind": kind,
+                        "bytes": len(data), "sha256": _sha256(data),
+                        "media_type": "application/json"})
+    manifest = {"format": EXPORT_FORMAT, "format_version": "2.0.0", "entries": entries}
+    out = Path(output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=".analysis-bundle-", dir=out.parent)
+    try:
+        with os.fdopen(descriptor, "w+b") as handle:
+            with zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr(MANIFEST_PATH, json.dumps(manifest, indent=2) + "\n")
+                for relative, data in payloads.items():
+                    archive.writestr("analysis/" + relative, data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, out)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return manifest

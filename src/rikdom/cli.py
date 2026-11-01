@@ -678,7 +678,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
         fx_lock, fx_warnings = ensure_snapshot_fx_lock(
             portfolio,
             fx_history_path=args.fx_history,
-            snapshot_timestamp=_now_iso(),
+            snapshot_timestamp=getattr(args, "analysis_as_of", None) or _now_iso(),
             auto_ingest=False,
             extra_quote_currencies=external_cashflow_currencies(
                 activities,
@@ -1894,7 +1894,7 @@ def cmd_import_export(args: argparse.Namespace) -> int:
 
     portfolio_bytes = payloads.get("portfolio")
     if portfolio_bytes is None:
-        print("Bundle missing portfolio payload", file=sys.stderr)
+        print("Bundle missing portfolio payload; use restore-analysis for captured analysis bundles", file=sys.stderr)
         return 1
     try:
         portfolio = json.loads(portfolio_bytes.decode("utf-8"))
@@ -2537,6 +2537,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_performance.set_defaults(func=cmd_performance)
 
+    from .analysis_runs import cmd_analysis
+    p_capture = sub.add_parser(
+        "capture-analysis", parents=[p_performance], add_help=False,
+        help="Capture exact local performance inputs and result for offline replay",
+    )
+    p_capture.add_argument("--output", required=True, help="New immutable run directory")
+    p_capture.set_defaults(func=cmd_analysis)
+    for name in ("replay-analysis", "export-analysis", "restore-analysis"):
+        command = sub.add_parser(name)
+        command.add_argument("--bundle" if name == "restore-analysis" else "--run", required=True)
+        if name != "replay-analysis":
+            command.add_argument("--output", required=True)
+        if name == "export-analysis":
+            command.add_argument("--redacted", action="store_true", help="Omit private evidence and results; cannot replay")
+            command.add_argument("--dry-run", action="store_true", help="Preview exact inventory without writing")
+            command.add_argument("--omit-input", action="append", default=[], metavar="ROLE", help="Omit a required input role; export becomes non-replayable")
+            command.add_argument("--omission-reason", choices=("user", "license"), default="user")
+        command.set_defaults(func=cmd_analysis)
+
     p_funded_ratio = sub.add_parser(
         "funded-ratio",
         help="Compute deterministic funded-ratio projections for policy objectives",
@@ -2964,7 +2983,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         preview = args.command in ("import-statement", "activity") and (not getattr(args, "write", False) or getattr(args, "dry_run", False))
-        if not preview and args.command not in ("income", "market-events"):
+        if not preview and args.command not in ("income", "market-events", "capture-analysis", "replay-analysis", "export-analysis", "restore-analysis", "import-export"):
             _bootstrap_default_workspace(args)
         return args.func(args)
     except (ValueError, OSError) as exc:
