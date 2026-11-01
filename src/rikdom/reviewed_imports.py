@@ -11,6 +11,7 @@ import copy
 import hashlib
 import json
 from typing import Any
+from importlib.resources import files as resource_files
 
 from .import_preflight import import_diagnostics
 
@@ -41,9 +42,39 @@ def _overlay(base: dict[str, Any], changes: dict[str, Any]) -> dict[str, Any]:
 def _contradictions(before: Any, incoming: Any, path: str = "") -> list[str]:
     # Omitted optional evidence is not an assertion retracting previous evidence.
     if isinstance(before, dict) and isinstance(incoming, dict):
-        return [field for key in before.keys() & incoming.keys() for field in _contradictions(before[key], incoming[key], f"{path}.{key}" if path else key)]
+        return [field for key in sorted(before.keys() & incoming.keys()) for field in _contradictions(before[key], incoming[key], f"{path}.{key}" if path else key)]
     return [path] if before != incoming else []
 
+
+
+def _new_assertions(source: dict[str, Any], incoming: dict[str, Any], patch: dict[str, Any], path: str = "") -> list[str]:
+    changed = []
+    for key, value in patch.items():
+        if key not in incoming:
+            continue
+        field = f"{path}.{key}" if path else key
+        if isinstance(value, dict) and isinstance(incoming[key], dict):
+            changed.extend(_new_assertions(source.get(key) if isinstance(source.get(key), dict) else {}, incoming[key], value, field))
+        elif key not in source and value != incoming[key]:
+            changed.append(field)
+    return changed
+
+
+def _validate_effective_review(collection: str, target: dict[str, Any]) -> None:
+    if collection == "diagnostics":
+        from .import_preflight import validate_import_diagnostics
+        errors = validate_import_diagnostics(target)
+    else:
+        from jsonschema import Draft202012Validator, FormatChecker
+        schema = json.loads(resource_files("rikdom._resources").joinpath("portfolio.schema.json").read_text(encoding="utf-8"))
+        name = {"holdings": "Holding", "activities": "Activity", "tax_lots": "TaxLot", "statement_observations": "StatementObservation"}[collection]
+        value = copy.deepcopy(target)
+        if collection == "activities":
+            value.setdefault("status", "posted")
+        validator = Draft202012Validator({"$ref": f"#/$defs/{name}", "$defs": schema["$defs"]}, format_checker=FormatChecker())
+        errors = [f"{'.'.join(map(str, e.absolute_path))}: {e.message}" for e in validator.iter_errors(value)]
+    if errors:
+        raise ValueError(f"Invalid effective review {collection}: {'; '.join(errors)}")
 
 def _snapshot(portfolio: dict[str, Any]) -> dict[str, Any]:
     result = copy.deepcopy(portfolio)
@@ -98,6 +129,7 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
     for key in ("decisions", "resolutions"):
         if key in review and not isinstance(review[key], list):
             raise ValueError(f"Review {key} must be an array")
+    provider = str(imported.get("provider") or "unknown")
     state["retired_overlays"] = []
     for decision in state["decisions"]:
         if decision.get("status") != "active" or decision.get("collection") == "diagnostics":
@@ -109,6 +141,8 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
             if not isinstance(row, dict):
                 continue
             incoming_key = row.get("idempotency_key") if collection == "activities" else (row.get("provenance") or {}).get("idempotency_key")
+            if row.get("id") == decision["entity_id"] and decision.get("provider") != provider:
+                raise ValueError("Changed provider collides with a reviewed identity; explicit identity migration is required")
             if source_key and incoming_key == source_key and row.get("id") != decision["entity_id"]:
                 raise ValueError("Changed ID bypasses a reviewed identity; explicit identity migration is required")
     revision = _digest(imported)
@@ -135,7 +169,7 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
         target = targets.get(target_key)
         if target is None:
             continue
-        changed = _contradictions(decision["source"], _stable(target))
+        changed = sorted(set(_contradictions(decision["source"], _stable(target)) + _new_assertions(decision["source"], _stable(target), decision["changes"])))
         resolution = resolutions.get(decision["id"])
         if changed and resolution is None:
             conflicts.append({"decision_id": decision["id"], "decision_version": decision["version"], "collection": decision["collection"], "entity_id": decision["entity_id"], "changed_source_fields": changed, "previous_source": decision["source"], "incoming_source": _stable(target), "reviewed_changes": decision["changes"], "affected_results": ["valuation", "coverage", "reconciliation", "performance", "transfer_identity"], "resolution_required": True})
@@ -156,6 +190,7 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
                 continue
         target.clear()
         target.update(_overlay(source_targets[target_key], decision["changes"]))
+        _validate_effective_review(decision["collection"], target)
         applied.append(decision["id"])
     if set(resolutions) != consumed:
         raise ValueError("Resolution references an inactive, unknown or absent decision")
@@ -191,6 +226,7 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
         enriched = _overlay(target, changes)
         target.clear()
         target.update(enriched)
+        _validate_effective_review(entry["collection"], target)
         applied.append(entry["id"])
     if ("diagnostics", "statement") in targets and any(d.get("collection") == "diagnostics" and d.get("provider") == provider for d in state["decisions"]):
         effective.setdefault("metadata", {})["rikdom_import_diagnostics"] = diagnostics

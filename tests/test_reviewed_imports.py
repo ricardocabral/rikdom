@@ -236,3 +236,17 @@ class ReviewedImportsTests(unittest.TestCase):
         review = {'version': 1, 'decisions': [{'id': 'r', 'collection': 'activities', 'entity_id': 'a', 'changes': {'metadata': None}, 'evidence': {'kind': 'user_declaration', 'source_ref': 'note'}}]}
         with self.assertRaisesRegex(ValueError, 'metadata'):
             apply({'holdings': [], 'activities': []}, statement(), review)
+
+    def test_new_source_assertion_conflicting_with_reviewed_enrichment_blocks(self):
+        raw = statement()
+        review = {'version': 1, 'decisions': [{'id': 'r', 'collection': 'activities', 'entity_id': 'a', 'changes': {'account_id': 'account-a'}, 'evidence': {'kind': 'user_declaration', 'source_ref': 'note'}}]}
+        p, _ = apply({'holdings': [], 'activities': []}, raw, review)
+        raw['activities'][0]['account_id'] = 'account-b'
+        _, report = apply(p, raw)
+        self.assertFalse(report['ok'])
+        self.assertIn('account_id', report['conflicts'][0]['changed_source_fields'])
+
+    def test_invalid_effective_review_fields_are_rejected(self):
+        review = {'version': 1, 'decisions': [{'id': 'r', 'collection': 'activities', 'entity_id': 'a', 'changes': {'account_id': ['invalid']}, 'evidence': {'kind': 'user_declaration', 'source_ref': 'note'}}]}
+        with self.assertRaisesRegex(ValueError, 'review.*account_id'):
+            apply({'holdings': [], 'activities': []}, statement(), review)

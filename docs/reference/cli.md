@@ -281,6 +281,8 @@ make validate DATA_DIR=workspace-data OUT_DIR=workspace-out PORTFOLIO_NAME=paper
 trust artifacts under `<out-root>/reports/`. Preview includes candidate summaries
 but creates no artifacts/log/canonical writes. `--fx-history` selects cached inputs.
 See [import diagnostics](import-diagnostics.md) for coverage and blocking codes.
+Use `import-statement --review-file review.json` for durable reviewed mappings,
+coverage and explicit source-conflict resolutions; see [reviewed imports](reviewed-imports.md).
 
 `activity correct <id> --input <complete-activity.json> --reason <text>` previews
 an immutable replacement. `--write` applies; `--dry-run` overrides `--write`;

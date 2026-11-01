@@ -46,6 +46,13 @@ Successful writes preserve evidence under
 document fingerprint. Full run diagnostics are also in `import_log.jsonl`.
 Generated reports can therefore show coverage without the original statement or log.
 
+## Durable reviewed enrichment
+
+`import-statement --review-file` stores mappings and coverage evidence separately
+from source observations, retains previous normalized inputs, and blocks source
+contradictions pending explicit revision-bound resolution. See
+[reviewed recurring imports](reviewed-imports.md).
+
 ## Anonymous event identities
 
 Plugins may emit `activity.metadata.rikdom_source_identity`:

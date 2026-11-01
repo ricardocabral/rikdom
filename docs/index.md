@@ -40,6 +40,7 @@ Information-oriented descriptions of the machinery.
 - [Migration version history](reference/migrations.md)
 - [Reconciliation issue codes](reference/reconciliation-codes.md)
 - [Import diagnostics and identity recovery](reference/import-diagnostics.md)
+- [Reviewed recurring imports](reference/reviewed-imports.md)
 - [Instrument history and cost basis](reference/fii-history.md)
 - [Performance output](reference/performance-output.md)
 - [Historical position valuation](reference/historical-valuation.md)
