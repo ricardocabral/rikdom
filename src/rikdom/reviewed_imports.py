@@ -123,7 +123,7 @@ def _reject_reviewed_collapses(portfolio: dict[str, Any], imported: dict[str, An
         holdings = candidate["holdings"]
         if not any(old.get("id") == row.get("id") for old in holdings):
             match = _canonical_position_match(holdings, row)
-            if match is not None and holdings[match].get("id") in reviewed_ids:
+            if match is not None and (holdings[match].get("id") in reviewed_ids or row.get("id") in reviewed_ids):
                 raise ValueError("Canonical collapse changes a reviewed identity; explicit identity migration is required")
         merge_holdings(candidate, {"holdings": [row]}, collapse_canonical=True)
 
@@ -142,6 +142,13 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
     if existing is not None and (not isinstance(existing, dict) or type(existing.get("version")) is not int or existing["version"] != 1):
         raise ValueError("Unsupported reviewed import state version")
     state = copy.deepcopy(existing) if existing is not None else {"version": 1, "decisions": [], "revisions": [], "initial_effective": _snapshot(portfolio)}
+    # Earlier v1 imports could save a decision under an incoming alias while
+    # canonical collapse stored a different ID. That binding is unverifiable;
+    # reject it rather than guessing a migration from account/key similarities.
+    stored_holding_ids = {row.get("id") for row in portfolio.get("holdings", []) if isinstance(row, dict)}
+    for saved_decision in state["decisions"]:
+        if saved_decision.get("status") == "active" and saved_decision.get("collection") == "holdings" and saved_decision["entity_id"] not in stored_holding_ids:
+            raise ValueError(f"Stored reviewed identity {saved_decision['entity_id']!r} has no matching holding ID; explicit identity repair is required")
     if review is None:
         review = {"version": 1}
     if not isinstance(review, dict) or type(review.get("version")) is not int or review["version"] != 1:

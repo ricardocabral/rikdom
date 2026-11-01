@@ -134,3 +134,59 @@ class ReviewedImportReviewRegressions(unittest.TestCase):
             self.assertEqual(current['holdings'][0]['id'], 'h')
             self.assertEqual(current['holdings'][0]['market_value']['amount'], 99)
             self.assertNotIn('money', current['activities'][0])
+
+    def test_review_on_incoming_alias_cannot_collapse_to_unreviewed_stored_id(self):
+        raw = statement()
+        raw['holdings'][0].update(account_id='acct', metadata={'canonical_key': 'fund:x'})
+        with import_workspace(raw, collapse_canonical=True) as (raw, source_path, path, log, run):
+            self.assertEqual(run()[0], 0)
+            before, log_before = path.read_bytes(), log.read_bytes()
+            raw['holdings'][0]['id'] = 'renamed'
+            # Account binding is reviewed enrichment, not a source assertion.
+            raw['holdings'][0].pop('account_id')
+            save_json(source_path, raw)
+            review = decision('holdings', {'account_id': 'acct', 'market_value': {'amount': 12}})
+            review['decisions'][0]['entity_id'] = 'renamed'
+            code, _, errors = run(review)
+            self.assertEqual(code, 1, 'A new review was detached from the stored holding ID by collapse')
+            self.assertIn('reviewed identity', errors)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(log.read_bytes(), log_before)
+
+    def test_preexisting_aliased_review_blocks_later_canonical_collapse(self):
+        from rikdom.plugins import merge_holdings, stamp_provenance
+        from rikdom.reviewed_imports import prepare_reviewed_import, retain_reviewed_import
+
+        raw = statement()
+        raw['holdings'][0].update(account_id='acct', metadata={'canonical_key': 'fund:x'})
+        with import_workspace(raw, collapse_canonical=True) as (raw, source_path, path, log, run):
+            self.assertEqual(run()[0], 0)
+            # Reconstruct the persisted v1 alias state produced by the former CLI:
+            # review renamed, then the existing holding merger stores it as h.
+            alias = copy.deepcopy(raw)
+            alias['holdings'][0]['id'] = 'renamed'
+            alias['holdings'][0].pop('account_id')
+            stamp_provenance(alias, source_system='synthetic', import_run_id='legacy-alias', ingested_at='2026-02-01T00:00:00Z')
+            review = decision('holdings', {'account_id': 'acct', 'market_value': {'amount': 12}})
+            review['decisions'][0]['entity_id'] = 'renamed'
+            legacy = load_json(path)
+            effective, report, state = prepare_reviewed_import(legacy, alias, review)
+            self.assertTrue(report['ok'])
+            legacy, _ = merge_holdings(legacy, effective, collapse_canonical=True)
+            retain_reviewed_import(legacy, alias, state)
+            save_json(path, legacy)
+            self.assertEqual(legacy['holdings'][0]['id'], 'h')
+            self.assertEqual(legacy['holdings'][0]['market_value']['amount'], 12)
+            saved_decision = legacy['extensions']['rikdom_reviewed_imports']['decisions'][0]
+            self.assertEqual(saved_decision['entity_id'], 'renamed')
+            self.assertNotIn('account_id', saved_decision['accepted_source'])
+            self.assertEqual(saved_decision['changes']['account_id'], 'acct')
+            before, log_before = path.read_bytes(), log.read_bytes()
+            raw['holdings'][0]['id'] = 'third'
+            raw['holdings'][0]['market_value']['amount'] = 99
+            save_json(source_path, raw)
+            code, _, errors = run()
+            self.assertEqual(code, 1, 'Previously persisted aliased review did not protect canonical holding')
+            self.assertIn('reviewed identity', errors)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(log.read_bytes(), log_before)

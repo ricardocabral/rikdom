@@ -99,9 +99,17 @@ Renamed incoming IDs that reuse a reviewed row's idempotency key are rejected;
 a provider change colliding with a reviewed entity is likewise rejected. There
 is no implicit identity migration. With `--collapse-canonical`, differently named
 holding rows that would collapse into an active reviewed holding are rejected
-before writes, using the existing merge's exact account/canonical-key match and
-same-batch merge sequence. Canonical similarity does not authorize migrating a
-reviewed identity. Ambiguous ID/key matches and duplicate
+before writes. A review-bearing incoming row also cannot collapse into a different
+stored ID, even when the destination was previously unreviewed. These checks use
+the existing merge's exact account/canonical-key match and same-batch merge sequence
+after applying reviewed account mappings. Canonical similarity does not authorize
+migrating a reviewed identity.
+
+Earlier v1 code could persist an alias decision whose entity ID never became a
+stored holding ID. An active holding decision with no matching stored holding is
+now rejected as an unverifiable reviewed identity, including when collapse is not
+requested. Such state requires explicit identity repair from a known consistent
+source/review state; ordinary imports do not guess or silently migrate its target. Ambiguous ID/key matches and duplicate
 incoming identities also fail before canonical writes. Existing source-only
 refresh and linked activity corrections retain their original contracts. An
 unchanged raw reimport of a reviewed correction target remains permissible;
