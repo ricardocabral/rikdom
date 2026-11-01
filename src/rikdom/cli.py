@@ -68,6 +68,7 @@ from .plugin_engine.pipeline import (
     run_storage_sync_pipeline,
 )
 from .import_preflight import build_preflight_report, import_diagnostics
+from .reviewed_imports import prepare_reviewed_import, retain_reviewed_import, reviewed_merge_base
 from .plugins import (
     MergeCounts,
     build_import_diff,
@@ -1205,8 +1206,22 @@ def _apply_statement(args: argparse.Namespace, portfolio: dict[str, Any], import
         ingested_at=ingested_at,
     )
 
+    raw_imported = copy.deepcopy(imported)
+    try:
+        review_document = load_json(args.review_file) if getattr(args, "review_file", None) else None
+        imported, review_report, review_state = prepare_reviewed_import(portfolio, imported, review_document)
+    except (ValueError, TypeError, KeyError) as exc:
+        print(f"Import failed: reviewed import preflight: {exc}", file=sys.stderr)
+        return 1
+    portfolio = reviewed_merge_base(portfolio, review_state)
     collapse_canonical = bool(getattr(args, "collapse_canonical", False))
     preflight_report = build_preflight_report(portfolio, imported)
+    preflight_report["review"] = review_report
+    for conflict in review_report["conflicts"]:
+        preflight_report["issues"].append({"code": "REVIEW_SOURCE_CONFLICT", "severity": "error", "blocking": True, "row_key": f"{conflict['collection']}:{conflict['entity_id']}", "message": f"Changed source facts invalidate review {conflict['decision_id']}; explicit resolution required"})
+        preflight_report["summary"]["issues_total"] += 1
+        preflight_report["summary"]["blocking_issues"] += 1
+        preflight_report["ok"] = False
     dry_run_diff = build_import_diff(
         portfolio, imported, collapse_canonical=collapse_canonical
     )
@@ -1267,6 +1282,7 @@ def _apply_statement(args: argparse.Namespace, portfolio: dict[str, Any], import
         result.warnings.extend(fx_warnings)
         reports = build_trust_reports(result, portfolio_id=_portfolio_id(merged), generated_at=ingested_at)
         reconciliation = {"status": "computed", "summary": reports["reconciliation"]["summary"], "coverage_summary": reports["reconciliation"]["coverage_summary"], "quantity_summary": reports["reconciliation"]["quantity_summary"], "total_value_base": result.total_value_base, "warnings": result.warnings, "invariant": reports["holding_trust"]["invariant"], "artifacts": []}
+    retain_reviewed_import(merged, raw_imported, review_state)
     if write_applied:
         save_json(args.portfolio, merged)
         if getattr(args, "reconcile", False) and reports is not None:
@@ -2642,6 +2658,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_import.add_argument("--input", required=True)
     p_import.add_argument("--plugins-dir", default="plugins")
     p_import.add_argument("--write", action="store_true")
+    p_import.add_argument("--review-file", default=None, help="Version 1 reviewed mappings or revision-bound conflict resolutions (preview before --write)")
     p_import.add_argument("--reconcile", action="store_true", help="Write trust/reconciliation artifacts after applying an import")
     p_import.add_argument("--fx-history", default=None)
     p_import.add_argument(
