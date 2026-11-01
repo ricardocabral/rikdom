@@ -1,0 +1,18 @@
+{
+  "benchmarks": [
+    {
+      "id": "foreign",
+      "label": "Synthetic foreign total-return index",
+      "kind": "index",
+      "currency": "USD"
+    }
+  ],
+  "strategic_allocation": {
+    "targets": [
+      {
+        "benchmark_id": "foreign",
+        "weight_pct": 100
+      }
+    ]
+  }
+}

@@ -68,6 +68,7 @@ from .plugin_engine.pipeline import (
     run_storage_sync_pipeline,
 )
 from .import_preflight import build_preflight_report, import_diagnostics
+from .reviewed_imports import prepare_reviewed_import, retain_reviewed_import, reviewed_merge_base
 from .plugins import (
     MergeCounts,
     build_import_diff,
@@ -677,7 +678,7 @@ def cmd_performance(args: argparse.Namespace) -> int:
         fx_lock, fx_warnings = ensure_snapshot_fx_lock(
             portfolio,
             fx_history_path=args.fx_history,
-            snapshot_timestamp=_now_iso(),
+            snapshot_timestamp=getattr(args, "analysis_as_of", None) or _now_iso(),
             auto_ingest=False,
             extra_quote_currencies=external_cashflow_currencies(
                 activities,
@@ -1205,8 +1206,22 @@ def _apply_statement(args: argparse.Namespace, portfolio: dict[str, Any], import
         ingested_at=ingested_at,
     )
 
+    raw_imported = copy.deepcopy(imported)
     collapse_canonical = bool(getattr(args, "collapse_canonical", False))
+    try:
+        review_document = load_json(args.review_file) if getattr(args, "review_file", None) else None
+        imported, review_report, review_state = prepare_reviewed_import(portfolio, imported, review_document, collapse_canonical=collapse_canonical)
+    except (ValueError, TypeError, KeyError) as exc:
+        print(f"Import failed: reviewed import preflight: {exc}", file=sys.stderr)
+        return 1
+    portfolio = reviewed_merge_base(portfolio, review_state)
     preflight_report = build_preflight_report(portfolio, imported)
+    preflight_report["review"] = review_report
+    for conflict in review_report["conflicts"]:
+        preflight_report["issues"].append({"code": "REVIEW_SOURCE_CONFLICT", "severity": "error", "blocking": True, "row_key": f"{conflict['collection']}:{conflict['entity_id']}", "message": f"Changed source facts invalidate review {conflict['decision_id']}; explicit resolution required"})
+        preflight_report["summary"]["issues_total"] += 1
+        preflight_report["summary"]["blocking_issues"] += 1
+        preflight_report["ok"] = False
     dry_run_diff = build_import_diff(
         portfolio, imported, collapse_canonical=collapse_canonical
     )
@@ -1267,6 +1282,7 @@ def _apply_statement(args: argparse.Namespace, portfolio: dict[str, Any], import
         result.warnings.extend(fx_warnings)
         reports = build_trust_reports(result, portfolio_id=_portfolio_id(merged), generated_at=ingested_at)
         reconciliation = {"status": "computed", "summary": reports["reconciliation"]["summary"], "coverage_summary": reports["reconciliation"]["coverage_summary"], "quantity_summary": reports["reconciliation"]["quantity_summary"], "total_value_base": result.total_value_base, "warnings": result.warnings, "invariant": reports["holding_trust"]["invariant"], "artifacts": []}
+    retain_reviewed_import(merged, raw_imported, review_state)
     if write_applied:
         save_json(args.portfolio, merged)
         if getattr(args, "reconcile", False) and reports is not None:
@@ -1878,7 +1894,7 @@ def cmd_import_export(args: argparse.Namespace) -> int:
 
     portfolio_bytes = payloads.get("portfolio")
     if portfolio_bytes is None:
-        print("Bundle missing portfolio payload", file=sys.stderr)
+        print("Bundle missing portfolio payload; use restore-analysis for captured analysis bundles", file=sys.stderr)
         return 1
     try:
         portfolio = json.loads(portfolio_bytes.decode("utf-8"))
@@ -2521,6 +2537,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_performance.set_defaults(func=cmd_performance)
 
+    from .analysis_runs import cmd_analysis
+    p_capture = sub.add_parser(
+        "capture-analysis", parents=[p_performance], add_help=False,
+        help="Capture exact local performance inputs and result for offline replay",
+    )
+    p_capture.add_argument("--output", required=True, help="New immutable run directory")
+    p_capture.set_defaults(func=cmd_analysis)
+    for name in ("replay-analysis", "export-analysis", "restore-analysis"):
+        command = sub.add_parser(name)
+        command.add_argument("--bundle" if name == "restore-analysis" else "--run", required=True)
+        if name != "replay-analysis":
+            command.add_argument("--output", required=True)
+        if name == "export-analysis":
+            command.add_argument("--redacted", action="store_true", help="Omit private evidence and results; cannot replay")
+            command.add_argument("--dry-run", action="store_true", help="Preview exact inventory without writing")
+            command.add_argument("--omit-input", action="append", default=[], metavar="ROLE", help="Omit a required input role; export becomes non-replayable")
+            command.add_argument("--omission-reason", choices=("user", "license"), default="user")
+        command.set_defaults(func=cmd_analysis)
+
     p_funded_ratio = sub.add_parser(
         "funded-ratio",
         help="Compute deterministic funded-ratio projections for policy objectives",
@@ -2642,6 +2677,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_import.add_argument("--input", required=True)
     p_import.add_argument("--plugins-dir", default="plugins")
     p_import.add_argument("--write", action="store_true")
+    p_import.add_argument("--review-file", default=None, help="Version 1 reviewed mappings or revision-bound conflict resolutions (preview before --write)")
     p_import.add_argument("--reconcile", action="store_true", help="Write trust/reconciliation artifacts after applying an import")
     p_import.add_argument("--fx-history", default=None)
     p_import.add_argument(
@@ -2947,7 +2983,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         preview = args.command in ("import-statement", "activity") and (not getattr(args, "write", False) or getattr(args, "dry_run", False))
-        if not preview and args.command not in ("income", "market-events"):
+        if not preview and args.command not in ("income", "market-events", "capture-analysis", "replay-analysis", "export-analysis", "restore-analysis", "import-export"):
             _bootstrap_default_workspace(args)
         return args.func(args)
     except (ValueError, OSError) as exc:

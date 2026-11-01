@@ -170,6 +170,22 @@ Sequencing override:
 
 ---
 
+## Phase 3B: Reviewed recurring import continuity — delivered bounded scope (2026-11-01)
+
+- [x] Preserve explicit reviewed mappings and coverage through unchanged raw reimports without duplicate activities; retain exact accepted normalized source, review versions and effective projections.
+- [x] Preview changed source facts and affected result categories; require source-revision-bound resolution before writes. Accepted new facts become comparison evidence, and omitted optional facts remain effective under an active review.
+- [x] Reject ambiguous reviewed identities and canonical-collapse aliases before portfolio/log writes. Existing reviewed transfer contracts remain authoritative.
+
+Evidence: [review contract](docs/reference/reviewed-imports.md),
+[real CLI regressions](tests/test_reviewed_import_regressions.py), and
+[combined historical reference](data-sample/historical-workflow/README.md).
+Protection requires explicit review documents; existing ad hoc enrichment is not
+automatically migrated. Retention contains normalized inputs, not original
+statement files or every calculation dependency; saved analysis runs capture the
+selected dependency set separately.
+
+---
+
 ## Phase 3A remainder (P0): Calculation Trust UX + Reconciliation Reports
 
 **User stories**: "numbers must be correct", reproducible valuation, explainability for portfolio totals and changes.
@@ -310,7 +326,8 @@ income, and currency movements; compare a strategy with an appropriate benchmark
 
 ### Acceptance criteria
 
-- [ ] Demonstrate linked TWR and XIRR with hand-checkable contributions/withdrawals, internal transfers, and corporate actions; identify Dietz fallback explicitly.
+- [x] Demonstrate linked TWR and XIRR with hand-checkable contributions/withdrawals, internal transfers, and corporate actions; identify Dietz fallback explicitly.
+  - Bounded delivery (2026-11-01): the [reviewed historical workflow](data-sample/historical-workflow/README.md) combines a contribution/withdrawal, reviewed internal cash pair, observed distribution, immutable 2:1 to 3:1 split revision, dated full-position price/FX valuations, exact CLI/report financial JSON and bundle restore/replay after deleting original calculation inputs. Opening 600 + net external flow 50 + investment result 622 = closing 1272; supplied complete positions/basis and explicit boundary NAVs remain reviewed assertions, not inferred history.
   - Partial delivery (2026-10-29): [explicit flow-boundary valuations](docs/reference/performance-output.md) support portfolio linked TWR, with Dietz compatibility and method/fallback/annualization disclosure. [Reviewed same-instant cash pairs](docs/reference/internal-transfers.md) now establish internal-transfer identity at portfolio scope while retaining scoped legs. Asynchronous/in-kind/cross-currency pairing and broader corporate-action basis carryover remain open; ordinary snapshots do not establish pre/post-flow evidence.
 - [x] Reconcile a multi-currency example using dated FX and disclose missing/approximate history in every affected metric.
   - Partial delivery (2026-10-29): [local historical FX](docs/reference/historical-fx.md) converts dated external cashflows in portfolio/account/bucket performance, retains lookup evidence, and makes affected returns unavailable on missing/stale inputs. A [synthetic offline example](docs/how-to/compute-performance.md#replay-dated-fx-for-cashflows-and-benchmarks) links explicit cashflow-boundary valuations. Explicit [full-position replay](docs/reference/historical-valuation.md) now reconstructs dated price/FX valuations with per-position provenance and rejects missing/stale inputs. [Reviewed v2 profit/FX attribution](docs/reference/profit-attribution.md#reviewed-multicurrency-evidence-version-20) now independently reconciles native account/currency cash, historical FIFO cost, security price/FX components, cash FX and explicit conversion results with source cutoffs. Missing/stale evidence makes the decomposition unavailable; old snapshots still lack independently reconstructed position evidence.
@@ -486,6 +503,7 @@ planned safeguards, not existing security guarantees.
 
 - [x] Deliver a self-describing, integrity-checked export package.
 - [ ] Reproduce a report/simulation from an extended bundle offline and retain compatibility with existing bundles.
+  - Bounded calculation replay delivered (2026-11-01): [capture/export/restore/replay commands](docs/how-to/capture-and-replay-analysis.md) preserve selected performance inputs, nested caches, methods, environment and financial-result hashes; the historical reference reproduces the same CLI/report financial JSON offline. Version 1 portfolio bundles remain supported. Missing/changed/incompatible evidence fails replay; redacted or license-omitted exports are explicitly non-replayable. Automatic report rendering and simulation replay are not claimed by this delivery.
 - [ ] Run a deterministic historical simulation with contributions and corporate actions; expose coverage/bias limits and leave real totals unchanged.
 - [ ] Validate a first jurisdiction/year tax pack against documented fixtures, including disposals, withholding, and supported loss carryforward cases; reject unsupported rules explicitly.
 - [ ] Demonstrate that a second jurisdiction uses the same neutral contracts without embedding its rules in the core.

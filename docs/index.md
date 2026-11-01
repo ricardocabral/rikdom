@@ -24,6 +24,8 @@ Goal-oriented recipes for users who already know the basics.
 - [Summarize received dividends and interest](how-to/summarize-income.md)
 - [Compute portfolio TWR / MWR](how-to/compute-performance.md)
 - [Reproduce historical valuations and profit offline](how-to/replay-performance-data.md)
+- [Capture, export and replay a saved analysis](how-to/capture-and-replay-analysis.md)
+- [Run the reviewed historical reference workflow](../data-sample/historical-workflow/README.md)
 - [Work with multi-currency holdings](how-to/work-with-multi-currency.md)
 - [Recover from a crash or torn write](how-to/recover-from-crash.md)
 
@@ -40,6 +42,7 @@ Information-oriented descriptions of the machinery.
 - [Migration version history](reference/migrations.md)
 - [Reconciliation issue codes](reference/reconciliation-codes.md)
 - [Import diagnostics and identity recovery](reference/import-diagnostics.md)
+- [Reviewed recurring imports](reference/reviewed-imports.md)
 - [Instrument history and cost basis](reference/fii-history.md)
 - [Performance output](reference/performance-output.md)
 - [Historical position valuation](reference/historical-valuation.md)

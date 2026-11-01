@@ -81,3 +81,32 @@ unless `--no-backup` is supplied.
 
 - [CLI reference: export / import](cli.md#export--import-bundles)
 - [Storage layout](storage-layout.md)
+
+## Captured analysis extension (v2)
+
+`export`, `import-export`, and existing v1 files retain their canonical-data
+contract. `export-analysis` writes version `2.0.0` using the same ZIP manifest and
+size/SHA-256 verification. Current readers verify either version; older readers
+reject v2 explicitly. `import-export` directs v2 users to `restore-analysis` and
+makes no canonical writes. No v1 migration is required.
+
+A v2 archive contains `analysis/analysis-run.json` (`analysis_manifest`) and
+`analysis/<relative-path>` entries (`analysis_file`). Multiple analysis files
+are allowed; paths and ZIP members must be unique. Restoration never extracts
+arbitrary archive paths or executes bundled Python. It verifies all archive
+payloads, validates the run and compatible environment, then publishes a new
+directory. Existing directories are refused; failures preserve previous runs.
+
+The run manifest is `rikdom-analysis-run`, version `1.0`, operation `performance`.
+It records copied input roles, relative paths, sizes, SHA-256 hashes, parameters,
+selected methods, expected `result.json` hash, and environment evidence. Portfolio,
+snapshots, policy, flow valuations, profit basis, and dated market caches retain
+their input bytes. Historical FX/valuation configuration rewrites only the local
+`market_series_file` reference and records its original-byte hash as well as the
+portable config hash. Copied caches preserve all revisions, cutoffs, coverage,
+source and license metadata. Referenced leaf benchmark files (including composite
+components) are copied; unrelated files and original statements are excluded.
+Malformed/duplicate-key/nonfinite JSON and torn or malformed JSONL are refused;
+JSONL must end in a newline, matching the journal reader's complete-record rule.
+
+See [capture and replay instructions](../how-to/capture-and-replay-analysis.md).

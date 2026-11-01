@@ -84,6 +84,14 @@ The review object contains exactly:
 ```
 
 The existing holding must match the exact namespaced instrument and account.
+Its optional `instrument` field has exactly `namespace`, `id`, and `currency`:
+namespace/id are nonblank unpadded strings, and currency is three uppercase
+letters. Both the canonical portfolio schema and installed package schema accept
+this identity. This is an additive repair of the contract already consumed by
+market-event review; older holdings may omit it and supported portfolio versions
+are unchanged. A reviewed event cannot be applied without a matching explicit
+identity. The open `activities[].instrument` metadata contract remains separate;
+ticker-only or provider-specific activity metadata does not fill holding identity.
 The review explicitly asserts quantities immediately before and after this event;
 current holding quantity is not evidence of the historical pre-event position.
 Pre-quantity must be positive and post-quantity must match the announced ratio

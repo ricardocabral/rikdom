@@ -1,0 +1,185 @@
+{
+  "schema_version": "2.0.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "synthetic-historical-workflow",
+    "owner_kind": "other",
+    "display_name": "Synthetic reviewed historical workflow"
+  },
+  "settings": {
+    "base_currency": "BRL"
+  },
+  "asset_type_catalog": [
+    {
+      "id": "stock",
+      "label": "Stock",
+      "asset_class": "stocks"
+    },
+    {
+      "id": "cash",
+      "label": "Cash",
+      "asset_class": "cash_equivalents"
+    }
+  ],
+  "holdings": [
+    {
+      "id": "h",
+      "asset_type_id": "stock",
+      "label": "Synthetic FUND",
+      "quantity": 30,
+      "instrument": {
+        "namespace": "SYNTHETIC",
+        "id": "FUND",
+        "currency": "USD"
+      },
+      "market_value": {
+        "amount": 180,
+        "currency": "USD"
+      },
+      "as_of": "2027-01-01T00:00:00Z",
+      "metadata": {
+        "fx_rate_to_base": 6
+      },
+      "account_id": "a"
+    },
+    {
+      "id": "cash-a-brl",
+      "asset_type_id": "cash",
+      "label": "cash-a-brl",
+      "market_value": {
+        "amount": 140,
+        "currency": "BRL"
+      },
+      "as_of": "2027-01-01T00:00:00Z",
+      "account_id": "a"
+    },
+    {
+      "id": "cash-b-brl",
+      "asset_type_id": "cash",
+      "label": "cash-b-brl",
+      "market_value": {
+        "amount": 10,
+        "currency": "BRL"
+      },
+      "as_of": "2027-01-01T00:00:00Z",
+      "account_id": "b"
+    },
+    {
+      "id": "cash-a-usd",
+      "asset_type_id": "cash",
+      "label": "cash-a-usd",
+      "market_value": {
+        "amount": 7,
+        "currency": "USD"
+      },
+      "as_of": "2027-01-01T00:00:00Z",
+      "metadata": {
+        "fx_rate_to_base": 6
+      },
+      "account_id": "a"
+    }
+  ],
+  "activities": [
+    {
+      "id": "contribute",
+      "idempotency_key": "synthetic:contribute",
+      "status": "posted",
+      "event_type": "contribution",
+      "effective_at": "2026-07-02T00:00:00Z",
+      "money": {
+        "amount": 100,
+        "currency": "BRL"
+      },
+      "source_ref": "synthetic-statement:contribute",
+      "account_id": "a"
+    },
+    {
+      "id": "out",
+      "idempotency_key": "synthetic:out",
+      "status": "posted",
+      "event_type": "transfer_out",
+      "effective_at": "2026-08-01T00:00:00Z",
+      "money": {
+        "amount": 10,
+        "currency": "BRL"
+      },
+      "source_ref": "synthetic-statement:out",
+      "account_id": "a",
+      "metadata": {
+        "rikdom_internal_transfer": {
+          "version": 1,
+          "pair_id": "synthetic-reviewed-cash-move",
+          "review": {
+            "status": "reviewed",
+            "source": "synthetic two-account statement review",
+            "reviewed_at": "2027-01-02T00:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "id": "in",
+      "idempotency_key": "synthetic:in",
+      "status": "posted",
+      "event_type": "transfer_in",
+      "effective_at": "2026-08-01T00:00:00Z",
+      "money": {
+        "amount": 10,
+        "currency": "BRL"
+      },
+      "source_ref": "synthetic-statement:in",
+      "account_id": "b",
+      "metadata": {
+        "rikdom_internal_transfer": {
+          "version": 1,
+          "pair_id": "synthetic-reviewed-cash-move",
+          "review": {
+            "status": "reviewed",
+            "source": "synthetic two-account statement review",
+            "reviewed_at": "2027-01-02T00:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "id": "distribution",
+      "idempotency_key": "synthetic:distribution",
+      "status": "posted",
+      "event_type": "dividend",
+      "effective_at": "2026-09-01T00:00:00Z",
+      "money": {
+        "amount": 10,
+        "currency": "USD"
+      },
+      "source_ref": "synthetic-statement:distribution",
+      "instrument": {
+        "namespace": "SYNTHETIC",
+        "id": "FUND",
+        "currency": "USD"
+      },
+      "withholding_tax": {
+        "amount": 2,
+        "currency": "USD"
+      },
+      "fees": {
+        "amount": 1,
+        "currency": "USD"
+      },
+      "account_id": "a",
+      "holding_id": "h"
+    },
+    {
+      "id": "withdraw",
+      "idempotency_key": "synthetic:withdraw",
+      "status": "posted",
+      "event_type": "withdrawal",
+      "effective_at": "2027-01-01T00:00:00Z",
+      "money": {
+        "amount": 50,
+        "currency": "BRL"
+      },
+      "source_ref": "synthetic-statement:withdraw",
+      "account_id": "a"
+    }
+  ]
+}
