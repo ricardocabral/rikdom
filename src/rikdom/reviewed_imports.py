@@ -32,6 +32,27 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(json.dumps(_stable(value), sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
 
+def _source_facts(source: dict[str, Any]) -> dict[str, Any]:
+    """Compare source assertions independently of envelope processing details.
+
+    Entity row order has no identity meaning; nested evidence ordering remains
+    intact. Original source envelopes are retained unchanged in each revision.
+    """
+    result = _stable(source)
+    result.pop("generated_at", None)
+    metadata = result.get("metadata")
+    if isinstance(metadata, dict):
+        metadata.pop("source_file", None)
+    for collection in _COLLECTIONS:
+        if isinstance(result.get(collection), list):
+            result[collection].sort(key=lambda row: json.dumps(row, sort_keys=True, separators=(",", ":"), allow_nan=False))
+    return result
+
+
+def _retention_hash(source: dict[str, Any], effective: dict[str, Any], reviews: list[dict[str, Any]]) -> str:
+    return _digest({"source": _source_facts(source), "effective": effective, "reviews": reviews})
+
+
 def _overlay(base: dict[str, Any], changes: dict[str, Any]) -> dict[str, Any]:
     result = copy.deepcopy(base)
     for key, value in changes.items():
@@ -172,7 +193,7 @@ def prepare_reviewed_import(portfolio: dict[str, Any], imported: dict[str, Any],
                 raise ValueError("Changed provider collides with a reviewed identity; explicit identity migration is required")
             if source_key and incoming_key == source_key and row.get("id") != decision["entity_id"]:
                 raise ValueError("Changed ID bypasses a reviewed identity; explicit identity migration is required")
-    revision = _digest(imported)
+    revision = _digest(_source_facts(imported))
     provider = str(imported.get("provider") or "unknown")
     effective = copy.deepcopy(imported)
     targets = {(collection, row.get("id")): row for collection in _COLLECTIONS for row in effective.get(collection, []) if isinstance(row, dict)}
@@ -274,9 +295,13 @@ def retain_reviewed_import(portfolio: dict[str, Any], source: dict[str, Any], st
     state.pop("retired_overlays", None)
     effective = _snapshot(portfolio)
     reviews = copy.deepcopy(state["decisions"])
-    content_hash = _digest({"source": source, "effective": effective, "reviews": reviews})
-    if not state["revisions"] or state["revisions"][-1]["content_hash"] != content_hash:
-        state["revisions"].append({"version": len(state["revisions"]) + 1, "content_hash": content_hash, "source_revision": _digest(source), "source": copy.deepcopy(source), "reviews": reviews, "effective": effective})
+    content_hash = _retention_hash(source, effective, reviews)
+    previous = state["revisions"][-1] if state["revisions"] else None
+    # Recompute old v1 records under the same comparison rule without rewriting
+    # their exact snapshots or hashes merely because the reader was upgraded.
+    if previous is None or _retention_hash(previous["source"], previous["effective"], previous["reviews"]) != content_hash:
+        payload_hash = hashlib.sha256(json.dumps(source, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+        state["revisions"].append({"version": len(state["revisions"]) + 1, "content_hash": content_hash, "source_revision": _digest(_source_facts(source)), "source_payload_hash": payload_hash, "source": copy.deepcopy(source), "reviews": reviews, "effective": effective})
     portfolio.setdefault("extensions", {})[_KEY] = copy.deepcopy(state)
 
 

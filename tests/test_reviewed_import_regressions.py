@@ -190,3 +190,56 @@ class ReviewedImportReviewRegressions(unittest.TestCase):
             self.assertIn('reviewed identity', errors)
             self.assertEqual(path.read_bytes(), before)
             self.assertEqual(log.read_bytes(), log_before)
+
+
+    def test_meaningful_source_only_evidence_and_financial_changes_retain_exact_snapshots(self):
+        raw = statement()
+        raw['metadata'] = {'extraction_evidence': 'source-v1', 'rikdom_import_diagnostics': {'version': 1, 'document_fingerprint': 'stable-document', 'history_coverage': [], 'unsupported_events': []}}
+        with import_workspace(raw) as (raw, source_path, path, _, run):
+            self.assertEqual(run()[0], 0)
+            initial = copy.deepcopy(load_json(path)['extensions']['rikdom_reviewed_imports']['revisions'][0])
+            raw['metadata']['extraction_evidence'] = 'source-v2'
+            save_json(source_path, raw)
+            code, report, errors = run()
+            self.assertEqual(code, 0, errors)
+            self.assertEqual(report['activities']['skipped'], 1)
+            revisions = load_json(path)['extensions']['rikdom_reviewed_imports']['revisions']
+            self.assertEqual(len(revisions), 2)
+            self.assertEqual(revisions[0], initial)
+            self.assertEqual(revisions[1]['source']['metadata']['extraction_evidence'], 'source-v2')
+            raw['activities'][0]['money'] = {'amount': 100, 'currency': 'USD'}
+            save_json(source_path, raw)
+            code, report, errors = run()
+            self.assertEqual(code, 0, errors)
+            self.assertEqual(report['activities']['updated'], 1)
+            current = load_json(path)
+            revisions = current['extensions']['rikdom_reviewed_imports']['revisions']
+            self.assertEqual(len(revisions), 3)
+            self.assertEqual(revisions[0], initial)
+            self.assertNotIn('money', initial['source']['activities'][0])
+            self.assertEqual(revisions[-1]['source']['activities'][0]['money']['amount'], 100)
+            self.assertEqual(current['activities'][0]['money']['amount'], 100)
+
+
+    def test_old_retention_hash_and_snapshot_are_unchanged_on_equivalent_replay(self):
+        from rikdom.reviewed_imports import _digest
+
+        raw = statement()
+        raw['metadata'] = {'source_file': 'original.csv', 'rikdom_import_diagnostics': {'version': 1, 'document_fingerprint': 'stable-document', 'history_coverage': [], 'unsupported_events': []}}
+        with import_workspace(raw) as (raw, source_path, path, _, run):
+            self.assertEqual(run()[0], 0)
+            legacy = load_json(path)
+            record = legacy['extensions']['rikdom_reviewed_imports']['revisions'][0]
+            # Earlier v1 hashes used the complete envelope and had no separate
+            # exact payload hash. The reader must preserve those saved bytes.
+            record['content_hash'] = _digest({key: record[key] for key in ('source', 'effective', 'reviews')})
+            record.pop('source_payload_hash')
+            save_json(path, legacy)
+            before = path.read_bytes()
+            raw['generated_at'] = '2026-01-03T00:00:00Z'
+            raw['metadata']['source_file'] = 'renamed.csv'
+            save_json(source_path, raw)
+            code, report, errors = run()
+            self.assertEqual(code, 0, errors)
+            self.assertEqual(report['activities']['skipped'], 1)
+            self.assertEqual(path.read_bytes(), before)

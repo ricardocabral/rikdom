@@ -126,12 +126,26 @@ Successful imports retain `portfolio.extensions.rikdom_reviewed_imports` version
   review versions and history.
 - `revisions`: normalized `source`, corresponding `reviews`, and the complete
   `effective` portfolio projection for every distinct accepted state.
-- Each revision has a monotonic `version`, `source_revision` and `content_hash`.
+- Each revision has a monotonic `version`, semantic `source_revision` and
+  `content_hash`; new records also include `source_payload_hash`, the SHA256 of
+  sorted compact JSON for the exact retained normalized source, including run
+  provenance and envelope values.
 
 Effective projections exclude the retention extension itself to avoid recursive
 history; empty extension containers are normalized away. Source observations
-retain run provenance. Revision hashes use sorted JSON and exclude run ID and
-ingestion timestamp, so changing only those does not create another revision.
+retain run provenance. Source comparison uses sorted JSON, excludes run ID and ingestion timestamp,
+and treats top-level `generated_at`, `metadata.source_file`, and top-level entity
+collection ordering as processing/display details. Nested evidence arrays,
+source fingerprints, financial facts and other source metadata remain significant.
+A reordered or renamed unchanged statement, or an import across a processing-clock
+boundary, therefore does not create another revision or invalidate a revision-bound
+resolution. Providers must represent meaningful valuation/coverage/evidence dates
+in the corresponding observation fields rather than only the processing header.
+The exact original source envelope and entity order remain in the retained source
+snapshot and `source_payload_hash`. Effective inputs and reviewed decisions also
+participate in `content_hash`; a real source-evidence change is retained even
+when ordinary merge counts report a no-op. Earlier records are compared under
+the same semantic rule without rewriting their stored hashes or snapshots.
 Unchanged reimports retain the existing canonical provenance and history. Accepted source observations accumulate without rewriting the original review
 baseline or incrementing the review decision version. Explicit resolutions still
 increment that version. Prior accepted observation baselines remain in each
