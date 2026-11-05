@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .aggregate import aggregate_portfolio, compute_strategic_bucket_totals
+from .analysis_bundle import aggregate_output, capture_aggregate_bundle, replay_aggregate_bundle
 from .income import build_income_report
 from .activities import CORRECTION_SCHEMA_VERSION, check_financial_contract, correction, effective_activities
 from .reconciliation.reports import (
@@ -390,30 +391,19 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
         snapshot_timestamp=aggregate_timestamp,
         auto_ingest=False,
     )
-    result = aggregate_portfolio(
-        portfolio,
-        strict=bool(getattr(args, "strict_quality", False)),
-        fx_rates_to_base=fx_lock.get("rates_to_base"),
-    )
-    result.warnings.extend(fx_warnings)
-    output: dict[str, Any] = {
-        "base_currency": result.base_currency,
-        "portfolio_value_base": result.total_value_base,
-        "by_asset_class": result.by_asset_class,
-        "warnings": result.warnings,
-        "errors": result.errors,
-    }
-    for key, value in (
-        ("by_region", result.by_region),
-        ("by_currency", result.by_currency),
-        ("by_duration", result.by_duration),
-        ("by_liquidity_tier", result.by_liquidity_tier),
-        ("by_account", result.by_account),
-    ):
-        if value:
-            output[key] = value
+    strict = bool(getattr(args, "strict_quality", False))
+    output = aggregate_output(portfolio, strict=strict, fx_lock=fx_lock, fx_warnings=fx_warnings)
+    bundle = getattr(args, "bundle", None)
+    if bundle and not output["errors"]:
+        for source in (args.portfolio, args.fx_history):
+            if source and _is_same_path(Path(bundle), Path(source)):
+                raise ExportBundleError("Refusing to overwrite analysis input with bundle")
+        capture_aggregate_bundle(
+            bundle, portfolio=portfolio, strict=strict, fx_lock=fx_lock,
+            fx_warnings=fx_warnings, result=output, created_at=aggregate_timestamp,
+        )
     print(json.dumps(output, indent=2, ensure_ascii=False))
-    if result.errors:
+    if output["errors"]:
         print("Data quality check failed in strict mode", file=sys.stderr)
         return 1
     return 0
@@ -1868,6 +1858,16 @@ def cmd_verify_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_replay_export(args: argparse.Namespace) -> int:
+    try:
+        response = replay_aggregate_bundle(args.bundle, args.restore_dir)
+    except (ExportBundleError, zipfile.BadZipFile) as exc:
+        print(f"Analysis replay failed: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(response, indent=2, ensure_ascii=False))
+    return 0
+
+
 def _write_import_payload(
     path: str | Path,
     data: bytes,
@@ -1890,6 +1890,10 @@ def cmd_import_export(args: argparse.Namespace) -> int:
         manifest, payloads = read_verified_payloads(args.bundle)
     except (FileNotFoundError, ExportBundleError, zipfile.BadZipFile) as exc:
         print(f"Bundle verification failed: {exc}", file=sys.stderr)
+        return 1
+
+    if "analysis_run" in payloads:
+        print("Use replay-export --restore-dir to restore a captured analysis", file=sys.stderr)
         return 1
 
     portfolio_bytes = payloads.get("portfolio")
@@ -2394,6 +2398,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_aggregate = sub.add_parser("aggregate", help="Aggregate holdings by asset class")
     p_aggregate.add_argument("--portfolio", default=None)
     p_aggregate.add_argument("--fx-history", default=None)
+    p_aggregate.add_argument("--bundle", default=None, help="Capture this calculation as a reproducible analysis ZIP")
     p_aggregate.add_argument(
         "--strict-quality",
         action="store_true",
@@ -2796,6 +2801,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_verify_export.add_argument("--bundle", required=True)
     p_verify_export.set_defaults(func=cmd_verify_export)
+
+    p_replay_export = sub.add_parser(
+        "replay-export", help="Reproduce a captured analysis offline and restore to a fresh directory"
+    )
+    p_replay_export.add_argument("--bundle", required=True)
+    p_replay_export.add_argument("--restore-dir", required=True)
+    p_replay_export.set_defaults(func=cmd_replay_export)
 
     p_import_export = sub.add_parser(
         "import-export", help="Verify and import a rikdom-export bundle"
