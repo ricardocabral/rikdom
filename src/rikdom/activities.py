@@ -123,7 +123,9 @@ def validate_activity_import(portfolio: dict[str, Any], imported: dict[str, Any]
                 raise ValueError("Correction target is no longer current")
             lots = [lot.get("id") for lot in [*(portfolio.get("tax_lots") or []), *(imported.get("tax_lots") or [])] if isinstance(lot, dict) and (lot.get("acquisition_activity_id") == target["id"] or lot.get("disposal_activity_id") == target["id"])]
             if lots or target.get("tax_lot_ids") or target.get("corporate_action") or activity.get("tax_lot_ids") or activity.get("corporate_action"):
-                raise ValueError(f"Correction requires review of dependent tax lots/corporate action: {lots or target['id']}")
+                from .market_events import validate_reviewed_split_correction
+
+                validate_reviewed_split_correction(portfolio, imported, activity)
         if previous:
             candidate = [activity if a.get("id") == previous["id"] else a for a in candidate]
         else:

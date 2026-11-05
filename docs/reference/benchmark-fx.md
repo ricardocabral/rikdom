@@ -1,6 +1,6 @@
 # Historical benchmark FX
 
-`resolve_benchmarks_for_targets(..., historical_fx=resolver)` translates each
+`resolve_benchmarks_for_targets(..., historical_fx=resolver, portfolio_return_convention="total_return")` translates each
 benchmark bookend into the portfolio reporting currency using
 `resolver.resolve(currency, actual_bookend_datetime)`. Rates multiply native
 levels. The resolver reporting currency must match the portfolio base currency.
@@ -64,11 +64,28 @@ It requires an available finite portfolio return, exact portfolio bookend
 timestamps, consistent `total_return` conventions, and a nonblank source at
 both benchmark bookends. A prior or partial benchmark window may have a
 translated return, but its status is `not_comparable` and excess is `null`.
-The comparison explicitly assumes portfolio snapshot valuations represent
-total-return performance. Historical cashflow FX does not certify snapshot
-valuation FX or independently establish that return convention.
+The portfolio calculation requires both selected snapshot bookends to explicitly
+establish the same return convention with nonblank source evidence:
 
-`comparable` describes the benchmark's eligibility: excess remains `null` when
+```json
+{"metadata":{"rikdom_return_convention":{"version":1,"kind":"total_return","source":"reviewed-full-NAV-statement"}}}
+```
+
+The declaration has exactly `version`, `kind`, and `source`; version is integer
+1, kind is `total_return` or `price_return`. Missing, invalid, mismatched or
+price-only declarations preserve portfolio and benchmark returns but make
+historical benchmark excess unavailable (`not_comparable`). Legacy undated
+comparison behavior is unchanged. A source declaration records the supplied
+assumption; it does not independently verify income reinvestment or history.
+Historical cashflow FX does not certify snapshot valuation FX. Explicit
+historical valuation replay does not invent a total-return convention either.
+
+The shared portfolio output includes `return_convention` and detached
+`return_convention_evidence` for both selected bookends. Direct users of
+`resolve_benchmarks_for_targets` must pass the verified portfolio convention;
+omitting it no longer supports historical excess.
+
+`comparable` describes benchmark eligibility with an established portfolio convention: excess remains `null` when
 the portfolio return is unavailable. `unavailable` means the translated
 benchmark return itself could not be calculated.
 

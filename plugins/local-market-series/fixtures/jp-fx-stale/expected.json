@@ -1,0 +1,149 @@
+{
+  "contract_version": "1.0",
+  "plugin": {
+    "name": "local-market-series",
+    "version": "0.1.0",
+    "api_version": "1.2"
+  },
+  "market_series": {
+    "contract_version": "1.0",
+    "series": [
+      {
+        "id": "jp-price",
+        "kind": "price",
+        "instrument": {
+          "namespace": "XTKS",
+          "id": "SYNTH.JP",
+          "currency": "JPY"
+        },
+        "currency": "JPY",
+        "adjustment": "unadjusted",
+        "coverage": {
+          "start": "2026-01-02T00:00:00Z",
+          "end": "2026-01-10T00:00:00Z"
+        },
+        "license": {
+          "name": "CC0-1.0 synthetic",
+          "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        "observations": [
+          {
+            "id": "jp-original",
+            "effective_at": "2026-01-02T00:00:00Z",
+            "retrieved_at": "2026-01-02T00:00:00Z",
+            "source": "manual synthetic fixture",
+            "value": 3000,
+            "currency": "JPY",
+            "supersedes": null
+          }
+        ]
+      },
+      {
+        "id": "usd-jpy",
+        "kind": "fx",
+        "currency_pair": {
+          "base": "USD",
+          "quote": "JPY"
+        },
+        "currency": "JPY",
+        "adjustment": "not_applicable",
+        "coverage": {
+          "start": "2026-01-02T00:00:00Z",
+          "end": "2026-01-10T00:00:00Z"
+        },
+        "license": {
+          "name": "CC0-1.0 synthetic",
+          "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        "observations": [
+          {
+            "id": "fx-original",
+            "effective_at": "2026-01-02T00:00:00Z",
+            "retrieved_at": "2026-01-02T00:00:00Z",
+            "source": "manual synthetic fixture",
+            "value": 150,
+            "currency": "JPY",
+            "supersedes": null
+          }
+        ]
+      }
+    ]
+  },
+  "lookups": [
+    {
+      "status": "available",
+      "reason": null,
+      "series_id": "jp-price",
+      "as_of": "2026-01-02T00:00:00Z",
+      "max_age_seconds": 0,
+      "retrieved_before": null,
+      "age_seconds": 0,
+      "series": {
+        "id": "jp-price",
+        "kind": "price",
+        "instrument": {
+          "namespace": "XTKS",
+          "id": "SYNTH.JP",
+          "currency": "JPY"
+        },
+        "currency": "JPY",
+        "adjustment": "unadjusted",
+        "coverage": {
+          "start": "2026-01-02T00:00:00Z",
+          "end": "2026-01-10T00:00:00Z"
+        },
+        "license": {
+          "name": "CC0-1.0 synthetic",
+          "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      },
+      "observation": {
+        "id": "jp-original",
+        "effective_at": "2026-01-02T00:00:00Z",
+        "retrieved_at": "2026-01-02T00:00:00Z",
+        "source": "manual synthetic fixture",
+        "value": 3000,
+        "currency": "JPY",
+        "supersedes": null
+      },
+      "superseded": []
+    },
+    {
+      "status": "stale",
+      "reason": "maximum_age_exceeded",
+      "series_id": "usd-jpy",
+      "as_of": "2026-01-05T00:00:00Z",
+      "max_age_seconds": 60,
+      "retrieved_before": null,
+      "age_seconds": 259200,
+      "series": {
+        "id": "usd-jpy",
+        "kind": "fx",
+        "currency_pair": {
+          "base": "USD",
+          "quote": "JPY"
+        },
+        "currency": "JPY",
+        "adjustment": "not_applicable",
+        "coverage": {
+          "start": "2026-01-02T00:00:00Z",
+          "end": "2026-01-10T00:00:00Z"
+        },
+        "license": {
+          "name": "CC0-1.0 synthetic",
+          "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      },
+      "observation": {
+        "id": "fx-original",
+        "effective_at": "2026-01-02T00:00:00Z",
+        "retrieved_at": "2026-01-02T00:00:00Z",
+        "source": "manual synthetic fixture",
+        "value": 150,
+        "currency": "JPY",
+        "supersedes": null
+      },
+      "superseded": []
+    }
+  ]
+}

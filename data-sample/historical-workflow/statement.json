@@ -1,0 +1,134 @@
+{
+  "provider": "synthetic-manual-statement",
+  "generated_at": "2027-01-02T00:00:00Z",
+  "base_currency": "BRL",
+  "holdings": [
+    {
+      "id": "h",
+      "asset_type_id": "stock",
+      "label": "Synthetic FUND",
+      "quantity": 30,
+      "instrument": {
+        "namespace": "SYNTHETIC",
+        "id": "FUND",
+        "currency": "USD"
+      },
+      "market_value": {
+        "amount": 180,
+        "currency": "USD"
+      },
+      "as_of": "2027-01-01T00:00:00Z",
+      "metadata": {
+        "fx_rate_to_base": 6
+      }
+    },
+    {
+      "id": "cash-a-brl",
+      "asset_type_id": "cash",
+      "label": "cash-a-brl",
+      "market_value": {
+        "amount": 140,
+        "currency": "BRL"
+      },
+      "as_of": "2027-01-01T00:00:00Z"
+    },
+    {
+      "id": "cash-b-brl",
+      "asset_type_id": "cash",
+      "label": "cash-b-brl",
+      "market_value": {
+        "amount": 10,
+        "currency": "BRL"
+      },
+      "as_of": "2027-01-01T00:00:00Z"
+    },
+    {
+      "id": "cash-a-usd",
+      "asset_type_id": "cash",
+      "label": "cash-a-usd",
+      "market_value": {
+        "amount": 7,
+        "currency": "USD"
+      },
+      "as_of": "2027-01-01T00:00:00Z",
+      "metadata": {
+        "fx_rate_to_base": 6
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "contribute",
+      "idempotency_key": "synthetic:contribute",
+      "status": "posted",
+      "event_type": "contribution",
+      "effective_at": "2026-07-02T00:00:00Z",
+      "money": {
+        "amount": 100,
+        "currency": "BRL"
+      },
+      "source_ref": "synthetic-statement:contribute"
+    },
+    {
+      "id": "out",
+      "idempotency_key": "synthetic:out",
+      "status": "posted",
+      "event_type": "transfer_out",
+      "effective_at": "2026-08-01T00:00:00Z",
+      "money": {
+        "amount": 10,
+        "currency": "BRL"
+      },
+      "source_ref": "synthetic-statement:out"
+    },
+    {
+      "id": "in",
+      "idempotency_key": "synthetic:in",
+      "status": "posted",
+      "event_type": "transfer_in",
+      "effective_at": "2026-08-01T00:00:00Z",
+      "money": {
+        "amount": 10,
+        "currency": "BRL"
+      },
+      "source_ref": "synthetic-statement:in"
+    },
+    {
+      "id": "distribution",
+      "idempotency_key": "synthetic:distribution",
+      "status": "posted",
+      "event_type": "dividend",
+      "effective_at": "2026-09-01T00:00:00Z",
+      "money": {
+        "amount": 10,
+        "currency": "USD"
+      },
+      "source_ref": "synthetic-statement:distribution",
+      "instrument": {
+        "namespace": "SYNTHETIC",
+        "id": "FUND",
+        "currency": "USD"
+      },
+      "withholding_tax": {
+        "amount": 2,
+        "currency": "USD"
+      },
+      "fees": {
+        "amount": 1,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "withdraw",
+      "idempotency_key": "synthetic:withdraw",
+      "status": "posted",
+      "event_type": "withdrawal",
+      "effective_at": "2027-01-01T00:00:00Z",
+      "money": {
+        "amount": 50,
+        "currency": "BRL"
+      },
+      "source_ref": "synthetic-statement:withdraw"
+    }
+  ]
+}

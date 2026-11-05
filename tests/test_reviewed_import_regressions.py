@@ -1,0 +1,245 @@
+"""Real CLI regressions from independent review of recurring source imports."""
+import contextlib
+import copy
+import io
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+from rikdom.cli import main
+from rikdom.storage import load_json, save_json
+from tests.test_reviewed_imports import statement
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@contextlib.contextmanager
+def import_workspace(raw, *, collapse_canonical=False):
+    with tempfile.TemporaryDirectory() as temp:
+        directory = Path(temp)
+        portfolio_path = directory / 'portfolio.json'
+        source_path = directory / 'statement.json'
+        review_path = directory / 'review.json'
+        log_path = directory / 'import.jsonl'
+        seed = load_json(ROOT / 'tests/fixtures/portfolio.json')
+        seed.update(holdings=[], activities=[], extensions={})
+        save_json(portfolio_path, seed)
+        raw = copy.deepcopy(raw)
+        raw['generated_at'] = '2026-01-02T00:00:00Z'
+        for activity in raw.get('activities', []):
+            activity['created_at'] = raw['generated_at']
+        save_json(source_path, raw)
+        args = ['import-statement', '--plugin', 'normalized-statement-json', '--input', str(source_path), '--data-dir', str(directory), '--plugins-dir', str(ROOT / 'plugins'), '--import-log', str(log_path), '--ingested-at', '2026-02-01T00:00:00Z', '--write']
+        if collapse_canonical:
+            args.append('--collapse-canonical')
+
+        def run(review=None):
+            extra = []
+            if review is not None:
+                save_json(review_path, review)
+                extra = ['--review-file', str(review_path)]
+            output, errors = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                code = main([*args, *extra])
+            return code, json.loads(output.getvalue()) if output.getvalue() else {}, errors.getvalue()
+
+        yield raw, source_path, portfolio_path, log_path, run
+
+
+def decision(collection, changes):
+    return {'version': 1, 'decisions': [{'id': 'review', 'collection': collection, 'entity_id': 'h' if collection == 'holdings' else 'a', 'changes': changes, 'evidence': {'kind': 'user_declaration', 'source_ref': 'review-note'}}]}
+
+
+class ReviewedImportReviewRegressions(unittest.TestCase):
+    def test_canonical_collapse_cannot_overwrite_active_review_under_new_id(self):
+        raw = statement()
+        raw['holdings'][0].update(account_id='acct', metadata={'canonical_key': 'fund:x'})
+        with import_workspace(raw, collapse_canonical=True) as (raw, source_path, path, log, run):
+            code, _, errors = run(decision('holdings', {'market_value': {'amount': 12}}))
+            self.assertEqual(code, 0, errors)
+            before, log_before = path.read_bytes(), log.read_bytes()
+            raw['holdings'][0]['id'] = 'renamed'
+            raw['holdings'][0]['market_value']['amount'] = 99
+            save_json(source_path, raw)
+            code, _, errors = run()
+            self.assertEqual(code, 1, 'Canonical collapse bypassed the active review')
+            self.assertIn('reviewed identity', errors)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(log.read_bytes(), log_before)
+            self.assertEqual(load_json(path)['holdings'][0]['market_value']['amount'], 12)
+
+    def test_newly_accepted_source_fact_survives_omission_then_conflicting_refresh_blocks(self):
+        with import_workspace(statement()) as (raw, source_path, path, log, run):
+            code, _, errors = run(decision('activities', {'account_id': 'acct'}))
+            self.assertEqual(code, 0, errors)
+            raw['activities'][0]['money'] = {'amount': 100, 'currency': 'USD'}
+            save_json(source_path, raw)
+            code, _, errors = run()
+            self.assertEqual(code, 0, errors)
+            added = load_json(path)
+            self.assertEqual(added['activities'][0]['money']['amount'], 100)
+            old_revision = copy.deepcopy(added['extensions']['rikdom_reviewed_imports']['revisions'][0])
+            raw['activities'][0].pop('money')
+            save_json(source_path, raw)
+            code, _, errors = run()
+            self.assertEqual(code, 0, errors)
+            before, log_before = path.read_bytes(), log.read_bytes()
+            raw['activities'][0]['money'] = {'amount': 999, 'currency': 'USD'}
+            save_json(source_path, raw)
+            code, output, errors = run()
+            self.assertEqual(code, 1, 'Accepted money100 was forgotten after omission')
+            conflict = output['preflight']['review']['conflicts'][0]
+            self.assertIn('money.amount', conflict['changed_source_fields'])
+            self.assertEqual(conflict['previous_source']['money']['amount'], 100)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(log.read_bytes(), log_before)
+            current = load_json(path)
+            record = current['extensions']['rikdom_reviewed_imports']['decisions'][0]
+            self.assertNotIn('money', record['source'])
+            self.assertEqual(record['accepted_source']['money']['amount'], 100)
+            self.assertEqual(record['version'], 1)
+            self.assertEqual(current['extensions']['rikdom_reviewed_imports']['revisions'][0], old_revision)
+
+    def test_omitted_source_money_and_evidence_remain_effective_for_reviewed_activity(self):
+        raw = statement()
+        raw['activities'][0].update(money={'amount': 100, 'currency': 'USD'}, metadata={'source_note': {'receipt': 'receipt-a'}})
+        with import_workspace(raw) as (raw, source_path, path, _, run):
+            code, _, errors = run(decision('activities', {'account_id': 'acct'}))
+            self.assertEqual(code, 0, errors)
+            raw['activities'][0].pop('money')
+            raw['activities'][0].pop('metadata')
+            save_json(source_path, raw)
+            code, _, errors = run()
+            self.assertEqual(code, 0, errors)
+            activity = load_json(path)['activities'][0]
+            self.assertEqual(activity.get('money'), {'amount': 100, 'currency': 'USD'})
+            self.assertEqual(activity.get('metadata'), {'source_note': {'receipt': 'receipt-a'}})
+            self.assertEqual(activity['account_id'], 'acct')
+
+    def test_no_review_imports_keep_existing_collapse_and_source_replacement_behavior(self):
+        raw = statement()
+        raw['holdings'][0].update(account_id='acct', metadata={'canonical_key': 'fund:x'})
+        raw['activities'][0]['money'] = {'amount': 100, 'currency': 'USD'}
+        with import_workspace(raw, collapse_canonical=True) as (raw, source_path, path, _, run):
+            self.assertEqual(run()[0], 0)
+            raw['holdings'][0]['id'] = 'renamed'
+            raw['holdings'][0]['market_value']['amount'] = 99
+            raw['activities'][0].pop('money')
+            save_json(source_path, raw)
+            code, _, errors = run()
+            self.assertEqual(code, 0, errors)
+            current = load_json(path)
+            self.assertEqual(len(current['holdings']), 1)
+            self.assertEqual(current['holdings'][0]['id'], 'h')
+            self.assertEqual(current['holdings'][0]['market_value']['amount'], 99)
+            self.assertNotIn('money', current['activities'][0])
+
+    def test_review_on_incoming_alias_cannot_collapse_to_unreviewed_stored_id(self):
+        raw = statement()
+        raw['holdings'][0].update(account_id='acct', metadata={'canonical_key': 'fund:x'})
+        with import_workspace(raw, collapse_canonical=True) as (raw, source_path, path, log, run):
+            self.assertEqual(run()[0], 0)
+            before, log_before = path.read_bytes(), log.read_bytes()
+            raw['holdings'][0]['id'] = 'renamed'
+            # Account binding is reviewed enrichment, not a source assertion.
+            raw['holdings'][0].pop('account_id')
+            save_json(source_path, raw)
+            review = decision('holdings', {'account_id': 'acct', 'market_value': {'amount': 12}})
+            review['decisions'][0]['entity_id'] = 'renamed'
+            code, _, errors = run(review)
+            self.assertEqual(code, 1, 'A new review was detached from the stored holding ID by collapse')
+            self.assertIn('reviewed identity', errors)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(log.read_bytes(), log_before)
+
+    def test_preexisting_aliased_review_blocks_later_canonical_collapse(self):
+        from rikdom.plugins import merge_holdings, stamp_provenance
+        from rikdom.reviewed_imports import prepare_reviewed_import, retain_reviewed_import
+
+        raw = statement()
+        raw['holdings'][0].update(account_id='acct', metadata={'canonical_key': 'fund:x'})
+        with import_workspace(raw, collapse_canonical=True) as (raw, source_path, path, log, run):
+            self.assertEqual(run()[0], 0)
+            # Reconstruct the persisted v1 alias state produced by the former CLI:
+            # review renamed, then the existing holding merger stores it as h.
+            alias = copy.deepcopy(raw)
+            alias['holdings'][0]['id'] = 'renamed'
+            alias['holdings'][0].pop('account_id')
+            stamp_provenance(alias, source_system='synthetic', import_run_id='legacy-alias', ingested_at='2026-02-01T00:00:00Z')
+            review = decision('holdings', {'account_id': 'acct', 'market_value': {'amount': 12}})
+            review['decisions'][0]['entity_id'] = 'renamed'
+            legacy = load_json(path)
+            effective, report, state = prepare_reviewed_import(legacy, alias, review)
+            self.assertTrue(report['ok'])
+            legacy, _ = merge_holdings(legacy, effective, collapse_canonical=True)
+            retain_reviewed_import(legacy, alias, state)
+            save_json(path, legacy)
+            self.assertEqual(legacy['holdings'][0]['id'], 'h')
+            self.assertEqual(legacy['holdings'][0]['market_value']['amount'], 12)
+            saved_decision = legacy['extensions']['rikdom_reviewed_imports']['decisions'][0]
+            self.assertEqual(saved_decision['entity_id'], 'renamed')
+            self.assertNotIn('account_id', saved_decision['accepted_source'])
+            self.assertEqual(saved_decision['changes']['account_id'], 'acct')
+            before, log_before = path.read_bytes(), log.read_bytes()
+            raw['holdings'][0]['id'] = 'third'
+            raw['holdings'][0]['market_value']['amount'] = 99
+            save_json(source_path, raw)
+            code, _, errors = run()
+            self.assertEqual(code, 1, 'Previously persisted aliased review did not protect canonical holding')
+            self.assertIn('reviewed identity', errors)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(log.read_bytes(), log_before)
+
+
+    def test_meaningful_source_only_evidence_and_financial_changes_retain_exact_snapshots(self):
+        raw = statement()
+        raw['metadata'] = {'extraction_evidence': 'source-v1', 'rikdom_import_diagnostics': {'version': 1, 'document_fingerprint': 'stable-document', 'history_coverage': [], 'unsupported_events': []}}
+        with import_workspace(raw) as (raw, source_path, path, _, run):
+            self.assertEqual(run()[0], 0)
+            initial = copy.deepcopy(load_json(path)['extensions']['rikdom_reviewed_imports']['revisions'][0])
+            raw['metadata']['extraction_evidence'] = 'source-v2'
+            save_json(source_path, raw)
+            code, report, errors = run()
+            self.assertEqual(code, 0, errors)
+            self.assertEqual(report['activities']['skipped'], 1)
+            revisions = load_json(path)['extensions']['rikdom_reviewed_imports']['revisions']
+            self.assertEqual(len(revisions), 2)
+            self.assertEqual(revisions[0], initial)
+            self.assertEqual(revisions[1]['source']['metadata']['extraction_evidence'], 'source-v2')
+            raw['activities'][0]['money'] = {'amount': 100, 'currency': 'USD'}
+            save_json(source_path, raw)
+            code, report, errors = run()
+            self.assertEqual(code, 0, errors)
+            self.assertEqual(report['activities']['updated'], 1)
+            current = load_json(path)
+            revisions = current['extensions']['rikdom_reviewed_imports']['revisions']
+            self.assertEqual(len(revisions), 3)
+            self.assertEqual(revisions[0], initial)
+            self.assertNotIn('money', initial['source']['activities'][0])
+            self.assertEqual(revisions[-1]['source']['activities'][0]['money']['amount'], 100)
+            self.assertEqual(current['activities'][0]['money']['amount'], 100)
+
+
+    def test_old_retention_hash_and_snapshot_are_unchanged_on_equivalent_replay(self):
+        from rikdom.reviewed_imports import _digest
+
+        raw = statement()
+        raw['metadata'] = {'source_file': 'original.csv', 'rikdom_import_diagnostics': {'version': 1, 'document_fingerprint': 'stable-document', 'history_coverage': [], 'unsupported_events': []}}
+        with import_workspace(raw) as (raw, source_path, path, _, run):
+            self.assertEqual(run()[0], 0)
+            legacy = load_json(path)
+            record = legacy['extensions']['rikdom_reviewed_imports']['revisions'][0]
+            # Earlier v1 hashes used the complete envelope and had no separate
+            # exact payload hash. The reader must preserve those saved bytes.
+            record['content_hash'] = _digest({key: record[key] for key in ('source', 'effective', 'reviews')})
+            record.pop('source_payload_hash')
+            save_json(path, legacy)
+            before = path.read_bytes()
+            raw['generated_at'] = '2026-01-03T00:00:00Z'
+            raw['metadata']['source_file'] = 'renamed.csv'
+            save_json(source_path, raw)
+            code, report, errors = run()
+            self.assertEqual(code, 0, errors)
+            self.assertEqual(report['activities']['skipped'], 1)
+            self.assertEqual(path.read_bytes(), before)

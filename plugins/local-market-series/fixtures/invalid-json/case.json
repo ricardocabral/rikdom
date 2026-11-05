@@ -1,0 +1,10 @@
+{
+  "hook": "enrichment",
+  "request": {
+    "contract_version": "1.0",
+    "source": {
+      "path": "input.json"
+    },
+    "lookups": []
+  }
+}

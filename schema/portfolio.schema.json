@@ -789,6 +789,17 @@
 						"wallet": { "type": "string" }
 					}
 				},
+				"instrument": {
+					"type": "object",
+					"description": "Optional explicit namespaced identity used for reviewed source market events and local price-series matching. Never inferred from ticker, current value or account. This exact namespace/id/currency identity is distinct from the open activity instrument metadata contract.",
+					"required": ["namespace", "id", "currency"],
+					"additionalProperties": false,
+					"properties": {
+						"namespace": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?(?![\\s\\S])" },
+						"id": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?(?![\\s\\S])" },
+						"currency": { "type": "string", "pattern": "^[A-Z]{3}(?![\\s\\S])" }
+					}
+				},
 				"quantity": {
 					"type": ["number", "null"],
 					"description": "Null denotes an unknown holding quantity; no units are inferred."

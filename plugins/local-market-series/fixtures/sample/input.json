@@ -1,0 +1,44 @@
+{
+  "contract_version": "1.0",
+  "series": [
+    {
+      "id": "br-price",
+      "kind": "price",
+      "instrument": {
+        "namespace": "BVMF",
+        "id": "SYNTH3",
+        "currency": "BRL"
+      },
+      "currency": "BRL",
+      "adjustment": "unadjusted",
+      "coverage": {
+        "start": "2026-01-02T00:00:00Z",
+        "end": "2026-01-10T00:00:00Z"
+      },
+      "license": {
+        "name": "CC0-1.0 synthetic",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "observations": [
+        {
+          "id": "original",
+          "effective_at": "2026-01-02T00:00:00Z",
+          "retrieved_at": "2026-01-02T00:00:00Z",
+          "source": "manual synthetic fixture",
+          "value": 10,
+          "currency": "BRL",
+          "supersedes": null
+        },
+        {
+          "id": "revision",
+          "effective_at": "2026-01-02T00:00:00Z",
+          "retrieved_at": "2026-01-04T00:00:00Z",
+          "source": "manual synthetic correction",
+          "value": 12,
+          "currency": "BRL",
+          "supersedes": "original"
+        }
+      ]
+    }
+  ]
+}

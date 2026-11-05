@@ -1,0 +1,69 @@
+{
+  "schema_version": "2.0.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "p",
+    "owner_kind": "person",
+    "display_name": "Synthetic"
+  },
+  "settings": {
+    "base_currency": "USD"
+  },
+  "asset_type_catalog": [
+    {
+      "id": "stock",
+      "asset_class": "stocks"
+    }
+  ],
+  "holdings": [
+    {
+      "id": "h1",
+      "label": "Demo",
+      "asset_type_id": "stock",
+      "account_id": "account",
+      "instrument": {
+        "namespace": "SYNTHETIC-US",
+        "id": "DEMO",
+        "currency": "USD"
+      },
+      "quantity": 20,
+      "market_value": {
+        "amount": 200,
+        "currency": "USD"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "observed",
+      "idempotency_key": "broker:observed",
+      "event_type": "dividend",
+      "status": "posted",
+      "effective_at": "2026-01-20T00:00:00Z",
+      "holding_id": "h1",
+      "account_id": "account",
+      "instrument": {
+        "namespace": "SYNTHETIC-US",
+        "id": "DEMO",
+        "currency": "USD"
+      },
+      "money": {
+        "amount": 4,
+        "currency": "USD"
+      },
+      "source_ref": "statement:line-4",
+      "withholding_tax": {
+        "amount": 1,
+        "currency": "USD"
+      },
+      "metadata": {
+        "keep": "original"
+      },
+      "extensions": {
+        "keep": {
+          "value": 7
+        }
+      }
+    }
+  ]
+}

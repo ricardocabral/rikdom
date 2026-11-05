@@ -125,9 +125,121 @@
     }
     return `<section class="report-panel" id="income-view"><h2>${escapeHtml(l.income)}</h2><p>${escapeHtml(l.native)}</p>${table([l.date, l.source, l.kind, l.gross, l.withholding, l.fees, l.net], eventRows, l.income)}</section>
       <section class="report-panel" id="contributions-view"><h2>${escapeHtml(l.contributions)}</h2>${table([l.date, l.source, l.kind, l.amount], contributions, l.contributions)}</section>
-      <section class="report-panel" id="performance-view"><h2>${escapeHtml(l.performance)}</h2><p>${escapeHtml(l.unavailable)}</p></section>
+      ${performancePanel(sections)}
       <section class="report-panel" id="planning-view">${plan}</section>
       ${diagnostics.length ? `<details class="report-panel"><summary>${escapeHtml(l.original)}</summary><ul data-source-text>${diagnostics.map(row => `<li>${escapeHtml(row.activity_id || row.id || '')}: ${escapeHtml(row.message || JSON.stringify(row))}</li>`).join('')}</ul></details>` : ''}`;
+  }
+  function performancePanel(sections) {
+    const p = sections.performance, context = sections.performance_context || {}, l = labels[language];
+    const pt = language === 'pt';
+    const label = (en, br) => pt ? br : en;
+    const text = value => escapeHtml(value ?? l.unknown);
+    const raw = value => `<span data-source-text>${text(value)}</span>`;
+    const percent = value => typeof value === 'number' && Number.isFinite(value)
+      ? new Intl.NumberFormat(locale(), {maximumFractionDigits:6}).format(value) + '%' : l.unknown;
+    const warnings = [...(p?.warnings || []), ...(context.warnings || [])];
+    const auditWarnings = warnings.length ? `<p>${escapeHtml(l.original)}</p><ul data-source-text>${warnings.map(w => `<li>${text(w)}</li>`).join('')}</ul>` : '';
+    const title = `<h2>${text(l.performance)}</h2>`;
+    if (!p) {
+      const message = context.status === 'unavailable_for_dates'
+        ? label('Unavailable for selected dates: performance uses the original snapshot window. Reset date filters to view that window.', 'Indisponível nas datas selecionadas: a rentabilidade usa o período original das avaliações. Limpe os filtros para exibir esse período.')
+        : context.status === 'unavailable_for_scope' ? l.scoped : l.unavailable;
+      return `<section class="report-panel" id="performance-view">${title}<p>${text(message)}</p>${auditWarnings}</section>`;
+    }
+    const method = {
+      linked_subperiod:label('Linked subperiod TWR','TWR por subperíodos encadeados'),
+      bookend_ratio:label('Bookend ratio; no external flows','Razão entre avaliações; sem fluxos externos'),
+      modified_dietz:label('Modified Dietz approximation','Aproximação de Modified Dietz'),
+      unavailable:l.unknown,
+    };
+    const basis = value => ({period:label('Period; not annualized','Período; sem anualização'), annualized_365_day:label('Annualized; 365-day years','Anualizado; anos de 365 dias')})[value] || value;
+    const rows = [
+      [text(label('Selected TWR','TWR selecionado')), text(percent(p.twr_return_pct)), text(method[p.twr_method] || p.twr_method), text(basis(p.twr_return_basis))],
+      [text(label('Legacy Dietz','Dietz legado')), text(percent(p.twr_pct)), text(method.modified_dietz), text(basis('period'))],
+      [text('MWR'), text(percent(p.mwr_pct)), text('XIRR'), text(basis(p.mwr_return_basis))],
+    ];
+    const bridge = p.growth_bridge;
+    let growth = '';
+    if (bridge) {
+      growth = `<h3>${text(label('Growth bridge','Conciliação do crescimento'))}</h3><p>${text(label('Residual investment result; reviewed lot decomposition is disclosed separately when supported.', 'Resultado residual dos investimentos; a decomposição revisada por lotes é apresentada separadamente quando suportada.'))}</p>`;
+      if (bridge.status === 'complete') {
+        const bridgeLabels = {
+          opening_value_base:label('Opening value','Valor inicial'), net_external_cashflow_base:label('Net external cashflow','Fluxo externo líquido'),
+          investment_result_base:label('Investment result','Resultado dos investimentos'), rounding_adjustment_base:label('Rounding adjustment','Ajuste de arredondamento'), closing_value_base:label('Closing value','Valor final'),
+        };
+        growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(bridgeLabels).map(([key,name]) => [text(name), text(money(bridge[key], bridge.base_currency))]));
+      } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(bridge.reasons || []).map(reason => `<li>${text(reason)}</li>`).join('')}</ul>`;
+    }
+    const benchmarkRows = (p.benchmarks || []).map(row => [raw(row.label || row.benchmark_id), text(row.currency), text(percent(row.twr_pct)), text(percent(row.excess_pct)), raw(row.comparison_status), raw(row.return_convention), text(`${sourceDateTime(row.period_start)} – ${sourceDateTime(row.period_end)}`)]);
+    const attribution = p.profit_attribution, decomposition = attribution?.decomposition;
+    if (decomposition) {
+      growth += `<h3>${text(label('Reviewed FIFO profit decomposition','Decomposição de lucro FIFO revisada'))}</h3>`;
+      if (decomposition.status === 'complete') {
+        const components = {
+          realized_gain_base:label('Realized gain','Ganho realizado'),
+          unrealized_change_base:label('Unrealized gain change','Variação do ganho não realizado'),
+          net_income_base:label('Net income','Rendimentos líquidos'),
+          standalone_fees_base:label('Separate fees','Taxas separadas'),
+          standalone_taxes_base:label('Separate taxes','Impostos separados'),
+        };
+        if ('cash_fx_gain_base' in decomposition) {
+          Object.assign(components, {
+            cash_fx_gain_base:label('Cash currency effect','Efeito cambial do caixa'),
+            fx_conversion_result_base:label('FX conversion result','Resultado da conversão de moedas'),
+            explained_result_base:label('Explained period result','Resultado explicado do período'),
+            reconciliation_difference_base:label('Reconciliation difference','Diferença de conciliação'),
+          });
+        }
+        growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(components).map(([key,name]) => [text(name),text(money(decomposition[key], p.base_currency))]));
+        if ('realized_price_gain_base' in decomposition) {
+          const detailLabels = {
+            realized_price_gain_base:label('Realized price result','Resultado realizado de preço'),
+            realized_fx_gain_base:label('Realized currency effect','Efeito cambial realizado'),
+            unrealized_price_change_base:label('Unrealized price change','Variação não realizada de preço'),
+            unrealized_fx_change_base:label('Unrealized currency change','Variação cambial não realizada'),
+          };
+          growth += `<div id="profit-fx-breakdown"><h4>${text(label('Price and currency attribution','Atribuição de preço e câmbio'))}</h4><p>${text(label(
+            'These components explain the realized and unrealized totals above. Cash currency effects and conversion results enter the period reconciliation separately.',
+            'Estes componentes explicam os totais realizados e não realizados acima. Os efeitos cambiais do caixa e os resultados de conversão entram separadamente na conciliação do período.'))}</p>`;
+          growth += table([label('Component','Componente'),label('Base-currency amount','Valor na moeda base')], Object.entries(detailLabels).map(([key,name]) => [text(name),text(money(decomposition[key], p.base_currency))])) + '</div>';
+        }
+
+      } else growth += `<p>${text(l.unknown)}</p><ul data-source-text>${(attribution.diagnostics || []).map(note => `<li>${text(typeof note === 'string' ? note : JSON.stringify(note))}</li>`).join('')}</ul>`;
+    }
+    const benchmarks = benchmarkRows.length ? `<h3>${text(label('Benchmarks','Referências'))}</h3>${table([label('Benchmark','Referência'),label('Currency','Moeda'),label('Return','Retorno'),label('Excess','Excesso'),label('Comparability','Comparabilidade'),label('Return convention','Convenção de retorno'),label('Actual window','Período efetivo')], benchmarkRows)}` : `<p>${text(label('Benchmark comparison unavailable: no benchmark result supplied.', 'Comparação com referência indisponível: nenhum resultado fornecido.'))}</p>`;
+    const calendar = p.calendar_performance;
+    let calendarHtml = '';
+    if (calendar) {
+      const headers = [label('UTC period','Período UTC'), label('Coverage / status','Cobertura / situação'),
+        label('Selected TWR (period)','TWR selecionado (período)'), label('Method','Método'),
+        label('Annualized XIRR (365 days)','XIRR anualizado (365 dias)'), label('Net external flows','Fluxos externos líquidos'),
+        label('FX / valuation status','Situação cambial / avaliação')];
+      calendarHtml = `<div id="calendar-performance"><p>${text(label(
+        'UTC calendar periods require exact boundary valuations. Partial bookends are labeled. Opening valuations are post-flow; boundary flows belong to the ending row. Returns and annualized XIRRs are not summed or compounded here.',
+        'Os períodos do calendário UTC exigem avaliações exatas nos limites. Períodos incompletos são identificados. A avaliação inicial é posterior aos fluxos; fluxos no limite pertencem ao período que termina. Retornos e XIRRs anualizados não são somados nem acumulados aqui.'))}</p>`;
+      for (const [key, heading] of [['monthly',label('Monthly performance','Rentabilidade mensal')], ['yearly',label('Yearly performance','Rentabilidade anual')]]) {
+        const calendarRows = (calendar[key] || []).map(row => {
+          const facts = row.status === 'available' ? (row.performance || {}) : {};
+          const coverage = row.coverage === 'complete' ? label('Complete','Completo') : label('Partial','Parcial');
+          const state = row.status === 'available' ? label('Available','Disponível') : l.unknown;
+          return [text(row.label) + `<br>${text(row.period_start)} – ${text(row.period_end)}`,
+            text(coverage + ' · ' + state), text(percent(facts.twr_return_pct)),
+            text(method[facts.twr_method] || facts.twr_method), text(percent(facts.mwr_pct)),
+            text(money(facts.net_external_cashflow_base, facts.base_currency || p.base_currency)),
+            raw(`${facts.fx_status || l.unknown} / ${facts.valuation_status || l.unknown}`)];
+        });
+        calendarHtml += `<h3>${text(heading)}</h3>${table(headers, calendarRows)}`;
+      }
+      calendarHtml += `<details><summary>${text(label('Calendar evidence and warnings (raw source text)','Evidências e avisos do calendário (texto original da fonte)'))}</summary><pre data-source-text>${text(JSON.stringify(calendar, null, 2))}</pre></details></div>`;
+    }
+    return `<section class="report-panel" id="performance-view">${title}
+      <p>${text(label('All portfolio · Actual snapshot window','Carteira completa · Período efetivo das avaliações'))}: ${text(sourceDateTime(p.period_start))} – ${text(sourceDateTime(p.period_end))} · ${text(p.base_currency)}</p>
+      ${table([label('Metric','Métrica'),label('Return','Retorno'),label('Method','Método'),label('Basis','Base')], rows)}
+      ${p.twr_fallback_reason ? `<p>${text(label('Fallback reason','Motivo da aproximação'))}: ${raw(p.twr_fallback_reason)}</p>` : ''}
+      <p>${text(label('Fees, taxes and income are embedded in supplied valuations. Supported reviewed FIFO evidence can explain their components; income is never added twice.', 'Taxas, impostos e rendimentos estão incorporados nas avaliações fornecidas. A evidência FIFO revisada pode explicar seus componentes; rendimentos nunca são somados duas vezes.'))}</p>
+      <p>${text(label('Cashflow FX status','Situação cambial dos fluxos'))}: ${raw(p.fx_status)}</p>
+      ${growth}${benchmarks}${calendarHtml}${auditWarnings}
+      <details><summary>${text(label('Calculation inputs and provenance (raw source text)','Dados de cálculo e proveniência (texto original da fonte)'))}</summary><pre data-source-text>${text(JSON.stringify({context, performance:p}, null, 2))}</pre></details></section>`;
   }
   function planningRows(key, rows) {
     const pt = language === 'pt', l = labels[language];
@@ -192,6 +304,10 @@
       sections.timeline = (sections.timeline || []).filter(within);
       sections.income = {...sections.income, events: (sections.income?.events || []).filter(within)};
       sections.contributions = (sections.contributions || []).filter(within);
+      if (start || end) {
+        sections.performance = null;
+        sections.performance_context = {status:'unavailable_for_dates'};
+      }
       if (sections.income.planning) {
         const planning = {...sections.income.planning};
         for (const key of ['announced', 'estimates', 'reconciliation']) planning[key] = (planning[key] || []).filter(row => within({date:row.payment_date}));

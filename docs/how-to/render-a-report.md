@@ -81,3 +81,41 @@ becomes a successful comparison merely because no mismatch was found.
 Rendering uses supplied snapshot FX locks and holding metadata fallback without
 network acquisition. Inspect the recorded effective dates; an old or undated rate
 is not made current by generating a new report.
+
+
+## Include offline investment performance
+
+The Quarto plugin and fallback HTML display the same performance contract as
+`rikdom performance`, with the actual snapshot window, return method,
+annualization, fees/taxes convention, growth bridge and warnings. Select local
+flow-valuation, historical FX, policy and benchmark inputs through
+`extensions.rikdom_report.performance`; see the
+[plugin's performance preferences](../../plugins/quarto-portfolio-report/README.md#offline-investment-performance).
+Use the same files and window as the CLI to reproduce its figures. Interactive
+date or dimension filters make unsupported performance unavailable until reset;
+they do not relabel the full-portfolio calculation as a filtered return.
+
+
+## Show profit and historical valuation evidence
+
+Pass `--historical-fx`, `--flow-valuations`, `--historical-valuations`,
+`--profit-basis`, `--policy`, `--benchmarks-dir`, `--since`, and `--until` to
+`viz` as needed. The full and fallback pages display the same core return and
+profit contracts as the CLI. See [reproduce historical valuations and profit](replay-performance-data.md)
+for working local examples and supported scope/date behavior.
+
+## Read monthly and yearly performance
+
+The performance panel includes monthly and yearly tables in both full and
+fallback HTML. They use the same `calendar_performance` payload as
+`rikdom performance`, with UTC periods, selected TWR methods, annualized XIRR,
+net external flows and valuation/FX status. Expand calendar evidence to inspect
+warnings and benchmark provenance.
+
+Supply valuations at exact UTC calendar boundaries to obtain full-period rows.
+For example, January requires `2026-01-01T00:00:00Z` and
+`2026-02-01T00:00:00Z`. Missing boundaries remain unavailable, and incomplete
+bookend periods are labeled partial. Date/scope controls suppress these tables
+until reset. To change calculation dates, render with `--since` and `--until`.
+See the [calendar performance contract](../reference/calendar-performance.md)
+for boundary-flow ownership, partial periods and evidence rules.

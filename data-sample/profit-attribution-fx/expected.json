@@ -1,0 +1,10 @@
+{
+  "investment_result_base": 550,
+  "realized_price_gain_base": 120,
+  "realized_fx_gain_base": 80,
+  "unrealized_price_change_base": 110,
+  "unrealized_fx_change_base": 80,
+  "cash_fx_gain_base": 160,
+  "explained_result_base": 550,
+  "reconciliation_difference_base": 0
+}

@@ -57,9 +57,17 @@ def load_plugin_instance(plugin_dir: Path, manifest: PluginManifest):
         ) from exc
 
     try:
-        return cls()
+        instance = cls()
     except Exception as exc:  # noqa: BLE001
         raise PluginLoadError(
             f"Plugin '{manifest.name}' failed to instantiate: {exc}"
         ) from exc
 
+    for method_name in dir(instance):
+        options = getattr(getattr(instance, method_name), "rikdom_impl", None)
+        if (isinstance(options, dict) and (options.get("specname") or method_name) == "enrichment"
+                and (manifest.api_version != "1.2" or "enrichment" not in manifest.plugin_types)):
+            raise PluginLoadError(
+                "enrichment hook requires API 1.2 and declared enrichment plugin type"
+            )
+    return instance

@@ -12,11 +12,12 @@ validated by the bundled manifest schema at
 `src/rikdom/_resources/plugin.manifest.schema.json` (shipped as a package
 resource so it resolves in installed distributions too).
 
-- The runtime accepts `"1.0"` and `"1.1"`. API `"1.1"` adds the Experimental
+- The runtime accepts `"1.0"`, `"1.1"` and `"1.2"`. API `"1.1"` adds the Experimental
   `external/connector` query and discovery hooks. Existing plugins declaring
   `"1.0"` keep working unchanged; the schema requires connector plugins to
-  target `"1.1"`.
-- Future **minor** bumps (`"1.2"`, ...) are additive for Stable surfaces. They
+  target `"1.1"` or `"1.2"`. API `"1.2"` adds the Experimental
+  normalized `enrichment` hook, which requires `"1.2"`.
+- Future **minor** bumps (`"1.3"`, ...) are additive for Stable surfaces. They
   may introduce new hooks or new optional manifest fields, but must not
   change or remove anything declared in `"1.0"`. Plugins declaring `"1.0"`
   keep working unchanged. Experimental hooks follow the exception below.
@@ -30,7 +31,8 @@ resource so it resolves in installed distributions too).
 ## Stability tiers per hook
 
 All eight API 1.0 hooks remain Stable. API 1.1 adds Experimental
-`connector_describe` and `connector_query` hooks. The mapping mirrors the
+`connector_describe` and `connector_query` hooks. API 1.2 adds Experimental
+`enrichment` for normalized local series and host-derived lookups. The mapping mirrors the
 `HOOK_STABILITY` constant in `src/rikdom/plugin_engine/hookspecs.py`, which
 documentation and tooling can import directly.
 
@@ -48,8 +50,9 @@ the manifest's `api_version: "1.1"` and the plugin's implementation `version`.
 The host rejects unsupported description versions. A future incompatible
 connector payload must use a new contract version and document migration;
 it must not silently reinterpret saved `1.0` envelopes. The current envelope
-preserves raw acquisition provenance, not the normalized enrichment or replay
-contracts planned in the roadmap.
+preserves raw acquisition provenance. API 1.2 enrichment uses a separate
+`contract_version: "1.0"` envelope and validates MarketSeries 1.0 documents;
+see [normalized enrichment](../reference/enrichment.md).
 
 ## Deprecation window
 
@@ -72,7 +75,8 @@ schema rejects any field outside the set defined in
 expose a Python class that registers `@hookimpl` methods.
 
 Use the SDK scaffold under `src/rikdom/_resources/template-plugin/`
-(exposed via `rikdom plugin init`) as a ready-to-copy starting point — see
+(exposed via `rikdom plugin init`), or `template-enrichment` selected with
+`rikdom plugin init NAME --type enrichment`, as a ready-to-copy starting point — see
 [author your first plugin](../tutorials/first-plugin.md).
 
 ## See also

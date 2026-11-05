@@ -1,0 +1,72 @@
+{
+  "contract_version": "1.0",
+  "market_series_file": "market.json",
+  "price_max_age_seconds": 86400,
+  "fx_max_age_seconds": 86400,
+  "retrieved_before": null,
+  "series_by_currency": {
+    "USD": "usd-brl"
+  },
+  "snapshots": [
+    {
+      "as_of": "2026-01-02T00:00:00Z",
+      "source": "reviewed full position statement",
+      "positions_complete": true,
+      "positions": [
+        {
+          "id": "stock",
+          "kind": "security",
+          "instrument": {
+            "namespace": "synthetic",
+            "id": "US-ONE",
+            "currency": "USD"
+          },
+          "quantity": 2,
+          "price_series_id": "stock-us"
+        },
+        {
+          "id": "cash-brl",
+          "kind": "cash",
+          "currency": "BRL",
+          "amount": 20
+        },
+        {
+          "id": "cash-usd",
+          "kind": "cash",
+          "currency": "USD",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "as_of": "2026-01-06T00:00:00Z",
+      "source": "reviewed full position statement",
+      "positions_complete": true,
+      "positions": [
+        {
+          "id": "stock",
+          "kind": "security",
+          "instrument": {
+            "namespace": "synthetic",
+            "id": "US-ONE",
+            "currency": "USD"
+          },
+          "quantity": 3,
+          "price_series_id": "stock-us"
+        },
+        {
+          "id": "cash-brl",
+          "kind": "cash",
+          "currency": "BRL",
+          "amount": 20
+        },
+        {
+          "id": "cash-usd",
+          "kind": "cash",
+          "currency": "USD",
+          "amount": 3
+        }
+      ]
+    }
+  ]
+}

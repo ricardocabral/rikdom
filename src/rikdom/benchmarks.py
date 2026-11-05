@@ -484,7 +484,7 @@ def _resolve_historical_series(
         result.comparison_status = "not_comparable"
     if result.comparison_status == "comparable":
         result.warnings.append(
-            "Comparison assumes portfolio snapshot valuations represent total-return performance"
+            "Benchmark eligibility requires an explicit portfolio snapshot total-return convention"
         )
     return result
 
@@ -603,7 +603,7 @@ def _resolve_composite(
             )
         else:
             result.warnings.append(
-                "Comparison assumes portfolio snapshot valuations represent total-return performance"
+                "Benchmark eligibility requires an explicit portfolio snapshot total-return convention"
             )
         return result
 
@@ -668,6 +668,7 @@ def resolve_benchmarks_for_targets(
     portfolio_twr_pct: float | None,
     *,
     historical_fx: HistoricalFx | None = None,
+    portfolio_return_convention: str | None = None,
 ) -> list[BenchmarkComparison]:
     """Resolve every distinct benchmark referenced by strategic_allocation.
 
@@ -722,6 +723,12 @@ def resolve_benchmarks_for_targets(
             period_end_iso,
             historical_fx=historical_fx,
         )
+        if historical_fx is not None and portfolio_return_convention != "total_return":
+            if comp.comparison_status == "comparable":
+                comp.comparison_status = "not_comparable"
+            comp.warnings.append(
+                "Portfolio snapshot total-return convention is not explicitly established; excess unavailable"
+            )
         if (
             comp.twr_pct is not None
             and _finite_number(portfolio_twr_pct)

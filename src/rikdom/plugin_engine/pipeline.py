@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from .connectors import CONNECTOR_CONTRACT_VERSION, describe_connector, json_object, query_connector
 from .contracts import OutputRequest, PhaseName, PluginContext
+from .enrichment import enrich_market_series, validate_enrichment_request
 from .errors import PluginEngineError, PluginLoadError, PluginTypeError
 from .loader import discover_plugins_with_warnings, plugin_index
 from .runtime import build_manager, load_plugin_instance
@@ -78,12 +79,29 @@ def run_connector_query_pipeline(
     }
 
 
+def run_enrichment_pipeline(plugin_name: str, plugins_dir: str, request: dict) -> dict:
+    """Validate a normalized enrichment run without writing canonical inputs."""
+    request = validate_enrichment_request(request)
+    pm, manifest = _load_single_plugin_manager(
+        plugin_name, plugins_dir, expected_type=PhaseName.ENRICHMENT
+    )
+    ctx = PluginContext(run_id=_new_run_id("enrichment"), plugin_name=plugin_name)
+    result = enrich_market_series(pm, ctx, request)
+    return {
+        "contract_version": "1.0",
+        "plugin": {"name": manifest.name, "version": manifest.version,
+                   "api_version": manifest.api_version},
+        **result,
+    }
+
+
 def run_output_pipeline(
     plugin_name: str,
     plugins_dir: str,
     portfolio_path: str,
     snapshots_path: str,
     output_dir: str,
+    options: dict | None = None,
 ) -> dict:
     pm, _ = _load_single_plugin_manager(
         plugin_name=plugin_name,
@@ -95,6 +113,7 @@ def run_output_pipeline(
         portfolio_path=portfolio_path,
         snapshots_path=snapshots_path,
         output_dir=output_dir,
+        options=options or {},
     )
     result = pm.hook.output(ctx=ctx, request=request)
     if not isinstance(result, dict):

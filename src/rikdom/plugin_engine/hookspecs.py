@@ -9,6 +9,15 @@ hookimpl = pluggy.HookimplMarker("rikdom")
 
 class RikdomHookSpecs:
     @hookspec(firstresult=True)
+    def enrichment(self, ctx, request):
+        """Return normalized local market series; experimental API 1.2.
+
+        Request and result use enrichment contract_version 1.0. The host
+        validates detached MarketSeries data and derives requested lookups.
+        Trusted Python is not sandboxed; the reference provider is file-only.
+        """
+
+    @hookspec(firstresult=True)
     def connector_describe(self, ctx):
         """Describe an external connector's operations without accessing the network.
 
@@ -94,6 +103,7 @@ class RikdomHookSpecs:
 # Programmatic stability metadata. API 1.1 adds experimental connector hooks;
 # existing API 1.0 hooks retain their stable contracts.
 HOOK_STABILITY: dict[str, str] = {
+    "enrichment": "experimental",
     "connector_describe": "experimental",
     "connector_query": "experimental",
     "source_input": "stable",

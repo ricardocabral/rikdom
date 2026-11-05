@@ -1,0 +1,4 @@
+{
+  "type": "PluginEngineError",
+  "message_contains": "Cannot read local market series"
+}

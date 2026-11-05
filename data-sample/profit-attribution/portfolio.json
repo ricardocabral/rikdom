@@ -1,0 +1,123 @@
+{
+  "schema_version": "2.0.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "synthetic-profit-example",
+    "owner_kind": "other",
+    "display_name": "Synthetic reviewed FIFO example"
+  },
+  "settings": {
+    "base_currency": "BRL"
+  },
+  "asset_type_catalog": [
+    {
+      "id": "stock",
+      "label": "Stock",
+      "asset_class": "stocks"
+    }
+  ],
+  "holdings": [
+    {
+      "id": "h",
+      "asset_type_id": "stock",
+      "label": "Synthetic equity",
+      "market_value": {
+        "amount": 66,
+        "currency": "BRL"
+      },
+      "quantity": 3,
+      "account_id": "a",
+      "as_of": "2026-02-01T00:00:00Z"
+    }
+  ],
+  "activities": [
+    {
+      "id": "buy",
+      "event_type": "buy",
+      "effective_at": "2026-01-05T12:00:00Z",
+      "account_id": "a",
+      "holding_id": "h",
+      "money": {
+        "amount": 75,
+        "currency": "BRL"
+      },
+      "quantity": 5,
+      "fees": {
+        "amount": 5,
+        "currency": "BRL"
+      },
+      "status": "posted"
+    },
+    {
+      "id": "sell",
+      "event_type": "sell",
+      "effective_at": "2026-01-10T12:00:00Z",
+      "account_id": "a",
+      "holding_id": "h",
+      "money": {
+        "amount": 216,
+        "currency": "BRL"
+      },
+      "quantity": 12,
+      "fees": {
+        "amount": 6,
+        "currency": "BRL"
+      },
+      "withholding_tax": {
+        "amount": 2,
+        "currency": "BRL"
+      },
+      "status": "posted"
+    },
+    {
+      "id": "income",
+      "event_type": "dividend",
+      "effective_at": "2026-01-15T12:00:00Z",
+      "account_id": "a",
+      "holding_id": "h",
+      "money": {
+        "amount": 10,
+        "currency": "BRL"
+      },
+      "metadata": {
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "net"
+        }
+      },
+      "fees": {
+        "amount": 1,
+        "currency": "BRL"
+      },
+      "withholding_tax": {
+        "amount": 2,
+        "currency": "BRL"
+      },
+      "status": "posted"
+    },
+    {
+      "id": "fee",
+      "event_type": "fee",
+      "effective_at": "2026-01-20T12:00:00Z",
+      "account_id": "a",
+      "holding_id": "h",
+      "money": {
+        "amount": 3,
+        "currency": "BRL"
+      },
+      "status": "posted"
+    },
+    {
+      "id": "tax",
+      "event_type": "tax_withheld",
+      "effective_at": "2026-01-21T12:00:00Z",
+      "account_id": "a",
+      "holding_id": "h",
+      "money": {
+        "amount": 1,
+        "currency": "BRL"
+      },
+      "status": "posted"
+    }
+  ]
+}

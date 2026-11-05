@@ -13,6 +13,7 @@ class RikdomHookSpecs:
     def state_storage_sync(self, ctx, portfolio_path, snapshots_path, options): ...
     def state_storage_query(self, ctx, query_name, params): ...
     def state_storage_health(self, ctx, options): ...
+    def enrichment(self, ctx, request) -> dict: ...
     def connector_describe(self, ctx) -> dict: ...
     def connector_query(self, ctx, operation: str, params: dict) -> dict: ...
     def observability(self, ctx, event, payload): ...
@@ -29,6 +30,7 @@ class RikdomHookSpecs:
 | `state_storage_sync` | firstresult | Stable |
 | `state_storage_query` | firstresult | Stable |
 | `state_storage_health` | firstresult | Stable |
+| `enrichment` | firstresult | Experimental (API 1.2) |
 | `connector_describe` | firstresult | Experimental |
 | `connector_query` | firstresult | Experimental |
 | `observability` | fan-out | Stable |
@@ -40,6 +42,10 @@ deprecation window applied to Stable hooks.
 Connector hooks are additive in plugin API `1.1`; existing `1.0` plugins and
 Stable hook contracts remain unchanged. Connectors use the `external/connector`
 plugin type.
+
+Enrichment is additive in API `1.2` and returns validated MarketSeries 1.0
+inputs with host-derived historical lookups. See the [normalized enrichment
+contract](enrichment.md) for strict request/response shapes and the offline provider.
 
 ## Shared runtime objects
 
@@ -56,6 +62,7 @@ plugin type.
 | `state_storage_sync` | `dict` with `rows_written`, backend path, hashes, `warnings` |
 | `state_storage_query` | `dict` query result payload |
 | `state_storage_health` | `dict` health status payload |
+| `enrichment` | Versioned MarketSeries document (see [enrichment](enrichment.md)) |
 | `connector_describe` | Versioned read-only capability `dict` (see below) |
 | `connector_query` | `dict` containing provider-native JSON |
 | `observability` / `audit_trail` | side-effect; return ignored |
@@ -153,7 +160,7 @@ Provider operations and authentication rules belong in each plugin's README.
 
 Every Pluggy plugin that declares a v1 data hook (`source_input`,
 `asset_type_catalog`, `output`, `state_storage_sync`, `state_storage_query`,
-`state_storage_health`, `connector_describe`, `connector_query`) must ship at
+`state_storage_health`, `connector_describe`, `connector_query`, `enrichment`) must ship at
 least one contract-test fixture. CI fails when a plugin declares a data hook
 with zero fixtures.
 
@@ -180,6 +187,7 @@ plugins/<plugin-name>/fixtures/<case>/
 | `options` | optional | `dict` passed through to hooks that accept options. |
 | `query_name` / `params` | query | Inputs for `state_storage_query`. |
 | `operation` / `params` | connector_query | Provider operation string and JSON object passed to `connector_query`. |
+| `request` | enrichment | Versioned enrichment request; local `source.path` resolves relative to the case directory. |
 | `env` | optional | Env vars set for the duration of the invocation (e.g. `RIKDOM_DISABLE_QUARTO=1`). |
 | `requires` | optional | Importable modules that must be available — case skipped if any is missing (e.g. `["duckdb"]`). |
 | `ignore_fields` | optional | Keys to strip *anywhere* in the payload tree before equality/determinism compare. `generated_at` is always stripped. |

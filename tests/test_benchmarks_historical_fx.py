@@ -97,6 +97,7 @@ def compare(series=None, *, config=None, fx=None, start=START, end=END, portfoli
         end.isoformat(),
         portfolio,
         historical_fx=DatedRates() if fx is None else fx,
+        portfolio_return_convention="total_return",
     )[0]
 
 

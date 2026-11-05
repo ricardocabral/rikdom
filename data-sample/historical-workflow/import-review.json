@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "decisions": [
+    {
+      "id": "identity-h",
+      "collection": "holdings",
+      "entity_id": "h",
+      "changes": {
+        "account_id": "a"
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity h"
+      }
+    },
+    {
+      "id": "identity-cash-a-brl",
+      "collection": "holdings",
+      "entity_id": "cash-a-brl",
+      "changes": {
+        "account_id": "a"
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity cash-a-brl"
+      }
+    },
+    {
+      "id": "identity-cash-b-brl",
+      "collection": "holdings",
+      "entity_id": "cash-b-brl",
+      "changes": {
+        "account_id": "b"
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity cash-b-brl"
+      }
+    },
+    {
+      "id": "identity-cash-a-usd",
+      "collection": "holdings",
+      "entity_id": "cash-a-usd",
+      "changes": {
+        "account_id": "a"
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity cash-a-usd"
+      }
+    },
+    {
+      "id": "identity-contribute",
+      "collection": "activities",
+      "entity_id": "contribute",
+      "changes": {
+        "account_id": "a"
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity contribute"
+      }
+    },
+    {
+      "id": "identity-out",
+      "collection": "activities",
+      "entity_id": "out",
+      "changes": {
+        "account_id": "a",
+        "metadata": {
+          "rikdom_internal_transfer": {
+            "version": 1,
+            "pair_id": "synthetic-reviewed-cash-move",
+            "review": {
+              "status": "reviewed",
+              "source": "synthetic two-account statement review",
+              "reviewed_at": "2027-01-02T00:00:00Z"
+            }
+          }
+        }
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity out"
+      }
+    },
+    {
+      "id": "identity-in",
+      "collection": "activities",
+      "entity_id": "in",
+      "changes": {
+        "account_id": "b",
+        "metadata": {
+          "rikdom_internal_transfer": {
+            "version": 1,
+            "pair_id": "synthetic-reviewed-cash-move",
+            "review": {
+              "status": "reviewed",
+              "source": "synthetic two-account statement review",
+              "reviewed_at": "2027-01-02T00:00:00Z"
+            }
+          }
+        }
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity in"
+      }
+    },
+    {
+      "id": "identity-distribution",
+      "collection": "activities",
+      "entity_id": "distribution",
+      "changes": {
+        "account_id": "a",
+        "holding_id": "h"
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity distribution"
+      }
+    },
+    {
+      "id": "identity-withdraw",
+      "collection": "activities",
+      "entity_id": "withdraw",
+      "changes": {
+        "account_id": "a"
+      },
+      "evidence": {
+        "kind": "user_declaration",
+        "source_ref": "synthetic reviewed statement account identity withdraw"
+      }
+    }
+  ]
+}

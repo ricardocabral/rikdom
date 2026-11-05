@@ -14,6 +14,7 @@ from .contracts import OutputRequest, PluginContext
 from .errors import PluginEngineError
 from .loader import discover_plugins
 from .manifest import PluginManifest
+from .pipeline import run_enrichment_pipeline
 from .runtime import build_manager, load_plugin_instance
 
 
@@ -22,6 +23,7 @@ from .runtime import build_manager, load_plugin_instance
 # (pluggy returns a list of per-plugin results that we unwrap for the sole
 # registered plugin under test).
 HOOK_DISPATCH: dict[str, str] = {
+    "enrichment": "firstresult",
     "connector_describe": "firstresult",
     "connector_query": "firstresult",
     "source_input": "firstresult",
@@ -209,21 +211,15 @@ def _load_plugin(plugin_name: str, plugins_dir: Path):
 
 
 def declared_hooks(plugin_obj: Any) -> set[str]:
-    """Return the set of v1 hook names the loaded plugin instance implements.
+    """Return actual registered v1 hooks, including Pluggy specname aliases.
 
-    Pluggy marks @hookimpl methods with a `_hookimpl_opts` attribute. This
-    introspection avoids coupling fixture coverage to the manifest's
-    plugin_types taxonomy, which is coarser than individual hook surface.
+    Untagged helpers do not implement hooks, even when their names match a
+    hookspec. Use Pluggy registration as the same authority as runtime dispatch.
     """
-    hooks: set[str] = set()
-    for hook_name in HOOK_DISPATCH:
-        method = getattr(plugin_obj, hook_name, None)
-        if method is None:
-            continue
-        # Accept either pluggy-tagged methods or plain attributes (for
-        # defensive compatibility with test doubles).
-        hooks.add(hook_name)
-    return hooks
+    manager = build_manager()
+    manager.register(plugin_obj)
+    return {hook.name for hook in manager.get_hookcallers(plugin_obj) or []
+            if hook.name in HOOK_DISPATCH}
 
 
 def _invoke_hook(pm, hook: str, case: FixtureCase, tmp_dir: Path) -> Any:
@@ -234,6 +230,13 @@ def _invoke_hook(pm, hook: str, case: FixtureCase, tmp_dir: Path) -> Any:
     spec = case.spec
     options = spec.get("options") or {}
     fixture_dir = case.fixture_dir
+
+    if hook == "enrichment":
+        request = dict(spec.get("request", {}))
+        source = request.get("source")
+        if isinstance(source, dict) and isinstance(source.get("path"), str):
+            request["source"] = {**source, "path": str(fixture_dir / source["path"])}
+        return run_enrichment_pipeline(case.plugin_name, str(fixture_dir.parents[2]), request)
 
     if hook == "connector_describe":
         return describe_connector(pm, ctx)
@@ -302,7 +305,9 @@ def _invoke_hook(pm, hook: str, case: FixtureCase, tmp_dir: Path) -> Any:
 def run_case(case: FixtureCase, plugins_dir: Path, tmp_dir: Path) -> CaseResult:
     import os
 
-    pm, _, _ = _load_plugin(case.plugin_name, plugins_dir)
+    pm = None
+    if case.hook != "enrichment":
+        pm, _, _ = _load_plugin(case.plugin_name, plugins_dir)
     env_overrides = case.spec.get("env") or {}
     previous: dict[str, str | None] = {}
     for key, value in env_overrides.items():

@@ -1,0 +1,89 @@
+{
+  "contract_version": "1.0",
+  "market_series_file": "market-series.json",
+  "price_max_age_seconds": 0,
+  "fx_max_age_seconds": 0,
+  "retrieved_before": null,
+  "series_by_currency": {
+    "USD": "usd-brl"
+  },
+  "snapshots": [
+    {
+      "as_of": "2026-01-01T00:00:00Z",
+      "source": "synthetic reviewed full opening/closing position and cash statements",
+      "positions_complete": true,
+      "positions": [
+        {
+          "id": "h",
+          "kind": "security",
+          "instrument": {
+            "namespace": "SYNTHETIC",
+            "id": "FUND",
+            "currency": "USD"
+          },
+          "quantity": 10,
+          "price_series_id": "fund"
+        },
+        {
+          "id": "cash-a-brl",
+          "kind": "cash",
+          "currency": "BRL",
+          "amount": 100
+        },
+        {
+          "id": "cash-b-brl",
+          "kind": "cash",
+          "currency": "BRL",
+          "amount": 0
+        },
+        {
+          "id": "cash-a-usd",
+          "kind": "cash",
+          "currency": "USD",
+          "amount": 0
+        }
+      ]
+    },
+    {
+      "as_of": "2027-01-01T00:00:00Z",
+      "source": "synthetic reviewed full opening/closing position and cash statements",
+      "positions_complete": true,
+      "positions": [
+        {
+          "id": "h",
+          "kind": "security",
+          "instrument": {
+            "namespace": "SYNTHETIC",
+            "id": "FUND",
+            "currency": "USD"
+          },
+          "quantity": 30,
+          "price_series_id": "fund"
+        },
+        {
+          "id": "cash-a-brl",
+          "kind": "cash",
+          "currency": "BRL",
+          "amount": 140
+        },
+        {
+          "id": "cash-b-brl",
+          "kind": "cash",
+          "currency": "BRL",
+          "amount": 10
+        },
+        {
+          "id": "cash-a-usd",
+          "kind": "cash",
+          "currency": "USD",
+          "amount": 7
+        }
+      ]
+    }
+  ],
+  "return_convention": {
+    "version": 1,
+    "kind": "total_return",
+    "source": "synthetic reviewed full NAV includes posted cash income net of explicit fees and tax"
+  }
+}

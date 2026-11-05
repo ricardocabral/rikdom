@@ -1,0 +1,92 @@
+{
+  "schema_version": "2.0.0",
+  "schema_uri": "https://example.org/rikdom/schema/portfolio.schema.json",
+  "profile": {
+    "portfolio_id": "synthetic-historical-replay",
+    "owner_kind": "other",
+    "display_name": "Synthetic historical position replay"
+  },
+  "settings": {
+    "base_currency": "BRL"
+  },
+  "asset_type_catalog": [
+    {
+      "id": "stock",
+      "label": "Stock",
+      "asset_class": "stocks"
+    },
+    {
+      "id": "cash",
+      "label": "Cash",
+      "asset_class": "cash_equivalents"
+    }
+  ],
+  "holdings": [
+    {
+      "id": "stock",
+      "asset_type_id": "stock",
+      "label": "Synthetic US-ONE",
+      "market_value": {
+        "amount": 36,
+        "currency": "USD"
+      },
+      "quantity": 3,
+      "account_id": "a",
+      "as_of": "2026-01-06T00:00:00Z",
+      "metadata": {
+        "fx_rate_to_base": 6
+      }
+    },
+    {
+      "id": "cash-brl",
+      "asset_type_id": "cash",
+      "label": "Synthetic BRL cash",
+      "market_value": {
+        "amount": 20,
+        "currency": "BRL"
+      },
+      "account_id": "a",
+      "as_of": "2026-01-06T00:00:00Z"
+    },
+    {
+      "id": "cash-usd",
+      "asset_type_id": "cash",
+      "label": "Synthetic USD cash",
+      "market_value": {
+        "amount": 3,
+        "currency": "USD"
+      },
+      "account_id": "a",
+      "as_of": "2026-01-06T00:00:00Z",
+      "metadata": {
+        "fx_rate_to_base": 6
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "external-funding",
+      "event_type": "contribution",
+      "status": "posted",
+      "effective_at": "2026-01-06T00:00:00Z",
+      "account_id": "a",
+      "money": {
+        "amount": 12,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "internal-buy",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-01-06T00:00:00Z",
+      "account_id": "a",
+      "holding_id": "stock",
+      "quantity": 1,
+      "money": {
+        "amount": 12,
+        "currency": "USD"
+      }
+    }
+  ]
+}

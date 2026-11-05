@@ -170,6 +170,22 @@ Sequencing override:
 
 ---
 
+## Phase 3B: Reviewed recurring import continuity — delivered bounded scope (2026-11-01)
+
+- [x] Preserve explicit reviewed mappings and coverage through unchanged raw reimports without duplicate activities; retain exact accepted normalized source, review versions and effective projections.
+- [x] Preview changed source facts and affected result categories; require source-revision-bound resolution before writes. Accepted new facts become comparison evidence, and omitted optional facts remain effective under an active review.
+- [x] Reject ambiguous reviewed identities and canonical-collapse aliases before portfolio/log writes. Existing reviewed transfer contracts remain authoritative.
+
+Evidence: [review contract](docs/reference/reviewed-imports.md),
+[real CLI regressions](tests/test_reviewed_import_regressions.py), and
+[combined historical reference](data-sample/historical-workflow/README.md).
+Protection requires explicit review documents; existing ad hoc enrichment is not
+automatically migrated. Retention contains normalized inputs, not original
+statement files or every calculation dependency; saved analysis runs capture the
+selected dependency set separately.
+
+---
+
 ## Phase 3A remainder (P0): Calculation Trust UX + Reconciliation Reports
 
 **User stories**: "numbers must be correct", reproducible valuation, explainability for portfolio totals and changes.
@@ -310,15 +326,16 @@ income, and currency movements; compare a strategy with an appropriate benchmark
 
 ### Acceptance criteria
 
-- [ ] Demonstrate linked TWR and XIRR with hand-checkable contributions/withdrawals, internal transfers, and corporate actions; identify Dietz fallback explicitly.
-  - Partial delivery (2026-10-29): [explicit flow-boundary valuations](docs/reference/performance-output.md) support portfolio linked TWR, with Dietz compatibility and method/fallback/annualization disclosure. Internal-transfer identity and dated foreign-currency conversion remain open; ordinary snapshots do not establish pre/post-flow evidence.
-- [ ] Reconcile a multi-currency example using dated FX and disclose missing/approximate history in every affected metric.
-  - Partial delivery (2026-10-29): [local historical FX](docs/reference/historical-fx.md) converts dated external cashflows in portfolio/account/bucket performance, retains lookup evidence, and makes affected returns unavailable on missing/stale inputs. A [synthetic offline example](docs/how-to/compute-performance.md#replay-dated-fx-for-cashflows-and-benchmarks) links explicit cashflow-boundary valuations. Reconstructing snapshot valuation FX and full profit/FX attribution remain open.
-- [ ] Reconcile opening value + net contributions + investment result to closing value, with documented rounding and no double-counted income.
-- [ ] Explain realized/unrealized gains with lot/cost-basis evidence; incomplete history cannot produce an apparently complete profit total.
-- [ ] Compare portfolio and foreign/composite benchmarks in a common currency and period, with return convention and data provenance visible.
-  - Partial delivery (2026-10-29): [historical benchmark conversion](docs/reference/benchmark-fx.md) converts local benchmark bookends and every active composite component before blending; comparable excess requires matching dates, source evidence, and total-return convention. Missing components do not silently renormalize a complete-looking composite. Snapshot return conventions and report integration remain caller-dependent/open.
-- [ ] Reproduce the CLI figures in an offline report, including method, annualization, fees/taxes treatment, and data-quality warnings.
+- [x] Demonstrate linked TWR and XIRR with hand-checkable contributions/withdrawals, internal transfers, and corporate actions; identify Dietz fallback explicitly.
+  - Bounded delivery (2026-11-01): the [reviewed historical workflow](data-sample/historical-workflow/README.md) combines a contribution/withdrawal, reviewed internal cash pair, observed distribution, immutable 2:1 to 3:1 split revision, dated full-position price/FX valuations, exact CLI/report financial JSON and bundle restore/replay after deleting original calculation inputs. Opening 600 + net external flow 50 + investment result 622 = closing 1272; supplied complete positions/basis and explicit boundary NAVs remain reviewed assertions, not inferred history.
+  - Partial delivery (2026-10-29): [explicit flow-boundary valuations](docs/reference/performance-output.md) support portfolio linked TWR, with Dietz compatibility and method/fallback/annualization disclosure. [Reviewed same-instant cash pairs](docs/reference/internal-transfers.md) now establish internal-transfer identity at portfolio scope while retaining scoped legs. Asynchronous/in-kind/cross-currency pairing and broader corporate-action basis carryover remain open; ordinary snapshots do not establish pre/post-flow evidence.
+- [x] Reconcile a multi-currency example using dated FX and disclose missing/approximate history in every affected metric.
+  - Partial delivery (2026-10-29): [local historical FX](docs/reference/historical-fx.md) converts dated external cashflows in portfolio/account/bucket performance, retains lookup evidence, and makes affected returns unavailable on missing/stale inputs. A [synthetic offline example](docs/how-to/compute-performance.md#replay-dated-fx-for-cashflows-and-benchmarks) links explicit cashflow-boundary valuations. Explicit [full-position replay](docs/reference/historical-valuation.md) now reconstructs dated price/FX valuations with per-position provenance and rejects missing/stale inputs. [Reviewed v2 profit/FX attribution](docs/reference/profit-attribution.md#reviewed-multicurrency-evidence-version-20) now independently reconciles native account/currency cash, historical FIFO cost, security price/FX components, cash FX and explicit conversion results with source cutoffs. Missing/stale evidence makes the decomposition unavailable; old snapshots still lack independently reconstructed position evidence.
+- [x] Reconcile opening value + net contributions + investment result to closing value, with documented rounding and no double-counted income ([period bridge and reviewed FIFO example](docs/reference/profit-attribution.md); the bridge is arithmetic on supplied evidence, not independent proof of complete real-world history).
+- [x] Explain realized/unrealized gains with lot/cost-basis evidence; incomplete history cannot produce an apparently complete profit total ([reviewed period FIFO](docs/reference/profit-attribution.md) supports reporting-currency long-only plain positions, explicit opening lots and closing cash/positions; [v2 reviewed multicurrency FIFO](docs/reference/profit-attribution.md) now supports dated foreign lots, quantity-only split/reverse-split cost carryover and independently reconciled cash FX; mergers, shorts/debt and unsupported basis adjustments remain unavailable).
+- [x] Compare portfolio and foreign/composite benchmarks in a common currency and period, with return convention and data provenance visible.
+  - Partial delivery (2026-10-29): [historical benchmark conversion](docs/reference/benchmark-fx.md) converts local benchmark bookends and every active composite component before blending; comparable excess requires matching dates, source evidence, and total-return convention. Missing components do not silently renormalize a complete-looking composite. Explicit sourced bookend `rikdom_return_convention` declarations now gate historical excess: absent/mismatching/price-only conventions retain returns but make excess not comparable. Offline reports accept the same policy, benchmark and historical-FX inputs and preserve comparison evidence; source declarations do not independently certify history.
+- [x] Reproduce the CLI figures in an offline report, including method, annualization, fees/taxes treatment, and data-quality warnings ([shared portfolio result contract](docs/reference/performance-output.md#historical-valuation-and-profit-evidence); full/fallback offline panels use the same calculation and serializer. Browser date filters and unsupported scopes remain unavailable until recalculated with explicit CLI inputs; [UTC monthly/yearly performance tables](docs/reference/calendar-performance.md) now reuse the core calculation contract, exact bookends and explicit partial/missing-period diagnostics).
 
 ---
 
@@ -359,13 +376,15 @@ Expand from the shipped import/catalog/output/storage foundation to full lifecyc
 ### Acceptance criteria
 
 - [ ] Define and document hooks for `transform`, `enrichment`, `strategy/decision`, and `execution` plugins.
+  - Partial delivery (2026-10-29): [enrichment API 1.2](docs/reference/enrichment.md) ships with a real file/manual provider, strict host validation, revision-aware lookups, SDK scaffold and BR/US/Japan synthetic fixtures. Other lifecycle hooks and maintained regional/calendar coverage remain open.
 - [ ] Define and document `risk/compliance`, `auth/security`, `notification`, and `simulation/backtest` plugin contracts.
-- [ ] Add SDK templates/examples beyond source-input plugins.
+- [x] Add SDK templates/examples beyond source-input plugins (`plugin init --type enrichment` creates an executable API 1.2 local provider, tests and contract fixtures; source/input remains the default).
 - [ ] Check plugin fixtures against schema and hook contracts in CI for every supported plugin type.
 - [x] Publish compatibility policy for breaking hook or manifest changes.
-- [ ] Replay cached provider inputs offline with the same financial results; report stale/missing series explicitly.
-  - Partial delivery (2026-10-29): the [local market-series contract](docs/reference/market-series.md) validates price/FX files and replays observations with revision provenance, retrieval cutoff, coverage, and explicit missing/stale statuses. Wiring those inputs into historical financial calculations and provider hooks remains open.
-- [ ] Preview and apply a split/distribution correction idempotently without adjusting already-adjusted prices or duplicating ledger events.
+- [x] Replay cached provider inputs offline with the same financial results; report stale/missing series explicitly ([normalized local enrichment](docs/reference/enrichment.md) and [historical valuation replay](docs/reference/historical-valuation.md), exercised through CLI → cache document → performance → offline report with networking denied).
+  - Partial delivery (2026-10-29): the [local market-series contract](docs/reference/market-series.md) validates price/FX files and replays observations with revision provenance, retrieval cutoff, coverage, and explicit missing/stale statuses. Delivered next (2026-10-29): experimental API 1.2 enrichment normalizes cached/manual documents; full-position replay consumes the same local series in performance and reports. Live acquisition, distribution/event contracts and automatic position reconstruction remain open.
+- [x] Preview and apply a split/distribution correction idempotently without adjusting already-adjusted prices or duplicating ledger events.
+  - Partial delivery (2026-10-29): [local market-event contract and CLI](docs/reference/market-events.md) provide source/retrieval revision evidence, read-only previews, reviewed initial split ledger events and observed-payment corrections with idempotent replay and stale-revision protection. Announcements never create payments; prices/holdings/tax lots remain unchanged. [Reviewed split revisions](docs/reference/market-events.md#reviewed-split-revisions) now append full replacements with exact source ancestry, review dates and replay proof. Dependent tax lots, unsupported later basis-changing actions and broader position/basis migrations remain explicitly blocked. Synthetic BR/US/Japan examples do not establish maintained market coverage.
 - [ ] Run a third-market reference pack against shared contracts without modifying the core for that country.
 - [ ] Support file/manual series as a free fallback for each reference provider workflow; publish coverage and licensing limits.
 
@@ -484,6 +503,7 @@ planned safeguards, not existing security guarantees.
 
 - [x] Deliver a self-describing, integrity-checked export package.
 - [ ] Reproduce a report/simulation from an extended bundle offline and retain compatibility with existing bundles.
+  - Bounded calculation replay delivered (2026-11-01): [capture/export/restore/replay commands](docs/how-to/capture-and-replay-analysis.md) preserve selected performance inputs, nested caches, methods, environment and financial-result hashes; the historical reference reproduces the same CLI/report financial JSON offline. Version 1 portfolio bundles remain supported. Missing/changed/incompatible evidence fails replay; redacted or license-omitted exports are explicitly non-replayable. Automatic report rendering and simulation replay are not claimed by this delivery.
 - [ ] Run a deterministic historical simulation with contributions and corporate actions; expose coverage/bias limits and leave real totals unchanged.
 - [ ] Validate a first jurisdiction/year tax pack against documented fixtures, including disposals, withholding, and supported loss carryforward cases; reject unsupported rules explicitly.
 - [ ] Demonstrate that a second jurisdiction uses the same neutral contracts without embedding its rules in the core.
@@ -498,3 +518,22 @@ For each new phase, create focused implementation issues with prerequisites,
 reference fixtures, core/plugin ownership, and the acceptance criteria above.
 No phase requires feature parity with an unverified paid service before delivering
 a useful free local workflow.
+
+
+### Current implementation tracking (2026-10-29)
+
+- [Comparable performance and remaining multi-currency attribution](https://github.com/ricardocabral/rikdom/issues/31)
+- [Local distribution/split event workflow](https://github.com/ricardocabral/rikdom/issues/32)
+- [Maintained regional packs and provider coverage](https://github.com/ricardocabral/rikdom/issues/33)
+- [Plugin trust and encrypted recovery](https://github.com/ricardocabral/rikdom/issues/34)
+- [Custom groups, guardrails and rebalancing](https://github.com/ricardocabral/rikdom/issues/35)
+- [Scheduled valuation cadence and recovery](https://github.com/ricardocabral/rikdom/issues/8)
+- [Remaining hooks and SDK coverage](https://github.com/ricardocabral/rikdom/issues/36)
+- [Phase 6 simulation/tax/optional interfaces](https://github.com/ricardocabral/rikdom/issues/37)
+
+
+The [profit/FX and split-revision workflow](docs/how-to/reconcile-profit-fx-and-split-revisions.md)
+connects the reviewed v2 decomposition and immutable event revisions. Its supported
+scope is long-only cash securities and quantity-only splits/reverse splits with
+explicit complete evidence; it does not imply support for every corporate action
+or jurisdiction-specific tax basis.

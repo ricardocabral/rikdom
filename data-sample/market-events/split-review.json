@@ -1,0 +1,11 @@
+{
+  "contract_version": "1.0",
+  "reviewed": true,
+  "revision_id": "synthetic-us-split-r1",
+  "holding_id": "h1",
+  "account_id": "account",
+  "source": "manual:position-statement",
+  "quantity_basis": "unadjusted",
+  "pre_quantity": 10,
+  "post_quantity": 20
+}

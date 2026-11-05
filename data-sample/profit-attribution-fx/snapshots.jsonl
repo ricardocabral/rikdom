@@ -1,0 +1,2 @@
+{"timestamp": "2026-01-01T00:00:00Z", "base_currency": "BRL", "totals": {"portfolio_value_base": 850}, "metadata": {"fx_lock": {"rates_to_base": {"BRL": 1, "USD": 5}, "rate_dates": {"USD": "2026-01-01"}, "sources": {"USD": "manual:synthetic-example"}}}}
+{"timestamp": "2026-02-01T00:00:00Z", "base_currency": "BRL", "totals": {"portfolio_value_base": 1400}, "metadata": {"fx_lock": {"rates_to_base": {"BRL": 1, "USD": 7}, "rate_dates": {"USD": "2026-02-01"}, "sources": {"USD": "manual:synthetic-example"}}}}

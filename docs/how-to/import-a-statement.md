@@ -50,6 +50,14 @@ uv run rikdom import-statement \
 Dry-run prints the merge plan without writing to `data/portfolio.json` or
 appending to `data/import_log.jsonl`.
 
+## Preserve a reviewed mapping
+
+Use `--review-file review.json` to bind account, holding, date or coverage
+assertions to their source rows. Later raw imports preserve the stored decisions;
+changed source facts block writes until explicitly resolved. See the
+[reviewed import contract](../reference/reviewed-imports.md) for the document format,
+conflict preview and retained source/effective versions.
+
 ## Write the import
 
 ```bash
