@@ -1,0 +1,227 @@
+{
+  "provider": "pluggy",
+  "generated_at": "2026-11-04T15:00:00Z",
+  "holdings": [
+    {
+      "id": "pluggy:account:33333333-3333-4333-8333-333333333333",
+      "asset_type_id": "pluggy_cash",
+      "label": "Checking",
+      "market_value": {
+        "amount": 50,
+        "currency": "BRL"
+      },
+      "as_of": "2026-11-04T14:00:00Z",
+      "identifiers": {
+        "provider_account_id": "33333333-3333-4333-8333-333333333333"
+      },
+      "metadata": {
+        "pluggy": {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "itemId": "11111111-1111-4111-8111-111111111111",
+          "type": "BANK",
+          "subtype": "CHECKING_ACCOUNT",
+          "name": "Checking",
+          "balance": 50,
+          "currencyCode": "BRL",
+          "updatedAt": "2026-11-04T14:00:00Z"
+        },
+        "pluggy_item_id": "11111111-1111-4111-8111-111111111111",
+        "pluggy_record_type": "account"
+      },
+      "provenance": {
+        "source_system": "pluggy",
+        "source_ref": "account:33333333-3333-4333-8333-333333333333",
+        "idempotency_key": "pluggy:account:33333333-3333-4333-8333-333333333333"
+      },
+      "quantity": null
+    },
+    {
+      "id": "pluggy:investment:22222222-2222-4222-8222-222222222222",
+      "asset_type_id": "pluggy_stock",
+      "label": "Example stock",
+      "market_value": {
+        "amount": 120,
+        "currency": "BRL"
+      },
+      "as_of": "2026-11-03T00:00:00Z",
+      "identifiers": {
+        "provider_account_id": "11111111-1111-4111-8111-111111111111",
+        "ticker": "PETR4"
+      },
+      "metadata": {
+        "pluggy": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "itemId": "11111111-1111-4111-8111-111111111111",
+          "name": "Example stock",
+          "code": "PETR4",
+          "type": "EQUITY",
+          "subtype": "STOCK",
+          "quantity": 10,
+          "value": 12,
+          "amount": 120,
+          "balance": 115,
+          "taxes": 5,
+          "taxes2": null,
+          "currencyCode": "BRL",
+          "date": "2026-11-03T00:00:00Z",
+          "status": "ACTIVE",
+          "owner": "Synthetic owner",
+          "customProviderField": {
+            "a": 1
+          }
+        },
+        "pluggy_item_id": "11111111-1111-4111-8111-111111111111",
+        "pluggy_record_type": "investment"
+      },
+      "provenance": {
+        "source_system": "pluggy",
+        "source_ref": "investment:22222222-2222-4222-8222-222222222222",
+        "idempotency_key": "pluggy:investment:22222222-2222-4222-8222-222222222222"
+      },
+      "quantity": 10,
+      "valuation": {
+        "price_as_of": "2026-11-03T00:00:00Z",
+        "net_value": {
+          "amount": 115,
+          "currency": "BRL"
+        },
+        "unit_price": {
+          "amount": 12,
+          "currency": "BRL"
+        },
+        "tax_provisions": [
+          {
+            "tax_type": "IR",
+            "money": {
+              "amount": 5,
+              "currency": "BRL"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "pluggy:transaction:trade-1",
+      "idempotency_key": "pluggy:transaction:trade-1",
+      "source_system": "pluggy",
+      "source_ref": "investment-transaction:trade-1",
+      "event_type": "buy",
+      "status": "posted",
+      "effective_at": "2026-10-01T00:00:00Z",
+      "asset_type_id": "pluggy_stock",
+      "metadata": {
+        "pluggy": {
+          "id": "trade-1",
+          "type": "BUY",
+          "movementType": "CREDIT",
+          "quantity": 10,
+          "amount": 100,
+          "netAmount": 102,
+          "value": 10,
+          "date": "2026-10-01T00:00:00Z",
+          "tradeDate": "2026-10-01T00:00:00Z",
+          "expenses": {
+            "brokerageFee": 2,
+            "incomeTax": 0
+          }
+        },
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "pluggy:investment:22222222-2222-4222-8222-222222222222",
+          "kind": "source",
+          "occurrence": 0,
+          "document_fingerprint": "ee32eeb8b37c2e7023da12f96a6551401e1354a655058f0a241901e33b06809a",
+          "signature": "trade-1"
+        }
+      },
+      "holding_id": "pluggy:investment:22222222-2222-4222-8222-222222222222",
+      "instrument": {
+        "provider_account_id": "11111111-1111-4111-8111-111111111111",
+        "ticker": "PETR4"
+      },
+      "money": {
+        "amount": 100,
+        "currency": "BRL"
+      },
+      "settled_at": "2026-10-01T00:00:00Z",
+      "quantity": 10,
+      "fees": {
+        "amount": 2,
+        "currency": "BRL"
+      },
+      "withholding_tax": {
+        "amount": 0,
+        "currency": "BRL"
+      }
+    },
+    {
+      "id": "pluggy:transaction:income-1",
+      "idempotency_key": "pluggy:transaction:income-1",
+      "source_system": "pluggy",
+      "source_ref": "investment-transaction:income-1",
+      "event_type": "income",
+      "status": "posted",
+      "effective_at": "2026-10-15T00:00:00Z",
+      "asset_type_id": "pluggy_stock",
+      "metadata": {
+        "pluggy": {
+          "id": "income-1",
+          "type": "INTEREST",
+          "movementType": "DEBIT",
+          "amount": 5,
+          "netAmount": 4,
+          "date": "2026-10-15T00:00:00Z",
+          "expenses": {
+            "incomeTax": 1
+          }
+        },
+        "rikdom_source_identity": {
+          "version": 1,
+          "scope": "pluggy:investment:22222222-2222-4222-8222-222222222222",
+          "kind": "source",
+          "occurrence": 0,
+          "document_fingerprint": "b2d056e45f332fbf99d74dafa58667e4e002ea82e1fa6b08f30618a9fb8466a9",
+          "signature": "income-1"
+        },
+        "rikdom_income": {
+          "version": 1,
+          "amount_basis": "gross"
+        }
+      },
+      "holding_id": "pluggy:investment:22222222-2222-4222-8222-222222222222",
+      "instrument": {
+        "provider_account_id": "11111111-1111-4111-8111-111111111111",
+        "ticker": "PETR4"
+      },
+      "money": {
+        "amount": 5,
+        "currency": "BRL"
+      },
+      "withholding_tax": {
+        "amount": 1,
+        "currency": "BRL"
+      }
+    }
+  ],
+  "metadata": {
+    "rikdom_import_diagnostics": {
+      "version": 1,
+      "history_coverage": [
+        {
+          "scope": "pluggy:item:11111111-1111-4111-8111-111111111111",
+          "status": "partial",
+          "event_types": [
+            "buy",
+            "income"
+          ],
+          "reasons": [
+            "Available API history is not proven complete from inception; absent positions are not closed"
+          ]
+        }
+      ],
+      "unsupported_events": []
+    }
+  }
+}

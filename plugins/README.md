@@ -12,6 +12,7 @@ Canonical docs:
 Plugin docs:
 - [brapi](brapi/README.md)
 - [frankfurter](frankfurter/README.md)
+- [pluggy](pluggy/README.md)
 - [csv-generic](csv-generic/README.md)
 - [ghostfolio_export_json](ghostfolio_export_json/README.md)
 - [ibkr_flex_xml](ibkr_flex_xml/README.md)
@@ -110,6 +111,7 @@ generic `income` stays outside those totals.
 | [ibkr_flex_xml](ibkr_flex_xml/README.md) | CashTransaction dividends/interest have unknown basis; withholding/refunds stay separate | Cash amount alone does not establish gross/net or tax linkage. |
 | [irpf-xml](irpf-xml/README.md) | No posted-income activities | Annual asset declarations and receivables establish holdings only. |
 | [normalized-statement-json](normalized-statement-json/README.md) | Canonical passthrough preserves caller's income markers, amounts, charges and metadata | Unmarked canonical amounts follow the schema gross convention; caller establishes source semantics and history. |
+| [pluggy](pluggy/README.md) | `INTEREST` becomes generic gross `income`; reviewed per-transaction mappings may select dividend or interest | Open Finance/MeuPluggy taxes and fees remain separate; provisions are not paid taxes. Available API history is partial. |
 | [portfolio_performance_csv](portfolio_performance_csv/README.md) | Transaction Value is net; Gross Amount fallback is gross in its own currency | Missing charges remain unreported; source amounts are not converted between currencies. |
 | [vanguard](vanguard/README.md) | CSV and OFX dividends/interest have unknown basis; CSV tax/refund events stay separate | OFX supports DIV/INTEREST; unsupported transaction/income variants remain explicit. |
 | [wealthfolio_activity_csv](wealthfolio_activity_csv/README.md) | Explicit amount is net; quantity × price fallback has unknown basis | Generic income is not reclassified as dividends; attached tax/fee evidence is preserved. |

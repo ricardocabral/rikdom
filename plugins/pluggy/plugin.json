@@ -1,0 +1,9 @@
+{
+  "name": "pluggy",
+  "version": "0.1.0",
+  "api_version": "1.1",
+  "plugin_types": ["external/connector", "source/input", "asset-type/catalog"],
+  "module": "plugin",
+  "class_name": "Plugin",
+  "description": "Acquire personal Meu Pluggy portfolios and import positions and investment movements with stable identities"
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "pluggy_stock",
+    "label": "Pluggy stock or BDR",
+    "asset_class": "stocks"
+  },
+  {
+    "id": "pluggy_fii",
+    "label": "Pluggy real estate fund",
+    "asset_class": "reits"
+  },
+  {
+    "id": "pluggy_fund",
+    "label": "Pluggy fund or ETF",
+    "asset_class": "funds"
+  },
+  {
+    "id": "pluggy_fixed_income",
+    "label": "Pluggy fixed income",
+    "asset_class": "debt"
+  },
+  {
+    "id": "pluggy_cash",
+    "label": "Pluggy bank cash",
+    "asset_class": "cash_equivalents"
+  },
+  {
+    "id": "pluggy_retirement",
+    "label": "Pluggy retirement (exposure unclassified)",
+    "asset_class": "other"
+  },
+  {
+    "id": "pluggy_structured_note",
+    "label": "Pluggy structured note (exposure unclassified)",
+    "asset_class": "other"
+  },
+  {
+    "id": "pluggy_other",
+    "label": "Pluggy unclassified investment",
+    "asset_class": "other"
+  }
+]

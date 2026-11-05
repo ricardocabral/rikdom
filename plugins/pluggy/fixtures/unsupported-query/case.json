@@ -1,0 +1,5 @@
+{
+  "hook": "connector_query",
+  "operation": "payments",
+  "params": {}
+}
