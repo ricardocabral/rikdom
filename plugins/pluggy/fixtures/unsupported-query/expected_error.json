@@ -1,0 +1,4 @@
+{
+  "type": "PluginEngineError",
+  "message_contains": "does not declare operation"
+}

@@ -1,0 +1,86 @@
+{
+  "format": "pluggy-portfolio-v1",
+  "fetched_at": "2026-11-04T15:00:00Z",
+  "include_transactions": true,
+  "include_bank_accounts": true,
+  "items": [
+    {
+      "item": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "status": "UPDATED",
+        "executionStatus": "SUCCESS",
+        "consentExpiresAt": "2099-01-01T00:00:00Z",
+        "lastUpdatedAt": "2026-11-04T14:00:00Z",
+        "connector": {
+          "id": 200,
+          "name": "MeuPluggy"
+        }
+      },
+      "accounts": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "itemId": "11111111-1111-4111-8111-111111111111",
+          "type": "BANK",
+          "subtype": "CHECKING_ACCOUNT",
+          "name": "Checking",
+          "balance": 50,
+          "currencyCode": "BRL",
+          "updatedAt": "2026-11-04T14:00:00Z"
+        }
+      ],
+      "investments": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "itemId": "11111111-1111-4111-8111-111111111111",
+          "name": "Example stock",
+          "code": "PETR4",
+          "type": "EQUITY",
+          "subtype": "STOCK",
+          "quantity": 10,
+          "value": 12,
+          "amount": 120,
+          "balance": 115,
+          "taxes": 5,
+          "taxes2": null,
+          "currencyCode": "BRL",
+          "date": "2026-11-03T00:00:00Z",
+          "status": "ACTIVE",
+          "owner": "Synthetic owner",
+          "customProviderField": {
+            "a": 1
+          }
+        }
+      ],
+      "investment_transactions": {
+        "22222222-2222-4222-8222-222222222222": [
+          {
+            "id": "trade-1",
+            "type": "BUY",
+            "movementType": "CREDIT",
+            "quantity": 10,
+            "amount": 100,
+            "netAmount": 102,
+            "value": 10,
+            "date": "2026-10-01T00:00:00Z",
+            "tradeDate": "2026-10-01T00:00:00Z",
+            "expenses": {
+              "brokerageFee": 2,
+              "incomeTax": 0
+            }
+          },
+          {
+            "id": "income-1",
+            "type": "INTEREST",
+            "movementType": "DEBIT",
+            "amount": 5,
+            "netAmount": 4,
+            "date": "2026-10-15T00:00:00Z",
+            "expenses": {
+              "incomeTax": 1
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

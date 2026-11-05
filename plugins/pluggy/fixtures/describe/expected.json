@@ -1,0 +1,28 @@
+{
+  "contractVersion": "1.0",
+  "readOnly": true,
+  "provider": "pluggy",
+  "transport": "REST",
+  "baseUrl": "https://api.pluggy.ai",
+  "auth": {
+    "environment": [
+      "PLUGGY_CLIENT_ID",
+      "PLUGGY_CLIENT_SECRET"
+    ],
+    "envFile": "explicit env_file parameter only"
+  },
+  "operations": {
+    "portfolio": {
+      "description": "Read selected Meu Pluggy items, bank cash, investments and investment transactions; no portfolio writes or forced sync",
+      "parameters": [
+        "item_ids",
+        "include_transactions",
+        "include_bank_accounts",
+        "env_file"
+      ],
+      "requiredParameters": [
+        "item_ids"
+      ]
+    }
+  }
+}

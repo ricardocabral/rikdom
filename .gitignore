@@ -19,6 +19,9 @@ dist/
 venv/
 
 # Local/generated project outputs
+.env
+.env.*
+!.env.example
 out/
 data/
 output/
