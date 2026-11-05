@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any
 
 from .policy import CANONICAL_POLICY_SCHEMA_URI
@@ -12,11 +14,13 @@ from .validate import CANONICAL_SCHEMA_URI
 
 EXPORT_FORMAT = "rikdom-export"
 EXPORT_VERSION = "1.0.0"
+ANALYSIS_EXPORT_VERSION = "2.0.0"
 MANIFEST_PATH = "rikdom-export.json"
 SNAPSHOT_SCHEMA_URI = "https://example.org/rikdom/schema/snapshot.schema.json"
 FX_RATES_SCHEMA_URI = "https://example.org/rikdom/schema/fx-rates.jsonl"
 SUPPORTED_KINDS = {"portfolio", "snapshots", "fx_history", "policy"}
 REQUIRED_KINDS = {"portfolio"}
+ANALYSIS_KINDS = {"analysis_run", "analysis_result", "dependency_lock"}
 
 
 class ExportBundleError(ValueError):
@@ -105,6 +109,9 @@ def create_export_bundle(
     snapshots: str | Path | None = None,
     fx_history: str | Path | None = None,
     policy: str | Path | None = None,
+    analysis_run: str | Path | None = None,
+    analysis_result: str | Path | None = None,
+    dependency_lock: str | Path | None = None,
 ) -> dict[str, Any]:
     """Create a portable rikdom export zip and return its manifest."""
     files = [BundleFile("portfolio", "data/portfolio.json", Path(portfolio), True)]
@@ -114,6 +121,17 @@ def create_export_bundle(
         files.append(BundleFile("fx_history", "data/fx_rates.jsonl", Path(fx_history)))
     if policy is not None:
         files.append(BundleFile("policy", "data/policy.json", Path(policy)))
+    if analysis_run is not None:
+        if analysis_result is None:
+            raise ExportBundleError("Analysis bundle requires an expected result")
+        files.extend([
+            BundleFile("analysis_run", "analysis/run.json", Path(analysis_run), True),
+            BundleFile("analysis_result", "analysis/result.json", Path(analysis_result), True),
+        ])
+        if dependency_lock is not None:
+            files.append(BundleFile("dependency_lock", "environment/uv.lock", Path(dependency_lock), True))
+    elif analysis_result is not None or dependency_lock is not None:
+        raise ExportBundleError("Analysis payloads require a run manifest")
 
     entries: list[dict[str, Any]] = []
     payloads: list[tuple[BundleFile, bytes]] = []
@@ -132,7 +150,7 @@ def create_export_bundle(
 
     manifest: dict[str, Any] = {
         "format": EXPORT_FORMAT,
-        "format_version": EXPORT_VERSION,
+        "format_version": ANALYSIS_EXPORT_VERSION if analysis_run is not None else EXPORT_VERSION,
         "created_at": created_at,
         "entries": entries,
     }
@@ -150,12 +168,18 @@ def create_export_bundle(
                 f"path as input '{bundle_file.source}'"
             )
     out.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(
-            MANIFEST_PATH, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
-        )
-        for bundle_file, data in payloads:
-            zf.writestr(bundle_file.path, data)
+    with NamedTemporaryFile(dir=out.parent, suffix=".zip", delete=False) as temporary:
+        staged = Path(temporary.name)
+    try:
+        with zipfile.ZipFile(staged, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(
+                MANIFEST_PATH, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+            )
+            for bundle_file, data in payloads:
+                zf.writestr(bundle_file.path, data)
+        os.replace(staged, out)
+    finally:
+        staged.unlink(missing_ok=True)
     return manifest
 
 
@@ -171,6 +195,8 @@ def _verify_open_bundle(
     and import.
     """
     names = set(zf.namelist())
+    if len(names) != len(zf.namelist()):
+        raise ExportBundleError("Duplicate ZIP member")
     if MANIFEST_PATH not in names:
         raise ExportBundleError(f"Bundle missing {MANIFEST_PATH}")
     try:
@@ -182,7 +208,8 @@ def _verify_open_bundle(
         raise ExportBundleError(f"Invalid {MANIFEST_PATH}: expected object")
     if manifest.get("format") != EXPORT_FORMAT:
         raise ExportBundleError("Not a rikdom-export bundle")
-    if manifest.get("format_version") != EXPORT_VERSION:
+    version = manifest.get("format_version")
+    if version not in (EXPORT_VERSION, ANALYSIS_EXPORT_VERSION):
         raise ExportBundleError(
             f"Unsupported rikdom-export version: {manifest.get('format_version')}"
         )
@@ -204,7 +231,8 @@ def _verify_open_bundle(
         ):
             raise ExportBundleError(f"Manifest entry {index} has unsafe path")
         kind = entry.get("kind")
-        if not isinstance(kind, str) or kind not in SUPPORTED_KINDS:
+        supported = SUPPORTED_KINDS | ANALYSIS_KINDS if version == ANALYSIS_EXPORT_VERSION else SUPPORTED_KINDS
+        if not isinstance(kind, str) or kind not in supported:
             raise ExportBundleError(f"Unsupported manifest kind: {kind}")
         if kind in seen_kinds:
             raise ExportBundleError(f"Duplicate manifest kind: {kind}")
@@ -222,7 +250,8 @@ def _verify_open_bundle(
         if not isinstance(expected_sha, str) or expected_sha != _sha256(data):
             raise ExportBundleError(f"Checksum mismatch for {path}")
         payloads[kind] = data
-    missing_required = REQUIRED_KINDS - seen_kinds
+    required = REQUIRED_KINDS | {"analysis_run", "analysis_result"} if version == ANALYSIS_EXPORT_VERSION else REQUIRED_KINDS
+    missing_required = required - seen_kinds
     if missing_required:
         missing = ", ".join(sorted(missing_required))
         raise ExportBundleError(

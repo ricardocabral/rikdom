@@ -208,8 +208,14 @@ Migration flags: `--to <version>`, `--output <path>`, `--no-backup`. See
 | `rikdom export --output out/rikdom-export.zip` | —             | Build a `rikdom-export` ZIP bundle. |
 | `rikdom verify-export --bundle <zip>`          | —             | Verify checksums without applying.  |
 | `rikdom import-export --bundle <zip>`          | —             | Import a verified bundle.           |
+| `rikdom aggregate --bundle <zip>`             | —             | Capture the aggregate calculation as a v2 analysis bundle. |
+| `rikdom replay-export --bundle <zip> --restore-dir <new-dir>` | — | Reproduce offline and restore captured inputs/results. |
 
 Bundle layout and checksum manifest: [export format reference](export-format.md).
+`replay-export` requires a matching installed environment and a nonexistent
+destination. It verifies and reproduces before publishing restored files, and
+never installs dependencies or runs bundled code. `import-export` accepts v1
+data bundles; use `replay-export` for v2 analysis bundles.
 
 ## Compaction
 
