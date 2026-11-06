@@ -140,7 +140,7 @@ class HistoricalReferenceWorkflowTests(unittest.TestCase):
         self.assertEqual(calculated['internal_transfers']['status'], 'verified')
 
     def test_reviewed_recurring_import_to_bundle_restore_replays_without_original_files(self):
-        # Requires the sibling analysis-run branch and exercises its real CLI.
+        # Exercise the real import, calculation and archive commands offline.
         self.import_and_review()
         self.apply_splits()
         calculated = self.cli_and_report()
@@ -156,6 +156,15 @@ class HistoricalReferenceWorkflowTests(unittest.TestCase):
         self.invoke('restore-analysis', '--bundle', bundle, '--output', restored)
         replayed = self.invoke('replay-analysis', '--run', restored)
         self.assertEqual(replayed, calculated)
+
+        # The shared archive entry point also reproduces historical v2 runs.
+        shutil.rmtree(run)
+        shutil.rmtree(restored)
+        reproduced = self.invoke('replay-export', '--bundle', bundle,
+                                 '--restore-dir', restored)
+        self.assertEqual(reproduced['status'], 'reproduced')
+        self.assertEqual(reproduced['result'], calculated)
+        self.assertEqual(json.loads((restored / 'result.json').read_text()), calculated)
 
     def test_unadjusted_prices_are_required_and_no_recorded_total_substitution_occurs(self):
         self.apply_splits()
