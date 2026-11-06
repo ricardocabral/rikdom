@@ -19,6 +19,17 @@ rikdom restore-analysis --bundle out/analysis.zip --output out/restored-analysis
 rikdom replay-analysis --run out/restored-analysis
 ```
 
+To restore and reproduce the archive in one step, use a fresh destination:
+
+```sh
+rikdom replay-export --bundle out/analysis.zip --restore-dir out/reproduced-analysis
+```
+
+The command returns `status: reproduced`, `restore_dir`, and the same performance
+JSON under `result`. It publishes the directory only after financial equality
+passes. Incomplete/redacted archives can be inspected with `restore-analysis`,
+but `replay-export` rejects them without publishing a destination.
+
 `capture-analysis` accepts the current `performance` calculation options,
 including scope/window, instrument/terminal value, policy/benchmark directory,
 historical valuations/FX, flow valuations and profit basis. Supply existing local

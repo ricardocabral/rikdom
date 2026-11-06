@@ -373,3 +373,27 @@ def replay_aggregate_bundle(
             raise ExportBundleError("Restore directory must not exist")
         stage.rename(target)
     return {"status": "reproduced", "restore_dir": str(target), "result": actual}
+
+
+def replay_export_bundle(
+    bundle: str | Path, restore_dir: str | Path
+) -> dict[str, Any]:
+    """Reproduce supported archive formats before publishing a fresh directory."""
+    manifest, _ = read_verified_payloads(bundle)
+    if manifest["format_version"] != "2.0.0":
+        return replay_aggregate_bundle(bundle, restore_dir)
+
+    from .analysis_runs import replay_analysis_run, restore_analysis_run
+
+    target = Path(restore_dir)
+    if target.exists() or target.is_symlink():
+        raise ExportBundleError("Restore directory must not exist")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(dir=target.parent, prefix=".rikdom-restore-") as directory:
+        stage = Path(directory) / "workspace"
+        restore_analysis_run(bundle, stage)
+        result = replay_analysis_run(stage)
+        if target.exists() or target.is_symlink():
+            raise ExportBundleError("Restore directory must not exist")
+        stage.rename(target)
+    return {"status": "reproduced", "restore_dir": str(target), "result": result}

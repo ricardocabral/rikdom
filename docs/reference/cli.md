@@ -250,8 +250,10 @@ Bundle layout and checksum manifest: [export format reference](export-format.md)
 `replay-export` requires a matching installed environment and a nonexistent
 destination. It verifies and reproduces before publishing restored files, and
 never installs dependencies or runs bundled code. `import-export` accepts v1
-data bundles; use `restore-analysis` for v2 performance bundles and
-`replay-export` for v3 aggregate bundles.
+data bundles. `replay-export` accepts v2 performance and v3 aggregate bundles;
+it checks each format's financial equality contract before publishing the
+destination. Use `restore-analysis` to inspect v2 evidence without reproducing it,
+including incomplete/redacted archives that cannot replay.
 
 ### Captured analysis runs
 
