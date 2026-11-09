@@ -14,7 +14,7 @@ import json
 import math
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .analysis_runs import (
     RUN_MANIFEST, AnalysisRunError, _benchmark_dependencies, _digest, _environment,
@@ -133,9 +133,14 @@ def _validate_fx_evidence(rows: list[dict], result: dict, manifest: dict, docume
             if any(row[key] != value for key, value in expected.items()):
                 raise ValueError('event fields disagree with captured effective activity')
             try:
-                when = _timestamp(row['effective_at'], 'effective_at')
+                if not isinstance(raw_date, str):
+                    raise ValueError('missing effective_at')
+                parsed = datetime.fromisoformat(raw_date.replace('Z', '+00:00'))
+                if parsed.tzinfo is None or parsed.utcoffset() is None:
+                    raise ValueError('naive effective_at')
+                when = parsed.astimezone(timezone.utc)
             except ValueError:
-                when = None  # Malformed dates are retained by unavailable native rows.
+                when = None  # Match historical cashflows: invalid/naive dates stay unavailable.
             if when is not None and ((bounds[0] and when < bounds[0]) or (bounds[1] and when > bounds[1])):
                 raise ValueError('activity lies outside recorded resolved bookends')
             if row['status'] == 'unavailable':

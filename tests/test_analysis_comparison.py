@@ -790,6 +790,8 @@ class AnalysisComparisonTests(unittest.TestCase):
             ('missing-mapping', 'EUR', 10, '2026-06-01T00:00:00Z', 'unavailable'),
             ('stale', 'USD', 10, '2026-06-10T00:00:00Z', 'unavailable'),
             ('invalid-date', 'USD', 10, 'invalid', 'unavailable'),
+            ('naive-date', 'USD', 10, '2025-06-01T00:00:00', 'unavailable'),
+            ('date-only', 'USD', 10, '2025-06-01', 'unavailable'),
             ('non-string-date', 'USD', 10, 42, 'unavailable'),
             ('invalid-amount', 'USD', None, '2026-06-01T00:00:00Z', 'unavailable'),
             ('invalid-currency', 'invalid', 10, '2026-06-01T00:00:00Z', 'unavailable'),
@@ -800,6 +802,9 @@ class AnalysisComparisonTests(unittest.TestCase):
                 recorded = json.loads((run / 'result.json').read_text())
                 row = recorded['fx_evidence'][0]
                 self.assertEqual(row['status'], status)
+                if name in ('invalid-date', 'naive-date', 'date-only', 'non-string-date'):
+                    self.assertEqual(row['reason'], 'invalid_effective_at')
+                    self.assertNotIn('as_of', row)
                 inventory = self.inventory()
                 with ExitStack() as stack:
                     for target in ('rikdom.analysis_runs._evaluate', 'rikdom.performance.compute_performance',
@@ -819,6 +824,85 @@ class AnalysisComparisonTests(unittest.TestCase):
                         self.rewrite_payload(run, 'result.json', json.dumps(changed).encode())
                         with self.assertRaisesRegex(AnalysisRunError, 'fx_evidence'):
                             self.compare(run, run)
+
+    def test_offset_fx_captures_compare_and_replay_at_exact_utc_bookends_without_writes(self):
+        from rikdom.analysis_runs import replay_analysis_run
+        series_path = self.historical_fx()
+        for boundary, start, instant, end, timestamps in (
+            ('midnight', '2026-06-01T00:00:00Z', '2026-06-01T00:00:00Z', '2026-06-02T00:00:00Z', (
+                '2026-05-31T21:00:00-03:00', '2026-06-01T03:00:00+03:00',
+                '2026-06-01T00:00:00Z')),
+            ('fractional', '2026-05-31T00:00:00Z', '2026-05-31T23:00:00.123456Z', '2026-05-31T23:00:00.123456Z', (
+                '2026-05-31T20:00:00.123456-03:00', '2026-06-01T02:00:00.123456+03:00',
+                '2026-05-31T23:00:00.123456Z')),
+        ):
+            self.snapshots[0]['timestamp'] = start
+            self.snapshots[-1]['timestamp'] = end
+            observation = self.series['series'][0]['observations'][0]
+            observation.update(effective_at=instant, retrieved_at=instant)
+            series_path.write_text(json.dumps(self.series))
+            flow = self.portfolio['activities'][0]
+            flow['effective_at'] = instant
+            baseline = self.capture(boundary + '-baseline')
+            for index, timestamp in enumerate(timestamps):
+                with self.subTest(timestamp=timestamp):
+                    flow['effective_at'] = timestamp
+                    run = self.capture(f'{boundary}-{index}')
+                    recorded = json.loads((run / 'result.json').read_text())
+                    self.assertEqual(recorded['fx_status'], 'complete')
+                    self.assertEqual(recorded['cashflow_count'], 1)
+                    self.assertEqual(recorded['net_external_cashflow_base'], 50)
+                    row = recorded['fx_evidence'][0]
+                    self.assertEqual((row['effective_at'], row['as_of'], row['amount_base']),
+                                     (timestamp, instant, 50))
+                    inventory = self.inventory()
+                    self.assertEqual(replay_analysis_run(run), recorded)
+                    comparison = self.compare(baseline, run)
+                    self.assertTrue(comparison['compatibility']['comparable'])
+                    self.assertEqual(comparison['after']['evidence']['fx_evidence']['pointer'], '/fx_evidence')
+                    self.assertEqual(comparison['deltas']['net_external_cashflow_base'],
+                                     {'before': 50, 'after': 50, 'delta': 0,
+                                      'status': 'available', 'unit': 'BRL'})
+                    for metric, values in comparison['deltas'].items():
+                        with self.subTest(metric=metric):
+                            self.assertEqual(values['before'], values['after'])
+                            self.assertEqual(values['delta'], None if values['before'] is None else 0)
+                    self.assertEqual(self.compare(run, run)['explanation']['classification'], 'unchanged')
+                    out, err = io.StringIO(), io.StringIO()
+                    with redirect_stdout(out), redirect_stderr(err):
+                        code = main(['compare-analysis', '--before', str(baseline), '--after', str(run)])
+                    self.assertEqual((code, err.getvalue()), (0, ''))
+                    self.assertEqual(json.loads(out.getvalue()), comparison)
+                    self.assertEqual(self.inventory(), inventory)
+
+    def test_offset_fx_evidence_still_requires_bound_source_instant_and_window(self):
+        from rikdom.analysis_runs import AnalysisRunError
+        self.historical_fx()
+        self.portfolio['activities'][0]['effective_at'] = '2026-05-31T21:00:00-03:00'
+        for name, field, value in (
+            ('source', 'effective_at', '2026-06-01T00:00:00Z'),
+            ('as-of-local', 'as_of', '2026-05-31T21:00:00-03:00'),
+            ('as-of-wrong', 'as_of', '2026-05-31T21:00:00Z'),
+            ('before-start', 'period_start', '2026-06-01T00:00:00.000001Z'),
+            ('after-end', 'period_end', '2026-05-31T23:59:59.999999Z'),
+        ):
+            with self.subTest(name=name):
+                run = self.capture(name)
+                recorded = json.loads((run / 'result.json').read_text())
+                if field in ('period_start', 'period_end'):
+                    recorded[field] = value
+                else:
+                    recorded['fx_evidence'][0][field] = value
+                self.rewrite_payload(run, 'result.json', json.dumps(recorded).encode())
+                inventory = self.inventory()
+                with self.assertRaisesRegex(AnalysisRunError, 'fx_evidence'):
+                    self.compare(run, run)
+                out, err = io.StringIO(), io.StringIO()
+                with redirect_stdout(out), redirect_stderr(err):
+                    code = main(['compare-analysis', '--before', str(run), '--after', str(run)])
+                self.assertEqual((code, out.getvalue()), (1, ''))
+                self.assertIn('fx_evidence', err.getvalue())
+                self.assertEqual(self.inventory(), inventory)
 
     def test_complete_profit_basis_requires_supported_declarations_and_result_agreement(self):
         from unittest.mock import patch
