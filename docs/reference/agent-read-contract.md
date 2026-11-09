@@ -191,6 +191,15 @@ The supported routes remain:
 - Policy changes: user-reviewed policy-file authoring, validated with
   `rikdom.policy.validate_policy`, or the existing
   [define-policy workflow](../../.codex/skills/define-policy/SKILL.md).
+  Before an authorized save, also validate the candidate against the selected
+  portfolio with `rikdom validate --portfolio <selected> --policy <candidate>`.
+  This CLI checks portfolio structure and cross-file account references; it does
+  not replace `validate_policy`. Any validation error or unreadable input blocks
+  the save; inspect warnings before proceeding. Cross-file account validation
+  skips a missing/empty catalog, so exit zero does not establish integrity then.
+  If the portfolio contains account references, a candidate without a catalog
+  resolving every reference must not be saved, including after account renames
+  or removals.
   `migrate-policy --dry-run` previews schema upgrades; migration is not acceptance
   of a new investment assumption. There is no general policy-write CLI command.
 

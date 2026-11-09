@@ -161,8 +161,21 @@ Route an accepted proposal through the existing validation path:
 - Preview `activity correct` with a complete replacement and reason; preserve
   originals and respect unsupported dependency restrictions.
 - Review policy intent with the user, preserve unrelated policy fields and
-  validate the candidate with `rikdom.policy.validate_policy` before saving an
-  authorized policy edit. Schema migration alone does not approve new intent.
+  validate the candidate with `rikdom.policy.validate_policy`. Before saving an
+  authorized policy edit, also run the cross-file check against the selected
+  portfolio (replace the placeholders with existing input paths):
+
+  ```sh
+  rikdom validate --portfolio <selected> --policy <candidate>
+  ```
+
+  Require no policy validation errors and a successful CLI exit; stop on errors
+  or unreadable inputs and inspect warnings before saving. The CLI does not
+  replace `validate_policy` and skips account checks for a missing/empty catalog.
+  If the portfolio has account references, require a candidate catalog resolving
+  every reference, including after account renames or removals; exit zero with
+  no catalog is not safe acceptance. Schema migration alone does not approve
+  new intent.
 
 See [reviewed imports](../reference/reviewed-imports.md),
 [entry and correction](enter-and-correct-activities.md) and the
