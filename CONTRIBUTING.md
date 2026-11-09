@@ -154,47 +154,6 @@ For plugin-related work:
 
 ## Security
 
-The [Gitleaks workflow](.github/workflows/gitleaks.yml) scans the checked-out Git
-history on pull requests and pushes to `main`, including secrets removed in later
-commits. It uses the free CLI, requires no license secret, and redacts scanner
-output. Gitleaks detects secret patterns; it does not guarantee that files contain
-no personal data. Review fixtures and exports separately for privacy.
-
-Before committing, install [Gitleaks 8.30.1](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1)
-and run this from the repository to check your staged changes:
-
-```bash
-(
-  set -euo pipefail
-  cd "$(git rev-parse --show-toplevel)"
-  if [[ -e .gitleaksignore || -L .gitleaksignore ]]; then
-    echo "Unexpected root .gitleaksignore; use reviewed rule-specific policy instead." >&2
-    exit 1
-  fi
-  # Preserve repository-relative paths even with local diff.noprefix settings.
-  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=diff.noprefix GIT_CONFIG_VALUE_0=false \
-    gitleaks git . --staged --config .github/gitleaks.toml \
-    --redact=100 --no-banner --no-color --ignore-gitleaks-allow
-)
-```
-
-Both commands explicitly select [.github/gitleaks.toml](.github/gitleaks.toml),
-which extends all built-in rules and allows only verified synthetic idempotency
-assignments at exact fixture paths. Alternate root configurations are not selected;
-root `.gitleaksignore` files are rejected, and inline `gitleaks:allow` comments do
-not suppress findings.
-
-Treat the selected policy and workflow as security-sensitive review targets:
-changes to either can weaken detection and require independent review. The check
-uses the checked-out versions of these files; it cannot protect against its own
-policy or workflow being modified. No branch-protection settings were changed;
-required checks and review enforcement depend on repository settings. CI runs
-after upload, and the local staged check is voluntary.
-
-If a credential is exposed, revoke or rotate it and remove it from the affected
-commits before pushing. Do not add a baseline or broad allowlist to silence a
-finding; investigate it privately and justify any narrowly scoped exception.
-
 Do not publish sensitive vulnerabilities in a public issue.
 
 Report security concerns privately through GitHub security reporting if available for this repository. If it is not available, open a minimal issue requesting a private contact channel.
