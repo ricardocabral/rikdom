@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
+import re
 import sys
 from tempfile import TemporaryDirectory, gettempdir
 from typing import Any
@@ -67,24 +68,51 @@ def read_context(run: Path, scratch_dir: Path) -> dict[str, Any]:
     if (manifest.get('format'), manifest.get('format_version'), manifest.get('operation')) != (
             'rikdom-analysis-run', '1.0', 'performance'):
         raise ValueError('Unsupported captured run format/version/operation; expected performance 1.0')
-    parameters = manifest.get('parameters')
-    if not isinstance(parameters, dict) or parameters.get('by') != 'portfolio':
+    # Replay assumes these objects exist. Validate their shapes explicitly rather
+    # than masking AttributeError from replay or the calculation itself.
+    for field in ('parameters', 'environment', 'inputs', 'methods', 'files'):
+        if not isinstance(manifest.get(field), dict):
+            raise ValueError(f'Invalid captured manifest: {field} must be an object')
+    if not isinstance(manifest.get('created_at'), str) or not manifest['created_at'].strip():
+        raise ValueError('Invalid captured manifest: created_at must be a nonempty string')
+    parameters = manifest['parameters']
+    if parameters.get('by') != 'portfolio':
         raise ValueError('Scope mismatch: this example requires a run captured with --by portfolio')
-    files = manifest.get('files')
-    if not isinstance(files, dict):
-        raise ValueError('Invalid captured file inventory')
+    for field in ('since', 'until', 'analysis_as_of', 'instrument'):
+        value = parameters.get(field)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f'Invalid captured manifest: parameters.{field} must be a string or null')
+    value = parameters.get('terminal_value')
+    if value is not None and type(value) not in (int, float):
+        raise ValueError('Invalid captured manifest: parameters.terminal_value must be a number or null')
+    for key, relative in manifest['inputs'].items():
+        if not isinstance(relative, str) or not relative.strip():
+            raise ValueError(f'Invalid captured manifest: inputs.{key} must be a nonempty path string')
+    files = manifest['files']
 
     # Freeze each declared file once. Core replay verifies every copied byte and
     # recalculates from that snapshot, even if another process changes the run.
     with TemporaryDirectory(prefix='rikdom-context-', dir=scratch_dir) as temporary:
         snapshot = Path(temporary)
         (snapshot / MANIFEST).write_bytes(manifest_bytes)
-        for relative in files:
+        for relative, evidence in files.items():
             path = PurePosixPath(relative)
             if (not relative or '\\' in relative or path.is_absolute() or '..' in path.parts
                     or str(path) != relative or relative == MANIFEST
                     or not (run / relative).resolve().is_relative_to(run)):
                 raise ValueError(f'Unsafe captured file path: {relative}')
+            if not isinstance(evidence, dict):
+                raise ValueError(f'Invalid captured file metadata: {relative} must be an object')
+            if not isinstance(evidence.get('role'), str) or not evidence['role'].strip():
+                raise ValueError(f'Invalid captured file metadata: {relative}: role must be a nonempty string')
+            if type(evidence.get('bytes')) is not int or evidence['bytes'] < 0:
+                raise ValueError(f'Invalid captured file metadata: {relative}: bytes must be a nonnegative integer')
+            for field in ('sha256', 'original_sha256'):
+                if field == 'original_sha256' and field not in evidence:
+                    continue
+                digest = evidence.get(field)
+                if not isinstance(digest, str) or re.fullmatch(r'[0-9a-f]{64}', digest) is None:
+                    raise ValueError(f'Invalid captured file metadata: {relative}: {field} must be a SHA-256 hex digest')
             data = (run / relative).read_bytes()
             if path.suffix not in ('.json', '.jsonl'):
                 raise ValueError(f'Unsupported captured evidence format: {relative}')

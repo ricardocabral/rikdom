@@ -211,6 +211,79 @@ class ReadPortfolioContextTests(unittest.TestCase):
         self.assertIn('methods', err)
         self.assertEqual(list(self.scratch.iterdir()), [])
 
+    def test_malformed_manifest_structures_fail_descriptively_without_tracebacks(self):
+        self.capture()
+        path = self.run / 'analysis-run.json'
+        original = path.read_bytes()
+        before = self.tree(self.source)
+        for field, value in (
+            ('environment', []), ('environment', None), ('environment', 'invalid'),
+            ('inputs', ['portfolio', 'snapshots', 'fx_history']), ('inputs', None),
+            ('parameters', []), ('parameters', None),
+            ('methods', []), ('methods', None),
+            ('files', []), ('files', None),
+        ):
+            with self.subTest(field=field, value=value):
+                manifest = json.loads(original)
+                manifest[field] = value
+                path.write_text(json.dumps(manifest))
+                saved = self.tree(self.run)
+                code, out, err = self.read()
+                self.assertEqual((code, out), (1, ''))
+                self.assertIn('Context read failed:', err)
+                self.assertIn(field, err)
+                self.assertNotIn('Traceback', err)
+                self.assertEqual(list(self.scratch.iterdir()), [])
+                self.assertEqual(saved, self.tree(self.run))
+        self.assertEqual(before, self.tree(self.source))
+
+    def test_malformed_consumed_values_and_required_citations_fail_cleanly(self):
+        self.capture()
+        path = self.run / 'analysis-run.json'
+        original = path.read_bytes()
+        missing = object()
+        cases = [
+            (('created_at',), value, 'created_at')
+            for value in (missing, None, [], '')
+        ] + [
+            (('inputs', 'portfolio'), value, 'inputs.portfolio')
+            for value in (None, [], {}, '')
+        ] + [
+            (('parameters', field), value, 'parameters.' + field)
+            for field, value in (('since', []), ('until', {}), ('analysis_as_of', 3),
+                                 ('instrument', []), ('terminal_value', {}))
+        ] + [
+            (('files', 'result.json'), value, 'result.json')
+            for value in ([], None)
+        ] + [
+            (('files', 'result.json', field), value, field)
+            for field, values in (
+                ('role', (missing, None, [], '')),
+                ('bytes', (missing, None, True, -1, 1.0)),
+                ('sha256', (missing, None, [], 'invalid')),
+                ('original_sha256', (None, 'invalid')),
+            ) for value in values
+        ]
+        for keys, value, diagnostic in cases:
+            with self.subTest(keys=keys, value=value):
+                manifest = json.loads(original)
+                target = manifest
+                for key in keys[:-1]:
+                    target = target[key]
+                if value is missing:
+                    del target[keys[-1]]
+                else:
+                    target[keys[-1]] = value
+                path.write_text(json.dumps(manifest))
+                saved = self.tree(self.run)
+                code, out, err = self.read()
+                self.assertEqual((code, out), (1, ''))
+                self.assertIn('Context read failed:', err)
+                self.assertIn(diagnostic, err)
+                self.assertNotIn('Traceback', err)
+                self.assertEqual(list(self.scratch.iterdir()), [])
+                self.assertEqual(saved, self.tree(self.run))
+
     def test_missing_captured_input_fails_without_falling_back_to_originals(self):
         self.capture()
         (self.run / 'inputs/portfolio.json').unlink()
