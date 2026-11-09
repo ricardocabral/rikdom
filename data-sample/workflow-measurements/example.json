@@ -28,6 +28,10 @@
       "failures_and_downloads": null
     },
     "statement_acquisition_seconds": null,
+    "workspace_setup_within_workflow": {
+      "identity_currency_and_private_paths": null,
+      "steps_and_elapsed_seconds": null
+    },
     "started_at": null,
     "stopped_at_or_window_cutoff": null,
     "elapsed_seconds": null,

@@ -64,22 +64,124 @@ a hypothesis, not a forced cutoff. Never count stopping at that point as success
 
 ## 3. Attempt the workflow without personal onboarding
 
+With the workflow clock running, run the following from the repository root.
+Choose the identity, display name, owner kind, and three-letter reporting currency
+for your portfolio; the values below are editable examples. Keep this shell's
+path variables for every subsequent command. A temporary workspace is suitable
+for a rehearsal; move real records to durable private storage before follow-up.
+
+```sh
+workspace="$(mktemp -d)"
+data_dir="$workspace/data"
+out_root="$workspace/out"
+portfolio="$data_dir/portfolio.json"
+mkdir -p "$data_dir" "$out_root"
+portfolio_id="my-local-portfolio"
+display_name="My portfolio"
+owner_kind="person"
+reporting_currency="USD"
+python3 - "$portfolio" "$portfolio_id" "$display_name" "$owner_kind" "$reporting_currency" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path, portfolio_id, display_name, owner_kind, currency = sys.argv[1:]
+reference = json.loads(Path("data-sample/portfolio.json").read_text())
+empty = {key: reference[key] for key in (
+    "schema_version", "schema_uri", "asset_type_catalog"
+)}
+empty.update(
+    profile={"portfolio_id": portfolio_id, "owner_kind": owner_kind,
+             "display_name": display_name},
+    settings={"base_currency": currency},
+    holdings=[], activities=[],
+)
+with Path(path).open("x") as target:
+    json.dump(empty, target, indent=2)
+    target.write("\n")
+for name in ("snapshots.jsonl", "fx_rates.jsonl"):
+    with Path(path).with_name(name).open("x"):
+        pass
+PY
+uv run --offline --no-sync rikdom validate \
+  --portfolio "$portfolio" --data-dir "$data_dir" --out-root "$out_root"
+```
+
+This reuses only the existing schema identifiers and asset **type definitions**.
+It copies no demo holdings, balances, accounts, activities, history, FX observations,
+or source coverage. Empty history/FX files assert no observations. Keep these files
+in place: some commands bootstrap missing workspace files from samples. Do not use
+`make bootstrap` or `workspace init` with sample seeding for this run. Validation
+of the empty structure does not establish statement coverage.
+
 1. Follow [import a broker statement](import-a-statement.md) and the chosen
    importer's README. Preview, inspect source scope/coverage and mappings, then
    explicitly accept the import. Record any format conversion or manual work.
    An unsupported input is a failed attempt with an importer limitation, not an
    omitted case. Do not build an importer as part of a timed completion run.
+
+   Set `importer` and `statement` to the selected plugin and absolute local input
+   path (after any required conversion), then preview and, after review, accept:
+
+   ```sh
+   importer="csv-generic"
+   statement="/absolute/private/path/to/statement.csv"
+   uv run --offline --no-sync rikdom import-statement \
+     --plugin "$importer" --plugins-dir plugins --input "$statement" \
+     --portfolio "$portfolio" --data-dir "$data_dir" --out-root "$out_root" \
+     --fx-history "$data_dir/fx_rates.jsonl" --dry-run
+   # Run only after inspecting and accepting the preview:
+   uv run --offline --no-sync rikdom import-statement \
+     --plugin "$importer" --plugins-dir plugins --input "$statement" \
+     --portfolio "$portfolio" --data-dir "$data_dir" --out-root "$out_root" \
+     --fx-history "$data_dir/fx_rates.jsonl" --write --reconcile
+   ```
+
 2. Validate and read the generated reconciliation/trust evidence. Check against
    the local statement; record mismatches, missing coverage, and unavailable
    comparisons. Apply only corrections you can support; use
    [reviewed imports](../reference/reviewed-imports.md) when applicable. Zero
    warnings does not establish completeness. Record what you reviewed even if
    no discrepancy was found.
+
+   ```sh
+   uv run --offline --no-sync rikdom validate \
+     --portfolio "$portfolio" --data-dir "$data_dir" --out-root "$out_root"
+   ```
+
+   Inspect `$out_root/reports/reconciliation.md` and
+   `$out_root/reports/holding_trust.md` against your statement.
+
 3. Produce the chosen [answer](summarize-income.md) or
    [report](render-a-report.md). Verify its scope, dates, currency, method, and
    evidence against the question. State remaining unknowns beside the answer.
    Save local evidence references for your own check; do not put them in a
    shared summary.
+
+   For the received-income question, choose the actual inclusive statement dates:
+
+   ```sh
+   start_date="2026-01-01"
+   end_date="2026-12-31"
+   uv run --offline --no-sync rikdom income \
+     --portfolio "$portfolio" --data-dir "$data_dir" --out-root "$out_root" \
+     --out-dir "$out_root/reports" --start "$start_date" --end "$end_date"
+   ```
+
+   Read `$out_root/reports/income.json` and `income.md`, including diagnostics;
+   totals remain in native currencies. If HTML was the predeclared output, use:
+
+   ```sh
+   RIKDOM_DISABLE_QUARTO=1 uv run --offline --no-sync rikdom viz \
+     --portfolio "$portfolio" --data-dir "$data_dir" --out-root "$out_root" \
+     --snapshots "$data_dir/snapshots.jsonl" --fx-history "$data_dir/fx_rates.jsonl" \
+     --plugins-dir plugins --out "$out_root/dashboard.html" --include-current
+   ```
+
+   Open `$out_root/dashboard.html` and `$out_root/portfolio-report.html`. This
+   explicitly selects fallback HTML; `--include-current` adds a derived current
+   view for rendering, not historical source evidence. Missing FX/history and
+   unavailable required figures remain limitations; do not fill them with samples.
 
 Mark **attempted** when the workflow clock starts. Mark **completed** only when
 import acceptance, review, and the predeclared answer/report checks all finish.
