@@ -222,6 +222,10 @@ acquisition requires an explicitly selected connector, for example
 
 ## AI Agent Skills
 
+For evidence-backed external reasoning, start with the [local read contract](docs/reference/agent-read-contract.md)
+and the [read-only example](docs/how-to/read-portfolio-context-example.md). They explain
+how to identify inputs, scope an answer, preserve unknowns, and propose reviewed changes.
+
 - `.codex/SKILL.md`
 - `.codex/skills/rikdom-portfolio-analyst/SKILL.md`
 - `.codex/skills/rikdom-extensibility-engineer/SKILL.md`

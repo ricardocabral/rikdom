@@ -30,35 +30,13 @@ are defined in [product scope](docs/explanation/product-scope.md).
 
 | Priority | Outcome | Boundary |
 | --- | --- | --- |
-| Now, P0 | Give external agents reliable, scoped portfolio context | Document stable reads of existing files and calculation outputs; no inference runtime or mandatory service. |
-| Next, P1 | Explain changes between saved results | Compare captured evidence and methods; do not confuse revised facts with investment returns. |
+| Now, P1 | Explain changes between saved results | Compare captured evidence and methods; do not confuse revised facts with investment returns. |
 | Ongoing, P1 | Validate usefulness and close demonstrated core gaps | Fix observed integrity, compatibility, or evidence problems without adopting downstream product responsibilities. |
 
-Agent access does not depend on sophisticated run comparisons, a new protocol,
-report rendering, or reconstruction of an importer environment.
-
-## Reliable portfolio context for external agents
-
-**Outcome:** an external agent can identify the records it read, use supported
-calculations, cite evidence, and explain what remains unknown.
-
-- [ ] Document a read contract connecting canonical records, policy, source/review
-  evidence, and calculation outputs. Identify schema/result versions, portfolio
-  revision or input hashes, account scope, reporting currency, and relevant dates.
-  Reuse existing contracts before adding fields or commands.
-- [ ] Document how an agent selects a consistent local input state across files,
-  using captured analysis inputs where appropriate. Distinguish effective dates,
-  retrieval times, and calculation times; do not imply an atomic live-workspace
-  snapshot where none exists.
-- [ ] Make evidence references and completeness/freshness limits understandable
-  across the supported read surfaces. Distinguish missing, stale, disputed,
-  approximate, and unavailable values from zero or confirmed absence.
-- [ ] Provide a read-only script/agent example that selects the relevant portfolio
-  scope, consumes deterministic results, and cites their inputs. Exercise complete,
-  approximate, and unavailable cases without requiring a particular LLM or server.
-- [ ] Document how an agent presents proposed corrections or policy changes for
-  explicit review through validated write workflows. Reasoning output must not
-  silently replace observed facts or accepted user decisions.
+Reliable external-agent reads are documented in the [read contract](docs/reference/agent-read-contract.md),
+[context workflow](docs/how-to/use-portfolio-context.md), and [offline reader example](docs/how-to/read-portfolio-context-example.md).
+They do not depend on run comparisons, a new protocol, report rendering, or
+reconstruction of an importer environment.
 
 ## Explain differences between saved runs
 
@@ -75,6 +53,10 @@ local evidence, without treating every difference as economic performance.
   explicit errors, evidence references, and compatibility expectations.
 
 ## Validate the core workflow
+
+Use the [local measurement protocol](docs/how-to/measure-core-workflow.md). Its
+blank template and synthetic checks are not measured user observations; the
+completion-time and repeat-use criteria below remain unvalidated.
 
 - [ ] Measure independent users completing first-real-statement → review →
   portfolio answer/report without personal onboarding. Test a proposed
