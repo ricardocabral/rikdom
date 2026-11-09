@@ -232,8 +232,12 @@ def capture_performance_run(output: str | Path, *, inputs: dict[str, str | Path]
     return manifest
 
 
-def _read_verified_run(run: str | Path) -> tuple[dict[str, Any], dict[str, bytes]]:
-    """Validate all declared bytes and compatibility without executing a calculation."""
+def _read_verified_run(run: str | Path, *, check_environment: bool = True) -> tuple[dict[str, Any], dict[str, bytes]]:
+    """Validate declared bytes; evidence comparison may skip runtime compatibility.
+
+    Skipping compatibility permits inspection only, never calculation or restore.
+    Callers receive the verified bytes so subsequent reads cannot change evidence.
+    """
     root = Path(run)
     manifest_bytes = (root / RUN_MANIFEST).read_bytes()
     manifest = json.loads(manifest_bytes)
@@ -277,10 +281,11 @@ def _read_verified_run(run: str | Path) -> tuple[dict[str, Any], dict[str, bytes
                 raise AnalysisRunError(f'Analysis dependency omitted: benchmark {identifier}')
     if manifest.get('output_sha256') != files['result.json']['sha256']:
         raise AnalysisRunError('Expected analysis output hash changed')
-    installed = _environment()
-    for key in ('python', 'implementation', 'platform', 'core_version', 'core_sha256', 'dependencies', 'plugins', 'package_version', 'module_version'):
-        if manifest.get('environment', {}).get(key) != installed[key]:
-            raise AnalysisRunError(f'Analysis environment incompatible: {key}; install the recorded trusted environment separately')
+    if check_environment:
+        installed = _environment()
+        for key in ('python', 'implementation', 'platform', 'core_version', 'core_sha256', 'dependencies', 'plugins', 'package_version', 'module_version'):
+            if manifest.get('environment', {}).get(key) != installed[key]:
+                raise AnalysisRunError(f'Analysis environment incompatible: {key}; install the recorded trusted environment separately')
     return manifest, payloads
 
 

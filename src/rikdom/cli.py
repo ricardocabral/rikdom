@@ -2561,6 +2561,12 @@ def build_parser() -> argparse.ArgumentParser:
             command.add_argument("--omission-reason", choices=("user", "license"), default="user")
         command.set_defaults(func=cmd_analysis)
 
+    from .analysis_comparison import cmd_compare_analysis
+    p_compare = sub.add_parser('compare-analysis', help='Compare recorded performance evidence without replay or writes')
+    p_compare.add_argument('--before', required=True, help='Complete saved performance run directory')
+    p_compare.add_argument('--after', required=True, help='Complete saved performance run directory')
+    p_compare.set_defaults(func=cmd_compare_analysis)
+
     p_funded_ratio = sub.add_parser(
         "funded-ratio",
         help="Compute deterministic funded-ratio projections for policy objectives",
@@ -2995,7 +3001,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     try:
         preview = args.command in ("import-statement", "activity") and (not getattr(args, "write", False) or getattr(args, "dry_run", False))
-        if not preview and args.command not in ("income", "market-events", "capture-analysis", "replay-analysis", "export-analysis", "restore-analysis", "import-export"):
+        if not preview and args.command not in ("income", "market-events", "capture-analysis", "replay-analysis", "export-analysis", "restore-analysis", "compare-analysis", "import-export"):
             _bootstrap_default_workspace(args)
         return args.func(args)
     except (ValueError, OSError) as exc:
