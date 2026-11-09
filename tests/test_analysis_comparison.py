@@ -630,6 +630,103 @@ class AnalysisComparisonTests(unittest.TestCase):
         self.assertIn('account_scope_changed', result['compatibility']['reasons'])
         self.assertEqual(result['deltas'], {})
 
+    def test_old_snapshot_union_cannot_mask_each_changed_resolved_bookend(self):
+        import copy
+        original = copy.deepcopy(self.snapshots)
+        old = {**copy.deepcopy(original[0]), 'timestamp': '2025-01-01T00:00:00Z',
+               'totals': {'portfolio_value_base': 300, 'by_account': {'a': 100, 'b': 200}}}
+        for changed in ((0,), (1,), (0, 1)):
+            with self.subTest(changed=changed):
+                self.snapshots = [copy.deepcopy(old), *copy.deepcopy(original)]
+                for row in self.snapshots[1:]:
+                    row['totals']['by_account'] = {'a': row['totals']['portfolio_value_base']}
+                parameters = {'since': '2026-02-01', 'until': '2026-12-31'}
+                before = self.capture('before-' + str(changed), **parameters)
+                for index in changed:
+                    row = self.snapshots[index + 1]
+                    value = (200, 240)[index]
+                    row['totals'] = {'portfolio_value_base': value, 'by_account': {'b': value}}
+                after = self.capture('after-' + str(changed), **parameters)
+                result = self.compare(before, after)
+                self.assertEqual(result['before']['period_start'], '2026-01-01T00:00:00Z')
+                self.assertEqual(result['before']['scope']['account_ids'], ['a', 'b'])
+                self.assertEqual(result['after']['scope']['account_ids'], ['a', 'b'])
+                self.assertIn('account_scope_changed', result['compatibility']['reasons'])
+                self.assertEqual(result['deltas'], {})
+
+    def test_out_of_window_membership_is_inventory_only(self):
+        import copy
+        for row in self.snapshots:
+            row['totals']['by_account'] = {'a': row['totals']['portfolio_value_base']}
+        old = copy.deepcopy(self.snapshots[0])
+        old['timestamp'] = '2025-01-01T00:00:00Z'
+        old['totals']['by_account'] = {'old-account': 100}
+        self.snapshots.insert(0, old)
+        parameters = {'since': '2026-01-01', 'until': '2026-12-31'}
+        before = self.capture('before', **parameters)
+        old['totals']['by_account'] = {'__unassigned__': 100, 'other-old-account': 0}
+        after = self.capture('after', **parameters)
+        result = self.compare(before, after)
+        self.assertNotEqual(result['before']['scope']['account_ids'], result['after']['scope']['account_ids'])
+        self.assertTrue(result['compatibility']['comparable'])
+        self.assertEqual(result['deltas']['end_value_base']['delta'], 0)
+        self.assertEqual(result['before']['scope']['account_membership_at_bookends'], {
+            field: {'account_ids': ['a'], 'has_unassigned_accounts': False}
+            for field in ('period_start', 'period_end')})
+
+    def test_missing_bookend_membership_stays_unknown_independently(self):
+        for index, field in enumerate(('period_start', 'period_end')):
+            with self.subTest(field=field):
+                for row in self.snapshots:
+                    row['totals']['by_account'] = {'a': row['totals']['portfolio_value_base']}
+                self.snapshots[index]['totals'].pop('by_account')
+                before = self.capture('unknown-' + field)
+                result = self.compare(before, before)
+                self.assertTrue(result['compatibility']['comparable'])
+                membership = result['before']['scope']['account_membership_at_bookends']
+                self.assertIsNone(membership[field])
+                other = 'period_end' if index == 0 else 'period_start'
+                self.assertEqual(membership[other]['account_ids'], ['a'])
+                self.snapshots[index]['totals']['by_account'] = {'a': 100}
+                after = self.capture('known-' + field)
+                self.assertIn('account_scope_changed', self.compare(before, after)['compatibility']['reasons'])
+
+    def test_in_window_snapshot_inventory_still_suppresses_changed_scope(self):
+        import copy
+        for row in self.snapshots:
+            row['totals']['by_account'] = {'a': row['totals']['portfolio_value_base']}
+        middle = copy.deepcopy(self.snapshots[0])
+        middle['timestamp'] = '2026-06-01T00:00:00Z'
+        middle['totals']['by_account'] = {'b': 100}
+        self.snapshots.insert(1, middle)
+        before = self.capture('before')
+        middle['totals']['by_account'] = {'c': 100}
+        after = self.capture('after')
+        result = self.compare(before, after)
+        self.assertEqual(result['before']['scope']['account_membership_at_bookends'],
+                         result['after']['scope']['account_membership_at_bookends'])
+        self.assertIn('account_scope_changed', result['compatibility']['reasons'])
+        self.assertEqual(result['deltas'], {})
+
+    def test_historical_position_bookends_do_not_inherit_ignored_journal_membership(self):
+        sample = Path('data-sample/historical-valuation-replay')
+        self.portfolio = json.loads((sample / 'portfolio.json').read_text())
+        self.extra_inputs = {'historical_valuations': sample / 'replay.json'}
+        for row in self.snapshots:
+            row['base_currency'] = 'BRL'
+            row['totals']['by_account'] = {'a': 100}
+        before = self.capture('before')
+        for row in self.snapshots:
+            row['totals']['by_account'] = {'b': 200}
+        after = self.capture('after')
+        result = self.compare(before, after)
+        self.assertEqual(result['before']['period_start'], '2026-01-02T00:00:00Z')
+        self.assertEqual(result['before']['scope']['account_membership_at_bookends'], {
+            'period_start': None, 'period_end': None})
+        self.assertTrue(result['compatibility']['comparable'])
+        self.assertEqual(result['deltas']['start_value_base']['before'], 135)
+        self.assertEqual(result['deltas']['start_value_base']['delta'], 0)
+
     def test_real_profit_decomposition_requires_captured_reviewed_basis(self):
         from rikdom.analysis_runs import AnalysisRunError
         for fixture in ('profit-attribution', 'profit-attribution-fx'):
@@ -652,6 +749,135 @@ class AnalysisComparisonTests(unittest.TestCase):
                 self.omit_role(run, 'profit_basis')
                 with self.assertRaisesRegex(AnalysisRunError, 'profit_basis'):
                     self.compare(run, run)
+
+    def test_fx_rows_require_fields_and_captured_effective_event_references(self):
+        from rikdom.analysis_runs import AnalysisRunError
+        self.historical_fx()
+        corrected = self.add_flow(7, 'corrected')
+        corrected['extensions'] = {'rikdom_correction': {
+            'version': 1, 'supersedes_activity_id': 'flow', 'reason': 'Synthetic correction'}}
+        before = self.capture('before')
+        for name, changes in (
+            ('status-only', None), ('nonexistent', {'activity_id': 'missing'}),
+            ('superseded', {'activity_id': 'flow'}), ('amount', {'native_amount': 99}),
+            ('currency', {'native_currency': 'EUR'}), ('date', {'effective_at': '2026-06-02T00:00:00Z'}),
+            ('event-type', {'event_type': 'withdrawal'}), ('missing-rate', {'rate': None}),
+            ('missing-observation', {'observation': None}), ('observation-id', {'observation': {'id': 'missing'}}),
+            ('pair', {'currency_pair': {'base': 'EUR', 'quote': 'BRL'}}),
+        ):
+            with self.subTest(name=name):
+                after = self.capture(name)
+                result = json.loads((after / 'result.json').read_text())
+                self.assertEqual(result['fx_status'], 'complete')
+                self.assertEqual(result['fx_evidence'][0]['activity_id'], 'corrected')
+                if changes is None:
+                    result['fx_evidence'] = [{'status': 'available'}]
+                else:
+                    result['fx_evidence'][0].update(changes)
+                self.rewrite_payload(after, 'result.json', json.dumps(result).encode())
+                with self.assertRaisesRegex(AnalysisRunError, 'fx_evidence'):
+                    self.compare(before, after)
+
+    def test_native_converted_and_unavailable_fx_contracts_without_calculation(self):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+        from rikdom.analysis_runs import AnalysisRunError
+        self.historical_fx()
+        flow = self.portfolio['activities'][0]
+        for name, currency, amount, date, status in (
+            ('native', 'BRL', 10, '2026-06-01T00:00:00Z', 'available'),
+            ('converted', 'USD', -10, '2026-06-01T00:00:00Z', 'available'),
+            ('missing-mapping', 'EUR', 10, '2026-06-01T00:00:00Z', 'unavailable'),
+            ('stale', 'USD', 10, '2026-06-10T00:00:00Z', 'unavailable'),
+            ('invalid-date', 'USD', 10, 'invalid', 'unavailable'),
+            ('non-string-date', 'USD', 10, 42, 'unavailable'),
+            ('invalid-amount', 'USD', None, '2026-06-01T00:00:00Z', 'unavailable'),
+            ('invalid-currency', 'invalid', 10, '2026-06-01T00:00:00Z', 'unavailable'),
+        ):
+            with self.subTest(name=name):
+                flow.update(money={'amount': amount, 'currency': currency}, effective_at=date)
+                run = self.capture(name)
+                recorded = json.loads((run / 'result.json').read_text())
+                row = recorded['fx_evidence'][0]
+                self.assertEqual(row['status'], status)
+                inventory = self.inventory()
+                with ExitStack() as stack:
+                    for target in ('rikdom.analysis_runs._evaluate', 'rikdom.performance.compute_performance',
+                                   'rikdom.profit_attribution.compute_profit_attribution',
+                                   'rikdom.historical_fx.HistoricalFx.resolve', 'rikdom.market_series.MarketSeries.lookup'):
+                        stack.enter_context(patch(target, side_effect=AssertionError(target + ' forbidden')))
+                    comparison = self.compare(run, run)
+                self.assertTrue(comparison['compatibility']['comparable'])
+                self.assertEqual(self.inventory(), inventory)
+                if status == 'unavailable':
+                    self.assertIsNone(comparison['deltas']['net_external_cashflow_base']['delta'])
+                original = json.dumps(recorded)
+                for field in row:
+                    with self.subTest(missing_field=field):
+                        changed = json.loads(original)
+                        changed['fx_evidence'][0].pop(field)
+                        self.rewrite_payload(run, 'result.json', json.dumps(changed).encode())
+                        with self.assertRaisesRegex(AnalysisRunError, 'fx_evidence'):
+                            self.compare(run, run)
+
+    def test_complete_profit_basis_requires_supported_declarations_and_result_agreement(self):
+        from unittest.mock import patch
+        from rikdom.analysis_runs import AnalysisRunError
+        for fixture in ('profit-attribution', 'profit-attribution-fx'):
+            sample = Path('data-sample') / fixture
+            self.portfolio = json.loads((sample / 'portfolio.json').read_text())
+            self.snapshots = [json.loads(line) for line in (sample / 'snapshots.jsonl').read_text().splitlines()]
+            self.extra_inputs = {'profit_basis': sample / 'basis.json'}
+            if fixture.endswith('-fx'):
+                self.extra_inputs['historical_fx'] = sample / 'historical-fx.json'
+            before = self.capture(fixture + '-valid')
+            with patch('rikdom.profit_attribution.compute_profit_attribution', side_effect=AssertionError('forbidden')), \
+                    patch('rikdom.multicurrency_profit.decompose_multicurrency', side_effect=AssertionError('forbidden')):
+                self.assertTrue(self.compare(before, before)['compatibility']['comparable'])
+            for field, value in (('method', 'unsupported-lifo'), ('base_currency', 'USD'),
+                                 ('price_adjustment', 'total_return_adjusted'), ('cost_convention', 'ignored')):
+                with self.subTest(fixture=fixture, field=field):
+                    after = self.capture(fixture + '-' + field)
+                    basis = json.loads((after / 'inputs/profit_basis.json').read_text())
+                    basis[field] = value
+                    self.rewrite_payload(after, 'inputs/profit_basis.json', json.dumps(basis).encode())
+                    with self.assertRaisesRegex(AnalysisRunError, 'profit_basis'):
+                        self.compare(before, after)
+            for name in ('method', 'base_currency', 'basis_evidence'):
+                with self.subTest(fixture=fixture, result=name):
+                    after = self.capture(fixture + '-result-' + name)
+                    result = json.loads((after / 'result.json').read_text())
+                    attribution = result['profit_attribution']
+                    if name == 'method':
+                        attribution['decomposition']['method'] = 'unsupported-lifo'
+                    elif name == 'base_currency':
+                        attribution['base_currency'] = 'USD'
+                    else:
+                        attribution['decomposition']['basis_evidence']['method'] = 'unsupported-lifo'
+                    self.rewrite_payload(after, 'result.json', json.dumps(result).encode())
+                    with self.assertRaisesRegex(AnalysisRunError, 'profit_basis|profit_attribution'):
+                        self.compare(before, after)
+
+    def test_partial_composite_policy_remains_capturable_comparable_and_replayable(self):
+        from rikdom.analysis_runs import replay_analysis_run
+        policy = self.root / 'policy.json'
+        policy.write_text(json.dumps({
+            'benchmarks': [{'id': 'index', 'kind': 'index', 'currency': 'USD'},
+                           {'id': 'blend', 'kind': 'composite', 'currency': 'USD',
+                            'components': [{'benchmark_id': 'index', 'weight_pct': 100}]}],
+            'strategic_allocation': {'targets': [{'benchmark_id': 'blend', 'weight_pct': 100}]}}))
+        benchmarks = self.root / 'benchmarks'
+        benchmarks.mkdir()
+        (benchmarks / 'index.jsonl').write_text(''.join(json.dumps({
+            'as_of': row['timestamp'], 'level': row['totals']['portfolio_value_base'],
+            'currency': 'USD', 'return_convention': 'total_return', 'source': 'synthetic'}) + '\n'
+            for row in self.snapshots))
+        self.extra_inputs = {'policy': policy, 'benchmarks_dir': benchmarks}
+        run = self.capture('partial-policy')
+        inventory = self.inventory()
+        self.assertTrue(self.compare(run, run)['compatibility']['comparable'])
+        self.assertEqual(replay_analysis_run(run), json.loads((run / 'result.json').read_text()))
+        self.assertEqual(self.inventory(), inventory)
 
     def test_real_instrument_complete_and_incomplete_evidence(self):
         from tests.test_instrument_performance import _portfolio

@@ -99,10 +99,30 @@ reported as incompatible, even where replay does not enforce that field.
 
 `scope.account_ids` lists identities explicitly declared in captured holdings,
 activities, snapshot `totals.by_account`, and policy `accounts[].account_id`.
-`account_ids_by_evidence` retains each collection's identities separately so an
-unchanged policy catalog cannot hide changed observed membership.
+`account_ids_by_evidence` retains each collection's identities separately.
+These inventories include historical snapshots and remain available for inspection.
 `has_unassigned_accounts` preserves missing assignments and the existing
-`__unassigned__` marker. No declared identities produces `account_ids: null`;
+`__unassigned__` marker; `has_unassigned_accounts_by_evidence` separately retains
+missing assignments in canonical holdings and activities, and unassigned
+snapshot evidence within the resolved window. The
+`account_ids_by_evidence.snapshots_in_resolved_window` inventory retains the
+union of declared snapshot accounts within those recorded bounds.
+
+`account_membership_at_bookends` reports membership independently at
+`period_start` and `period_end`, using the recorded result's resolved instants,
+not a new selection of the requested window. Each known bookend contains
+`account_ids` and `has_unassigned_accounts`; absent or empty `totals.by_account`
+evidence produces null. Conflicting declarations at one resolved instant fail.
+The supported historical-position replay contract has no account identities,
+so its bookend memberships remain null. Position IDs, current holdings, policy
+catalogs and ignored snapshot journals cannot establish replay account membership.
+
+Canonical holdings, activities and policy membership, their assignment evidence,
+the in-window snapshot inventory, and each resolved bookend are compared
+separately. An identical older snapshot
+or account catalog cannot hide changed bookend membership. Snapshot membership
+outside the resolved window changes only the inspection inventory, not the
+numerical comparison scope. No declared identities produces `account_ids: null`;
 this is unknown scope, not a verified empty account set. Matching unknown scope
 does not prevent comparison of recorded portfolio answers, but does not establish
 account coverage. Changed declared membership or assignment evidence suppresses
@@ -185,13 +205,33 @@ parser. A `linked_subperiod` claim requires a declared, valid, nonempty
 their declared inputs and corresponding recorded evidence; complete valuation
 inputs must assert complete positions. Complete profit decomposition requires
 captured reviewed basis and complete period history (and complete inventory for
-the multicurrency contract). Complete instrument results require the captured
+the multicurrency contract). Both supported basis versions require FIFO,
+unadjusted prices, and `buy_costs_capitalized_sell_costs_deducted`. Basis currency,
+scope and period must agree with the recorded result and captured scope; the
+decomposition's method, version and copied basis must agree with the captured
+basis input. Complete instrument results require the captured
 holding's complete-history declaration. Supported nested result containers,
 statuses and financial values are checked, including FX evidence, attribution
 sections and instrument rows. Errors identify the offending role or field.
 
+FX rows require the fields emitted by the native, converted, or unavailable
+contract. Activity IDs must identify distinct captured effective posted external
+events in the resolved period; superseded events and verified internal-transfer
+legs cannot supply external-flow evidence. Event type, native amount, currency
+and date must agree with that captured ledger. Lookup parameters and currency
+pairs must agree with captured inputs. Converted series/observation references
+must match captured normalized evidence, and available rates must match their
+referenced observations. Unavailable rows retain null converted amounts and
+explicit reasons, including supported malformed native inputs.
+
 These checks establish structural support for recorded claims. They perform no
-market lookup, performance calculation, reconciliation or source-truth check.
+market lookup, rate selection, performance calculation, reconciliation or
+source-truth check. In particular, they do not recompute converted amounts,
+prove that a referenced quote was the eligible latest quote, or reconcile profit
+totals. They are bounded checks of the supported comparison evidence, not an
+exhaustive validator of every nested financial field. Partial policy documents
+accepted by capture remain supported; comparison does not require the full
+policy schema.
 Unrecognized optional extension fields remain in the referenced captured bytes;
 comparison assigns them no supported semantics or numerical deltas.
 
