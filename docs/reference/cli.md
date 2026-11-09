@@ -29,6 +29,47 @@ Most commands accept these workspace flags:
 | `rikdom aggregate --data-dir data --out-root out` | `make aggregate`        | Aggregate by asset class.                                                                   |
 | `rikdom snapshot --data-dir data --out-root out`  | `make snapshot`         | Append a historical snapshot with FX lock. See [FX snapshot fields](fx-snapshot-fields.md). |
 
+`aggregate` prints compact, unrounded JSON by default. Optional flags:
+
+| Flag | Meaning |
+| --- | --- |
+| `--portfolio <path>` | Select the portfolio JSON explicitly. |
+| `--fx-history <path>` | Select local cached FX history; aggregation does not acquire rates. |
+| `--include-trust` | Add `trust.holdings`, `trust.findings` and `trust.fx_context` to stdout from the same shared calculation. |
+| `--strict-quality` | Return exit `1` on existing strict-quality errors, retaining JSON diagnostics (including `trust` when requested). |
+| `--bundle <zip>` | Capture the actual inputs, selected FX and compact result as a v3 analysis bundle; failed strict calculations are not captured. |
+
+For “which holdings were excluded, and why?”, use:
+
+```sh
+rikdom aggregate --portfolio portfolio.json --fx-history fx_rates.jsonl --include-trust
+```
+
+`trust.holdings` uses the existing `HoldingTrustRecord.to_dict()` shape: holding
+and asset-type IDs, asset class, native `source_amount`/`source_currency`,
+`base_currency`, available `base_amount`/`fx_rate`/`fx_source`/`fx_timestamp`,
+`excluded_reason` when excluded, and finding codes when present. For example, an
+excluded EUR holding retains its EUR amount and `fx_missing` reason with
+`RECON_FX_MISSING`; its unavailable base amount and FX rate are omitted, never
+replaced with zero. Optional fields with no value are omitted; known zero amounts
+remain numeric zero. `trust.findings` contains existing structured findings with
+codes, severity and available references/details, using `Finding.to_dict()`.
+
+`trust.fx_context` is the selected FX lock: `base_currency`,
+`snapshot_timestamp`, `rates_to_base`, `rate_dates` and `sources`. The timestamp
+is the selection cutoff, not a quote date. Inspect each holding's `fx_source`:
+identity conversion needs no cached rate; the metadata fallback can have an
+unknown effective date and need not appear in the cache lock. This option exposes
+existing evidence, adds no calculation or completeness check, and writes no
+additional artifacts or source changes. See [agent read contract](agent-read-contract.md#completeness-and-uncertainty).
+
+With `--include-trust --bundle <zip>`, capture first saves the supported compact
+result under `analysis/result.json`; stdout then includes the optional `trust`
+object. The evidence is **stdout-only**, so save stdout separately if needed.
+`replay-export` reproduces the compact result and does not emit that object.
+Bundle v3, method `aggregate/1.0.0`, recorded parameters and equality rules are
+unchanged. Replay still requires the recorded matching environment.
+
 `snapshot` flags:
 
 - `--fx-provider <plugin>` — explicitly enable the selected connector for missing FX (`daily-rates` operation). Without it, snapshot uses local history only.

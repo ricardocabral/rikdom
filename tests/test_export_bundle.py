@@ -101,6 +101,22 @@ class ExportBundleCliTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertRegex(stderr, "(Checksum|Size) mismatch")
 
+    def test_v1_data_bundle_is_not_claimed_as_replayable_analysis(self) -> None:
+        bundle, restored = self.tmp / "v1.zip", self.tmp / "replayed"
+        code, _, stderr = _run([
+            "export", "--data-dir", str(self.tmp), "--portfolio", str(self.portfolio),
+            "--output", str(bundle),
+        ])
+        self.assertEqual((code, stderr), (0, ""))
+        with zipfile.ZipFile(bundle) as archive:
+            self.assertEqual(json.loads(archive.read("rikdom-export.json"))["format_version"], "1.0.0")
+        code, _, stderr = _run([
+            "replay-export", "--bundle", str(bundle), "--restore-dir", str(restored),
+        ])
+        self.assertEqual(code, 1)
+        self.assertIn("import-export for v1 data", stderr)
+        self.assertFalse(restored.exists())
+
     def test_export_rejects_missing_explicit_optional_input(self) -> None:
         bundle = self.tmp / "rikdom.zip"
 

@@ -2,9 +2,18 @@
 
 Use this voluntary, local protocol to measure first-real-statement → review →
 portfolio answer/report completion for [issue #45](https://github.com/ricardocabral/rikdom/issues/45).
-No measured sample is currently available: sample size and observation window
-are unavailable. The proposed **under-15-minute target is unvalidated**; synthetic
-fixtures and tutorial time estimates are not evidence of independent completion.
+
+This protocol applies when you choose to study independent onboarding, matched
+baseline effort, or repeat adoption. Rikdom currently has one experienced,
+AI-assisted owner and no independent users. For routine personal use, follow the
+lighter [personal workflow review](review-personal-workflows.md); this research
+protocol is optional future expansion, not a gate for roadmap progress. Owner
+sessions and implementation requests cannot substitute for independent attempts.
+
+No independent-completion sample is currently available: sample size and
+observation window are unavailable. The proposed **under-15-minute target is
+unvalidated**; synthetic fixtures and tutorial time estimates are not evidence
+of independent completion.
 
 ## 1. Prepare a private measurement note
 

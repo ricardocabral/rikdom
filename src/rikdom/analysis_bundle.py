@@ -6,6 +6,7 @@ and fresh-directory restoration. It never imports or installs bundled code.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
@@ -71,8 +72,13 @@ def aggregate_output(
     strict: bool,
     fx_lock: dict[str, Any],
     fx_warnings: list[str],
+    include_trust: bool = False,
 ) -> dict[str, Any]:
-    """Return the same deterministic, unrounded result for CLI and run replay."""
+    """Return the compact replay result, optionally with the same run's evidence.
+
+    ``trust`` is optional CLI evidence, outside the aggregate/1.0.0 capture and
+    replay result. Its records use the existing reconciliation serializers.
+    """
     result = aggregate_portfolio(
         portfolio,
         strict=strict,
@@ -95,6 +101,12 @@ def aggregate_output(
         value = getattr(result, key)
         if value:
             output[key] = value
+    if include_trust:
+        output["trust"] = {
+            "holdings": [record.to_dict() for record in result.trust_records],
+            "findings": [finding.to_dict() for finding in result.findings],
+            "fx_context": copy.deepcopy(fx_lock),
+        }
     return output
 
 

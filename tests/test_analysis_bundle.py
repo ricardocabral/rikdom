@@ -183,6 +183,34 @@ class AnalysisBundleTests(unittest.TestCase):
         self.assertEqual((code, stderr), (0, ""))
         self.assertEqual(json.loads(stdout)["result"]["portfolio_value_base"], 70)
 
+    def test_legacy_compact_v3_result_still_replays(self) -> None:
+        self.assertEqual(self.capture()[0], 0)
+        # Frozen aggregate/1.0.0 result shape, predating optional CLI evidence.
+        expected = {
+            "base_currency": "BRL",
+            "portfolio_value_base": 70,
+            "by_asset_class": {"stocks": 70},
+            "warnings": [],
+            "errors": [],
+            "by_region": {"__unclassified__": 70},
+            "by_currency": {"BRL": 20, "USD": 50},
+            "by_duration": {"__unclassified__": 70},
+            "by_liquidity_tier": {"__unclassified__": 70},
+            "by_account": {"__unassigned__": 70},
+        }
+
+        def freeze_legacy_result(payloads):
+            result_bytes = json.dumps(expected).encode()
+            payloads["analysis/result.json"] = result_bytes
+            run = json.loads(payloads["analysis/run.json"])
+            run["result"]["sha256"] = hashlib.sha256(result_bytes).hexdigest()
+            payloads["analysis/run.json"] = json.dumps(run).encode()
+
+        self.rewrite(freeze_legacy_result)
+        code, stdout, stderr = self.replay()
+        self.assertEqual((code, stderr), (0, ""))
+        self.assertEqual(json.loads(stdout)["result"], expected)
+
     def test_replay_rejects_corruption_before_creating_destination(self) -> None:
         self.assertEqual(self.capture()[0], 0)
         with zipfile.ZipFile(self.bundle) as archive:

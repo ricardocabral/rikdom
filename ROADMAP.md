@@ -30,8 +30,9 @@ are defined in [product scope](docs/explanation/product-scope.md).
 
 | Priority | Outcome | Boundary |
 | --- | --- | --- |
-| Now, P1 | Validate usefulness and close demonstrated core gaps | Measure independent use; fix observed integrity, compatibility, or evidence problems within core scope. |
-| Consumer-driven, P1 | Extend explanation of saved-run differences | Expand formats or controlled-change attribution for a concrete consumer; preserve evidence and comparability limits. |
+| Now, P1 | Answer recurring personal portfolio questions with evidence | Repeat existing workflows after statement updates; close bounded, observed core gaps. |
+| Consumer-driven, P1 | Extend explanation and export of saved-run differences | Expand formats or controlled-change attribution for a concrete consumer; preserve evidence and comparability limits. |
+| Optional expansion | Research independent use | Test onboarding, matched baselines, and repeat adoption when independent participants are available; this is not a gate for personal-use progress. |
 
 Reliable external-agent reads are documented in the [read contract](docs/reference/agent-read-contract.md),
 [context workflow](docs/how-to/use-portfolio-context.md), and [offline reader example](docs/how-to/read-portfolio-context-example.md).
@@ -45,7 +46,8 @@ versioned CLI/Python reads, exact input/result references, source/review and cov
 evidence, compatibility gates and bounded correction/FX isolation. It compares
 recorded answers without replaying them or claiming investment performance.
 
-Remaining work needs a concrete supported consumer:
+Remaining comparison and [export](docs/reference/export-format.md) work needs a
+concrete supported consumer:
 
 - [ ] Extend comparison beyond captured v2 performance directories or portfolio
   numerical summaries when required, retaining each format's scope, dates,
@@ -54,24 +56,57 @@ Remaining work needs a concrete supported consumer:
   the documented correction/FX cases. Keep incompatible methods, multiple drivers
   and unexplained residuals unresolved; changed recorded facts are not returns.
 
-## Validate the core workflow
+## Repeat personal portfolio questions
 
-Use the [local measurement protocol](docs/how-to/measure-core-workflow.md). Its
-blank template and synthetic checks are not measured user observations; the
-completion-time and repeat-use criteria below remain unvalidated.
+Rikdom is currently used personally by its experienced owner with AI assistance;
+there are no independent users. The primary progress signal is whether recurring
+portfolio questions can be answered from existing records with inspectable
+evidence, explicit uncertainty, and understood manual work after statement updates.
+Use the lightweight [personal workflow review](docs/how-to/review-personal-workflows.md).
+Private notes are optional; no telemetry or collection service is required.
 
-- [ ] Measure independent users completing first-real-statement → review →
-  portfolio answer/report without personal onboarding. Test a proposed
-  under-15-minute target with installation recorded separately.
-- [ ] Record attempted/completed workflows, elapsed time, unresolved discrepancies,
-  and repeat use after a statement update. Include sample size and observation
-  window beside each verdict; use voluntary feedback or local measurements.
-- [ ] Compare the same supported task against an existing workflow before claiming
-  reduced effort or better discrepancy resolution. Record setup, scope, failures,
-  and successes.
-- [ ] Use observed failures to select bounded fixes to records, validation,
-  calculations, or read contracts. Route presentation, strategy, provider, and
-  hosted-service needs to independently maintained extensions.
+- [ ] Choose the next unresolved question from actual future use. Check existing
+  answers and evidence before proposing functionality; a development request
+  alone does not establish personal question demand.
+- [ ] Review question → existing answer/evidence → manual work → unresolved
+  uncertainty → repeat after a statement update. Keep missing inputs distinct
+  from calculation defects and documented limits.
+- [ ] Reproduce an observed failure with synthetic inputs before a code fix.
+  Select bounded changes to records, validation, calculations, or read contracts;
+  no particular unresolved bug is established by the retrospective below.
+  Route presentation, strategy, provider, and hosted-service needs to extensions.
+
+### Initial retrospective, not outcome evidence
+
+A sanitized local aggregate read on 2026-11-09 used fixed lexical categories over
+historical project user prompts: 247 indexed sessions, 244 eligible before the
+2026-11-09 16:00 UTC cutoff, and 875 deduplicated messages considered. It selected
+3 owner-question sessions in 2026-10-26..2026-11-09, with overlapping categories:
+income (2), holdings (1), and allocation (1). These are starting points for
+inspecting existing workflows,
+not independent-user observations or evidence of repeated successful use.
+
+This initial triage has no observed outcomes, timings, baselines, or repeat-adoption
+evidence. Zero lexical friction matches does not show absence of friction.
+Broader development-category counts are not user demand; the retrospective proves
+neither correctness, an unresolved bug, reduced effort, nor usefulness.
+
+## Optional independent-use research
+
+Use the existing [local measurement protocol](docs/how-to/measure-core-workflow.md)
+if expanding beyond personal use. Independent onboarding, matched-workflow
+baselines, and repeat-adoption research remain optional future work. They do not
+block the personal review above. The protocol's blank template and synthetic
+checks are not observations; independent completion, the proposed under-15-minute
+target, comparative effort, and repeat adoption remain unvalidated.
+
+- [ ] With voluntary independent participants, measure first-real-statement →
+  review → portfolio answer/report without personal onboarding; record installation
+  separately and retain failures and assistance.
+- [ ] Compare matched supported tasks against existing workflows before claiming
+  reduced effort or better discrepancy resolution; repeat after a statement update
+  before claiming repeat adoption.
+- [ ] Include sample size, observation window, and limitations beside each verdict.
 
 ## Delivery criteria
 

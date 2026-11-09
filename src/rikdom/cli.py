@@ -392,7 +392,12 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
         auto_ingest=False,
     )
     strict = bool(getattr(args, "strict_quality", False))
-    output = aggregate_output(portfolio, strict=strict, fx_lock=fx_lock, fx_warnings=fx_warnings)
+    output = aggregate_output(
+        portfolio, strict=strict, fx_lock=fx_lock, fx_warnings=fx_warnings,
+        include_trust=bool(getattr(args, "include_trust", False)),
+    )
+    # aggregate/1.0.0 captures the compact result; trust is stdout-only evidence.
+    trust = output.pop("trust", None)
     bundle = getattr(args, "bundle", None)
     if bundle and not output["errors"]:
         for source in (args.portfolio, args.fx_history):
@@ -402,6 +407,8 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
             bundle, portfolio=portfolio, strict=strict, fx_lock=fx_lock,
             fx_warnings=fx_warnings, result=output, created_at=aggregate_timestamp,
         )
+    if trust is not None:
+        output["trust"] = trust
     print(json.dumps(output, indent=2, ensure_ascii=False))
     if output["errors"]:
         print("Data quality check failed in strict mode", file=sys.stderr)
@@ -2399,6 +2406,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_aggregate.add_argument("--portfolio", default=None)
     p_aggregate.add_argument("--fx-history", default=None)
     p_aggregate.add_argument("--bundle", default=None, help="Capture this calculation as a reproducible analysis ZIP")
+    p_aggregate.add_argument(
+        "--include-trust",
+        action="store_true",
+        help="Add per-holding trust, findings and selected FX context to stdout (not the bundle result)",
+    )
     p_aggregate.add_argument(
         "--strict-quality",
         action="store_true",

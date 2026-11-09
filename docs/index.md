@@ -27,6 +27,7 @@ Goal-oriented recipes for users who already know the basics.
 - [Capture, export and replay a saved analysis](how-to/capture-and-replay-analysis.md)
 - [Use portfolio context with an external agent](how-to/use-portfolio-context.md)
 - [Run the read-only portfolio context example](how-to/read-portfolio-context-example.md)
+- [Review recurring personal portfolio questions](how-to/review-personal-workflows.md)
 - [Measure independent completion of the core workflow](how-to/measure-core-workflow.md)
 - [Run the reviewed historical reference workflow](../data-sample/historical-workflow/README.md)
 - [Work with multi-currency holdings](how-to/work-with-multi-currency.md)
