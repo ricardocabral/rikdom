@@ -134,6 +134,8 @@ uv run rikdom capture-analysis "${task_history_args[@]}" --output "$task_history
 uv run rikdom export-analysis --run "$task_history_dir/run" --output "$task_history_dir/run.zip"
 uv run rikdom restore-analysis --bundle "$task_history_dir/run.zip" --output "$task_history_dir/restored"
 uv run rikdom replay-analysis --run "$task_history_dir/restored"
+# Or restore and reproduce together into another fresh directory:
+uv run rikdom replay-export --bundle "$task_history_dir/run.zip" --restore-dir "$task_history_dir/reproduced"
 ```
 
 The captured effective portfolio includes import-review and source-event evidence.

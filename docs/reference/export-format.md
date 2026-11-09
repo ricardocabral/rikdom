@@ -148,7 +148,7 @@ directory contains the captured payloads and outer manifest. FX selection lives
 in the run manifest; this is an analysis archive, not a copy of all mutable
 workspace history. Use the bundle for repeat replay into another fresh directory.
 
-The first slice supports aggregate only. It does not capture historical returns,
+The v3 format supports aggregate only. It does not capture historical returns,
 income plans, market series, report rendering, importer environments or original
 statements. Bundles contain private normalized portfolio evidence and source
 references; there is no redacted sharing mode yet. Checksums detect inconsistency,
@@ -199,3 +199,18 @@ Malformed/duplicate-key/nonfinite JSON and torn or malformed JSONL are refused;
 JSONL must end in a newline, matching the journal reader's complete-record rule.
 
 See [capture and replay instructions](../how-to/capture-and-replay-analysis.md).
+
+### Restore and reproduce a historical archive in one command
+
+`rikdom replay-export --bundle out/analysis.zip --restore-dir restored-analysis`
+accepts both v2 performance archives and v3 aggregate archives. For v2, it uses
+the existing performance run reader and calculation, checks exact canonical JSON
+result equality, and only then publishes the restored run. It does not convert
+formats or apply aggregate numeric tolerances to historical results.
+
+The destination must not exist, including a dangling symlink. Corruption,
+incompatible environments, omitted/redacted inputs, and financial mismatches
+fail without publishing a destination. Private staging files are removed on
+failure. Existing `restore-analysis` remains available to inspect an incomplete
+archive without claiming reproduction; `replay-analysis` still replays a restored
+v2 run. No command installs an environment, fetches data, or runs bundled code.

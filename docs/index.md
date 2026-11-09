@@ -58,8 +58,9 @@ Information-oriented descriptions of the machinery.
 
 Background, design decisions, and trade-offs.
 
+- [Product scope and extension ownership](explanation/product-scope.md) — core responsibilities, external agents, and independent extension opportunities.
 - [Schema design](explanation/schema-design.md)
-- [Plugin architecture](explanation/plugin-architecture.md) — lifecycle, external data connectors, and REST/MCP boundaries.
+- [Plugin architecture](explanation/plugin-architecture.md) — data flow, supported hooks, external connectors, and trust boundaries.
 - [Plugin compatibility & stability](explanation/plugin-compatibility.md)
 - [Calculation trust & reconciliation](explanation/calculation-trust.md)
 - [Cross-importer deduplication](explanation/cross-importer-dedup.md)

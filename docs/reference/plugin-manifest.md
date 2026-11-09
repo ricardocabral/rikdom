@@ -26,7 +26,7 @@ resource so it resolves in installed distributions.
 | `name` | yes | string | Plugin slug. Must match `^[a-z][a-z0-9-]{1,63}$`. Matches the directory name. |
 | `version` | yes | string | Plugin's own semver. |
 | `api_version` | yes | string | Rikdom plugin API version: `"1.0"`, `"1.1"` or `"1.2"`. Connectors require at least `"1.1"`; enrichment requires `"1.2"`. See [plugin compatibility](../explanation/plugin-compatibility.md). |
-| `plugin_types` | yes | string[] | One or more entries from the [taxonomy](../explanation/plugin-architecture.md#plugin-taxonomy). |
+| `plugin_types` | yes | string[] | One or more entries from the [category vocabulary](../explanation/plugin-architecture.md#plugin-categories-and-supported-hooks). |
 | `module` | yes | string | Python module name (without `.py`) inside the plugin directory. |
 | `class_name` | yes | string | Class inside `module` that registers `@hookimpl` methods. |
 | `description` | optional | string | Human-readable description. |
@@ -35,6 +35,10 @@ The manifest schema rejects any field outside this set and requires API `1.1` or
 when `plugin_types` contains `external/connector`, and API `1.2` for `enrichment`. There are no enforced
 filesystem, network, or secret permissions in this manifest. Only load trusted
 plugins; see [operational safety](../explanation/plugin-architecture.md#operational-safety).
+
+An accepted category does not imply a hookspec or CLI operation exists, or that
+one is planned. Use the [hooks reference](plugin-hooks.md) for implemented
+capabilities and [product scope](../explanation/product-scope.md) for ownership.
 
 ## Discovery
 

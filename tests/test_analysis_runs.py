@@ -164,6 +164,10 @@ class AnalysisRunTests(unittest.TestCase):
         restored = self.root / 'restore'
         self.assertEqual(run_cli('restore-analysis', '--bundle', str(bad), '--output', str(restored))[0], 1)
         self.assertFalse(restored.exists())
+        code, _, err = run_cli('replay-export', '--bundle', str(bad), '--restore-dir', str(restored))
+        self.assertEqual(code, 1)
+        self.assertIn('mismatch', err)
+        self.assertFalse(restored.exists())
         restored.mkdir()
         sentinel = restored / 'keep'
         sentinel.write_text('preserved')
@@ -185,6 +189,14 @@ class AnalysisRunTests(unittest.TestCase):
         code, _, err = run_cli('replay-analysis', '--run', str(self.run))
         self.assertEqual(code, 1)
         self.assertIn('differs', err)
+
+        bundle, restored = self.root / 'wrong-result.zip', self.root / 'restored'
+        self.assertEqual(run_cli('export-analysis', '--run', str(self.run), '--output', str(bundle))[0], 0)
+        code, _, err = run_cli('replay-export', '--bundle', str(bundle), '--restore-dir', str(restored))
+        self.assertEqual(code, 1)
+        self.assertIn('differs', err)
+        self.assertFalse(restored.exists())
+        self.assertEqual(list(self.root.glob('.rikdom-restore-*')), [])
 
     def test_replay_uses_the_verified_bytes_when_run_changes_during_calculation(self):
         self.capture()
@@ -237,6 +249,69 @@ class AnalysisRunTests(unittest.TestCase):
         code, _, err = run_cli('replay-analysis', '--run', str(restored))
         self.assertEqual(code, 1)
         self.assertIn('omitted', err)
+
+        target = self.root / 'cannot-reproduce'
+        code, _, err = run_cli('replay-export', '--bundle', str(bundle), '--restore-dir', str(target))
+        self.assertEqual(code, 1)
+        self.assertIn('omitted', err)
+        self.assertFalse(target.exists())
+        self.assertEqual(list(self.root.glob('.rikdom-restore-*')), [])
+
+    def test_replay_export_preserves_existing_directory_and_dangling_symlink(self):
+        self.capture()
+        bundle = self.root / 'run.zip'
+        self.assertEqual(run_cli('export-analysis', '--run', str(self.run), '--output', str(bundle))[0], 0)
+        target = self.root / 'existing'
+        target.mkdir()
+        sentinel = target / 'keep'
+        sentinel.write_text('preserved')
+        link = self.root / 'dangling'
+        link.symlink_to(self.root / 'missing')
+        for destination in (target, link):
+            with self.subTest(destination=destination):
+                code, _, err = run_cli('replay-export', '--bundle', str(bundle),
+                                       '--restore-dir', str(destination))
+                self.assertEqual(code, 1)
+                self.assertIn('must not exist', err)
+        self.assertEqual(sentinel.read_text(), 'preserved')
+        self.assertTrue(link.is_symlink())
+        self.assertFalse(link.resolve().exists())
+
+    def test_replay_export_incompatible_environment_leaves_no_workspace(self):
+        self.capture()
+        manifest_path = self.run / 'analysis-run.json'
+        manifest = json.loads(manifest_path.read_text())
+        manifest['environment']['python'] = '0.0'
+        manifest_path.write_text(json.dumps(manifest))
+        from rikdom.export_bundle import write_analysis_bundle
+        bundle, target = self.root / 'incompatible.zip', self.root / 'restored'
+        write_analysis_bundle(bundle, {
+            path.relative_to(self.run).as_posix(): path.read_bytes()
+            for path in self.run.rglob('*') if path.is_file()
+        })
+        code, _, err = run_cli('replay-export', '--bundle', str(bundle), '--restore-dir', str(target))
+        self.assertEqual(code, 1)
+        self.assertIn('incompatible', err)
+        self.assertFalse(target.exists())
+        self.assertEqual(list(self.root.glob('.rikdom-restore-*')), [])
+
+    def test_replay_export_interrupted_restore_removes_staging(self):
+        self.capture()
+        bundle, target = self.root / 'run.zip', self.root / 'restored'
+        self.assertEqual(run_cli('export-analysis', '--run', str(self.run), '--output', str(bundle))[0], 0)
+        original_write = Path.write_bytes
+
+        def interrupted(path, data):
+            if path.name == 'result.json':
+                raise OSError('interrupted restore')
+            return original_write(path, data)
+
+        with patch.object(Path, 'write_bytes', interrupted):
+            code, _, err = run_cli('replay-export', '--bundle', str(bundle), '--restore-dir', str(target))
+        self.assertEqual(code, 1)
+        self.assertIn('interrupted restore', err)
+        self.assertFalse(target.exists())
+        self.assertEqual(list(self.root.glob('.rikdom-restore-*')), [])
 
     def test_capture_rejects_unknown_parameters_and_keeps_existing_directory(self):
         self.capture()

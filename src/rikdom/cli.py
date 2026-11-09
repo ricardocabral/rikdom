@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .aggregate import aggregate_portfolio, compute_strategic_bucket_totals
-from .analysis_bundle import aggregate_output, capture_aggregate_bundle, replay_aggregate_bundle
+from .analysis_bundle import aggregate_output, capture_aggregate_bundle, replay_export_bundle
 from .income import build_income_report
 from .activities import CORRECTION_SCHEMA_VERSION, check_financial_contract, correction, effective_activities
 from .reconciliation.reports import (
@@ -1860,8 +1860,8 @@ def cmd_verify_export(args: argparse.Namespace) -> int:
 
 def cmd_replay_export(args: argparse.Namespace) -> int:
     try:
-        response = replay_aggregate_bundle(args.bundle, args.restore_dir)
-    except (ExportBundleError, zipfile.BadZipFile) as exc:
+        response = replay_export_bundle(args.bundle, args.restore_dir)
+    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile) as exc:
         print(f"Analysis replay failed: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(response, indent=2, ensure_ascii=False))

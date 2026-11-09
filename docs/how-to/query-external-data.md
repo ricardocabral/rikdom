@@ -96,8 +96,13 @@ REST and MCP clients use the same boundary. An MCP client belongs inside a
 connector plugin with its approved read operations; there is no direct MCP
 server URL option or bundled MCP adapter yet.
 
-The core validates the descriptor and JSON boundary. Network/filesystem
-isolation, credential revocation, normalized enrichment, and cached replay
-remain future work; `readOnly` is a declaration rather than a sandbox. See
+The core validates the descriptor and JSON boundary. To use acquired prices/FX
+in calculations, convert the response explicitly to the local
+[enrichment contract](../reference/enrichment.md); raw acquisition does not
+automatically populate a calculation cache or update canonical records.
+
+The plugin owns provider authentication and credential handling. Installed plugins
+are trusted Python; `readOnly` is a declaration, not a sandbox. Enforced isolation
+belongs to a separate runner or host environment. See
 [connector architecture](../explanation/plugin-architecture.md#external-connectors)
-for the trust model and roadmap boundaries.
+and [extension ownership](../explanation/product-scope.md) for the boundary.
