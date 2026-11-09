@@ -51,6 +51,45 @@ def _read_json(data: bytes, label: str, *, jsonl: bool = False) -> Any:
         raise ValueError(f'Invalid captured JSON: {label}: {exc}') from exc
 
 
+def _validate_policy_shapes(policy: Any, label: str) -> None:
+    """Check structures consumed by replay, without requiring a full IPS policy."""
+    if not isinstance(policy, dict):
+        raise ValueError(f'Invalid captured policy: {label}: expected an object')
+    benchmarks = policy.get('benchmarks', [])
+    if not isinstance(benchmarks, list):
+        raise ValueError(f'Invalid captured policy: {label}: benchmarks must be a list')
+    for index, benchmark in enumerate(benchmarks):
+        field = f'benchmarks[{index}]'
+        if not isinstance(benchmark, dict):
+            raise ValueError(f'Invalid captured policy: {label}: {field} must be an object')
+        if not isinstance(benchmark.get('id'), str):
+            raise ValueError(f'Invalid captured policy: {label}: {field}.id must be a string')
+        if benchmark.get('kind') == 'composite':
+            components = benchmark.get('components', [])
+            if not isinstance(components, list):
+                raise ValueError(f'Invalid captured policy: {label}: {field}.components must be a list')
+            for number, component in enumerate(components):
+                part = f'{field}.components[{number}]'
+                if not isinstance(component, dict):
+                    raise ValueError(f'Invalid captured policy: {label}: {part} must be an object')
+                if not isinstance(component.get('benchmark_id'), str):
+                    raise ValueError(f'Invalid captured policy: {label}: {part}.benchmark_id must be a string')
+    strategic = policy.get('strategic_allocation')
+    if strategic is None:
+        return
+    if not isinstance(strategic, dict):
+        raise ValueError(f'Invalid captured policy: {label}: strategic_allocation must be an object or null')
+    targets = strategic.get('targets', [])
+    if not isinstance(targets, list):
+        raise ValueError(f'Invalid captured policy: {label}: strategic_allocation.targets must be a list')
+    for index, target in enumerate(targets):
+        field = f'strategic_allocation.targets[{index}]'
+        if not isinstance(target, dict):
+            raise ValueError(f'Invalid captured policy: {label}: {field} must be an object')
+        if target.get('benchmark_id') is not None and not isinstance(target['benchmark_id'], str):
+            raise ValueError(f'Invalid captured policy: {label}: {field}.benchmark_id must be a string or null')
+
+
 def read_context(run: Path, scratch_dir: Path) -> dict[str, Any]:
     """Return portfolio context only after replaying the exact cited snapshot.
 
@@ -116,7 +155,9 @@ def read_context(run: Path, scratch_dir: Path) -> dict[str, Any]:
             data = (run / relative).read_bytes()
             if path.suffix not in ('.json', '.jsonl'):
                 raise ValueError(f'Unsupported captured evidence format: {relative}')
-            _read_json(data, relative, jsonl=path.suffix == '.jsonl')
+            value = _read_json(data, relative, jsonl=path.suffix == '.jsonl')
+            if relative == manifest['inputs'].get('policy'):
+                _validate_policy_shapes(value, relative)
             target = snapshot / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)

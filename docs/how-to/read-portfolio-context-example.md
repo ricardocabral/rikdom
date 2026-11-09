@@ -69,6 +69,9 @@ The reader snapshots the manifest and each declared file once into disposable
 scratch, strictly parses JSON/JSONL, and calls the existing replay API on that
 copy. It validates the manifest objects and consumed value shapes, including
 required citation metadata (capture time, file roles, byte counts and hashes).
+For captured policy, it checks the benchmark list, composite components and
+strategic target shapes consumed by replay. Partial calculation policies remain
+supported; these checks do not require or certify a full investment policy schema.
 Replay validates sizes/hashes, environment and calculation equality; the
 reader also checks captured method labels against the reproduced result before
 anything is printed. An input change during copying either still matches the
@@ -119,8 +122,9 @@ Exit `0` means the captured calculation reproduced, including any unavailable
 financial fields. Handled evidence, I/O, compatibility and replay failures return
 `1` with stderr and no context on stdout. Missing/invalid command arguments return
 `2`. These follow the [CLI conventions](../reference/cli.md#captured-analysis-runs).
-Malformed manifest structures fail with a field-specific diagnostic, without a
-traceback, and remove their private scratch directories.
+Malformed manifest structures and consumed policy shapes fail with a
+field-specific diagnostic, without a traceback, and remove their private scratch
+directories.
 
 Replay requires the recorded Python major/minor and implementation, OS,
 distribution/module versions, dependency versions and identical core/resource

@@ -35,7 +35,7 @@ class ReadPortfolioContextTests(unittest.TestCase):
         self.replay_scratch.mkdir()
         self.run = self.root / 'saved-run'
 
-    def capture(self, *, flows=True, historical=True, by='portfolio'):
+    def capture(self, *, flows=True, historical=True, by='portfolio', policy=None):
         inputs = {'portfolio': self.source / 'portfolio.json',
                   'snapshots': self.source / 'snapshots.jsonl',
                   'fx_history': self.source / 'fx.jsonl'}
@@ -44,6 +44,12 @@ class ReadPortfolioContextTests(unittest.TestCase):
                           historical_fx=self.source / 'historical-fx.json')
         if flows:
             inputs['flow_valuations'] = self.source / 'flow-valuations.json'
+        if policy is not None:
+            policy_path = self.source / 'policy.json'
+            policy_path.write_text(json.dumps(policy))
+            inputs['policy'] = policy_path
+            if (self.source / 'benchmarks').is_dir():
+                inputs['benchmarks_dir'] = self.source / 'benchmarks'
         return capture_performance_run(self.run, inputs=inputs, parameters={'by': by})
 
     def invoke(self, *args):
@@ -352,6 +358,102 @@ class ReadPortfolioContextTests(unittest.TestCase):
                 self.assertEqual(list(self.scratch.iterdir()), [])
                 for name, original in originals.items():
                     (self.run / name).write_bytes(original)
+
+    def test_malformed_rehashed_policy_shapes_fail_cleanly_without_writes(self):
+        self.capture(policy={})
+        before = self.tree(self.source)
+        cases = [
+            ({'strategic_allocation': [{}]}, 'strategic_allocation'),
+            ({'strategic_allocation': {'targets': [None]}}, 'strategic_allocation.targets[0]'),
+        ] + [
+            ({'strategic_allocation': {'targets': value}}, 'strategic_allocation.targets')
+            for value in (None, {}, 'invalid', 3)
+        ] + [
+            ({'strategic_allocation': {'targets': [value]}}, 'strategic_allocation.targets[0]')
+            for value in ([], 'invalid', 3)
+        ] + [
+            ({'strategic_allocation': {'targets': [{'benchmark_id': []}]}}, 'benchmark_id'),
+        ] + [
+            ({'benchmarks': value}, 'benchmarks')
+            for value in (None, {}, 'invalid', 3)
+        ] + [
+            ({'benchmarks': [value]}, 'benchmarks[0]')
+            for value in (None, [], 'invalid', 3)
+        ] + [
+            ({'benchmarks': [{'id': value}]}, 'benchmarks[0].id')
+            for value in (None, [], {}, 3)
+        ] + [
+            ({'benchmarks': [{}]}, 'benchmarks[0].id'),
+        ] + [
+            ({'benchmarks': [{'id': 'blend', 'kind': 'composite', 'components': value}]},
+             'benchmarks[0].components')
+            for value in (None, {}, 'invalid', 3)
+        ] + [
+            ({'benchmarks': [{'id': 'blend', 'kind': 'composite', 'components': [value]}]},
+             'benchmarks[0].components[0]')
+            for value in (None, [], 'invalid', 3)
+        ] + [
+            ({'benchmarks': [{'id': 'blend', 'kind': 'composite',
+                              'components': [{'benchmark_id': value}]}]}, 'benchmark_id')
+            for value in (None, [], {}, 3)
+        ]
+        for policy, diagnostic in cases:
+            with self.subTest(policy=policy):
+                self.replace_payload('inputs/policy.json', json.dumps(policy).encode())
+                saved = self.tree(self.run)
+                code, out, err = self.read()
+                self.assertEqual((code, out), (1, ''))
+                self.assertIn('Context read failed:', err)
+                self.assertIn('policy', err)
+                self.assertIn(diagnostic, err)
+                self.assertNotIn('Traceback', err)
+                self.assertEqual(list(self.scratch.iterdir()), [])
+                self.assertEqual(saved, self.tree(self.run))
+        self.assertEqual(before, self.tree(self.source))
+
+    def test_policy_input_cannot_be_replaced_with_a_jsonl_record_list(self):
+        self.capture(policy={})
+        path = self.run / 'analysis-run.json'
+        manifest = json.loads(path.read_bytes())
+        manifest['inputs']['policy'] = manifest['inputs']['snapshots']
+        path.write_text(json.dumps(manifest))
+        before = self.tree(self.source), self.tree(self.run)
+        code, out, err = self.read()
+        self.assertEqual((code, out), (1, ''))
+        self.assertIn('policy', err)
+        self.assertIn('object', err)
+        self.assertNotIn('Traceback', err)
+        self.assertEqual(before, (self.tree(self.source), self.tree(self.run)))
+        self.assertEqual(list(self.scratch.iterdir()), [])
+
+    def test_partial_calculation_policy_with_composite_benchmark_replays_unchanged(self):
+        benchmarks = self.source / 'benchmarks'
+        benchmarks.mkdir()
+        (benchmarks / 'index.jsonl').write_text(''.join(json.dumps({
+            'as_of': when, 'level': level, 'currency': 'BRL',
+            'return_convention': 'total_return', 'source': 'manual:synthetic',
+        }) + '\n' for when, level in [
+            ('2026-01-02T00:00:00Z', 100), ('2026-01-06T00:00:00Z', 110)]))
+        # Capture accepts calculation-only policies without full IPS schema fields.
+        manifest = self.capture(policy={
+            'benchmarks': [
+                {'id': 'index', 'kind': 'index', 'currency': 'BRL'},
+                {'id': 'blend', 'kind': 'composite', 'currency': 'BRL',
+                 'components': [{'benchmark_id': 'index', 'weight_pct': 100}]},
+            ],
+            'strategic_allocation': {'targets': [{'benchmark_id': 'blend', 'weight_pct': 100}]},
+        })
+        before = self.tree(self.source), self.tree(self.run)
+        code, out, err = self.read()
+        self.assertEqual((code, err), (0, ''))
+        context = json.loads(out)
+        self.assertEqual(context['result'], json.loads((self.run / 'result.json').read_bytes()))
+        self.assertEqual(context['result']['benchmarks'][0]['benchmark_id'], 'blend')
+        self.assertEqual(context['result']['benchmarks'][0]['twr_pct'], 10)
+        self.assertEqual(context['capture']['inputs']['policy'], manifest['inputs']['policy'])
+        self.assertIn('inputs/benchmarks/index.jsonl', context['capture']['files'])
+        self.assertEqual(before, (self.tree(self.source), self.tree(self.run)))
+        self.assertEqual(list(self.scratch.iterdir()), [])
 
     def test_unsupported_format_and_unsafe_inventory_are_rejected(self):
         self.capture()
