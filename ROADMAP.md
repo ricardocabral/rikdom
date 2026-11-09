@@ -1,539 +1,105 @@
-# Rikdom Roadmap: Free, Local, Global Portfolio Workflows
-
-Reviewed on **2026-10-23** against the repository and Sigma Finance's public site/demo.
-Priorities express delivery order, not release dates. Checked items identify existing
-capabilities; unchecked items describe remaining work.
-
-## Product direction
-
-Give people the ability to consolidate investments, understand returns and income,
-plan allocations, and simulate decisions **for free, on their own computer, with
-control over their data**. Rikdom remains the open schema + CLI + calculation and
-plugin foundation described in the [README](README.md). Reports and optional local
-interfaces compose that foundation into usable workflows.
-
-- **Free end-to-end path**: no subscription, mandatory account, paid AI service,
-  or product-imposed holding/transaction limits for reference workflows. Hardware
-  and data availability still constrain capacity. Community reference plugins must
-  have open licenses and work with user-supplied files or locally cached data.
-- **Local by default**: installed tools must import, calculate, report, simulate,
-  and export offline. Fresh market data requires an explicit optional connection;
-  providers may impose fees, quotas, redistribution terms, or coverage limits.
-- **Global by contract**: currencies, exchanges, identifiers, calendars, language,
-  asset definitions, and tax jurisdictions must not be hard-coded to Brazil/US.
-  Regional packs add coverage without forking the core.
-- **Security with an explicit trust boundary**: local storage alone does not imply
-  encryption or plugin isolation. The current trusted, in-process Python runtime
-  needs the safeguards and constrained execution work in Phase 5B.
-- **User-controlled decisions**: calculations and proposed allocations must expose
-  inputs, assumptions, versions, and data gaps. Rebalancing starts with reviewable
-  simulations; brokerage order submission is outside this roadmap's parity scope.
-
-## Sigma Finance review and fit
-
-Sources: [features](https://sigmafinance.app/#features),
-[coverage and import flow](https://sigmafinance.app/#coverage),
-[plans](https://sigmafinance.app/#plans),
-[performance demo](https://sigmafinance.app/performance?demo=1),
-[income demo](https://sigmafinance.app/provents?demo=1),
-[rebalance demo](https://sigmafinance.app/rebalance?demo=1), and
-[historical simulator](https://sigmafinance.app/simulator).
-
-This is a review of public descriptions and visible demo screens, not a validation
-of Sigma's calculations or paid integrations. The simulator's configuration was
-inspected, without executing a backtest. PRO+ showed a waitlist; automatic B3 sync
-and IRPF/DARF assistance are advertised there, not verified as delivered.
-
-| Sigma reference | Rikdom decision and placement |
-| --- | --- |
-| Consolidated holdings; Brazil/US assets and FX | High fit. Extend existing multi-portfolio valuation with regional catalog/provider packs; do not promise universal coverage (Phases 3, 5). |
-| B3 trade-file import and manual entries | High fit. Preserve file-first imports; add trade-history coverage and a validated manual-entry workflow (Phase 3). |
-| TWR/MWR, benchmarks, realized/unrealized profit, income, contributions | High fit. Build on existing Dietz/XIRR and benchmarks; add linked TWR, historical FX, profit decomposition, and report integration (Phase 4B). |
-| Custom groups and target allocation | High fit. Extend existing policy buckets into saved views and a local rebalance planner (Phase 5A). |
-| Paid/announced distributions and yield on cost | High fit. Separate observed, announced, and estimated income with explicit cost-basis conventions (Phase 4A). |
-| Latest prices, distributions, splits | High fit, provider-dependent. Add cached enrichment and reviewed corporate-action processing (Phase 5). |
-| Mobile/installable interface | Useful access layer. Prioritize responsive offline reports, then an optional local UI (Phases 4, 6). |
-| Historical portfolio simulator | Useful after reliable price/event history. Reuse calculation contracts in an isolated simulation plugin (Phase 6). |
-| Automatic B3 sync; IRPF/DARF assistance (PRO+ waitlist) | Conditional fit. Optional read-only regional connectors and versioned jurisdiction-specific tax plugins (Phases 5B, 6). |
-
-Rikdom should adopt these user outcomes without adopting subscription tiers,
-central custody of portfolio data, or a Brazil-specific core. Tax calculations,
-live connections, and broad market coverage depend on maintained regional plugins;
-they are not prerequisites for the free offline workflow.
-
-## Existing foundation to reuse
-
-- Importers for Portfolio Performance, Wealthfolio, IBKR, and other providers are
-  already present; see [plugin catalog](plugins/README.md). B3's existing
-  [monthly consolidated importer](plugins/b3-consolidado-mensal/README.md) imports
-  holdings and `Movimentação` history. Source movement dates and institutions do
-  not by themselves establish full history, account identity, or a trade-date basis.
-- Holding provenance and reconciliation JSON/Markdown reports already ship through
-  `reconcile`: [report implementation](src/rikdom/reconciliation/reports.py) and
-  [CLI coverage](tests/test_cli_reconcile.py).
-- [Performance calculations](src/rikdom/performance.py) already include Modified
-  Dietz (an approximation of TWR), XIRR MWR, and account/strategic-bucket breakdowns.
-  [Benchmarks](src/rikdom/benchmarks.py) support native-currency and composite series;
-  opt-in [dated local FX](docs/reference/benchmark-fx.md) converts foreign benchmark
-  bookends into the reporting currency with explicit comparability checks.
-- [Instrument performance](src/rikdom/instrument_performance.py) already uses dated
-  activities and completeness checks. It is not yet a portfolio-wide realized /
-  unrealized profit engine or an income calendar.
-- [Policy contracts](src/rikdom/_resources/policy.schema.json) already describe
-  allocations, rebalancing, guardrails, benchmarks, and tax rules. These declarations
-  do not implement a rebalance planner or a jurisdiction-specific tax calculator.
-- [Integrity-checked export bundles](docs/reference/export-format.md),
-  [eight stable plugin hooks](docs/reference/plugin-hooks.md), deterministic data-hook
-  fixtures, and a [compatibility policy](docs/explanation/plugin-compatibility.md)
-  already exist. Extend these instead of treating them as new deliverables.
-
-## Architectural context
-
-Durable decisions applied across phases:
-
-- **Storage**: local `JSON` (`portfolio.json`) + append-only `JSONL` snapshots.
-- **Schema contract**: JSON Schema 2020-12 + explicit `schema_uri` and semantic `schema_version`.
-- **Data model**: source `activities` ledger + derived `projections`; linked
-  corrections preserve originals while ordinary imports may refresh matching
-  source events (see [activity workflow](docs/how-to/enter-and-correct-activities.md)).
-- **Plugin runtime**: in-process Python plugin engine using `pluggy`.
-- **Plugin taxonomy**: lifecycle (`source/input`, `transform`, `enrichment`, `strategy/decision`, `execution`, `output`), explicit acquisition (`external/connector`), domain (`asset-type/catalog`), plus cross-cutting (`risk/compliance`, `state/storage`, `orchestration`, `observability`, `auth/security`, `notification`, `simulation/backtest`).
-- **Plugin manifest**: `plugins/<name>/plugin.json` with `name`, `version`, `api_version`, `plugin_types`, `module`, `class_name`.
-- **Import boundary**: `source/input` plugins return normalized statement JSON with provenance-ready fields.
-- **Asset-type boundary**: `asset-type/catalog` plugins return typed asset definitions to compose `asset_type_catalog` before import/validation.
-- **Output boundary**: `output` plugins can render portfolio reports; Quarto-based rendering is the prioritized pluginized path.
-- **Storage boundary**: `state/storage` plugins can maintain optional query mirrors while canonical truth remains JSON files.
-- **Idempotency**: imported objects carry `idempotency_key` and `import_run_id`.
-- **Visualization**: static offline HTML generated from local files.
-- **Calculation boundary**: reusable deterministic calculations belong in the
-  foundation; providers, regional conventions, strategies, and presentation belong
-  behind versioned plugin contracts. CLI and UI consume the same results.
-- **Privacy boundary**: market-data lookups send only the identifiers/dates needed;
-  portfolio contents and statements are not implicit API payloads. Credentials
-  are scoped to explicitly enabled providers and kept out of stored artifacts.
-- **Compatibility**: new permissions, provider series, or execution modes require
-  explicit versioned contracts; they are not fields/hooks supported by v1 today.
-
----
-
-## Adoption-first Priority Stack
-
-1. **P0**: Harden import history, manual entry, and reconciliation; expose existing trust reports in user workflows.
-2. **P0/P1**: Complete income views, usable offline reports, and beginner onboarding.
-3. **P1**: Make returns, benchmarks, contributions, and profit decomposition comparable and auditable (Phase 4B).
-4. **P1**: Deliver price/FX/event provider contracts and regional packs; harden plugin trust before unattended connections.
-5. **P1**: Add custom views, policy-driven rebalance simulation, and local scheduled refresh.
-6. **P1/P2**: Expand the SDK and remaining plugin hooks as concrete workflows require them.
-7. **P2**: Historical simulations, jurisdiction-specific tax assistance, optional local UI, replayable exports, then optional AI.
-
-Sequencing override:
-
-- Complete trust/import/income foundations before expanding AI or advanced strategy plugins.
-- Phase 4B historical calculations require the relevant Phase 5 data contracts;
-  Phase 5A scheduling requires Phase 5B safeguards for any connected plugin.
-- Do not wait for every taxonomy hook to ship a useful workflow. Add hooks with
-  a reference implementation and contract tests, starting with enrichment and decisions.
-
----
-
-## Phase 3 remainder (P0): Importer Coverage + Import Reliability Hardening
-
-**User stories**: safe recurring imports from common portfolio tools into local files.
-
-### What to build
-
-- Ship remaining first-party importers targeting migration from widely used tools:
-  - `portfolio_performance_csv`
-  - `wealthfolio_export_json`
-  - `wealthfolio_activity_csv` fallback
-- Expand importer edge-case fixtures where coverage is still thin:
-  - IBKR cancellations and corporate actions.
-  - Portfolio Performance locale/date/number parsing.
-  - Wealthfolio enum mapping and fallback behavior.
-- Add B3 transaction-history file coverage alongside monthly holdings; report
-  missing history instead of inferring purchases from current balances.
-- Provide a local manual-entry/correction path for unsupported institutions and
-  assets, using the same validation, provenance, and append-only ledger semantics.
-- Extend locale, currency, identifier, and corporate-action fixtures as regional
-  importers are added. Corrections and reimports must not duplicate events.
-
-### Acceptance criteria
-
-- [x] Ship first-party `portfolio_performance_csv` importer with locale/date/number parsing tests.
-- [x] Ship first-party `wealthfolio_export_json` importer with enum mapping and fallback tests.
-- [x] Ship `wealthfolio_activity_csv` fallback importer path with fixtures.
-- [x] Add IBKR cancellation/corporate-action edge-case tests.
-- [x] Import a B3 `Movimentação` history file twice without duplicating recognized activities; report unsupported movements and partial coverage.
-- [x] Reconcile B3 positions with verified account/opening coverage and compatible execution/settlement-date evidence (reviewed complete inception history with zero opening; raw B3 remains partial).
-- [x] Enter and correct a manual activity with preview/validation and an auditable correction trail.
-- [x] Surface explicit history coverage and unsupported events for every first-party importer.
-
----
-
-## Phase 3B: Reviewed recurring import continuity — delivered bounded scope (2026-11-01)
-
-- [x] Preserve explicit reviewed mappings and coverage through unchanged raw reimports without duplicate activities; retain exact accepted normalized source, review versions and effective projections.
-- [x] Preview changed source facts and affected result categories; require source-revision-bound resolution before writes. Accepted new facts become comparison evidence, and omitted optional facts remain effective under an active review.
-- [x] Reject ambiguous reviewed identities and canonical-collapse aliases before portfolio/log writes. Existing reviewed transfer contracts remain authoritative.
-
-Evidence: [review contract](docs/reference/reviewed-imports.md),
-[real CLI regressions](tests/test_reviewed_import_regressions.py), and
-[combined historical reference](data-sample/historical-workflow/README.md).
-Protection requires explicit review documents; existing ad hoc enrichment is not
-automatically migrated. Retention contains normalized inputs, not original
-statement files or every calculation dependency; saved analysis runs capture the
-selected dependency set separately.
-
----
-
-## Phase 3A remainder (P0): Calculation Trust UX + Reconciliation Reports
-
-**User stories**: "numbers must be correct", reproducible valuation, explainability for portfolio totals and changes.
-
-### What to build
-
-- Integrate the existing holding-trust and reconciliation reports into the first
-  import and report workflows, including activity/holding and cross-currency findings.
-- Finish user-facing documentation and diagnostics for reproducing a total and
-  understanding excluded holdings, missing history, and stale valuations.
-
-### Acceptance criteria
-
-- [x] Make each computed holding value traceable to source amount + FX + timestamp in an exported report.
-- [x] Ensure reconciliation reports flag amount/quantity inconsistencies with actionable diagnostics.
-- [x] Provide stable issue codes for reconciliation findings.
-- [x] Document how to reproduce a portfolio total from raw holdings, activities, and FX history.
-
----
-
-## Phase 4 remainder (P0/P1): Visualization Hardening
-
-**User stories**: allocation overview and progress over time remain trustworthy and usable as reports grow.
-
-### What to build
-
-- Verify and harden desktop/mobile usability of generated reports.
-- Keep Quarto report output and built-in dashboard behavior aligned while compatibility aliases remain.
-- Add report-level diagnostics when trust/reconciliation issues affect displayed totals.
-- Expose allocation, net contributions versus portfolio growth, performance, and
-  income through consistent report filters as Phases 4A/4B deliver their results.
-- Bundle report assets locally; an offline report must not depend on CDN scripts,
-  remote fonts, trackers, or a hosted login. Treat generated financial reports as
-  private files and provide a redacted sharing/export option.
-
-### Acceptance criteria
-
-- [x] Add mobile/desktop report usability checks or documented manual QA criteria ([browser QA guide](docs/how-to/report-browser-qa.md); generated full/fallback bundles checked in Chromium at 1440, 390, and 320 px).
-- [x] Surface reconciliation/data-quality warnings in generated reports.
-- [x] Keep deprecated visualization aliases covered until removal policy is decided (`viz`, `visualize`, and `render-report` exercise real output, warnings, legacy/custom paths, and local artifact links).
-- [x] Open generated reports with networking disabled and retain existing charts, navigation, and explanations (Quarto 1.9.37 verified after bundle relocation; fallback remains a summary without charts).
-- [x] Add consistent report filters for allocation, contributions/growth, performance, and income as Phases 4A/4B deliver their results; verify those controls offline (account, asset-type, and currency scopes plus recorded-date controls; current valuation remains current, and missing scoped history/return measures remain explicitly unavailable pending Phase 4B).
-- [x] Verify keyboard navigation, readable mobile layouts, and localized labels/date/number formatting; begin with English and Portuguese (full/fallback Chromium checks at 1440, 390, and 320 px, EN/PT selectors and locale formatting; provider diagnostics retain labeled original source text).
-
----
-
-## Phase 4A remainder (P0/P1): Dividend/Income + Onboarding Hardening
-
-**User stories**: dividend automation, easy self-hosted start.
-
-### What to build
-
-- Dividend/income automation:
-  - normalize dividend, interest, and cashflow activity variants from all first-party importers;
-  - monthly/yearly income summaries;
-  - report slices for income by portfolio, asset type, instrument, currency, and tax bucket where available.
-  - separate received payments, announced entitlements, and scenario estimates;
-  - preserve ex/record/payment dates, withholding, gross/net amounts, currency,
-    source, and entitlement assumptions when available;
-  - calculate yield on cost with a declared cost-basis method and period; missing
-    basis must produce an unavailable result rather than a misleading yield.
-- Beginner onboarding:
-  - guided import checklist for first successful migration;
-  - stronger docs/tests around the happy path from bootstrap to first report.
-
-### Acceptance criteria
-
-- [x] Roll up dividend and interest events into monthly/yearly native-currency income views.
-- [x] Expose income views through the `income` CLI and JSON/Markdown report artifacts.
-- [x] Ensure all first-party importers map dividend/interest/cashflow events consistently ([source coverage matrix](plugins/README.md#posted-income-coverage-by-source); signed corrections, separate tax/refunds, gross/net/unknown basis, and zero versus missing evidence are tested through import/replay; unsupported and holdings-only sources remain explicit).
-- [x] Enable new users to run bootstrap + first import using a documented happy path in under 15 minutes (10–15 minute walkthrough estimate after installation, not a measured usability result).
-- [x] Display paid and announced income separately; forecasts never enter actual balances or realized returns (local [income plan v1](docs/reference/income-plan.md), separate actual/announced/scenario sections in CLI and offline reports; source and ex/record/payment-date evidence remain explicit).
-- [x] Match imported payments to announced events without double-counting reinvested distributions, corrections, or repeated provider refreshes (reviewed explicit links resolve effective corrections and deduplicate payments/revisions; no inferred entitlement or automatic amount/date match).
-- [x] Explain yield-on-cost inputs and flag unavailable cost basis; distinguish gross income from net receipts (`declared_constant_cost` requires positive native-currency basis, source, coverage, method, and full explicit period; changing-cost or incomplete inputs remain unavailable, with no FX substitution or automatic annualization).
-- [x] Complete onboarding with sample data and no account, paid API key, or AI service (local import/replay, trust, income, snapshot, and fallback HTML verified with network connections denied).
-
-
-### Small extension: collective dividend-receipt validation
-
-Recorded **2026-10-28**. **Status:** hypothesis to test, not a committed hosted
-product or validated business. **User question:** "Have other customers of my
-broker received this dividend, and is my result unusual?"
-
-- Reuse local imports and announced-versus-received reconciliation. Start with
-  one supported broker entity, one account category, and a few commonly held
-  distributing instruments; this experiment must not block core Phase 4A delivery.
-- First establish date semantics: distinguish the issuer's announced payment
-  date, the broker's accounting date, first observation in successive imports,
-  and actual cash availability only when explicitly supported by the source.
-  Import frequency bounds first observation; backdated entries are not proof of
-  availability. The current IBKR `effective_at` alone is insufficient.
-- Provide a useful local payment check before inviting an optional contribution.
-  Compare that result with aggregate peer observations to test whether collective
-  data resolves uncertainty that announcements and a personal statement cannot.
-  Missing records must surface statement coverage and entitlement uncertainty,
-  not automatically accuse a broker of a missing or delayed payment.
-- Keep statements and portfolios local. Preview explicitly opted-in contributions
-  limited to public distribution identity, broker entity, coarse timing, coverage,
-  and importer version; exclude balances, quantities, account/transaction IDs,
-  source references, and free text. Download aggregates for local matching.
-  Suppress sparse cohorts and public contributor histories; assess re-identification
-  and duplicate/fabricated contribution risks before claiming anonymity or trusted
-  peer counts. Connected operation follows Phase 5B safeguards.
-- Test organic discovery through shareable aggregate event pages that invite a
-  local check and optional contribution. Do not require sharing to use Rikdom's
-  free offline workflows. Fees, FX comparisons, subscriptions, and a general data
-  hub remain outside this initial experiment.
-
-**Validation gates (proposed thresholds, not observed results):**
-
-- [ ] Timebox a date/coverage feasibility check to two days; stop the timing hypothesis if available sources cannot support it reliably.
-- [ ] Run a four-to-six-week self-service experiment after feasibility passes: 30 independent users complete the workflow without personal onboarding, 15 contribute voluntarily, and 10 contribute again in another payment cycle.
-- [ ] Record at least five concrete uncertainties resolved by the collective result beyond the local-only report, and five additional activated users arriving through shared aggregate pages.
-- [ ] Record cohort coverage, repeat usage, contribution quality, and privacy limitations; synthetic fixtures validate mechanics only, never demand or network effects.
-- [ ] At the experiment's end, retain findings and remove the disposable collection setup and contributed records under a disclosed retention policy. Continue only if the gates pass; otherwise keep useful local reconciliation and stop the hub experiment. Passing these gates does not establish willingness to pay or commercial viability.
-
----
-
-## Phase 4B (P1): Comparable Performance + Profit Attribution
-
-**User stories**: understand how much growth came from contributions, investments,
-income, and currency movements; compare a strategy with an appropriate benchmark.
-
-### What to build
-
-- Retain existing Dietz/XIRR results with clear method and annualization labels;
-  add linked subperiod TWR when valuations around external cashflows are available.
-- Add dated price/FX inputs and cashflow conversion at the relevant historical
-  dates. Never silently substitute today's FX or a stale quote for missing history.
-- Reconcile contributions/withdrawals, realized and unrealized gains, income, fees,
-  taxes, and FX effects. Cost-basis and lot accounting conventions must be explicit;
-  reported gains and calculated gains need distinct provenance.
-- Compare benchmark and portfolio series over the same window, currency, and
-  price/total-return convention. Regional benchmark packs can supply CDI, IBOV,
-  S&P 500, or other indices through replaceable data providers.
-- Render monthly/yearly tables, charts, and optional heatmaps from the same result
-  contracts used by CLI, avoiding independent frontend financial calculations.
-
-### Acceptance criteria
-
-- [x] Demonstrate linked TWR and XIRR with hand-checkable contributions/withdrawals, internal transfers, and corporate actions; identify Dietz fallback explicitly.
-  - Bounded delivery (2026-11-01): the [reviewed historical workflow](data-sample/historical-workflow/README.md) combines a contribution/withdrawal, reviewed internal cash pair, observed distribution, immutable 2:1 to 3:1 split revision, dated full-position price/FX valuations, exact CLI/report financial JSON and bundle restore/replay after deleting original calculation inputs. Opening 600 + net external flow 50 + investment result 622 = closing 1272; supplied complete positions/basis and explicit boundary NAVs remain reviewed assertions, not inferred history.
-  - Partial delivery (2026-10-29): [explicit flow-boundary valuations](docs/reference/performance-output.md) support portfolio linked TWR, with Dietz compatibility and method/fallback/annualization disclosure. [Reviewed same-instant cash pairs](docs/reference/internal-transfers.md) now establish internal-transfer identity at portfolio scope while retaining scoped legs. Asynchronous/in-kind/cross-currency pairing and broader corporate-action basis carryover remain open; ordinary snapshots do not establish pre/post-flow evidence.
-- [x] Reconcile a multi-currency example using dated FX and disclose missing/approximate history in every affected metric.
-  - Partial delivery (2026-10-29): [local historical FX](docs/reference/historical-fx.md) converts dated external cashflows in portfolio/account/bucket performance, retains lookup evidence, and makes affected returns unavailable on missing/stale inputs. A [synthetic offline example](docs/how-to/compute-performance.md#replay-dated-fx-for-cashflows-and-benchmarks) links explicit cashflow-boundary valuations. Explicit [full-position replay](docs/reference/historical-valuation.md) now reconstructs dated price/FX valuations with per-position provenance and rejects missing/stale inputs. [Reviewed v2 profit/FX attribution](docs/reference/profit-attribution.md#reviewed-multicurrency-evidence-version-20) now independently reconciles native account/currency cash, historical FIFO cost, security price/FX components, cash FX and explicit conversion results with source cutoffs. Missing/stale evidence makes the decomposition unavailable; old snapshots still lack independently reconstructed position evidence.
-- [x] Reconcile opening value + net contributions + investment result to closing value, with documented rounding and no double-counted income ([period bridge and reviewed FIFO example](docs/reference/profit-attribution.md); the bridge is arithmetic on supplied evidence, not independent proof of complete real-world history).
-- [x] Explain realized/unrealized gains with lot/cost-basis evidence; incomplete history cannot produce an apparently complete profit total ([reviewed period FIFO](docs/reference/profit-attribution.md) supports reporting-currency long-only plain positions, explicit opening lots and closing cash/positions; [v2 reviewed multicurrency FIFO](docs/reference/profit-attribution.md) now supports dated foreign lots, quantity-only split/reverse-split cost carryover and independently reconciled cash FX; mergers, shorts/debt and unsupported basis adjustments remain unavailable).
-- [x] Compare portfolio and foreign/composite benchmarks in a common currency and period, with return convention and data provenance visible.
-  - Partial delivery (2026-10-29): [historical benchmark conversion](docs/reference/benchmark-fx.md) converts local benchmark bookends and every active composite component before blending; comparable excess requires matching dates, source evidence, and total-return convention. Missing components do not silently renormalize a complete-looking composite. Explicit sourced bookend `rikdom_return_convention` declarations now gate historical excess: absent/mismatching/price-only conventions retain returns but make excess not comparable. Offline reports accept the same policy, benchmark and historical-FX inputs and preserve comparison evidence; source declarations do not independently certify history.
-- [x] Reproduce the CLI figures in an offline report, including method, annualization, fees/taxes treatment, and data-quality warnings ([shared portfolio result contract](docs/reference/performance-output.md#historical-valuation-and-profit-evidence); full/fallback offline panels use the same calculation and serializer. Browser date filters and unsupported scopes remain unavailable until recalculated with explicit CLI inputs; [UTC monthly/yearly performance tables](docs/reference/calendar-performance.md) now reuse the core calculation contract, exact bookends and explicit partial/missing-period diagnostics).
-
----
-
-## Phase 5 remainder (P1): Full Plugin API + SDK Hardening
-
-**User stories**: community-contributed adapters across the full pipeline and shared asset-type packs.
-
-### What to build
-
-Expand from the shipped import/catalog/output/storage foundation to full lifecycle/cross-cutting coverage:
-
-- Complete hook coverage for lifecycle plugin types not yet implemented:
-  - `transform`
-  - `enrichment`
-  - `strategy/decision`
-  - `execution`
-- Add or stabilize cross-cutting hooks and contracts:
-  - `risk/compliance`
-  - `auth/security`
-  - `notification`
-  - `simulation/backtest`
-  - orchestration policies for multi-step plugin pipelines.
-- Harden SDK scaffolding and examples for each supported plugin type.
-- Keep compatibility checks and fixture-based contract tests broad enough for community plugin packs.
-- Prioritize `enrichment` contracts for prices, FX, distributions, and corporate
-  actions: source, instrument identity, effective/retrieved timestamps, currency,
-  adjustment convention, coverage, and data-license metadata. Cache inputs locally
-  for replay; corrections must remain traceable.
-- Add regional catalog/provider packs with namespaced identifiers (exchange +
-  ticker, ISIN where available, provider mappings), market calendars, and asset
-  conventions. Brazilian fixed-income indexers/maturities belong in a regional
-  pack; valuation must distinguish contractual accrual from market quotes.
-- Start with BR/US reference packs using existing imports, then demonstrate a
-  third market and reporting currency without a core country-specific code path.
-- Publish a plugin coverage matrix: supported markets/assets/events, offline
-  inputs, dependencies, license, API costs/quotas, and maintenance status.
-
-### Acceptance criteria
-
-- [ ] Define and document hooks for `transform`, `enrichment`, `strategy/decision`, and `execution` plugins.
-  - Partial delivery (2026-10-29): [enrichment API 1.2](docs/reference/enrichment.md) ships with a real file/manual provider, strict host validation, revision-aware lookups, SDK scaffold and BR/US/Japan synthetic fixtures. Other lifecycle hooks and maintained regional/calendar coverage remain open.
-- [ ] Define and document `risk/compliance`, `auth/security`, `notification`, and `simulation/backtest` plugin contracts.
-- [x] Add SDK templates/examples beyond source-input plugins (`plugin init --type enrichment` creates an executable API 1.2 local provider, tests and contract fixtures; source/input remains the default).
-- [ ] Check plugin fixtures against schema and hook contracts in CI for every supported plugin type.
-- [x] Publish compatibility policy for breaking hook or manifest changes.
-- [x] Replay cached provider inputs offline with the same financial results; report stale/missing series explicitly ([normalized local enrichment](docs/reference/enrichment.md) and [historical valuation replay](docs/reference/historical-valuation.md), exercised through CLI → cache document → performance → offline report with networking denied).
-  - Partial delivery (2026-10-29): the [local market-series contract](docs/reference/market-series.md) validates price/FX files and replays observations with revision provenance, retrieval cutoff, coverage, and explicit missing/stale statuses. Delivered next (2026-10-29): experimental API 1.2 enrichment normalizes cached/manual documents; full-position replay consumes the same local series in performance and reports. Live acquisition, distribution/event contracts and automatic position reconstruction remain open.
-- [x] Preview and apply a split/distribution correction idempotently without adjusting already-adjusted prices or duplicating ledger events.
-  - Partial delivery (2026-10-29): [local market-event contract and CLI](docs/reference/market-events.md) provide source/retrieval revision evidence, read-only previews, reviewed initial split ledger events and observed-payment corrections with idempotent replay and stale-revision protection. Announcements never create payments; prices/holdings/tax lots remain unchanged. [Reviewed split revisions](docs/reference/market-events.md#reviewed-split-revisions) now append full replacements with exact source ancestry, review dates and replay proof. Dependent tax lots, unsupported later basis-changing actions and broader position/basis migrations remain explicitly blocked. Synthetic BR/US/Japan examples do not establish maintained market coverage.
-- [ ] Run a third-market reference pack against shared contracts without modifying the core for that country.
-- [ ] Support file/manual series as a free fallback for each reference provider workflow; publish coverage and licensing limits.
-
----
-
-## Phase 5A remainder (P1): Custom Groups + Rebalance Planning + Local Automation
-
-**User stories**: no-surprises operation, low-friction recurring updates, safe experimentation.
-
-### What to build
-
-- Data quality guardrails:
-  - drift detection between activities and holdings;
-  - policy-driven warnings vs blocking failures;
-  - dashboard/report surfacing for guardrail findings.
-- Scheduled refresh:
-  - recurring snapshot/import orchestration for end-of-day updates;
-  - diagnostics for scheduled run failures.
-- Paper/experimental portfolio policy hardening:
-  - explicit inclusion/exclusion rules in consolidated views;
-  - labels and safeguards to prevent accidental mixing with real totals.
-- Custom groups and policy views:
-  - reuse strategic allocation buckets; add saved user classifications and filters
-    by account, instrument, asset class, currency, and region;
-  - distinguish overlapping analytical tags from allocation groups so a holding
-    is not counted twice in totals or target weights.
-- Rebalance planning through `strategy/decision` and `risk/compliance`:
-  - consume the existing policy's targets, bands, constraints, and available cash;
-  - support contribution-only allocation first, then optional simulated buy/sell
-    plans with lot sizes, fractional units, fees, and declared tax assumptions;
-  - show current/target/proposed weights, quantities, residual cash, assumptions,
-    and blocked actions. Export a plan without changing actual holdings.
-- Use an OS scheduler/local orchestration for recurring imports and snapshots;
-  no hosted scheduler is required. Price refresh and account synchronization are
-  different operations, each with explicit permissions and diagnostics.
-
-### Acceptance criteria
-
-- [ ] Run drift guardrail checks consistently and surface machine-readable issue codes.
-- [ ] Allow scheduled runs to append snapshots and emit import/validation diagnostics.
-- [ ] Exclude paper portfolios from real portfolio totals by default with explicit opt-in for rollups.
-- [ ] Surface scheduled-run and guardrail status in reports.
-- [ ] Save custom groups and round-trip them through canonical data/export without changing instrument identity or double-counting totals.
-- [ ] Produce a deterministic contribution-only plan and a buy/sell simulation from a versioned policy; show constraints and residual cash.
-- [ ] Leave the actual ledger unchanged after planning and reject invalid targets or insufficient valuation data with actionable diagnostics.
-- [ ] Recover from a failed/repeated scheduled run without duplicated activities or partial canonical writes; retain last-success and failure status locally.
-
----
-
-## Phase 5B (P1 gate for connected automation): Plugin Trust + Private Operation
-
-**User stories**: know what a plugin can access, keep credentials and portfolio
-data under local control, and restore data safely after a failure.
-
-The [current runtime](docs/explanation/plugin-architecture.md#operational-safety)
-loads trusted Python in-process with no sandbox. A manifest permission or an
-`auth/security` hook cannot restrain arbitrary code in that process. These are
-planned safeguards, not existing security guarantees.
-
-### What to build
-
-- Document the trust boundary at plugin installation/loading; record pinned
-  versions, dependency provenance, requested access, and a reviewable inventory.
-- Evolve manifest/API contracts for filesystem, network destinations, secrets,
-  and execution permissions. Provide a constrained execution mode with enforcement
-  outside plugin code before accepting untrusted plugins or claiming isolation.
-  Retain trusted Pluggy mode with an explicit warning about its actual privileges.
-- Make connected providers optional, read-only, scoped, and revocable. Prefer
-  minimum identifier/date queries; keep secrets in OS-backed secret storage and
-  redact logs/reports. No portfolio upload, telemetry, or cloud AI by default.
-- Document OS/disk protection for canonical files and add an encrypted backup
-  option with a tested recovery procedure. Checksums establish integrity, not
-  confidentiality. Keep the existing portable unencrypted export option explicit.
-
-### Acceptance criteria
-
-- [ ] Show plugin identity/version and requested access before enabling a connection; revocation prevents subsequent credential use.
-- [ ] In constrained mode, demonstrate denied filesystem/network access with adversarial fixtures; refuse to label an unsupported platform as isolated.
-- [ ] Run the reference import → reconcile → performance → report → export flow with networking disabled after installation, using only local inputs.
-- [ ] Verify that logs/artifacts omit credentials and unnecessary account data; remote requests send only the selected provider's authorized authentication and minimum required inputs.
-- [ ] Restore an encrypted backup into a fresh workspace and reproduce totals; reject corrupted bundles and wrong keys without partial writes.
-
----
-
-## Phase 6 (P2): Historical Simulation + Regional Tax + Optional Interfaces
-
-**User stories**: richer analysis and portability ecosystem.
-
-### What to build
-
-- Extend the already-shipped interchange bundle with versioned replay metadata,
-  input-series hashes, plugin/policy versions, and license-aware inclusion of cached
-  prices/FX/events. Preserve v1 import compatibility.
-- Historical simulation plugin: initial capital, start/end dates, asset weights,
-  recurring contributions, rebalancing, and reinvestment assumptions. Reuse the
-  performance engine; isolate simulated state from real portfolios. Report fees,
-  slippage, FX, corporate-action treatment, missing history, and survivorship /
-  look-ahead limitations. Fixed-income product simulations need their own dated
-  cashflows and terms; an index comparison is not a product simulation.
-- Regional tax plugins: use existing activities, tax lots, and policy contracts;
-  add jurisdiction, tax year/effective dates, supported account/instrument types,
-  rule sources, and reproducible calculation traces. A BR reference pack may
-  prepare IRPF/DARF workpapers; the existing `irpf-xml` importer is not a tax engine.
-  Keep filing/payment outside the initial scope and mark unsupported cases.
-- Optional local interface: explore a thin browser/desktop frontend consuming
-  the same contracts, with guided imports, groups, reports, and simulation previews.
-  Keep CLI/static reports fully usable; bind any local service to loopback by
-  default and protect file access and state-changing requests. Mobile access must
-  not require exposing the portfolio service to the public internet.
-- Optional AI decision/explanation plugins only after the deterministic workflows
-  above. Provide a local-model path; external inference requires explicit opt-in
-  and scoped data sharing. AI must cite calculation artifacts and never become the
-  financial source of truth or a requirement for using the product.
-
-### Acceptance criteria
-
-- [x] Deliver a self-describing, integrity-checked export package.
-- [ ] Reproduce a report/simulation from an extended bundle offline and retain compatibility with existing bundles.
-  - Bounded calculation replay delivered (2026-11-01): [capture/export/restore/replay commands](docs/how-to/capture-and-replay-analysis.md) preserve selected performance inputs, nested caches, methods, environment and financial-result hashes; the historical reference reproduces the same CLI/report financial JSON offline. Version 1 portfolio bundles remain supported. Missing/changed/incompatible evidence fails replay; redacted or license-omitted exports are explicitly non-replayable. Automatic report rendering and simulation replay are not claimed by this delivery. Aggregate capture/replay is also available via `aggregate --bundle` and `replay-export --restore-dir`, using [v3 aggregate bundles](docs/reference/export-format.md#reproducible-aggregate-bundles-v3) with v1/v2 compatibility retained.
-- [ ] Run a deterministic historical simulation with contributions and corporate actions; expose coverage/bias limits and leave real totals unchanged.
-- [ ] Validate a first jurisdiction/year tax pack against documented fixtures, including disposals, withholding, and supported loss carryforward cases; reject unsupported rules explicitly.
-- [ ] Demonstrate that a second jurisdiction uses the same neutral contracts without embedding its rules in the core.
-- [ ] Validate an optional local UI against the same CLI results and Phase 5B privacy requirements before treating it as a supported interface.
-- [ ] Define AI plugin interfaces with guardrails/audit requirements before general enablement.
-
----
-
-## Execution planning
-
-For each new phase, create focused implementation issues with prerequisites,
-reference fixtures, core/plugin ownership, and the acceptance criteria above.
-No phase requires feature parity with an unverified paid service before delivering
-a useful free local workflow.
-
-
-### Current implementation tracking (2026-10-29)
-
-- [Comparable performance and remaining multi-currency attribution](https://github.com/ricardocabral/rikdom/issues/31)
-- [Local distribution/split event workflow](https://github.com/ricardocabral/rikdom/issues/32)
-- [Maintained regional packs and provider coverage](https://github.com/ricardocabral/rikdom/issues/33)
-- [Plugin trust and encrypted recovery](https://github.com/ricardocabral/rikdom/issues/34)
-- [Custom groups, guardrails and rebalancing](https://github.com/ricardocabral/rikdom/issues/35)
-- [Scheduled valuation cadence and recovery](https://github.com/ricardocabral/rikdom/issues/8)
-- [Remaining hooks and SDK coverage](https://github.com/ricardocabral/rikdom/issues/36)
-- [Phase 6 simulation/tax/optional interfaces](https://github.com/ricardocabral/rikdom/issues/37)
-
-
-The [profit/FX and split-revision workflow](docs/how-to/reconcile-profit-fx-and-split-revisions.md)
-connects the reviewed v2 decomposition and immutable event revisions. Its supported
-scope is long-only cash securities and quantity-only splits/reverse splits with
-explicit complete evidence; it does not imply support for every corporate action
-or jurisdiction-specific tax basis.
+# Rikdom Roadmap
+
+Make local portfolio records a dependable reference for users, scripts, and
+external LLMs. Keep the core small and stable: durable facts, declared intent,
+validation, and deterministic financial meaning.
+
+This roadmap contains remaining core work. Priorities express delivery order,
+not release dates. Ownership rules and opportunities for independent projects
+are defined in [product scope](docs/explanation/product-scope.md).
+
+## Core constraints
+
+- Keep canonical records in readable local JSON/JSONL with explicit schema
+  versions, provenance, and compatible evolution.
+- Keep reference workflows free and usable offline after installation, without
+  mandatory accounts, subscriptions, telemetry, or AI services.
+- Separate source observations, reviewed decisions, user policy, derived results,
+  and proposed actions. Preserve evidence and disclose uncertainty.
+- Keep deterministic calculations reusable by CLI, reports, and external agents.
+  Supported calculations retain their documented contracts and coverage limits.
+- Keep provider operations and regional rules in extensions. Connections remain
+  explicit and optional; cached/file inputs support offline work.
+- Keep runtime plugins explicitly trusted. Own validated writes, integrity,
+  redacted diagnostics, and recoverable failures; delegate credential storage,
+  encryption, scheduling, and isolation to adapters or external tools.
+- Add core interfaces only for a demonstrated records, validation, or calculation
+  need. An extension's existence does not require a matching core hook.
+
+## Delivery order
+
+| Priority | Outcome | Boundary |
+| --- | --- | --- |
+| Now, P0 | Give external agents reliable, scoped portfolio context | Document stable reads of existing files and calculation outputs; no inference runtime or mandatory service. |
+| Next, P1 | Explain changes between saved results | Compare captured evidence and methods; do not confuse revised facts with investment returns. |
+| Ongoing, P1 | Validate usefulness and close demonstrated core gaps | Fix observed integrity, compatibility, or evidence problems without adopting downstream product responsibilities. |
+
+Agent access does not depend on sophisticated run comparisons, a new protocol,
+report rendering, or reconstruction of an importer environment.
+
+## Reliable portfolio context for external agents
+
+**Outcome:** an external agent can identify the records it read, use supported
+calculations, cite evidence, and explain what remains unknown.
+
+- [ ] Document a read contract connecting canonical records, policy, source/review
+  evidence, and calculation outputs. Identify schema/result versions, portfolio
+  revision or input hashes, account scope, reporting currency, and relevant dates.
+  Reuse existing contracts before adding fields or commands.
+- [ ] Document how an agent selects a consistent local input state across files,
+  using captured analysis inputs where appropriate. Distinguish effective dates,
+  retrieval times, and calculation times; do not imply an atomic live-workspace
+  snapshot where none exists.
+- [ ] Make evidence references and completeness/freshness limits understandable
+  across the supported read surfaces. Distinguish missing, stale, disputed,
+  approximate, and unavailable values from zero or confirmed absence.
+- [ ] Provide a read-only script/agent example that selects the relevant portfolio
+  scope, consumes deterministic results, and cites their inputs. Exercise complete,
+  approximate, and unavailable cases without requiring a particular LLM or server.
+- [ ] Document how an agent presents proposed corrections or policy changes for
+  explicit review through validated write workflows. Reasoning output must not
+  silently replace observed facts or accepted user decisions.
+
+## Explain differences between saved runs
+
+**Outcome:** users and agents can explain why recorded results changed using
+local evidence, without treating every difference as economic performance.
+
+- [ ] Compare captured runs with pointers to source/review revisions, added
+  activities, valuations/FX, parameters, methods, versions, and coverage.
+- [ ] Isolate controlled source-correction, FX-vintage, and method changes;
+  classify unexplained residuals as unresolved.
+- [ ] Preserve scope/date/currency/method differences. Incompatible totals must
+  not be presented as like-for-like returns.
+- [ ] Expose comparison results through documented CLI/Python contracts with
+  explicit errors, evidence references, and compatibility expectations.
+
+## Validate the core workflow
+
+- [ ] Measure independent users completing first-real-statement → review →
+  portfolio answer/report without personal onboarding. Test a proposed
+  under-15-minute target with installation recorded separately.
+- [ ] Record attempted/completed workflows, elapsed time, unresolved discrepancies,
+  and repeat use after a statement update. Include sample size and observation
+  window beside each verdict; use voluntary feedback or local measurements.
+- [ ] Compare the same supported task against an existing workflow before claiming
+  reduced effort or better discrepancy resolution. Record setup, scope, failures,
+  and successes.
+- [ ] Use observed failures to select bounded fixes to records, validation,
+  calculations, or read contracts. Route presentation, strategy, provider, and
+  hosted-service needs to independently maintained extensions.
+
+## Delivery criteria
+
+For each slice, identify supported inputs, core/extension ownership, compatibility
+implications, and behavioral acceptance criteria. Verify relevant workflows with
+focused local checks and remote CI for the full suite.
+
+Calculation replay stays bounded to normalized inputs, selected parameters,
+methods, recorded environment requirements, and results. Importer re-execution,
+automatic environment installation, and report byte identity are outside that
+contract. Keep incomplete evidence explicit and protect valid state on failure.
+
+Remove delivered work from this file and document its supported behavior and
+limitations in reference documentation. Extension opportunities are not a
+conditional core backlog.

@@ -3,7 +3,8 @@
 This directory contains local plugins loaded by `rikdom`.
 
 Canonical docs:
-- [Plugin architecture](../docs/explanation/plugin-architecture.md) (lifecycle, taxonomy, dispatch)
+- [Product scope and extension ownership](../docs/explanation/product-scope.md) (core responsibilities and independent extension opportunities)
+- [Plugin architecture](../docs/explanation/plugin-architecture.md) (data flow, categories, dispatch)
 - [Query external data](../docs/how-to/query-external-data.md) (discover a connector, query data, inspect results)
 - [Author your first plugin](../docs/tutorials/first-plugin.md) (`rikdom plugin init` walkthrough)
 - [Plugin manifest reference](../docs/reference/plugin-manifest.md) and [plugin hooks reference](../docs/reference/plugin-hooks.md)

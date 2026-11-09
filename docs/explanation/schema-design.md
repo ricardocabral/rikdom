@@ -14,6 +14,12 @@ mechanics, see [run a migration](../how-to/run-a-migration.md) and
 - Deterministic imports through event idempotency and provenance.
 - Additive evolution over time with low migration burden.
 
+The schema follows the [core/extension ownership boundary](product-scope.md).
+Canonical records preserve accepted observations, reviewed decisions, and declared
+user intent with their evidence. Derived calculations and agent proposals remain
+distinct. Adding a strategy, UI, tax pack, or LLM integration does not require
+moving its changing rules or dependencies into the portfolio core.
+
 ## Modeling strategy
 
 ### 1. Stable core + extension slots

@@ -18,6 +18,18 @@ This guide explains how to propose changes, set up a local environment, and subm
 - For large changes, open an issue first to align on scope and design.
 - Keep changes focused. Smaller PRs are reviewed and merged faster.
 
+## Choose the right scope
+
+Read [product scope and extension ownership](docs/explanation/product-scope.md)
+before proposing a feature. Core changes should improve durable records,
+validation, shared deterministic calculations, or reliable local evidence access.
+Keep independently changing provider, regional, strategy, presentation, AI, and
+service behavior in plugins, extension libraries, or separate repositories.
+
+Prefer existing files and Python/CLI contracts over a new hook or service.
+A plugin taxonomy label is not a commitment to implement a runtime stage.
+Preserve supported APIs and calculations when introducing an extension.
+
 ## Development setup
 
 Prerequisites:

@@ -43,6 +43,19 @@ With coding agents and LLMs, it is much easier to build your own asset managemen
 - Extensible by design: `metadata` and `extensions` fields.
 - Agent-friendly: explicit schema + instructions for Codex/Claude.
 
+## Core and extension scope
+
+Core owns durable portfolio facts, declared user policy, validation, and
+deterministic financial calculations. Local records and evidence-backed results
+give external LLMs a reference for reasoning about the user's portfolio; Rikdom
+does not run a model or turn its proposals into accepted facts automatically.
+
+Provider integrations, presentation, investment strategies, regional tax rules,
+AI runtimes, hosted services, scheduling, and execution isolation belong in
+extension libraries or separate applications. They consume the same local
+contracts and evolve independently. See [product scope and extension
+ownership](docs/explanation/product-scope.md) for the boundary and opportunities.
+
 ## How rikdom differs from Ghostfolio and Wealthfolio
 
 `rikdom` is not trying to be another full investment app.
@@ -107,7 +120,7 @@ query results into portfolio calculations automatically.
 - `out/` generated artifacts (e.g., dashboard/report output)
 - `.codex/` Codex instruction files
 - `.claude/` Claude instruction files
-- `ROADMAP.md` phased roadmap and execution priorities
+- `ROADMAP.md` remaining core work and execution priorities
 
 ## Quick Start
 

@@ -65,7 +65,8 @@ JSON + JSONL was chosen for:
 
 - Commit `schema/` and `data-sample/` updates to git when templates/contracts
   change.
-- Optional periodic encrypted backups of local `data/`.
+- Use external backup tools or OS facilities for optional encrypted backups of
+  local `data/`; Rikdom does not provide encryption or key management.
 - Keep plugin import fixtures for auditability.
 
 ## See also
