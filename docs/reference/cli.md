@@ -236,6 +236,20 @@ Plugin-owned REST and MCP clients use the same CLI contract.
 Migration flags: `--to <version>`, `--output <path>`, `--no-backup`. See
 [run a migration](../how-to/run-a-migration.md).
 
+## Compare saved performance runs
+
+`rikdom compare-analysis --before PATH --after PATH` reads two captured performance
+run directories, including restored v2 archives, and prints versioned comparison
+JSON. It performs no replay, provider queries or writes. Numerical deltas require
+compatible portfolio/account scope, dates, reporting currency, methods and runtime
+evidence. Incompatible and unknown values remain explicit; a recorded-result delta
+is not an investment return or proof of causation.
+
+Valid comparisons, including incompatible evidence summaries, exit 0. Missing,
+malformed, tampered or unsupported evidence exits 1 with stderr; argument errors
+exit 2. See the [comparison reference](analysis-comparison.md) for the Python API,
+evidence contract, supported input formats and isolation limits.
+
 ## Export / import bundles
 
 | Command                                        | Make shortcut | Purpose                             |

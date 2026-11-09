@@ -30,8 +30,8 @@ are defined in [product scope](docs/explanation/product-scope.md).
 
 | Priority | Outcome | Boundary |
 | --- | --- | --- |
-| Now, P1 | Explain changes between saved results | Compare captured evidence and methods; do not confuse revised facts with investment returns. |
-| Ongoing, P1 | Validate usefulness and close demonstrated core gaps | Fix observed integrity, compatibility, or evidence problems without adopting downstream product responsibilities. |
+| Now, P1 | Validate usefulness and close demonstrated core gaps | Measure independent use; fix observed integrity, compatibility, or evidence problems within core scope. |
+| Consumer-driven, P1 | Extend explanation of saved-run differences | Expand formats or controlled-change attribution for a concrete consumer; preserve evidence and comparability limits. |
 
 Reliable external-agent reads are documented in the [read contract](docs/reference/agent-read-contract.md),
 [context workflow](docs/how-to/use-portfolio-context.md), and [offline reader example](docs/how-to/read-portfolio-context-example.md).
@@ -40,17 +40,19 @@ reconstruction of an importer environment.
 
 ## Explain differences between saved runs
 
-**Outcome:** users and agents can explain why recorded results changed using
-local evidence, without treating every difference as economic performance.
+[Saved performance-run comparison](docs/reference/analysis-comparison.md) supplies
+versioned CLI/Python reads, exact input/result references, source/review and coverage
+evidence, compatibility gates and bounded correction/FX isolation. It compares
+recorded answers without replaying them or claiming investment performance.
 
-- [ ] Compare captured runs with pointers to source/review revisions, added
-  activities, valuations/FX, parameters, methods, versions, and coverage.
-- [ ] Isolate controlled source-correction, FX-vintage, and method changes;
-  classify unexplained residuals as unresolved.
-- [ ] Preserve scope/date/currency/method differences. Incompatible totals must
-  not be presented as like-for-like returns.
-- [ ] Expose comparison results through documented CLI/Python contracts with
-  explicit errors, evidence references, and compatibility expectations.
+Remaining work needs a concrete supported consumer:
+
+- [ ] Extend comparison beyond captured v2 performance directories or portfolio
+  numerical summaries when required, retaining each format's scope, dates,
+  currency, method, equality and compatibility limits.
+- [ ] Isolate controlled method changes or richer reviewed-source changes beyond
+  the documented correction/FX cases. Keep incompatible methods, multiple drivers
+  and unexplained residuals unresolved; changed recorded facts are not returns.
 
 ## Validate the core workflow
 
