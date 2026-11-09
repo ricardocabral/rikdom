@@ -1,0 +1,60 @@
+name: Gitleaks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitleaks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          set -euo pipefail
+          install_dir="$(mktemp -d "$RUNNER_TEMP/gitleaks.XXXXXX")"
+          archive="$install_dir/gitleaks.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 10 --max-time 120 \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            --output "$archive"
+          echo "$GITLEAKS_SHA256  $archive" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$install_dir" gitleaks
+          echo "$install_dir" >> "$GITHUB_PATH"
+
+      - name: Scan Git History
+        # HEAD includes both parents of the PR merge ref, including fork commits.
+        # Separate merge diffs also cover secrets introduced by merge resolutions.
+        # Use git mode only: ignored/untracked local data is never a scan source.
+        # Keep output to redacted summaries; do not upload findings as artifacts.
+        # This workflow and the explicitly selected policy require security review.
+        run: |
+          set -euo pipefail
+          cd "$(git rev-parse --show-toplevel)"
+          if [[ -e .gitleaksignore || -L .gitleaksignore ]]; then
+            echo "Unexpected root .gitleaksignore; use reviewed rule-specific policy instead." >&2
+            exit 1
+          fi
+          # Preserve repository-relative paths even with local diff.noprefix settings.
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=diff.noprefix GIT_CONFIG_VALUE_0=false \
+            gitleaks git . --config .github/gitleaks.toml --redact=100 --no-banner --no-color --exit-code=1 \
+            --timeout=300 --ignore-gitleaks-allow \
+            --log-opts="--full-history --diff-merges=separate HEAD"

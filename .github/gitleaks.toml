@@ -1,0 +1,25 @@
+# Security policy: review changes together with the Gitleaks workflow.
+# Keep every built-in rule; exceptions below cover verified synthetic identities only.
+[extend]
+useDefault = true
+
+# Commands normalize Git patch prefixes so paths stay repository-relative.
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Synthetic B3 importer activity identities in the expected fixture"
+condition = "AND"
+paths = ['''^plugins/b3-consolidado-mensal/fixtures/movimentacao_minimal/expected\.json$''']
+regexTarget = "match"
+regexes = ['''^idempotency_key["']?\s*[:=]\s*["']b3-mov-[0-9a-f]{24}-[0-9]+["']$''']
+
+[[rules.allowlists]]
+description = "Exact synthetic CSV identities in the expected fixture and import test"
+condition = "AND"
+paths = [
+    '''^plugins/csv-generic/fixtures/sample/expected\.json$''',
+    '''^tests/test_cli_import_statement\.py$''',
+]
+regexTarget = "match"
+regexes = ['''^(?i)idempotency_key["']?\s*:\s*["'](?:br\-petr4\-2026\-03\-jcp|us\-aapl\-2026q1\-div)["']$''']
