@@ -45,7 +45,7 @@ investment performance.
 The user chooses the reasoning tool. Rikdom supplies local records and
 calculation results without invoking an LLM. Agent proposals become canonical
 only through explicit user acceptance and the applicable validated write workflow.
-The [roadmap](../../ROADMAP.md) tracks remaining read-contract work; this principle
+The [roadmap](../../ROADMAP.md) prioritizes recurring questions and observed core gaps; this principle
 does not imply a new context endpoint or agent protocol already exists.
 
 ## Where additional value belongs
