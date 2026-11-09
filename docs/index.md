@@ -49,6 +49,7 @@ Information-oriented descriptions of the machinery.
 - [Instrument history and cost basis](reference/fii-history.md)
 - [Performance output](reference/performance-output.md)
 - [External-agent read contract](reference/agent-read-contract.md)
+- [Saved performance-run comparison](reference/analysis-comparison.md)
 - [Historical position valuation](reference/historical-valuation.md)
 - [Reviewed FIFO profit attribution](reference/profit-attribution.md)
 - [Normalized local enrichment](reference/enrichment.md)
