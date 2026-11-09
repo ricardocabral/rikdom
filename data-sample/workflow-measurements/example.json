@@ -1,0 +1,67 @@
+{
+  "notice": "SYNTHETIC BLANK TEMPLATE ONLY. No users observed, no timings measured, no pilot completed. Not a Rikdom input or schema.",
+  "synthetic_only": true,
+  "observation_window": {"start": null, "end": null},
+  "local_delete_after": null,
+  "sharing_choice": "local_only",
+  "task": {
+    "scope_and_statement_revision": null,
+    "dates_and_currencies": null,
+    "question_and_required_output": null,
+    "methods_tolerances_and_completion_checks": null,
+    "stopping_budget_seconds": null,
+    "follow_up_window": {"start": null, "end": null}
+  },
+  "attempt_template": {
+    "local_user_id": null,
+    "pair_id": null,
+    "previous_attempt_id": null,
+    "attempt_id": null,
+    "synthetic": null,
+    "tool_and_version": null,
+    "phase_first_or_update": null,
+    "environment_importer_and_starting_state": null,
+    "prior_experience_rehearsal_and_run_order": null,
+    "setup": {
+      "elapsed_seconds": null,
+      "already_installed_dependencies": null,
+      "failures_and_downloads": null
+    },
+    "statement_acquisition_seconds": null,
+    "workspace_setup_within_workflow": {
+      "identity_currency_and_private_paths": null,
+      "steps_and_elapsed_seconds": null
+    },
+    "started_at": null,
+    "stopped_at_or_window_cutoff": null,
+    "elapsed_seconds": null,
+    "interruption_seconds_and_reason": null,
+    "outcome_completed_failed_or_in_progress": null,
+    "assistance": null,
+    "failed_stage_and_reason": null,
+    "steps_retries_and_manual_work": null,
+    "review_and_answer_checks": null,
+    "local_evidence_references_do_not_share": null,
+    "discrepancies": {
+      "assessed_checks": null,
+      "found": null,
+      "resolved_with_evidence": null,
+      "unresolved": null,
+      "not_assessable_and_coverage_gaps": null
+    },
+    "baseline_match_or_differences": null,
+    "update_availability_and_follow_up_status": null,
+    "changed_facts_and_review_conflicts": null
+  },
+  "attempts": [],
+  "verdict_template": {
+    "claim": "Unavailable: no measured sample; under-15-minute target unvalidated.",
+    "independent_users": null,
+    "attempted_completed_failed_in_progress": null,
+    "assisted_synthetic_excluded_and_missing": null,
+    "observation_window": {"start": null, "end": null},
+    "note_source_selection_and_read_at": null,
+    "limitations": null
+  },
+  "verdicts": []
+}
