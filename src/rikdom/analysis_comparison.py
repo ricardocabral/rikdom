@@ -32,6 +32,214 @@ _VALUATION_ROLES = {'snapshots', 'historical_valuations',
                     'historical_valuations.market_series_file', 'flow_valuations'}
 
 
+def _validate_role_documents(manifest: dict, documents: dict) -> None:
+    """Bind copied documents to their supported roles without selecting or calculating."""
+    from .performance import _finite_number, parse_flow_valuations
+    from .market_series import _currency, _number, _text
+
+    inputs = manifest['inputs']
+    base = documents[inputs['portfolio']]['settings']['base_currency']
+    _currency(base)
+    for role in ('snapshots', 'fx_history'):
+        rows = documents[inputs[role]]
+        if not isinstance(rows, list):
+            raise ValueError(f'{role}: expected JSONL records')
+        for index, row in enumerate(rows):
+            field = f'{role}[{index}]'
+            try:
+                if role == 'snapshots':
+                    _text(row['timestamp'], 'timestamp')
+                    datetime.fromisoformat(row['timestamp'].replace('Z', '+00:00'))
+                    if 'base_currency' in row:
+                        _currency(row['base_currency'])
+                    totals = row['totals']
+                    if not isinstance(totals, dict):
+                        raise ValueError('totals must be an object')
+                    value = totals['portfolio_value_base']
+                    if value is not None and _finite_number(value) is None:
+                        raise ValueError('totals.portfolio_value_base must be a finite number or null')
+                    if 'by_account' in totals:
+                        if not isinstance(totals['by_account'], dict):
+                            raise ValueError('totals.by_account must be an object')
+                        for account, value in totals['by_account'].items():
+                            _text(account, 'totals.by_account account identity')
+                            if value is not None and _finite_number(value) is None:
+                                raise ValueError('totals.by_account value must be a finite number or null')
+                else:
+                    _currency(row['base_currency'])
+                    _currency(row['quote_currency'])
+                    _number(row['rate_to_base'], positive=True)
+                    _text(row['as_of_date'], 'as_of_date')
+                    datetime.fromisoformat(row['as_of_date'])
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                raise ValueError(f'{field}: {exc}') from exc
+    if 'flow_valuations' in inputs:
+        parse_flow_valuations(documents[inputs['flow_valuations']], base)
+    if 'policy' in inputs:
+        accounts = documents[inputs['policy']].get('accounts', [])
+        if not isinstance(accounts, list) or any(not isinstance(row, dict) or
+                not isinstance(row.get('account_id'), str) or not row['account_id'].strip()
+                for row in accounts):
+            raise ValueError('policy.accounts requires objects with declared account_id')
+    scope = manifest['parameters']['by']
+    if scope != 'portfolio' and any(role in inputs for role in
+            ('flow_valuations', 'historical_valuations', 'profit_basis')):
+        raise ValueError('flow_valuations/historical_valuations/profit_basis require portfolio scope')
+    if scope == 'instrument' and 'historical_fx' in inputs:
+        raise ValueError('historical_fx does not support instrument scope')
+
+
+def _validate_result_evidence(result: dict, manifest: dict, documents: dict) -> None:
+    """Check published field contracts and declared support, never financial truth."""
+    def objects(value: Any, field: str) -> list[dict]:
+        if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
+            raise ValueError(field + ' must be an array of objects')
+        return value
+
+    def status(value: dict, field: str) -> None:
+        if not isinstance(value, dict) or not isinstance(value.get('status'), str):
+            raise ValueError(field + '.status must be a string')
+
+    def number(value: Any, field: str) -> None:
+        if value is not None and (type(value) not in (int, float) or not math.isfinite(value)):
+            raise ValueError(field + ' must be a finite number or null')
+
+    inputs = manifest['inputs']
+    if manifest['parameters']['by'] == 'instrument':
+        rows = objects(result['by_instrument'], 'by_instrument')
+        for index, row in enumerate(rows):
+            field = f'by_instrument[{index}]'
+            status(row, field)
+            for key in ('holding_id', 'currency'):
+                if not isinstance(row.get(key), str):
+                    raise ValueError(field + '.' + key + ' must be a string')
+            if row.get('valuation_basis') is not None and not isinstance(row['valuation_basis'], str):
+                raise ValueError(field + '.valuation_basis must be a string or null')
+            if not isinstance(row.get('warnings'), list) or any(not isinstance(item, str) for item in row['warnings']):
+                raise ValueError(field + '.warnings must be an array of strings')
+            objects(row.get('cashflows'), field + '.cashflows')
+            for key in ('terminal_value', 'profit_amount', 'xirr_pct'):
+                number(row.get(key), field + '.' + key)
+            if row['status'] == 'complete':
+                holdings = documents[inputs['portfolio']].get('holdings', [])
+                matches = [holding for holding in holdings if holding.get('id') == row['holding_id']]
+                history = (matches[0].get('extensions') or {}).get('rikdom_instrument_history') if len(matches) == 1 else None
+                if not isinstance(history, dict) or history.get('status') != 'complete' or history.get('missing_periods') != []:
+                    raise ValueError(field + ' complete requires captured holding history declared complete')
+        return
+    fx_rows = objects(result.get('fx_evidence'), 'fx_evidence')
+    for index, row in enumerate(fx_rows):
+        status(row, f'fx_evidence[{index}]')
+        for key in ('rate', 'native_amount', 'amount_base'):
+            if key in row:
+                number(row[key], f'fx_evidence[{index}].{key}')
+    objects(result.get('return_convention_evidence'), 'return_convention_evidence')
+    if result['twr_method'] == 'linked_subperiod':
+        if 'flow_valuations' not in inputs:
+            raise ValueError('linked_subperiod requires captured flow_valuations')
+        if not documents[inputs['flow_valuations']]['valuations']:
+            raise ValueError('linked_subperiod requires nonempty flow_valuations.valuations')
+    if result['fx_status'] == 'complete':
+        if 'historical_fx' not in inputs:
+            raise ValueError('fx_status complete requires captured historical_fx')
+        if len(fx_rows) != result.get('cashflow_count') or any(row['status'] != 'available' for row in fx_rows):
+            raise ValueError('fx_status complete requires available fx_evidence for captured cashflow_count')
+    replay = result.get('valuation_replay')
+    if replay is not None:
+        status(replay, 'valuation_replay')
+        objects(replay.get('snapshots'), 'valuation_replay.snapshots')
+        objects(replay.get('valuations'), 'valuation_replay.valuations')
+        if 'historical_valuations' not in inputs:
+            raise ValueError('valuation_replay requires captured historical_valuations')
+        if result['valuation_status'] != replay['status']:
+            raise ValueError('valuation_status disagrees with valuation_replay.status')
+    if result['valuation_status'] == 'complete':
+        if 'historical_valuations' not in inputs or replay is None or replay['status'] != 'complete':
+            raise ValueError('valuation_status complete requires captured historical_valuations and valuation_replay')
+        for row in documents[inputs['historical_valuations']]['snapshots']:
+            if row['positions_complete'] is not True:
+                raise ValueError('historical_valuations.snapshots.positions_complete required for complete valuation_status')
+        if not replay['snapshots'] or not replay['valuations']:
+            raise ValueError('valuation_replay complete requires snapshots and valuations')
+        for row in replay['valuations']:
+            if row.get('status') != 'complete' or row.get('positions_complete') is not True:
+                raise ValueError('valuation_replay.valuations requires complete status and positions_complete')
+    attribution = result.get('profit_attribution')
+    if attribution is not None:
+        status(attribution, 'profit_attribution')
+        for key in ('bridge', 'decomposition'):
+            section = attribution.get(key)
+            status(section, 'profit_attribution.' + key)
+            for field in ('cashflow_evidence', 'holdings', 'activity_evidence', 'cash_evidence', 'fx_evidence'):
+                if field in section:
+                    objects(section[field], 'profit_attribution.' + key + '.' + field)
+            from .profit_attribution import _COMPONENTS
+            from .multicurrency_profit import FX_COMPONENTS
+            for field in (*_COMPONENTS, *FX_COMPONENTS, 'opening_value_base', 'closing_value_base',
+                          'net_external_cashflow_base', 'investment_result_base'):
+                if field in section:
+                    number(section[field], 'profit_attribution.' + key + '.' + field)
+        if attribution['decomposition']['status'] == 'complete':
+            if 'profit_basis' not in inputs:
+                raise ValueError('profit_attribution.decomposition complete requires captured profit_basis')
+            basis = documents[inputs['profit_basis']]
+            if basis.get('contract_version') not in ('1.0', '2.0') or basis.get('scope') != 'portfolio':
+                raise ValueError('profit_basis requires supported contract_version and portfolio scope')
+            review, history = basis.get('review'), basis.get('history')
+            if not isinstance(review, dict) or review.get('status') != 'reviewed' or not review.get('source'):
+                raise ValueError('profit_basis.review must declare reviewed evidence and source')
+            if not isinstance(history, dict) or history.get('status') != 'complete' or history.get('missing_periods') != []:
+                raise ValueError('profit_basis.history must declare complete history with no missing_periods')
+            for field, value in (('period_start', history.get('from')), ('period_end', history.get('through'))):
+                expected = datetime.fromisoformat(result[field].replace('Z', '+00:00'))
+                if (datetime.fromisoformat(basis[field].replace('Z', '+00:00')) != expected
+                        or datetime.fromisoformat(value.replace('Z', '+00:00')) != expected):
+                    raise ValueError('profit_basis.history and period must match recorded ' + field)
+            if basis['contract_version'] == '2.0':
+                inventory = basis.get('inventory')
+                if not isinstance(inventory, dict) or inventory.get('status') != 'complete':
+                    raise ValueError('profit_basis.inventory must declare complete inventory')
+
+
+def _account_scope(manifest: dict, payloads: dict, portfolio: dict) -> dict:
+    """Retain declared account identities and explicitly unassigned canonical rows."""
+    identities = set()
+    unassigned = False
+    by_role = {}
+    for collection in ('holdings', 'activities'):
+        rows = portfolio.get(collection, [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise AnalysisRunError(f'Invalid portfolio {collection}: expected objects')
+        declared = set()
+        for row in rows:
+            identity = row.get('account_id')
+            if identity is None or (isinstance(identity, str) and not identity.strip()) or identity == '__unassigned__':
+                unassigned = True
+            elif not isinstance(identity, str):
+                raise AnalysisRunError(f'Invalid {collection}.account_id')
+            else:
+                declared.add(identity)
+        identities.update(declared)
+        by_role[collection] = sorted(declared) if declared else None
+    snapshots = payloads[manifest['inputs']['snapshots']]
+    declared = set()
+    for line in snapshots.splitlines():
+        if line.strip():
+            declared.update(json.loads(line)['totals'].get('by_account', {}))
+    if '__unassigned__' in declared:
+        unassigned = True
+        declared.remove('__unassigned__')
+    identities.update(declared)
+    by_role['snapshots'] = sorted(declared) if declared else None
+    if 'policy' in manifest['inputs']:
+        policy = json.loads(payloads[manifest['inputs']['policy']])
+        declared = {row['account_id'] for row in policy.get('accounts', [])}
+        identities.update(declared)
+        by_role['policy'] = sorted(declared) if declared else None
+    return {'account_ids': sorted(identities) if identities else None,
+            'has_unassigned_accounts': unassigned, 'account_ids_by_evidence': by_role}
+
+
 def _read_evidence(path: str | Path) -> tuple[dict, dict[str, bytes]]:
     """Reuse verified capture bytes, then enforce the bounded comparison contract."""
     try:
@@ -125,6 +333,7 @@ def _read_evidence(path: str | Path) -> tuple[dict, dict[str, bytes]]:
         for row in rows:
             if 'extensions' in row and not isinstance(row['extensions'], dict):
                 raise ValueError('Invalid activity extensions')
+        _validate_role_documents(manifest, documents)
         retained = portfolio.get('extensions', {}).get('rikdom_reviewed_imports')
         if retained is not None:
             if not isinstance(retained, dict) or type(retained.get('version')) is not int or retained['version'] != 1:
@@ -192,11 +401,13 @@ def _read_evidence(path: str | Path) -> tuple[dict, dict[str, bytes]]:
                 value = result[metric]
                 if value is not None and (type(value) not in (int, float) or not math.isfinite(value)):
                     raise ValueError('Invalid recorded metric: ' + metric)
+        _validate_result_evidence(result, manifest, documents)
+        _account_scope(manifest, payloads, portfolio)
         return manifest, payloads
     except (OSError, ValueError, KeyError, TypeError, AttributeError, OverflowError, RecursionError) as exc:
         if isinstance(exc, AnalysisRunError):
             raise
-        raise AnalysisRunError('Invalid or unavailable analysis comparison evidence') from exc
+        raise AnalysisRunError(f'Invalid or unavailable analysis comparison evidence: {exc}') from exc
 
 def _reference(path: str, payloads: dict[str, bytes], pointer: str = '') -> dict[str, Any]:
     return {'path': path, 'pointer': pointer, 'sha256': _digest(payloads[path])}
@@ -304,7 +515,8 @@ def compare_analysis_runs(before: str | Path, after: str | Path) -> dict[str, An
                      'created_at': manifest['created_at'],
                      'scope': {'by': manifest['parameters']['by'],
                                'instrument': manifest['parameters']['instrument'],
-                               'portfolio_id': portfolio.get('profile', {}).get('portfolio_id')},
+                               'portfolio_id': portfolio.get('profile', {}).get('portfolio_id'),
+                               **_account_scope(manifest, payloads, portfolio)},
                      'period_start': result.get('period_start'), 'period_end': result.get('period_end'),
                      'base_currency': result.get('base_currency'),
                      'input_sha256': _digest(_json_bytes({'inputs': manifest['inputs'],
@@ -356,7 +568,8 @@ def compare_analysis_runs(before: str | Path, after: str | Path) -> dict[str, An
     if ((old_portfolio.get('profile') or {}).get('portfolio_id') !=
             (new_portfolio.get('profile') or {}).get('portfolio_id')):
         reasons.append('portfolio_identity_changed')
-    if old_portfolio.get('accounts') != new_portfolio.get('accounts'):
+    if any(runs[0]['scope'][key] != runs[1]['scope'][key]
+           for key in ('account_ids', 'has_unassigned_accounts', 'account_ids_by_evidence')):
         reasons.append('account_scope_changed')
     if any(old.get(key) != new.get(key) for key in ('period_start', 'period_end')) or any(
             key in parameter_changes for key in ('since', 'until')):

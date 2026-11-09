@@ -457,3 +457,240 @@ class AnalysisComparisonTests(unittest.TestCase):
         self.rewrite_payload(after, 'inputs/historical_valuations.json', json.dumps(config).encode())
         with self.assertRaises(AnalysisRunError):
             self.compare(before, after)
+
+    def test_canonical_account_scope_changes_suppress_deltas(self):
+        for source in ('activities', 'holdings', 'snapshots', 'policy'):
+            with self.subTest(source=source):
+                self.portfolio['activities'] = []
+                self.portfolio['holdings'] = []
+                self.extra_inputs = {}
+                for row in self.snapshots:
+                    row['totals'].pop('by_account', None)
+                if source == 'activities':
+                    record = self.add_flow()
+                elif source == 'holdings':
+                    record = {'id': 'synthetic-holding', 'account_id': 'synthetic'}
+                    self.portfolio['holdings'] = [record]
+                elif source == 'snapshots':
+                    record = None
+                    for row in self.snapshots:
+                        row['totals']['by_account'] = {'synthetic': row['totals']['portfolio_value_base']}
+                else:
+                    record = None
+                    policy = json.loads(Path('data-sample/policy.json').read_text())
+                    policy.pop('strategic_allocation', None)
+                    policy['accounts'] = [{'account_id': 'synthetic', 'label': 'Synthetic',
+                                           'tax_account_type': 'taxable', 'jurisdiction': 'US'}]
+                    path = self.root / 'policy.json'
+                    path.write_text(json.dumps(policy))
+                    self.extra_inputs['policy'] = path
+                before = self.capture(source + '-before')
+                if record is not None:
+                    record['account_id'] = 'replacement'
+                elif source == 'snapshots':
+                    for row in self.snapshots:
+                        row['totals']['by_account'] = {'replacement': row['totals']['portfolio_value_base']}
+                else:
+                    policy['accounts'][0]['account_id'] = 'replacement'
+                    path.write_text(json.dumps(policy))
+                after = self.capture(source + '-after')
+                result = self.compare(before, after)
+                self.assertIn('account_scope_changed', result['compatibility']['reasons'])
+                self.assertEqual(result['deltas'], {})
+                self.assertEqual(result['before']['scope']['account_ids'], ['synthetic'])
+                self.assertEqual(result['after']['scope']['account_ids'], ['replacement'])
+
+    def test_account_scope_retains_unknown_and_unassigned_evidence(self):
+        unknown = self.capture('unknown')
+        self.assertIsNone(self.compare(unknown, unknown)['before']['scope']['account_ids'])
+        self.add_flow().pop('account_id')
+        unassigned = self.capture('unassigned')
+        scope = self.compare(unassigned, unassigned)['before']['scope']
+        self.assertIsNone(scope['account_ids'])
+        self.assertTrue(scope['has_unassigned_accounts'])
+
+    def linked_capture(self, name):
+        if not self.portfolio['activities']:
+            self.add_flow()
+        path = self.root / 'flow.json'
+        path.write_text(json.dumps({'version': 1, 'scope': 'portfolio', 'base_currency': 'USD',
+            'rounding_tolerance_base': 0.0001, 'valuations': [{
+                'timestamp': '2026-06-01T00:00:00Z', 'base_currency': 'USD',
+                'pre_flow_value_base': 100, 'post_flow_value_base': 110, 'source': 'synthetic'}]}))
+        self.extra_inputs['flow_valuations'] = path
+        run = self.capture(name)
+        self.assertEqual(json.loads((run / 'result.json').read_text())['twr_method'], 'linked_subperiod')
+        return run
+
+    def omit_role(self, run, role):
+        def edit(manifest):
+            name = manifest['inputs'].pop(role)
+            manifest['files'].pop(name)
+        self.rewrite_manifest(run, edit)
+
+    def test_linked_method_requires_valid_declared_flow_valuations(self):
+        from rikdom.analysis_runs import AnalysisRunError
+        before = self.linked_capture('linked')
+        self.assertTrue(self.compare(before, before)['compatibility']['comparable'])
+        for name, change in [
+            ('omitted', lambda run: self.omit_role(run, 'flow_valuations')),
+            ('malformed', lambda run: self.rewrite_payload(run, 'inputs/flow_valuations.json', b'{}')),
+        ]:
+            with self.subTest(name=name):
+                after = self.linked_capture(name)
+                change(after)
+                with self.assertRaisesRegex(AnalysisRunError, 'flow.valuations'):
+                    self.compare(before, after)
+
+    def test_swapped_snapshot_and_fx_roles_fail_with_matching_inventory_labels(self):
+        from rikdom.analysis_runs import AnalysisRunError
+        self.fx = [{'as_of_date': '2026-01-01', 'base_currency': 'USD',
+                    'quote_currency': 'EUR', 'rate_to_base': 1.1, 'source': 'synthetic'}]
+        before, after = self.capture('before'), self.capture('after')
+        self.assertTrue(self.compare(before, before)['compatibility']['comparable'])
+        def swap(manifest):
+            inputs = manifest['inputs']
+            inputs['snapshots'], inputs['fx_history'] = inputs['fx_history'], inputs['snapshots']
+            for role in ('snapshots', 'fx_history'):
+                manifest['files'][inputs[role]]['role'] = role
+        self.rewrite_manifest(after, swap)
+        with self.assertRaisesRegex(AnalysisRunError, 'snapshots|fx_history'):
+            self.compare(before, after)
+
+    def test_completeness_claims_require_declared_roles_and_assertions(self):
+        from rikdom.analysis_runs import AnalysisRunError
+        self.historical_fx()
+        fx_run = self.capture('fx')
+        self.assertTrue(self.compare(fx_run, fx_run)['compatibility']['comparable'])
+        self.omit_role(fx_run, 'historical_fx')
+        self.rewrite_manifest(fx_run, lambda m: m['files'].pop('inputs/historical_fx-series.json'))
+        with self.assertRaisesRegex(AnalysisRunError, 'historical_fx'):
+            self.compare(fx_run, fx_run)
+        self.extra_inputs = {'historical_valuations': Path('data-sample/historical-valuation-replay/replay.json')}
+        self.portfolio = json.loads(Path('data-sample/historical-valuation-replay/portfolio.json').read_text())
+        valuation_run = self.capture('valuation')
+        config = json.loads((valuation_run / 'inputs/historical_valuations.json').read_text())
+        config['snapshots'][0]['positions_complete'] = False
+        self.rewrite_payload(valuation_run, 'inputs/historical_valuations.json', json.dumps(config).encode())
+        with self.assertRaisesRegex(AnalysisRunError, 'positions_complete'):
+            self.compare(valuation_run, valuation_run)
+        omitted = self.capture('omitted-valuation')
+        self.omit_role(omitted, 'historical_valuations')
+        self.rewrite_manifest(omitted, lambda m: m['files'].pop('inputs/historical_valuations-series.json'))
+        with self.assertRaisesRegex(AnalysisRunError, 'historical_valuations'):
+            self.compare(omitted, omitted)
+
+    def test_supported_nested_result_shapes_are_validated(self):
+        from rikdom.analysis_runs import AnalysisRunError
+        before = self.capture('before')
+        for name, field, value in [
+            ('fx', 'fx_evidence', 'invalid'),
+            ('fx-row', 'fx_evidence', [None]),
+            ('profit', 'profit_attribution', {'status': 42}),
+            ('bridge', 'profit_attribution', {'status': 'complete', 'bridge': {'status': 42}}),
+        ]:
+            with self.subTest(name=name):
+                after = self.capture(name)
+                result = json.loads((after / 'result.json').read_text())
+                result[field] = value
+                self.rewrite_payload(after, 'result.json', json.dumps(result).encode())
+                with self.assertRaisesRegex(AnalysisRunError, field):
+                    self.compare(before, after)
+        for value in (None, 42):
+            after = self.capture('instrument-' + str(value), by='instrument')
+            self.rewrite_payload(after, 'result.json', json.dumps({'by_instrument': [value], 'warnings': []}).encode())
+            with self.assertRaisesRegex(AnalysisRunError, 'by_instrument'):
+                self.compare(after, after)
+
+    def test_valid_nested_results_and_unknown_extensions_are_read_without_execution(self):
+        from unittest.mock import patch
+        before = self.linked_capture('linked')
+        result = json.loads((before / 'result.json').read_text())
+        result['future_optional_evidence'] = {'amount': 'unknown', 'status': 42}
+        self.rewrite_payload(before, 'result.json', json.dumps(result).encode())
+        inventory = self.inventory()
+        with patch('rikdom.analysis_runs._evaluate', side_effect=AssertionError('replay forbidden')), \
+                patch('rikdom.performance.compute_performance', side_effect=AssertionError('calculation forbidden')), \
+                patch('rikdom.historical_fx.HistoricalFx.resolve', side_effect=AssertionError('lookup forbidden')):
+            result = self.compare(before, before)
+        self.assertTrue(result['compatibility']['comparable'])
+        self.assertEqual(self.inventory(), inventory)
+
+    def test_account_catalog_cannot_mask_changed_observed_membership(self):
+        self.add_flow()['account_id'] = 'a'
+        path = self.root / 'policy.json'
+        path.write_text(json.dumps({'accounts': [{'account_id': 'a'}, {'account_id': 'b'}]}))
+        self.extra_inputs['policy'] = path
+        before = self.capture('before')
+        self.portfolio['activities'][0]['account_id'] = 'b'
+        after = self.capture('after')
+        result = self.compare(before, after)
+        self.assertEqual(result['before']['scope']['account_ids'], ['a', 'b'])
+        self.assertEqual(result['after']['scope']['account_ids'], ['a', 'b'])
+        self.assertIn('account_scope_changed', result['compatibility']['reasons'])
+        self.assertEqual(result['deltas'], {})
+
+    def test_real_profit_decomposition_requires_captured_reviewed_basis(self):
+        from rikdom.analysis_runs import AnalysisRunError
+        for fixture in ('profit-attribution', 'profit-attribution-fx'):
+            with self.subTest(fixture=fixture):
+                sample = Path('data-sample') / fixture
+                self.portfolio = json.loads((sample / 'portfolio.json').read_text())
+                self.snapshots = [json.loads(line) for line in (sample / 'snapshots.jsonl').read_text().splitlines()]
+                self.extra_inputs = {'profit_basis': sample / 'basis.json'}
+                if fixture.endswith('-fx'):
+                    self.extra_inputs['historical_fx'] = sample / 'historical-fx.json'
+                run = self.capture(fixture)
+                recorded = json.loads((run / 'result.json').read_text())
+                self.assertEqual(recorded['profit_attribution']['decomposition']['status'], 'complete')
+                self.assertTrue(self.compare(run, run)['compatibility']['comparable'])
+                basis = json.loads((run / 'inputs/profit_basis.json').read_text())
+                basis['history']['status'] = 'partial'
+                self.rewrite_payload(run, 'inputs/profit_basis.json', json.dumps(basis).encode())
+                with self.assertRaisesRegex(AnalysisRunError, 'profit_basis.*history'):
+                    self.compare(run, run)
+                self.omit_role(run, 'profit_basis')
+                with self.assertRaisesRegex(AnalysisRunError, 'profit_basis'):
+                    self.compare(run, run)
+
+    def test_real_instrument_complete_and_incomplete_evidence(self):
+        from tests.test_instrument_performance import _portfolio
+        from rikdom.analysis_runs import AnalysisRunError
+        self.portfolio = _portfolio()
+        complete = self.capture('complete-instrument', by='instrument')
+        result = self.compare(complete, complete)
+        self.assertIn('numerical_scope_unsupported', result['compatibility']['reasons'])
+        holding = self.portfolio['holdings'][0]
+        holding.pop('extensions')
+        holding.pop('market_value')
+        incomplete = self.capture('incomplete-instrument', by='instrument')
+        self.assertEqual(self.compare(incomplete, incomplete)['deltas'], {})
+        manifest = json.loads((complete / 'analysis-run.json').read_text())
+        portfolio = json.loads((complete / manifest['inputs']['portfolio']).read_text())
+        portfolio['holdings'][0]['extensions']['rikdom_instrument_history']['status'] = 'partial'
+        self.rewrite_payload(complete, manifest['inputs']['portfolio'], json.dumps(portfolio).encode())
+        with self.assertRaisesRegex(AnalysisRunError, 'by_instrument.*history'):
+            self.compare(complete, complete)
+
+    def test_historical_inputs_are_validated_without_lookup_calculation_or_execution(self):
+        from contextlib import ExitStack
+        from unittest.mock import patch
+        self.historical_fx()
+        fx_run = self.capture('historical-fx')
+        sample = Path('data-sample/historical-valuation-replay')
+        self.portfolio = json.loads((sample / 'portfolio.json').read_text())
+        self.extra_inputs = {'historical_valuations': sample / 'replay.json'}
+        valuation_run = self.capture('historical-valuation')
+        inventory = self.inventory()
+        with ExitStack() as stack:
+            for target in (
+                'rikdom.analysis_runs._evaluate', 'rikdom.performance.compute_performance',
+                'rikdom.profit_attribution.compute_profit_attribution',
+                'rikdom.historical_valuation.replay_historical_valuations',
+                'rikdom.historical_fx.HistoricalFx.resolve', 'rikdom.market_series.MarketSeries.lookup',
+                'subprocess.run', 'socket.create_connection',
+            ):
+                stack.enter_context(patch(target, side_effect=AssertionError(target + ' forbidden')))
+            for run in (fx_run, valuation_run):
+                self.assertTrue(self.compare(run, run)['compatibility']['comparable'])
+        self.assertEqual(self.inventory(), inventory)

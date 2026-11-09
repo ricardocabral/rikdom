@@ -97,6 +97,18 @@ foreign environments receive `recorded_runtime_unsupported` and no deltas.
 Lock/reference and other recorded environment differences are conservatively
 reported as incompatible, even where replay does not enforce that field.
 
+`scope.account_ids` lists identities explicitly declared in captured holdings,
+activities, snapshot `totals.by_account`, and policy `accounts[].account_id`.
+`account_ids_by_evidence` retains each collection's identities separately so an
+unchanged policy catalog cannot hide changed observed membership.
+`has_unassigned_accounts` preserves missing assignments and the existing
+`__unassigned__` marker. No declared identities produces `account_ids: null`;
+this is unknown scope, not a verified empty account set. Matching unknown scope
+does not prevent comparison of recorded portfolio answers, but does not establish
+account coverage. Changed declared membership or assignment evidence suppresses
+all numerical deltas with `account_scope_changed`. A hypothetical top-level
+portfolio `accounts` field does not establish account scope.
+
 For incompatible summaries `deltas` is `{}`. `compatibility.reasons` identifies
 scope, identity, account scope, dates, currency, methods/semantics, unsupported
 numerical scope or recorded runtime differences. Before/after scope, dates,
@@ -165,6 +177,23 @@ and unsupported contracts fail. Captured source/review pointers are validated
 where the supported retained contracts supply them. Checksums detect corruption;
 they do not authenticate an author or prove source truth. A malicious actor who
 rewrites both evidence and hashes is outside that integrity guarantee.
+
+Validation binds supported input roles to their document structures, including
+snapshot totals, legacy FX journal rows, and the existing pure flow-valuation
+parser. A `linked_subperiod` claim requires a declared, valid, nonempty
+`flow_valuations` input. Complete historical FX and valuation claims require
+their declared inputs and corresponding recorded evidence; complete valuation
+inputs must assert complete positions. Complete profit decomposition requires
+captured reviewed basis and complete period history (and complete inventory for
+the multicurrency contract). Complete instrument results require the captured
+holding's complete-history declaration. Supported nested result containers,
+statuses and financial values are checked, including FX evidence, attribution
+sections and instrument rows. Errors identify the offending role or field.
+
+These checks establish structural support for recorded claims. They perform no
+market lookup, performance calculation, reconciliation or source-truth check.
+Unrecognized optional extension fields remain in the referenced captured bytes;
+comparison assigns them no supported semantics or numerical deltas.
 
 Failure leaves both run directories and prior valid state intact. The comparison
 contains private captured source references and environment metadata; it is not
