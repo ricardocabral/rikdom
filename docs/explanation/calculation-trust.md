@@ -73,6 +73,14 @@ gap is reported as `RECON_FX_MISSING` and the affected holding is excluded
 from the total — making the gap directly visible rather than silently
 zeroing out.
 
+For an inline evidence read, `rikdom aggregate --include-trust` exposes the same
+calculation's existing holding records, structured findings and selected FX lock
+under `trust`, without writing report artifacts. Unavailable optional values stay
+omitted, known zeros stay zero, and exclusions retain their reasons. This adds an
+evidence view; it does not change valuation or certify completeness. With
+`--bundle`, only the compact result is captured/replayed; keep stdout separately
+to retain the optional evidence. See the [aggregate CLI reference](../reference/cli.md#validate-aggregate-snapshot).
+
 For activity-derived ledgers (cash drift, quantity replay), the same
 `Finding` records identify the offending activities and their expected vs
 observed deltas, so users can locate the source rows in their importer

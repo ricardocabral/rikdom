@@ -103,7 +103,7 @@ aggregate.zip
 ├── rikdom-export.json       # format_version: 3.0.0
 ├── data/portfolio.json      # normalized inputs actually used, including corrections
 ├── analysis/run.json        # versioned calculation manifest
-├── analysis/result.json     # expected aggregate CLI output
+├── analysis/result.json     # expected compact aggregate result
 └── environment/uv.lock      # included when available in the source installation
 ```
 
@@ -134,7 +134,14 @@ numbers must satisfy the fixed tolerances. Generation timestamps and ZIP/JSON
 byte identity are not financial equality requirements.
 
 Capture uses the calculation's in-memory portfolio and FX selection rather than
-rereading mutable workspace inputs. `aggregate` retains its ordinary JSON output.
+rereading mutable workspace inputs. `aggregate` retains its compact JSON output
+by default. Optional `--include-trust` adds existing per-holding trust records,
+findings and selected FX context to stdout after compact capture. That `trust`
+object is not archived as part of `analysis/result.json` and is not emitted by
+replay; retain stdout separately when needed. This option changes neither the
+bundle/method version nor the recorded parameters or equality contract. Existing
+compact v3 results keep their shape; the exact-environment requirement still
+applies to older captures.
 A strict-quality calculation failure does not create a bundle. A successful
 non-strict calculation may exclude holdings or have missing FX; those warnings
 are preserved. `status: reproduced` means the captured result matched, including

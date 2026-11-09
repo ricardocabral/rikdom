@@ -125,8 +125,13 @@ resolved files to exist. Import logs and original statements are not implicitly
 included. Additional source evidence must be preserved and identified separately.
 
 `aggregate --bundle` instead captures the calculation's actual in-memory portfolio,
-selected FX lock and result. It does not reread the portfolio for capture and does
-not archive the entire FX history or policy. This also supplies no atomic
+selected FX lock and supported compact result. With `--include-trust`, stdout
+additionally includes a `trust` object from the same calculation, after compact
+capture. This optional evidence is not in `analysis/result.json` or replay output;
+preserve stdout separately if it is part of your evidence read. The v3 bundle,
+`aggregate/1.0.0` method and recorded parameters/equality contract stay unchanged,
+including the matching-environment requirement. Capture does not reread the
+portfolio or archive the entire FX history or policy. This also supplies no atomic
 live-workspace snapshot guarantee. Verified v2/v3 bundles can be reproduced into
 fresh directories with `replay-export`; redacted/omitted v2 evidence is explicitly
 non-replayable. See [capture and replay](../how-to/capture-and-replay-analysis.md).
@@ -159,8 +164,22 @@ null returns; account/bucket calculations may treat an absent snapshot key as
 zero and explicitly warn. Those conventions are not evidence of a zero balance.
 Non-strict aggregate can skip unvalued/unconvertible holdings; Python
 `AggregateResult.trust_records` and reconciliation artifacts expose exclusions.
-The compact aggregate CLI JSON does not expose every trust record, so a warning-free
-total alone cannot certify valuation completeness. Exit status zero means command
+The default compact aggregate CLI JSON omits these structured records. Request
+`aggregate --include-trust` to read `trust.holdings` (existing per-holding
+serialization), `trust.findings` (existing structured finding serialization) and
+`trust.fx_context` (selected FX lock). Excluded holdings retain their IDs, available
+native amounts/currencies, exclusion reasons and finding codes. Unavailable
+optional values are omitted by those serializers; omitted amounts are not zero,
+and absent finding codes do not establish inclusion. Inspect `excluded_reason`:
+for example, `missing_market_value` can exist without a finding. This diagnostic
+case does not make a missing schema-required market value valid input.
+
+FX lock `rate_dates`/`sources` describe selected cached rates. A holding's actual
+`fx_source` can instead be identity or the existing metadata fallback; do not infer
+a quote date from `snapshot_timestamp` or fill missing evidence from the current
+date. The option exposes existing calculation evidence without a second valuation
+or universal completeness status. A warning-free total alone cannot certify
+valuation completeness. Exit status zero means command
 execution succeeded: missing/stale market lookups and financially unavailable
 performance can still exit zero.
 

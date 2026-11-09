@@ -66,6 +66,19 @@ class AnalysisRunTests(unittest.TestCase):
         self.assertEqual((code, err), (0, ''))
         self.assertEqual(json.loads(out), expected)
 
+    def test_v2_bundle_replay_export_preserves_existing_performance_result(self):
+        self.capture()
+        expected = json.loads((self.run / 'result.json').read_text())
+        bundle, restored = self.root / 'performance.zip', self.root / 'reproduced'
+        self.assertEqual(run_cli('export-analysis', '--run', str(self.run), '--output', str(bundle))[0], 0)
+        with zipfile.ZipFile(bundle) as archive:
+            self.assertEqual(json.loads(archive.read('rikdom-export.json'))['format_version'], '2.0.0')
+        code, out, err = run_cli('replay-export', '--bundle', str(bundle), '--restore-dir', str(restored))
+        self.assertEqual((code, err), (0, ''))
+        self.assertEqual(json.loads(out)['status'], 'reproduced')
+        self.assertEqual(json.loads(out)['result'], expected)
+        self.assertEqual(json.loads((restored / 'result.json').read_text()), expected)
+
     def test_missing_and_changed_input_refuse_replay(self):
         self.capture()
         source = self.run / 'inputs' / 'portfolio.json'
