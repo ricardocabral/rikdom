@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
 import unittest
 
 from rikdom.aggregate import aggregate_portfolio
@@ -570,6 +574,68 @@ class LookthroughBreakdownTests(unittest.TestCase):
 
 
 class StrategicBucketTotalsTests(unittest.TestCase):
+    def test_equal_dimension_totals_are_reproducible_across_processes(self) -> None:
+        portfolio = {
+            "settings": {"base_currency": "USD"},
+            "asset_type_catalog": [
+                {"id": "stock", "asset_class": "equity"},
+                {"id": "bond", "asset_class": "debt"},
+            ],
+            "holdings": [
+                {
+                    "id": "synthetic-equity",
+                    "asset_type_id": "stock",
+                    "market_value": {"amount": 60, "currency": "USD"},
+                    "economic_exposure": {
+                        "breakdown": [{"weight_pct": 100, "region": "US"}]
+                    },
+                },
+                {
+                    "id": "synthetic-bond",
+                    "asset_type_id": "bond",
+                    "market_value": {"amount": 40, "currency": "USD"},
+                    "economic_exposure": {
+                        "breakdown": [{"weight_pct": 100, "region": "EU"}]
+                    },
+                },
+            ],
+        }
+        targets = [
+            {"dimension": "asset_class", "bucket": "equity", "weight_pct": 50},
+            {"dimension": "region", "bucket": "EU", "weight_pct": 50},
+        ]
+        script = """
+import json
+import sys
+from rikdom.aggregate import aggregate_portfolio, compute_strategic_bucket_totals
+data = json.load(sys.stdin)
+result = aggregate_portfolio(data['portfolio'])
+print(json.dumps(compute_strategic_bucket_totals(result, data['policy'])))
+"""
+        for seed in ("1", "2"):
+            for selected_targets in (targets, list(reversed(targets))):
+                with self.subTest(seed=seed, targets=selected_targets):
+                    process = subprocess.run(
+                        [sys.executable, "-c", script],
+                        input=json.dumps({
+                            "portfolio": portfolio,
+                            "policy": {"strategic_allocation": {
+                                "dimensions": ["asset_class", "region"],
+                                "targets": selected_targets,
+                                "enforce_sum_to_100": False,
+                            }},
+                        }),
+                        text=True,
+                        capture_output=True,
+                        env={**os.environ, "PYTHONHASHSEED": seed},
+                        check=True,
+                    )
+                    self.assertEqual(json.loads(process.stdout), {
+                        "asset_class:equity": 60.0,
+                        "region:EU": 40.0,
+                        "__unallocated__": 40.0,
+                    })
+
     def test_reduces_aggregate_to_policy_targets(self) -> None:
         from rikdom.aggregate import (
             AggregateResult,
