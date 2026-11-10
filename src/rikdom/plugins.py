@@ -366,19 +366,15 @@ def build_import_diff(
 
     holdings = portfolio.get("holdings")
     existing_holdings: list[dict[str, Any]] = (
-        holdings if isinstance(holdings, list) else []
+        copy.deepcopy(holdings) if isinstance(holdings, list) else []
     )
-    holding_index: dict[str, dict[str, Any]] = {}
-    canonical_index: dict[str, dict[str, Any]] = {}
-    for item in existing_holdings:
+    holding_index: dict[str, int] = {}
+    for i, item in enumerate(existing_holdings):
         if not isinstance(item, dict):
             continue
         hid = _as_text(item.get("id"))
         if hid and hid not in holding_index:
-            holding_index[hid] = item
-        ckey = holding_canonical_key(item)
-        if ckey and ckey not in canonical_index:
-            canonical_index[ckey] = item
+            holding_index[hid] = i
 
     for entry in imported.get("holdings", []) or []:
         if not isinstance(entry, dict):
@@ -386,15 +382,15 @@ def build_import_diff(
         hid = _as_text(entry.get("id"))
         if not hid:
             continue
-        existing = holding_index.get(hid)
+        target_pos = holding_index.get(hid)
         collapsed_via_key: str | None = None
-        if existing is None and collapse_canonical:
+        if target_pos is None and collapse_canonical:
             ckey = holding_canonical_key(entry)
             match = _canonical_position_match(existing_holdings, entry)
             if ckey and match is not None:
-                existing = existing_holdings[match]
+                target_pos = match
                 collapsed_via_key = ckey
-        if existing is None:
+        if target_pos is None:
             rows.append(
                 {
                     "entity_type": "holding",
@@ -404,8 +400,11 @@ def build_import_diff(
                 }
             )
             holdings_counts.create += 1
+            holding_index[hid] = len(existing_holdings)
+            existing_holdings.append(copy.deepcopy(entry))
             continue
 
+        existing = existing_holdings[target_pos]
         incoming_for_changes = _merged_holding(existing, entry)
         if collapsed_via_key:
             # Mirror merge_holdings collapse semantics in the dry-run diff:
@@ -447,6 +446,9 @@ def build_import_diff(
             row["collapsed_into_id"] = _as_text(existing.get("id"))
         rows.append(row)
         holdings_counts.update += 1
+        # Later rows see earlier refreshes and collapses, just as in merge_holdings.
+        existing_holdings[target_pos] = incoming_for_changes
+        holding_index[_as_text(incoming_for_changes.get("id")) or hid] = target_pos
 
     activities = portfolio.get("activities")
     existing_activities: list[dict[str, Any]] = (

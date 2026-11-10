@@ -65,6 +65,176 @@ class StatementImportMergeTests(unittest.TestCase):
         self.assertEqual(merged["holdings"][0]["valuation"]["net_value"]["amount"], 118)
         self.assertEqual(merged["holdings"][0]["valuation"]["tax_provisions"], existing["valuation"]["tax_provisions"])
 
+    def test_same_batch_canonical_preview_keeps_newer_position_and_stable_id(self):
+        first = self.holding()
+        first.update(account_id="synthetic-account")
+        first["metadata"]["canonical_key"] = "synthetic:fund:alpha"
+        older = copy.deepcopy(first)
+        older.update(id="source-alias", as_of="2026-10-09T01:00:00Z")
+        older["market_value"]["amount"] = 90
+        portfolio = {"holdings": []}
+        imported = {"holdings": [first, older]}
+        before = copy.deepcopy((portfolio, imported))
+
+        diff = build_import_diff(portfolio, imported, collapse_canonical=True)
+        self.assertEqual((portfolio, imported), before)
+        merged, counts = merge_holdings(copy.deepcopy(portfolio), copy.deepcopy(imported), collapse_canonical=True)
+        self.assertEqual(counts.inserted, 1)
+        self.assertEqual(counts.collapsed, 1)
+        self.assertEqual(len(merged["holdings"]), 1)
+        actual = merged["holdings"][0]
+        self.assertEqual(actual["id"], "h")
+        self.assertEqual(actual["as_of"], "2026-10-08T23:59:59-03:00")
+        self.assertEqual(actual["market_value"]["amount"], 120)
+        self.assertEqual(actual["metadata"]["collapsed_from"], ["source-alias"])
+
+        self.assertEqual(diff["summary"]["holdings"], {"create": 1, "update": 1, "noop": 0})
+        self.assertEqual(diff["rows"][1]["collapsed_into_id"], "h")
+        self.assertEqual(diff["rows"][1]["changes"], [
+            {"field": "metadata.collapsed_from", "before": None, "after": ["source-alias"]},
+        ])
+
+        accepted = copy.deepcopy(merged)
+        repeated = build_import_diff(merged, imported, collapse_canonical=True)
+        self.assertEqual(repeated["summary"]["holdings"], {"create": 0, "update": 0, "noop": 2})
+        merge_holdings(merged, copy.deepcopy(imported), collapse_canonical=True)
+        self.assertEqual(merged, accepted)
+
+    def test_same_batch_preview_compares_alias_against_refreshed_date(self):
+        existing = self.holding()
+        existing.update(account_id="synthetic-account", as_of="2026-10-01T00:00:00Z")
+        existing["metadata"]["canonical_key"] = "synthetic:fund:alpha"
+        newer = {k: existing[k] for k in ("id", "asset_type_id", "label")}
+        newer.update(as_of="2026-10-10T00:00:00Z", market_value={"amount": 130, "currency": "BRL"})
+        alias = copy.deepcopy(existing)
+        alias.update(id="source-alias", as_of="2026-10-09T00:00:00Z")
+        alias["market_value"]["amount"] = 90
+        portfolio = {"holdings": [existing]}
+        imported = {"holdings": [newer, alias]}
+        before = copy.deepcopy((portfolio, imported))
+
+        diff = build_import_diff(portfolio, imported, collapse_canonical=True)
+        self.assertEqual((portfolio, imported), before)
+        self.assertEqual(diff["rows"][1]["changes"], [
+            {"field": "metadata.collapsed_from", "before": None, "after": ["source-alias"]},
+        ])
+        merged, counts = merge_holdings(copy.deepcopy(portfolio), copy.deepcopy(imported), collapse_canonical=True)
+        self.assertEqual((counts.updated, counts.collapsed), (1, 1))
+        actual = merged["holdings"][0]
+        self.assertEqual(actual["market_value"]["amount"], 130)
+        self.assertEqual(actual["as_of"], "2026-10-10T00:00:00Z")
+        for field in ("identifiers", "instrument_attributes", "extensions"):
+            self.assertEqual(actual[field], existing[field])
+
+    def test_same_batch_preview_rechecks_account_candidates_after_id_refresh(self):
+        for other_account, alias_account, expected_operation, expected_ids in (
+            ("account-a", "account-a", "update", ["h", "other"]),
+            ("account-b", "account-a", "create", ["h", "other", "source-alias"]),
+            ("account-b", "account-b", "create", ["h", "other", "source-alias"]),
+        ):
+            with self.subTest(other_account=other_account, alias_account=alias_account):
+                existing = self.holding()
+                existing.update(account_id="account-a")
+                existing["metadata"]["canonical_key"] = "synthetic:fund:alpha"
+                other = copy.deepcopy(existing)
+                other.update(id="other", account_id=other_account)
+                alias = copy.deepcopy(existing)
+                alias.update(id="source-alias", account_id=alias_account)
+                portfolio = {"holdings": [existing, other]}
+                # Default ID matching moves h to account-b before alias matching.
+                refresh = {k: existing[k] for k in ("id", "asset_type_id", "label", "market_value", "as_of")}
+                refresh["account_id"] = "account-b"
+                imported = {"holdings": [refresh, alias]}
+                before = copy.deepcopy((portfolio, imported))
+                diff = build_import_diff(portfolio, imported, collapse_canonical=True)
+                self.assertEqual((portfolio, imported), before)
+                self.assertEqual([row["operation"] for row in diff["rows"]], ["update", expected_operation])
+                if expected_operation == "update":
+                    self.assertEqual(diff["rows"][1]["collapsed_into_id"], "other")
+                else:
+                    self.assertNotIn("collapsed_into_id", diff["rows"][1])
+                merged, _ = merge_holdings(copy.deepcopy(portfolio), copy.deepcopy(imported), collapse_canonical=True)
+                self.assertEqual([h["id"] for h in merged["holdings"]], expected_ids)
+                self.assertEqual(merged["holdings"][0]["account_id"], "account-b")
+
+    def test_same_batch_preview_leaves_incomplete_or_distinct_identity_separate(self):
+        for field, value in (
+            ("account_id", None), ("account_id", ""), ("account_id", "   "),
+            ("account_id", "other-account"), ("metadata", {}),
+            ("metadata", {"canonical_key": "other-key"}),
+        ):
+            for changed_row in (0, 1):
+                with self.subTest(field=field, value=value, changed_row=changed_row):
+                    first = self.holding()
+                    first.update(account_id="synthetic-account")
+                    first["metadata"]["canonical_key"] = "synthetic:fund:alpha"
+                    alias = copy.deepcopy(first)
+                    alias["id"] = "source-alias"
+                    rows = [first, alias]
+                    if value is None:
+                        rows[changed_row].pop(field)
+                    else:
+                        rows[changed_row][field] = value
+                    imported = {"holdings": rows}
+                    diff = build_import_diff({"holdings": []}, imported, collapse_canonical=True)
+                    self.assertEqual(diff["summary"]["holdings"], {"create": 2, "update": 0, "noop": 0})
+                    merged, counts = merge_holdings({"holdings": []}, copy.deepcopy(imported), collapse_canonical=True)
+                    self.assertEqual([h["id"] for h in merged["holdings"]], ["h", "source-alias"])
+                    self.assertEqual(counts.collapsed, 0)
+
+    def test_cli_same_batch_collapse_preview_matches_write_and_repeated_import(self):
+        from rikdom.cli import main
+
+        first = self.holding()
+        first.update(account_id="synthetic-account")
+        first["metadata"]["canonical_key"] = "synthetic:fund:alpha"
+        alias = copy.deepcopy(first)
+        alias.update(id="source-alias", as_of="2026-10-09T01:00:00Z")
+        alias["market_value"]["amount"] = 90
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            portfolio_path = root / "portfolio.json"
+            source_path = root / "statement.json"
+            log_path = root / "import.jsonl"
+            portfolio = {"holdings": [], "activities": []}
+            portfolio_path.write_text(json.dumps(portfolio))
+            source = {"provider": "synthetic", "generated_at": "2026-10-10T00:00:00Z", "holdings": [first, alias]}
+            source_path.write_text(json.dumps(source))
+            args = [
+                "import-statement", "--portfolio", str(portfolio_path),
+                "--plugin", "normalized-statement-json", "--input", str(source_path),
+                "--import-log", str(log_path), "--collapse-canonical",
+                "--ingested-at", "2026-10-10T00:00:00Z",
+            ]
+            before = portfolio_path.read_bytes()
+            reports = []
+            for mode in ("--dry-run", "--write", "--write"):
+                output, errors = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                    code = main([*args, mode])
+                self.assertEqual(code, 0, errors.getvalue())
+                reports.append(json.loads(output.getvalue()))
+                if mode == "--dry-run":
+                    self.assertEqual(portfolio_path.read_bytes(), before)
+                    self.assertFalse(log_path.exists())
+                elif len(reports) == 2:
+                    accepted = portfolio_path.read_bytes()
+                else:
+                    self.assertEqual(portfolio_path.read_bytes(), accepted)
+
+            self.assertEqual(reports[0]["dry_run_diff"], reports[1]["dry_run_diff"])
+            self.assertEqual(reports[0]["dry_run_diff"]["summary"]["holdings"], {"create": 1, "update": 1, "noop": 0})
+            self.assertEqual(reports[1]["holdings"]["inserted"], 1)
+            self.assertEqual(reports[1]["holdings"]["collapsed"], 1)
+            self.assertEqual(reports[2]["dry_run_diff"]["summary"]["holdings"], {"create": 0, "update": 0, "noop": 2})
+            actual = json.loads(portfolio_path.read_text())["holdings"]
+            self.assertEqual(len(actual), 1)
+            self.assertEqual(actual[0]["id"], "h")
+            self.assertEqual(actual[0]["market_value"]["amount"], 120)
+            revisions = json.loads(portfolio_path.read_text())["extensions"]["rikdom_reviewed_imports"]["revisions"]
+            self.assertEqual([h["id"] for h in revisions[0]["source"]["holdings"]], ["h", "source-alias"])
+            self.assertEqual(source_path.read_text(), json.dumps(source))
+
     def test_statement_observations_are_persisted_and_reimport_is_noop(self):
         from rikdom.plugins import merge_statement_observations
 

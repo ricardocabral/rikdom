@@ -61,6 +61,12 @@ check the matching account and source valuation date. A B3 or IRPF import
 will not collapse merely because the ticker matches; both sources must
 explicitly establish the same key and account.
 
+The holding preview follows source row order, using earlier creates and
+refreshes in the same batch when matching later rows. A later row with older
+dated evidence retains the newer position; a collapse can still record its
+source ID in `metadata.collapsed_from`. Previewing does not modify the portfolio
+or source input.
+
 Replace `--dry-run` with `--write` after reviewing the proposed changes.
 See [import a statement](../how-to/import-a-statement.md) for the full workflow.
 
