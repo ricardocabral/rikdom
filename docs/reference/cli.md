@@ -135,8 +135,10 @@ meaning. Announcements and estimates never enter these totals. Markdown renders
 the planning results in separate sections. The plan is validated by the income
 calculation before artifact writes; output filenames cannot overwrite either
 the portfolio or an explicit plan input, including existing symlink or hard-link
-aliases. Markdown retains each planning scope and source evidence; yield rows
-also retain the declared income source and coverage. Existing commands without
+aliases. When writing both formats, the JSON and Markdown destinations must be
+distinct files, including through symlink or hard-link aliases; conflicts fail
+before either artifact is written. Markdown retains each planning scope and
+source evidence; yield rows also retain the declared income source and coverage. Existing commands without
 a plan keep their original version `1` JSON output contract.
 
 See the [income plan reference](income-plan.md) for exact required source, scope,

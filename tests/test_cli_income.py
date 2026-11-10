@@ -109,3 +109,27 @@ class CliIncomeTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             self.assertEqual(canonical.read_bytes(), before)
             self.assertFalse((root / 'income.md').exists())
+
+    def test_aliased_report_outputs_fail_before_either_artifact_is_written(self):
+        for alias in ('symlink', 'hardlink'):
+            with self.subTest(alias=alias), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                canonical = root / 'source.json'
+                canonical.write_text(json.dumps(ledger()))
+                destination = root / 'reports'
+                destination.mkdir()
+                json_path = destination / 'income.json'
+                markdown_path = destination / 'income.md'
+                json_path.write_text('previous report\n')
+                if alias == 'symlink':
+                    markdown_path.symlink_to(json_path)
+                else:
+                    markdown_path.hardlink_to(json_path)
+                before = canonical.read_bytes(), json_path.read_bytes(), markdown_path.read_bytes()
+
+                rc, out, err = self.run_income('--portfolio', canonical, '--out-dir', destination)
+
+                self.assertEqual(rc, 1)
+                self.assertEqual(out, '')
+                self.assertTrue(err)
+                self.assertEqual((canonical.read_bytes(), json_path.read_bytes(), markdown_path.read_bytes()), before)
