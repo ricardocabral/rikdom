@@ -63,7 +63,8 @@ def compute_strategic_bucket_totals(
 
     Returns a flat map keyed by ``"<dimension>:<bucket>"`` plus an
     ``__unallocated__`` entry for portfolio value not covered by any
-    target. Dimensions outside the supported set
+    target in the dimension with the greatest total value. Equal totals use
+    the alphabetically first dimension. Dimensions outside the supported set
     (asset_class/region/currency/duration/liquidity_tier) are skipped.
     """
 
@@ -104,7 +105,7 @@ def compute_strategic_bucket_totals(
     # avoid double-counting when multiple dimensions are targeted.
     if seen_dims:
         dominant = max(
-            seen_dims,
+            sorted(seen_dims),
             key=lambda d: sum((dim_breakdowns.get(d) or {}).values()),
         )
         total_in_dim = sum((dim_breakdowns.get(dominant) or {}).values())

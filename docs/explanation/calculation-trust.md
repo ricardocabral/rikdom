@@ -100,6 +100,13 @@ are not added again to the current holdings total. Core retains calculation
 precision; output plugins choose display formatting. Missing/invalid reporting
 currency is an error, not an implicit USD selection.
 
+Strategic bucket totals retain each selected policy target's dimension and bucket.
+The single `__unallocated__` value uses the dimension with the greatest aggregate
+total to avoid counting value across dimensions more than once. Equal totals use
+the alphabetically first dimension, so identical inputs remain reproducible across
+processes and policy target order. This is a per-dimension remainder, not a
+holding-level intersection of all policy targets.
+
 For example, 200 JPY at an explicitly cached 0.006123 EUR/JPY contributes
 1.2246 EUR. A second 10 EUR holding gives 11.2246 EUR. A 100 GBP holding without
 FX is excluded and receives `RECON_FX_MISSING`; its value is not silently assumed
