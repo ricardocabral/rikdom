@@ -122,6 +122,56 @@ class AnalysisRunTests(unittest.TestCase):
         self.assertIn('snapshots', err)
         self.assertFalse(self.run.exists())
 
+    def test_malformed_saved_evidence_is_refused_before_replay_export_or_restore(self):
+        from rikdom.export_bundle import write_analysis_bundle
+
+        self.capture()
+        original = {path.relative_to(self.run).as_posix(): path.read_bytes()
+                    for path in self.run.rglob('*') if path.is_file()}
+        cases = [
+            ('duplicate_manifest', 'analysis-run.json',
+             b'{"operation":"unsupported",' + original['analysis-run.json'][1:]),
+            ('duplicate_portfolio', 'inputs/portfolio.json',
+             b'{"settings":{},' + original['inputs/portfolio.json'][1:]),
+            ('duplicate_result', 'result.json',
+             b'{"twr_pct":999,' + original['result.json'][1:]),
+            ('torn_snapshots', 'inputs/snapshots.jsonl',
+             original['inputs/snapshots.jsonl'].rstrip(b'\n')),
+        ]
+        for name, relative, malformed in cases:
+            payloads = {**original, relative: malformed}
+            if relative != 'analysis-run.json':
+                import hashlib
+                manifest = json.loads(original['analysis-run.json'])
+                sha = hashlib.sha256(malformed).hexdigest()
+                manifest['files'][relative].update(bytes=len(malformed), sha256=sha)
+                if relative == 'result.json':
+                    manifest['output_sha256'] = sha
+                payloads['analysis-run.json'] = json.dumps(manifest).encode()
+            for path, data in payloads.items():
+                (self.run / path).write_bytes(data)
+            archive = self.root / (name + '.zip')
+            write_analysis_bundle(archive, payloads)
+            for command in ('replay-analysis', 'export-analysis', 'restore-analysis'):
+                with self.subTest(evidence=name, command=command):
+                    destination = self.root / (name + '-' + command)
+                    args = (['--bundle', str(archive), '--output', str(destination)]
+                            if command == 'restore-analysis' else ['--run', str(self.run)])
+                    if command == 'export-analysis':
+                        # An invalid run must also preserve a prior valid export.
+                        destination.write_bytes(b'previous export')
+                        args += ['--output', str(destination)]
+                    before = {str(p.relative_to(self.root)): p.read_bytes()
+                              for p in self.root.rglob('*') if p.is_file()}
+                    code, out, err = run_cli(command, *args)
+                    self.assertEqual(code, 1, out)
+                    self.assertEqual(out, '')
+                    self.assertIn('Invalid analysis input', err)
+                    after = {str(p.relative_to(self.root)): p.read_bytes()
+                             for p in self.root.rglob('*') if p.is_file()}
+                    self.assertEqual(after, before)
+                    self.assertEqual(list(self.root.glob('.restore-*')), [])
+
     def test_missing_required_benchmark_prevents_complete_capture(self):
         policy = self.root / 'policy.json'
         policy.write_text(json.dumps({'benchmarks': [{'id': 'missing', 'kind': 'index', 'currency': 'USD'}],

@@ -240,6 +240,7 @@ def _read_verified_run(run: str | Path, *, check_environment: bool = True) -> tu
     """
     root = Path(run)
     manifest_bytes = (root / RUN_MANIFEST).read_bytes()
+    _strict_input(manifest_bytes, RUN_MANIFEST)
     manifest = json.loads(manifest_bytes)
     payloads = {RUN_MANIFEST: manifest_bytes}
     if (manifest.get('format'), manifest.get('format_version'), manifest.get('operation')) != (
@@ -262,6 +263,7 @@ def _read_verified_run(run: str | Path, *, check_environment: bool = True) -> tu
         data = path.read_bytes()
         if len(data) != evidence['bytes'] or _digest(data) != evidence['sha256']:
             raise AnalysisRunError(f'Analysis dependency changed: {relative}')
+        _strict_input(data, relative, jsonl=relative.endswith('.jsonl'))
         payloads[relative] = data
     for key, relative in inputs.items():
         _local(root, relative)
