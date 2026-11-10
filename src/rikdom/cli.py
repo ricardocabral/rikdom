@@ -565,6 +565,11 @@ def cmd_income(args: argparse.Namespace) -> int:
     if any(path.resolve() in inputs or (path.exists() and any(path.samefile(source) for source in inputs))
            for path in artifacts):
         raise ValueError("Income artifact would overwrite a portfolio or plan input")
+    if len(artifacts) == 2:
+        json_path, markdown_path = artifacts
+        if (json_path.resolve() == markdown_path.resolve()
+                or (json_path.exists() and markdown_path.exists() and json_path.samefile(markdown_path))):
+            raise ValueError("Income JSON and Markdown artifacts must use distinct files")
     out_dir.mkdir(parents=True, exist_ok=True)
     for path, content in artifacts.items():
         path.write_text(content, encoding="utf-8")
